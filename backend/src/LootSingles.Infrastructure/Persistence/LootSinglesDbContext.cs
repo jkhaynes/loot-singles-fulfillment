@@ -8,7 +8,7 @@ namespace LootSingles.Infrastructure.Persistence;
 /// EF Core DbContext for the Loot Singles fulfillment application.
 /// Provides access to all domain entities and coordinates entity type configurations.
 /// </summary>
-public class LootSinglesDbContext : DbContext
+public class LootSinglesDbContext : DbContext, IImportPersistence
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="LootSinglesDbContext"/> class.
@@ -35,6 +35,13 @@ public class LootSinglesDbContext : DbContext
     /// DbSet for ImportOrderResult entities.
     /// </summary>
     public DbSet<ImportOrderResult> ImportOrderResults => Set<ImportOrderResult>();
+
+    public void AddImportAttempt(ImportAttempt attempt) => ImportAttempts.Add(attempt);
+
+    public void AddOrder(Order order) => Orders.Add(order);
+
+    async Task IImportPersistence.SaveChangesAsync(CancellationToken cancellationToken) =>
+        await SaveChangesAsync(cancellationToken);
 
     /// <summary>
     /// Configures the model using the Fluent API.

@@ -122,6 +122,7 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
                 .Where(word => word.BoundingBox.Left < priceHeader.BoundingBox.Left - 2)
                 .Where(word => word.BoundingBox.Bottom < upperBound)
                 .Where(word => word.BoundingBox.Bottom > lowerBound)
+                .Where(word => !CurrencyAmountPattern().IsMatch(word.Text))
                 .ToList();
 
             productLines.Add(new RawProductLine
@@ -162,6 +163,9 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
 
     [GeneratedRegex("^[A-Za-z0-9]+(?:-[A-Za-z0-9]+){2,}$", RegexOptions.CultureInvariant)]
     private static partial Regex SummaryOrderIdentifierPattern();
+
+    [GeneratedRegex(@"^\$\d+(?:\.\d{2})?$", RegexOptions.CultureInvariant)]
+    private static partial Regex CurrencyAmountPattern();
 
     private sealed record TextLine(double Bottom, List<Word> Words);
 }

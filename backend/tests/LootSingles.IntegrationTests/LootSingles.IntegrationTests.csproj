@@ -27,6 +27,9 @@
     <None Include="..\LootSingles.Fixtures\PackingSlips\valid-multi-order-batch.pdf"
           Link="Fixtures\PackingSlips\valid-multi-order-batch.pdf"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\LootSingles.Fixtures\PackingSlips\duplicate-product-line-same-order.pdf"
+          Link="Fixtures\PackingSlips\duplicate-product-line-same-order.pdf"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
