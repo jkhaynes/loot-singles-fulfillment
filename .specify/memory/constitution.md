@@ -1,3 +1,19 @@
+<!--
+Sync Impact Report
+Version change: 1.0.0 → 1.0.1 (PATCH — workflow wording clarification, no principle added/removed/redefined)
+Modified principles: none
+Modified sections:
+  - Development Workflow: removed "GitHub issue" as a required pipeline step between human
+    approval of the task breakdown and feature branch/worktree creation; added a sentence
+    naming tasks.md as the tracker for in-progress work, so no GitHub issue is required per
+    feature. Rationale: for this single-developer/single-Product-Owner internal tool, a GitHub
+    issue duplicated tracking that tasks.md already provides, and the step was unenforced
+    overhead with no reader.
+Added sections: none
+Removed sections: none
+Follow-up TODOs: none
+-->
+
 # Loot Singles Fulfillment Constitution
 
 ## Core Principles
@@ -41,10 +57,10 @@ Spec Kit owns planning: constitution, feature specification, clarification, tech
 
 ## Development Workflow
 
-Requirement → Spec Kit specification → clarification → technical plan → task breakdown → human approval → GitHub issue → feature branch/worktree → Superpowers TDD execution → verification against the approved specification → code quality review → pull request → CI → human review → merge. See `docs/development/ai-assisted-development-workflow.md` for the full workflow and project-specific validation gates.
+Requirement → Spec Kit specification → clarification → technical plan → task breakdown → human approval → feature branch/worktree → Superpowers TDD execution → verification against the approved specification → code quality review → pull request → CI → human review → merge. The Spec Kit task breakdown (`tasks.md`) is the tracker for in-progress work; no GitHub issue is required per feature. See `docs/development/ai-assisted-development-workflow.md` for the full workflow and project-specific validation gates.
 
 ## Governance
 
 This constitution is subordinate to confirmed Product Owner decisions and the approved PRD, per the source-of-truth hierarchy in `CLAUDE.md`. All specifications, plans, and pull requests must be consistent with these principles; deviations must be explicitly justified and, where they affect product behavior, escalated to the Product Owner rather than decided unilaterally during implementation. Amendments to this constitution require documentation of the change and rationale, and must not lower a safety-related principle (Sections V, VI, VII) without explicit Product Owner approval.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-19
+**Version**: 1.0.1 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-19
