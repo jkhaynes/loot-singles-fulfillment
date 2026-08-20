@@ -8,6 +8,14 @@
 
 **Input**: User description: "TCGplayer Packing Slip Order Import: parse the TCGplayer Packing Slip PDF for an order into validated Order and Order Line records (order identifier, product line/game, product name, set, card/collector number, rarity, condition, quantity, and variant information where present in the description), so that imported orders become available with the Order → Product Lines → Quantity relationship preserved exactly as the PDF describes. Parsing must be defensive: if the importer cannot confidently reconstruct the expected order and line-item data (missing order identifier, missing product lines, invalid/unparseable quantities, or other structural problems), it must reject the import and surface the problem rather than silently create an incomplete or incorrect order. Imported TCGplayer data is authoritative and must be preserved exactly, including quantity greater than one. This feature covers PDF import and persistence of Order + Order Line records only -- it does not include picker-facing UI, order claiming/picking workflow, or card catalog/image enrichment, which are separate future features. Customer shipping PII present in the packing slip should not be persisted beyond what is needed for picking and order identification, per data minimization."
 
+## Clarifications
+
+### Session 2026-08-20
+
+- Q: Does one imported packing slip file always represent exactly one TCGplayer order, or can a single import contain multiple orders bundled together? → A: Confirmed against a real example file: one packing slip PDF commonly bundles multiple orders together (13 orders observed in a single file), each order on its own page with its own order identifier, followed by a final index/summary page listing every order identifier contained in the batch.
+- Q: Should importing a packing slip file complete synchronously, or is background/asynchronous processing acceptable? → A: Synchronous. The largest batch observed in real usage is approximately 200 orders, which remains practical to process synchronously; the system must show progress indication so the operation doesn't appear unresponsive during larger imports.
+- Q: If two near-simultaneous imports target the same order, must duplicate detection be guaranteed race-safe, or is a straightforward best-effort check acceptable? → A: Best-effort is acceptable. A simple check-then-reject is sufficient; the rare case of two truly simultaneous imports of the same order both succeeding is an accepted risk, not required to be enforced at the database level.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Import a Valid Packing Slip (Priority: P1)
@@ -63,9 +71,9 @@ An operator imports a packing slip that includes the customer's shipping name, a
 
 - When a packing slip PDF contains multiple distinct orders and only some of them fail to parse, the orders that parsed successfully are still imported; only the failing orders are rejected (FR-005).
 - When a packing slip is imported for a TCGplayer order identifier that has already been successfully imported previously, the import is rejected as a duplicate and the existing Order is left unchanged (FR-008).
-- What happens when the supplied file cannot be opened or read at all (corrupted file, wrong document type, or not actually a packing slip)?
-- What happens when the same product/card appears as more than one product line within the same order (a legitimate repeated purchase line vs. a parsing artifact that duplicated a line)?
-- What happens when required card-identification fields (product name, set) are present in the document but truncated or garbled by the PDF's layout, such that they cannot be read with confidence?
+- When the supplied file cannot be opened or read at all (corrupted file, wrong document type, or not actually a packing slip), the entire import attempt is rejected with a reason describing the problem, and no Order is created (FR-015).
+- When the same product/card appears as more than one product line within the same order, each product line is preserved as its own separate Order Line rather than merged or deduplicated (FR-004).
+- When required card-identification fields (product name, set) are present in the document but too truncated or garbled to be read with confidence, the affected Order is rejected under the same "cannot be read with confidence" rule as a missing field (FR-005).
 
 ## Requirements *(mandatory)*
 
@@ -82,13 +90,16 @@ An operator imports a packing slip that includes the customer's shipping name, a
 - **FR-009**: System MUST NOT persist customer shipping information (name, mailing address, or contact details) present in the packing slip; only the TCGplayer order identifier and the Order Line data required for picking and order identification are retained.
 - **FR-010**: System MUST make a successfully imported Order and its Order Lines immediately available for use by subsequent workflow steps, with no additional manual publishing step required.
 - **FR-011**: System MUST NOT apply, infer, or attach card catalog/image enrichment during import — an imported Order Line contains only what the packing slip itself describes.
-- **FR-012**: System MUST retain a record of every import attempt sufficient to answer, for any given packing slip, whether it succeeded or was rejected and why, distinguishing successfully imported Orders from rejected ones.
+- **FR-012**: System MUST retain a record of every import attempt sufficient to answer, for any given packing slip, whether it succeeded or was rejected and why, distinguishing successfully imported Orders from rejected ones on a per-order basis when a packing slip batch contains multiple orders.
+- **FR-013**: When a packing slip file includes a summary/index of the order identifiers it contains (as observed on real packing slip batches), the system MUST cross-check that list against the orders it actually parsed and surface a discrepancy (e.g., an order listed in the summary but not found as its own parsed order, or vice versa) rather than silently ignoring the mismatch.
+- **FR-014**: System MUST process an import synchronously (the operator's request is not complete until the import has finished and its outcome is known), and MUST show the operator visible progress while a larger batch is processing, so the operation does not appear unresponsive or hung.
+- **FR-015**: When the supplied file cannot be opened or read at all (e.g., it is corrupted, not a valid PDF, or not a recognizable packing slip), the system MUST reject the entire import attempt with a specific reason, and MUST NOT create any Order from it.
 
 ### Key Entities *(include if feature involves data)*
 
 - **Order**: Represents one TCGplayer order recovered from a packing slip. Key attributes: TCGplayer order identifier, import outcome/timestamp. Contains one or more Order Lines. Does not contain customer shipping information.
 - **Order Line**: Represents one product/card line item within an Order as described by the packing slip. Key attributes: product line/game, product name, set, card/collector number, rarity, condition, quantity, variant/printing text (when present). Belongs to exactly one Order.
-- **Import Attempt**: Represents one execution of the import process against a supplied packing slip. Key attributes: timestamp, outcome (succeeded/rejected, potentially per-order within a multi-order packing slip), and the specific reason(s) for any rejection. Used to answer "was this packing slip imported, and what happened?"
+- **Import Attempt**: Represents one execution of the import process against a supplied packing slip file. A single packing slip file commonly contains multiple orders (13 observed in one real example), so the outcome is tracked per order within the batch, not just for the file as a whole. Key attributes: timestamp, per-order outcome (succeeded/rejected) and the specific reason(s) for any rejection, and any discrepancy found against the batch's own order-identifier summary/index page when present. Used to answer "was this packing slip imported, and what happened?"
 
 ## Success Criteria *(mandatory)*
 
@@ -99,6 +110,7 @@ An operator imports a packing slip that includes the customer's shipping name, a
 - **SC-003**: For any import attempt, an operator can determine whether it succeeded or failed and the specific reason for any failure without inspecting application code, database contents, or logs directly.
 - **SC-004**: 0 instances of customer shipping name, address, or contact information found in persisted Order or Order Line data across a representative sample of imports whose source packing slips contained such information.
 - **SC-005**: A successfully imported Order and its Order Lines are available for use by subsequent workflow steps immediately after the import completes, with no separate manual step required to "publish" or activate them.
+- **SC-006**: An import of the largest observed real-world batch size (approximately 200 orders in a single file) completes synchronously, with the operator seeing visible progress throughout rather than an unresponsive interface.
 
 ## Assumptions
 
@@ -107,3 +119,6 @@ An operator imports a packing slip that includes the customer's shipping name, a
 - A successfully imported Order begins in a "Ready" state consistent with the picking workflow described in the product requirements, though the order queue, claiming, and picking workflow themselves are separate features not built by this one.
 - Retention or deletion of the original source PDF file after successful extraction is not required by this feature; the durable record this feature is responsible for is the structured Order and Order Line data. Whether the raw file is additionally retained is left to technical planning.
 - "Rarity" and "condition" are recorded as they appear in the packing slip; no validation against an external list of valid values is performed by this feature.
+- A single packing slip file may contain up to approximately 200 orders based on real-world usage; synchronous processing with progress indication is expected to remain practical at this scale without requiring background/asynchronous job infrastructure.
+- Duplicate-order detection (FR-008) is not required to be race-safe under near-simultaneous concurrent imports of the same order; a straightforward check-then-reject is sufficient, and the rare case of two simultaneous imports both succeeding for the same order identifier is an accepted risk, not one requiring database-level enforcement.
+- Real packing slips include a per-line sale Price and Total Price. This feature intentionally does not extract or persist price, since picking does not require it and no requirement calls for it; this may be revisited if a future feature needs it.
