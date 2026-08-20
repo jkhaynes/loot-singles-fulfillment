@@ -49,8 +49,8 @@ public class OrderLine
     public required string CollectorNumber { get; set; }
 
     /// <summary>
-    /// The card condition/grade (e.g., "Near Mint", "Lightly Played").
-    /// Represents the condition alone, not combined with variant information.
+    /// The card's rarity tier (e.g., "Common", "Rare Holo", "Mythic Rare", "Double Rare").
+    /// Captured as printed in the source material, not normalized.
     /// Optional — absence does not prevent an OrderLine from existing.
     /// </summary>
     public string? Rarity { get; set; }
