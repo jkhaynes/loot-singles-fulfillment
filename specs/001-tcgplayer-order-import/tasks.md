@@ -76,11 +76,11 @@ T011 onward were **not** implemented as of this migration (verified via `git log
 - [X] T010 Create `LootSinglesDbContext` in `backend/src/LootSingles.Infrastructure/Persistence/LootSinglesDbContext.cs` with `DbSet`s for all four entities
 - [X] T011 [P] Create EF Core entity configuration in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/OrderConfiguration.cs`, including a **unique index on `TcgplayerOrderId`** (FR-008 database-enforced guarantee)
 - [X] T012 [P] Create EF Core entity configurations for `OrderLine`, `ImportAttempt`, `ImportOrderResult` in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/`
-- [ ] T013 Generate the initial EF Core migration and verify `dotnet ef database update` succeeds against a local SQL Server instance
-- [ ] T014 Define `IPackingSlipParser` in `backend/src/LootSingles.Application/Import/IPackingSlipParser.cs` — the replaceable-integration seam (Constitution IX): given a PDF stream, yields raw per-order page data (order-identifier line, line-item table rows, and whether a trailing summary/index page was found)
-- [ ] T015 Implement `PdfPigPackingSlipParser` in `backend/src/LootSingles.Infrastructure/Import/PdfPigPackingSlipParser.cs` implementing `IPackingSlipParser` — per-page text extraction, `Order Number:` anchor detection (research.md §2), line-item table row extraction, and summary/index page detection
-- [ ] T016 [P] Add the real example packing slip (13 orders + summary page) as `backend/tests/LootSingles.Fixtures/PackingSlips/valid-multi-order-batch.pdf`, sanitized if any field still resembles real customer data
-- [ ] T017 Write a failing unit test in `backend/tests/LootSingles.UnitTests/Import/PdfPigPackingSlipParserTests.cs` asserting the parser splits `valid-multi-order-batch.pdf` into exactly 13 per-order page blocks plus the detected summary/index list, then implement T015 to make it pass
+- [X] T013 Generate the initial EF Core migration and verify `dotnet ef database update` succeeds against a local SQL Server instance
+- [X] T014 Define `IPackingSlipParser` in `backend/src/LootSingles.Application/Import/IPackingSlipParser.cs` — the replaceable-integration seam (Constitution IX): given a PDF stream, yields raw per-order page data (order-identifier line, line-item table rows, and whether a trailing summary/index page was found)
+- [X] T015 Implement `PdfPigPackingSlipParser` in `backend/src/LootSingles.Infrastructure/Import/PdfPigPackingSlipParser.cs` implementing `IPackingSlipParser` — per-page text extraction, `Order Number:` anchor detection (research.md §2), line-item table row extraction, and summary/index page detection
+- [X] T016 [P] Add the real example packing slip (13 orders + summary page) as `backend/tests/LootSingles.Fixtures/PackingSlips/valid-multi-order-batch.pdf`, sanitized if any field still resembles real customer data
+- [X] T017 Write a failing unit test in `backend/tests/LootSingles.UnitTests/Import/PdfPigPackingSlipParserTests.cs` asserting the parser splits `valid-multi-order-batch.pdf` into exactly 13 per-order page blocks plus the detected summary/index list, then implement T015 to make it pass
 
 **Checkpoint**: Schema exists, migrations apply, and the parser can split a real multi-order file into per-order raw blocks. No field-level validation or persistence yet — that's what the user stories add.
 

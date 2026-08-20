@@ -21,6 +21,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\LootSingles.Application\LootSingles.Application.csproj" />
+    <ProjectReference Include="..\..\src\LootSingles.Infrastructure\LootSingles.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\LootSingles.Fixtures\PackingSlips\valid-multi-order-batch.pdf"
+          Link="Fixtures\PackingSlips\valid-multi-order-batch.pdf"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
