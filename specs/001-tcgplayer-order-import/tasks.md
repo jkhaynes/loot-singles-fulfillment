@@ -84,8 +84,8 @@ backend/tests/LootSingles.Fixtures/PackingSlips/
 
 - [ ] T018 [P] [US1] Failing unit test for condition/variant disambiguation in `backend/tests/LootSingles.UnitTests/Import/ConditionVariantParserTests.cs` covering all FR-018 examples ("Near Mint Holofoil", "Near Mint Foil", "Lightly Played Foil", "Near Mint Reverse Holofoil", "Near Mint" alone, and a parenthetical marker like "(Showcase)" combined with a condition suffix)
 - [ ] T019 [P] [US1] Failing unit test for field extraction in `backend/tests/LootSingles.UnitTests/Import/OrderLineExtractionTests.cs` — given a raw description line, correct ProductLine/ProductName/Set/CollectorNumber/Rarity/Quantity are extracted, using real lines from the fixture (e.g., `"Pokemon - SV: Black Bolt: Genesect ex - #067/086 - Double Rare - Near Mint Holofoil"`, qty 2)
-- [ ] T020 [P] [US1] Failing unit test asserting `RawDescription` is retained byte-for-byte alongside parsed fields (FR-017) in `backend/tests/LootSingles.UnitTests/Import/OrderLineExtractionTests.cs`
-- [ ] T021 [P] [US1] Failing integration test in `backend/tests/LootSingles.IntegrationTests/Import/ValidImportTests.cs`: import `valid-multi-order-batch.pdf`, assert all 13 `Order`s persisted with `Status = Ready`, correct `TcgplayerOrderId`s, and every `OrderLine`'s quantity exactly matching the source (including multi-quantity lines) — no lines added, dropped, or merged (FR-003, FR-004)
+- [ ] T020 [P] [US1] Failing unit test asserting `RawDescription` exactly matches the parser's extracted text for that line (no truncation/substitution), alongside the separately-parsed fields (FR-017), in `backend/tests/LootSingles.UnitTests/Import/OrderLineExtractionTests.cs`
+- [ ] T021 [P] [US1] Add a `duplicate-product-line-same-order.pdf` fixture (one order listing the same card as two separate product lines) alongside `valid-multi-order-batch.pdf`, then write a failing integration test in `backend/tests/LootSingles.IntegrationTests/Import/ValidImportTests.cs`: import both fixtures, assert all `Order`s persisted with `Status = Ready`, correct `TcgplayerOrderId`s, every `OrderLine`'s quantity exactly matching the source (including multi-quantity lines), no lines added or dropped, and the duplicate product lines from `duplicate-product-line-same-order.pdf` preserved as two distinct `OrderLine`s rather than merged or deduplicated (FR-003, FR-004)
 
 ### Implementation for User Story 1
 
@@ -123,8 +123,10 @@ backend/tests/LootSingles.Fixtures/PackingSlips/
 - [ ] T037 [US2] Add whole-file-unreadable handling to `PdfPigPackingSlipParser`/`PackingSlipImportService`: catch unreadable/non-PDF input, set `ImportAttempt.AttemptFailureCode = UnreadablePdf`, short-circuit with zero `ImportOrderResult`s, to pass T031
 - [ ] T038 [US2] Confirm/adjust `PackingSlipImportService`'s per-order loop already satisfies partial import (T032) — each order's failure must not affect sibling orders in the same batch
 - [ ] T039 [US2] Add duplicate-order handling to `PackingSlipImportService`: pre-check by `TcgplayerOrderId` before insert, and catch the unique-constraint `DbUpdateException` on `SaveChangesAsync()` as the race-loss signal, both mapping to `DuplicateOrder` (research.md §6), to pass T033/T034
-- [ ] T040 [US2] Add summary/index cross-check to `PdfPigPackingSlipParser`/`PackingSlipImportService`: compare the parsed order-identifier set against the detected summary page list, setting `AttemptFailureCode = SummaryMismatch` on discrepancy, to pass T035
-- [ ] T041 [US2] Ensure `FailureMessage` text is specific per `FailureType` (identifies the affected order and/or product line, per FR-006) across all rejection paths
+- [ ] T040 [US2] Failing integration test in `backend/tests/LootSingles.IntegrationTests/Import/AtomicPersistenceTests.cs`: using a test double/interceptor that throws after an `Order` row is inserted but before its `OrderLine` rows are saved, import a valid order and assert zero rows exist for that order afterward and its `ImportOrderResult` reflects the failure — proving the guarantee holds for a genuine mid-write failure, not just "validation rejected it before any write was attempted" (FR-016)
+- [ ] T041 [US2] Add the fault-injection seam `PackingSlipImportService` needs for T040 (e.g., a test-only `SaveChanges` interceptor), and confirm the single-`SaveChangesAsync()`-per-order design (T025) already makes the failure atomic via EF Core's implicit transaction — adjust only if T040 reveals otherwise
+- [ ] T042 [US2] Add summary/index cross-check to `PdfPigPackingSlipParser`/`PackingSlipImportService`: compare the parsed order-identifier set against the detected summary page list, setting `AttemptFailureCode = SummaryMismatch` on discrepancy, to pass T035
+- [ ] T043 [US2] Ensure `FailureMessage` text is specific per `FailureType` (identifies the affected order and/or product line, per FR-006) across all rejection paths
 
 **Checkpoint**: The feature is now safe to point at real, messy packing slips — US1's happy path plus US2's defensive rejection together satisfy spec.md's "must exist alongside the happy path before real fulfillment" requirement for US2.
 
@@ -138,14 +140,14 @@ backend/tests/LootSingles.Fixtures/PackingSlips/
 
 ### Tests for User Story 3
 
-- [ ] T042 [P] [US3] Failing unit test in `backend/tests/LootSingles.UnitTests/Import/PiiExclusionTests.cs` asserting no type in `LootSingles.Domain`/`LootSingles.Application` exposes a settable field for customer name/address/contact (a structural/reflection-based guard, so a future accidental addition fails loudly)
-- [ ] T043 [P] [US3] Failing integration test in `backend/tests/LootSingles.IntegrationTests/Import/PiiRetentionTests.cs`: import `valid-multi-order-batch.pdf` (contains real-shaped shipping names/addresses per order), then query all persisted `Order`/`OrderLine` rows and assert none contain any of the source file's customer names or address fragments (FR-009, SC-004)
-- [ ] T044 [P] [US3] Failing integration test in `backend/tests/LootSingles.IntegrationTests/Import/PiiRetentionTests.cs`: after both a successful import and a rejected import (`corrupted-file.pdf`), scan the process's temp directory and any configured blob/file storage for a copy of the source PDF bytes — assert none exists (FR-019)
+- [ ] T044 [P] [US3] Failing unit test in `backend/tests/LootSingles.UnitTests/Import/PiiExclusionTests.cs` asserting no type in `LootSingles.Domain`/`LootSingles.Application` exposes a settable field for customer name/address/contact (a structural/reflection-based guard, so a future accidental addition fails loudly)
+- [ ] T045 [P] [US3] Failing integration test in `backend/tests/LootSingles.IntegrationTests/Import/PiiRetentionTests.cs`: import `valid-multi-order-batch.pdf` (contains real-shaped shipping names/addresses per order), then query all persisted `Order`/`OrderLine` rows and assert none contain any of the source file's customer names or address fragments (FR-009, SC-004)
+- [ ] T046 [P] [US3] Failing integration test in `backend/tests/LootSingles.IntegrationTests/Import/PiiRetentionTests.cs`: after both a successful import and a rejected import (`corrupted-file.pdf`), scan the process's temp directory and any configured blob/file storage for a copy of the source PDF bytes — assert none exists (FR-019)
 
 ### Implementation for User Story 3
 
-- [ ] T045 [US3] Audit `PdfPigPackingSlipParser` and `PackingSlipImportService` to confirm the "Ship To"/customer block is never mapped into any DTO or entity — parsing only ever reads the order-identifier and line-item table regions; adjust if T042/T043 reveal otherwise
-- [ ] T046 [US3] Confirm the import pipeline holds the PDF only as an in-memory `Stream`/byte buffer passed directly to the parser, with no `File.Write`/blob-upload call anywhere in this feature's code, to pass T044 (research.md §7)
+- [ ] T047 [US3] Audit `PdfPigPackingSlipParser` and `PackingSlipImportService` to confirm the "Ship To"/customer block is never mapped into any DTO or entity — parsing only ever reads the order-identifier and line-item table regions; adjust if T044/T045 reveal otherwise
+- [ ] T048 [US3] Confirm the import pipeline holds the PDF only as an in-memory `Stream`/byte buffer passed directly to the parser, with no `File.Write`/blob-upload call anywhere in this feature's code, to pass T046 (research.md §7)
 
 **Checkpoint**: All three user stories pass together — spec.md's full acceptance-scenario set for this feature is satisfied.
 
@@ -155,11 +157,11 @@ backend/tests/LootSingles.Fixtures/PackingSlips/
 
 **Purpose**: Final validation against the spec as a whole, not tied to one story.
 
-- [ ] T047 [P] Progress-reporting integration test in `backend/tests/LootSingles.IntegrationTests/Import/ProgressReportingTests.cs`: enumerate `ImportAsync` updates for `valid-multi-order-batch.pdf` and assert `OrdersProcessed`/`SucceededCount`/`FailedCount` increase monotonically and the final update has `IsComplete = true` (FR-014, SC-006)
-- [ ] T048 [P] Run quickstart.md's full validation-scenario list end-to-end and record results
-- [ ] T049 [P] Review all `FailureMessage` strings for clarity (a human unfamiliar with the code can tell what to fix from the message alone)
-- [ ] T050 Confirm no NuGet package pulled in during T002 introduces a licensing conflict (research.md §1 — PdfPig is MIT; verify no transitive AGPL/commercial dependency was added)
-- [ ] T051 Re-run the full test suite (`dotnet test`) and confirm 0 failures, output pristine (Superpowers verification-before-completion gate)
+- [ ] T049 [P] Progress-reporting integration test in `backend/tests/LootSingles.IntegrationTests/Import/ProgressReportingTests.cs`: enumerate `ImportAsync` updates for `valid-multi-order-batch.pdf` and assert `OrdersProcessed`/`SucceededCount`/`FailedCount` increase monotonically and the final update has `IsComplete = true` (FR-014, SC-006)
+- [ ] T050 [P] Run quickstart.md's full validation-scenario list end-to-end and record results
+- [ ] T051 [P] Review all `FailureMessage` strings for clarity (a human unfamiliar with the code can tell what to fix from the message alone)
+- [ ] T052 Confirm no NuGet package pulled in during T002 introduces a licensing conflict (research.md §1 — PdfPig is MIT; verify no transitive AGPL/commercial dependency was added)
+- [ ] T053 Re-run the full test suite (`dotnet test`) and confirm 0 failures, output pristine (Superpowers verification-before-completion gate)
 
 ---
 
@@ -171,7 +173,7 @@ backend/tests/LootSingles.Fixtures/PackingSlips/
 - **Foundational (Phase 2)**: Depends on Phase 1. **Blocks all of Phase 3+.**
 - **US1 (Phase 3)**: Depends on Phase 2 only.
 - **US2 (Phase 4)**: Depends on Phase 2; in practice also builds on US1's extraction/persistence code (T022–T026), since US2 adds rejection branches to that same pipeline rather than separate files.
-- **US3 (Phase 5)**: Depends on Phase 2; builds on US1's pipeline (audits/confirms it, per T045–T046) and is independent of US2's rejection-path additions.
+- **US3 (Phase 5)**: Depends on Phase 2; builds on US1's pipeline (audits/confirms it, per T047–T048) and is independent of US2's rejection-path additions.
 - **Polish (Phase 6)**: Depends on US1 + US2 + US3 all being complete.
 
 ### Parallel Opportunities
@@ -179,7 +181,7 @@ backend/tests/LootSingles.Fixtures/PackingSlips/
 - T005–T009 (entity/enum creation) are all `[P]` — different files.
 - T011–T012 (EF configurations) are `[P]` once T010 exists.
 - Within US2, T028–T035 (fixtures + tests) are `[P]` — write them together before starting T036.
-- Within US3, T042–T044 are `[P]`.
+- Within US3, T044–T046 are `[P]`.
 - US2 and US3 implementation could proceed in parallel by different developers once US1 (Phase 3) is checkpointed, since they touch mostly-disjoint concerns (rejection logic vs. PII/file-retention audit) — though both read the same `PackingSlipImportService` file, so coordinate if working simultaneously.
 
 ## Implementation Strategy

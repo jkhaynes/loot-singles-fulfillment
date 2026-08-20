@@ -21,7 +21,7 @@
 
 - [ ] CHK007 Is "cannot be read with confidence" (FR-005) given any criteria beyond "the field is present," or does it rely entirely on implementation judgment for what counts as low-confidence? [Clarity, Spec §FR-005]
 - [ ] CHK008 Is "practical at this scale" for synchronous processing (SC-006, Assumptions) bounded by any specific duration/timeout, or is it left entirely subjective? [Clarity, Spec §SC-006]
-- [ ] CHK009 Is "byte-for-byte identical" (SC-008) realistic given the source is extracted PDF text rather than a literal byte copy of the source field — could library-level whitespace/encoding normalization make this criterion unverifiable as literally written? [Clarity, Ambiguity, Spec §SC-008, FR-017]
+- [x] CHK009 Is "byte-for-byte identical" (SC-008) realistic given the source is extracted PDF text rather than a literal byte copy of the source field — could library-level whitespace/encoding normalization make this criterion unverifiable as literally written? [Clarity, Ambiguity, Spec §SC-008, FR-017] — Resolved via `/speckit-analyze` (finding A1): SC-008 reworded to measure fidelity against the parser's own extracted text rather than the source PDF directly.
 
 ## Requirement Consistency
 
