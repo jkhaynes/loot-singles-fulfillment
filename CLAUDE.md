@@ -39,6 +39,10 @@ Spec Kit owns planning:
 - Technical planning
 - Task breakdown
 
+## Spec Kit Git Auto-Commit Confirmation
+
+The installed Spec Kit `git` extension checkpoints work by committing after `/speckit-specify`, `/speckit-clarify`, `/speckit-plan`, and `/speckit-tasks`. These hooks are configured `optional: true` specifically so they are confirmed rather than run silently or skipped. When one of these hook blocks appears (`**Optional Hook**: git ... Prompt: <question>`), do not silently skip it and do not auto-run it: show a brief summary of what changed (files touched, one-line description) and ask the stated prompt question directly. Only run the commit (`speckit-git-commit`) after the user gives explicit confirmation.
+
 ## Superpowers
 
 Superpowers owns execution, after Spec Kit planning is approved:

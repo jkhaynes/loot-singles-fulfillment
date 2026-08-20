@@ -23,8 +23,8 @@ Optional quality gates between tasks and implementation:
 /speckit-analyze
 ```
 The Spec Kit `git` extension is installed and handles branching/committing for this pipeline automatically — no extra commands needed:
-- `/speckit-specify` creates and switches to a new feature branch before spec work starts (`before_specify` hook, mandatory).
-- `/speckit-specify`, `/speckit-clarify`, `/speckit-plan`, and `/speckit-tasks` each auto-commit their output immediately after running (`after_*` hooks, mandatory), so work is checked in between every planning step rather than accumulating into one large diff.
+- `/speckit-specify` creates and switches to a new feature branch before spec work starts (`before_specify` hook, mandatory — no confirmation needed since it's just a branch switch).
+- `/speckit-specify`, `/speckit-clarify`, `/speckit-plan`, and `/speckit-tasks` each offer to commit their output immediately after running (`after_*` hooks, optional with a confirmation prompt per [`CLAUDE.md`](../../CLAUDE.md)) — Claude shows what changed and asks before committing, so work is checked in between every planning step without committing anything unreviewed.
 - `implement`/`checklist`/`analyze`/`taskstoissues` commit hooks are left as prompted/optional — Superpowers owns commit discipline during implementation (TDD commits, `finishing-a-development-branch`), so auto-committing there is not enabled.
 - Config lives in `.specify/extensions.yml` (hook wiring) and `.specify/extensions/git/git-config.yml` (branch naming, commit messages, per-event enable/disable).
 
