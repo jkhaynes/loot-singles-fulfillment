@@ -31,35 +31,28 @@ Open questions in the PRD (Sections 41–42) are open. Do not silently convert t
 
 ## Spec Kit
 
-Spec Kit owns planning:
+Spec Kit is this project's sole AI-assisted feature development methodology. It owns the complete feature lifecycle, end to end:
 
 - Constitution
 - Feature specification
 - Clarification
 - Technical planning
 - Task breakdown
+- Artifact analysis (`/speckit-analyze`)
+- Implementation (`/speckit-implement`)
+- Convergence verification (`/speckit-converge`)
+
+No second planning or implementation methodology is layered on top of Spec Kit. Strict Test-Driven Development (Red → Green → Refactor) is required for all new or modified application behavior, per the project constitution's Principle IV — this is enforced through the constitution itself, not a separate tool or extension.
 
 ## Spec Kit Git Auto-Commit Confirmation
 
 The installed Spec Kit `git` extension checkpoints work by committing after `/speckit-specify`, `/speckit-clarify`, `/speckit-plan`, and `/speckit-tasks`. These hooks are configured `optional: true` specifically so they are confirmed rather than run silently or skipped. When one of these hook blocks appears (`**Optional Hook**: git ... Prompt: <question>`), do not silently skip it and do not auto-run it: show a brief summary of what changed (files touched, one-line description) and ask the stated prompt question directly. Only run the commit (`speckit-git-commit`) after the user gives explicit confirmation.
 
-## Superpowers
-
-Superpowers owns execution, after Spec Kit planning is approved:
-
-- Test-driven development
-- Executing approved tasks
-- Systematic debugging
-- Verification before completion
-- Specification compliance review
-- Code quality review
-- Finishing development branches
-
 ## Important Boundary
 
-**Spec Kit plans the work. Superpowers executes and verifies the work.**
+**Spec Kit plans, implements, and verifies the work — there is no second methodology layered on top of it.**
 
-Do not use Superpowers brainstorming/planning skills to originate or replace a product specification or technical plan when approved Spec Kit artifacts already exist for that feature. If Superpowers execution discovers a contradictory requirement, a missing business rule, an unclear workflow, an architectural conflict, or a requirement that cannot reasonably be implemented as specified, it must **stop and surface the problem** rather than silently redesigning the feature. Return to Spec Kit clarification/planning to resolve it.
+Do not originate or replace a product specification or technical plan by improvising when approved Spec Kit artifacts already exist for that feature. If implementation discovers a contradictory requirement, a missing business rule, an unclear workflow, an architectural conflict, or a requirement that cannot reasonably be implemented as specified, **stop and surface the problem** rather than silently redesigning the feature or normalizing the specification to match whatever was implemented. Return to Spec Kit clarification/planning to resolve it.
 
 ## Product-Specific Safety Rules
 
@@ -78,9 +71,10 @@ Do not use Superpowers brainstorming/planning skills to originate or replace a p
 
 ## Definition of Done
 
-A feature is not complete merely because code runs. Before considering work complete, confirm:
+A feature is not complete merely because code runs, or because production code exists. Before considering work complete, confirm:
 
-- Required automated tests pass
+- Required automated tests exist, following Red → Green → Refactor (constitution Principle IV) — not written after the fact merely to satisfy coverage
+- Required tests pass
 - Existing tests pass
 - Implementation matches the approved specification
 - Relevant error cases are handled
@@ -92,3 +86,4 @@ A feature is not complete merely because code runs. Before considering work comp
 - Playwright validation is performed for critical user flows
 - Documentation is updated where required
 - Code review is complete
+- `/speckit-converge` ultimately reports convergence for the feature

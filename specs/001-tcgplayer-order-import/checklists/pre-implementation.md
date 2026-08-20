@@ -1,6 +1,6 @@
 # Pre-Implementation Checklist: TCGplayer Packing Slip Order Import
 
-**Purpose**: Formal pre-implementation gate — a broad requirements-quality review of spec.md (and its plan.md/tasks.md follow-through) before authorizing `/speckit-implement`-equivalent execution (Superpowers, per this project's constitution).
+**Purpose**: Formal pre-implementation gate — a broad requirements-quality review of spec.md (and its plan.md/tasks.md follow-through) before authorizing `/speckit-implement` execution, per this project's constitution.
 **Created**: 2026-08-20
 **Feature**: [spec.md](../spec.md)
 

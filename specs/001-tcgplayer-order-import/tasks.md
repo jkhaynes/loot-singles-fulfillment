@@ -9,7 +9,7 @@ description: "Task list for TCGplayer Packing Slip Order Import"
 
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/import-service.md, quickstart.md
 
-**Tests**: Included and REQUIRED, not optional — the constitution (Principle IV) names quantity preservation and safe/defensive parser failure, both central to this feature, as high-risk behaviors requiring test-first coverage. Write each test, watch it fail, then implement.
+**Tests**: Included and REQUIRED, not optional — constitution Principle IV requires Red → Green → Refactor test-first coverage for all new or modified application behavior, not only a named list of high-risk behaviors. Write each test, watch it fail, then implement. Tasks T001-T010 (Setup and foundational scaffolding/POCOs) fall under Principle IV's stated exception for work with no meaningful executable behavior to test — see the Task Status Reconciliation note below.
 
 **Organization**: Tasks are grouped by user story (spec.md priorities: US1 = P1, US2 = P1, US3 = P2) so each can be built and validated as an increment. This feature is one linear pipeline (parse → validate → persist), so stories layer on the same code rather than touching disjoint files — later stories mostly *add* new code paths (rejection handling, PII/file-retention guarantees) to what US1 establishes, and are still independently testable per their own acceptance scenarios in spec.md.
 
@@ -35,14 +35,28 @@ backend/tests/LootSingles.Fixtures/PackingSlips/
 
 ---
 
+## Task Status Reconciliation (2026-08-20 Spec-Kit-only migration)
+
+Tasks T001-T010 were implemented and independently re-verified against real evidence (file contents, `dotnet build`, `dotnet test`) during this migration — not merely trusted from the prior (Superpowers-era, since-removed) execution process's own conclusions — and are marked `[X]` below. Commit ranges: T001 `fdda8c4`, T002 `7fc0fa1`, T003 `e7ac3b5`, T004 `9e80f33`, T005 `87fc51c`, T006 `873495f`+fix `26e4118`, T007 `57c7ce3`, T008 `c2bc3e9`, T009 `9146e95`, T010 `e4be3a3`.
+
+No test-remediation tasks are added for T001-T010, for the following reasons, stated explicitly per constitution Principle IV's exception clause rather than silently applied:
+
+- **T001-T004** (solution/project scaffolding, package references, `.editorconfig`, fixtures folder structure): static configuration/repository-metadata — an explicit Principle IV exception, since no executable behavior exists to test.
+- **T005-T009** (`Order`, `OrderLine`, `FailureType`, `ImportAttempt`, `ImportOrderResult`): plain data-holding POCOs/enum with no conditional logic, computed properties, or invariant enforcement — there is no behavior yet to write a meaningful Red→Green→Refactor test against. Their real behavior (validation, persistence) is exercised by T017+ and T029+'s tests once that logic exists.
+- **T010** (`LootSinglesDbContext`): declares `DbSet`s and calls `ApplyConfigurationsFromAssembly`; it has no testable behavior of its own until T011-T013 add entity configurations and a real migration — those tasks' own already-correct test-before-implementation ordering covers it.
+
+T011 onward were **not** implemented as of this migration (verified via `git log` and `dotnet build`/`dotnet test` against the working tree — no commits or code exist past T010) and retain their original test-before-implementation ordering, which already satisfies the constitution's universal (not high-risk-behavior-scoped) Principle IV. No task reordering was needed for T011-T053 as part of this migration.
+
+---
+
 ## Phase 1: Setup (Shared Infrastructure)
 
 **Purpose**: Stand up the solution — no code from this repo exists yet.
 
-- [ ] T001 Create `backend/` solution `LootSingles.sln` and the five projects (`LootSingles.Domain`, `LootSingles.Application`, `LootSingles.Infrastructure`, `LootSingles.Api`, and under `backend/tests/`: `LootSingles.UnitTests`, `LootSingles.IntegrationTests`), targeting .NET 8, wired with correct project references (Domain ← Application ← Infrastructure ← Api; test projects reference Application/Infrastructure)
-- [ ] T002 Add NuGet packages: `UglyToad.PdfPig` to `LootSingles.Infrastructure`; `Microsoft.EntityFrameworkCore.SqlServer` + `Microsoft.EntityFrameworkCore.Design` to `LootSingles.Infrastructure`; `xunit`, `xunit.runner.visualstudio`, `Microsoft.EntityFrameworkCore.InMemory` (or a SQL Server test container package) to both test projects
-- [ ] T003 [P] Add `.editorconfig` and enable nullable reference types + warnings-as-errors for all `backend/src/*` projects
-- [ ] T004 [P] Create `backend/tests/LootSingles.Fixtures/` project/folder structure with a `PackingSlips/` subfolder and a README noting fixtures must be sanitized (no real customer data)
+- [X] T001 Create `backend/` solution `LootSingles.sln` and the five projects (`LootSingles.Domain`, `LootSingles.Application`, `LootSingles.Infrastructure`, `LootSingles.Api`, and under `backend/tests/`: `LootSingles.UnitTests`, `LootSingles.IntegrationTests`), targeting .NET 8, wired with correct project references (Domain ← Application ← Infrastructure ← Api; test projects reference Application/Infrastructure)
+- [X] T002 Add NuGet packages: `UglyToad.PdfPig` to `LootSingles.Infrastructure`; `Microsoft.EntityFrameworkCore.SqlServer` + `Microsoft.EntityFrameworkCore.Design` to `LootSingles.Infrastructure`; `xunit`, `xunit.runner.visualstudio`, `Microsoft.EntityFrameworkCore.InMemory` (or a SQL Server test container package) to both test projects
+- [X] T003 [P] Add `.editorconfig` and enable nullable reference types + warnings-as-errors for all `backend/src/*` projects
+- [X] T004 [P] Create `backend/tests/LootSingles.Fixtures/` project/folder structure with a `PackingSlips/` subfolder and a README noting fixtures must be sanitized (no real customer data)
 
 **Checkpoint**: `dotnet build` succeeds on an empty solution.
 
@@ -54,12 +68,12 @@ backend/tests/LootSingles.Fixtures/PackingSlips/
 
 **⚠️ CRITICAL**: Blocks all of Phase 3+.
 
-- [ ] T005 [P] Create `Order` entity in `backend/src/LootSingles.Domain/Orders/Order.cs` per data-model.md (TcgplayerOrderId, Status, ImportedAt; no customer-PII fields exist on this type at all — FR-009)
-- [ ] T006 [P] Create `OrderLine` entity in `backend/src/LootSingles.Domain/Orders/OrderLine.cs` per data-model.md (RawDescription, ProductLine, ProductName, Set, CollectorNumber, Rarity, Condition, Variant, Quantity)
-- [ ] T007 [P] Create `FailureType` enum in `backend/src/LootSingles.Application/Import/FailureType.cs` with all 8 codes from spec FR-006 (`MissingOrderIdentifier`, `NoProductLines`, `InvalidQuantity`, `MissingProductName`, `MissingSet`, `MissingCollectorNumber`, `MissingCondition`, `DuplicateOrder`, `SummaryMismatch`, `UnreadablePdf`)
-- [ ] T008 [P] Create `ImportAttempt` entity in `backend/src/LootSingles.Application/Import/ImportAttempt.cs` per data-model.md (StartedAt, CompletedAt, AttemptFailureCode, AttemptFailureMessage)
-- [ ] T009 [P] Create `ImportOrderResult` entity in `backend/src/LootSingles.Application/Import/ImportOrderResult.cs` per data-model.md (ImportAttemptId, SourceOrderIdentifier, Outcome, FailureCode, FailureMessage, ResultingOrderId)
-- [ ] T010 Create `LootSinglesDbContext` in `backend/src/LootSingles.Infrastructure/Persistence/LootSinglesDbContext.cs` with `DbSet`s for all four entities
+- [X] T005 [P] Create `Order` entity in `backend/src/LootSingles.Domain/Orders/Order.cs` per data-model.md (TcgplayerOrderId, Status, ImportedAt; no customer-PII fields exist on this type at all — FR-009)
+- [X] T006 [P] Create `OrderLine` entity in `backend/src/LootSingles.Domain/Orders/OrderLine.cs` per data-model.md (RawDescription, ProductLine, ProductName, Set, CollectorNumber, Rarity, Condition, Variant, Quantity)
+- [X] T007 [P] Create `FailureType` enum in `backend/src/LootSingles.Application/Import/FailureType.cs` with all 8 codes from spec FR-006 (`MissingOrderIdentifier`, `NoProductLines`, `InvalidQuantity`, `MissingProductName`, `MissingSet`, `MissingCollectorNumber`, `MissingCondition`, `DuplicateOrder`, `SummaryMismatch`, `UnreadablePdf`)
+- [X] T008 [P] Create `ImportAttempt` entity in `backend/src/LootSingles.Application/Import/ImportAttempt.cs` per data-model.md (StartedAt, CompletedAt, AttemptFailureCode, AttemptFailureMessage)
+- [X] T009 [P] Create `ImportOrderResult` entity in `backend/src/LootSingles.Application/Import/ImportOrderResult.cs` per data-model.md (ImportAttemptId, SourceOrderIdentifier, Outcome, FailureCode, FailureMessage, ResultingOrderId)
+- [X] T010 Create `LootSinglesDbContext` in `backend/src/LootSingles.Infrastructure/Persistence/LootSinglesDbContext.cs` with `DbSet`s for all four entities
 - [ ] T011 [P] Create EF Core entity configuration in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/OrderConfiguration.cs`, including a **unique index on `TcgplayerOrderId`** (FR-008 database-enforced guarantee)
 - [ ] T012 [P] Create EF Core entity configurations for `OrderLine`, `ImportAttempt`, `ImportOrderResult` in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/`
 - [ ] T013 Generate the initial EF Core migration and verify `dotnet ef database update` succeeds against a local SQL Server instance
@@ -161,7 +175,7 @@ backend/tests/LootSingles.Fixtures/PackingSlips/
 - [ ] T050 [P] Run quickstart.md's full validation-scenario list end-to-end and record results
 - [ ] T051 [P] Review all `FailureMessage` strings for clarity (a human unfamiliar with the code can tell what to fix from the message alone)
 - [ ] T052 Confirm no NuGet package pulled in during T002 introduces a licensing conflict (research.md §1 — PdfPig is MIT; verify no transitive AGPL/commercial dependency was added)
-- [ ] T053 Re-run the full test suite (`dotnet test`) and confirm 0 failures, output pristine (Superpowers verification-before-completion gate)
+- [ ] T053 Re-run the full test suite (`dotnet test`) and confirm 0 failures, output pristine
 
 ---
 

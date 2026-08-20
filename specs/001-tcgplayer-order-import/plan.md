@@ -37,7 +37,7 @@ Parse a TCGplayer Packing Slip PDF (which commonly bundles many orders in one fi
 | I. Product Owner Authority | Plan implements the approved, PO-clarified spec only; no PO decision overridden | PASS |
 | II. No Invented Requirements | Every design element below traces to a spec FR/SC; no picker UI, claiming, or catalog enrichment added | PASS |
 | III. Small, Reviewable Changes | Work happens on feature branch `001-tcgplayer-order-import`, not `main` | PASS |
-| IV. Test-First (high-risk behaviors) | Quantity preservation (FR-003), safe/defensive parsing (FR-005–FR-007, FR-015, FR-018), and atomic persistence (FR-016) are exactly the high-risk behaviors the constitution requires test-first coverage for; enforced during Superpowers TDD execution, not by this plan alone | PASS (design supports it; execution-time gate) |
+| IV. Test-Driven Development | Quantity preservation (FR-003), safe/defensive parsing (FR-005–FR-007, FR-015, FR-018), and atomic persistence (FR-016) are all new application behavior requiring Red → Green → Refactor coverage; enforced during `/speckit-implement` execution per constitution Principle IV, not by this plan alone | PASS (design supports it; execution-time gate) |
 | V. Safe Failure Over Silent Corruption | This entire feature *is* that principle: defensive rejection (FR-005–FR-007, FR-015), no silent partial orders (FR-016) | PASS |
 | VI. Server-Enforced Critical Business Rules | Duplicate-order uniqueness enforced at the database layer (FR-008), not just in application code | PASS |
 | VII. Data Minimization | FR-009/FR-019 drive the design: no customer PII field is ever mapped to a persisted column, and the source file is never written to durable storage | PASS |

@@ -1,16 +1,30 @@
 <!--
 Sync Impact Report
-Version change: 1.0.0 → 1.0.1 (PATCH — workflow wording clarification, no principle added/removed/redefined)
-Modified principles: none
+Version change: 1.0.1 → 2.0.0 (MAJOR — a governance section removed/redefined, and Principle IV
+redefined from "test-first for critical rules only" to universal, non-negotiable TDD)
+Modified principles:
+  - IV. Test-First Where Appropriate (NON-NEGOTIABLE for Critical Rules) → IV. Test-Driven
+    Development (NON-NEGOTIABLE). No longer scoped to a named list of "high-risk behaviors" —
+    the full Red → Green → Refactor cycle is now required for all new or modified application
+    behavior, with explicit task-generation, implementation, exception, and verification rules.
 Modified sections:
-  - Development Workflow: removed "GitHub issue" as a required pipeline step between human
-    approval of the task breakdown and feature branch/worktree creation; added a sentence
-    naming tasks.md as the tracker for in-progress work, so no GitHub issue is required per
-    feature. Rationale: for this single-developer/single-Product-Owner internal tool, a GitHub
-    issue duplicated tracking that tasks.md already provides, and the step was unenforced
-    overhead with no reader.
+  - "Spec Kit / Superpowers Boundary" → "Spec Kit Ownership": Superpowers is no longer part of
+    this project's workflow. Spec Kit now owns the complete feature lifecycle end to end,
+    including implementation and convergence verification, not just planning through task
+    breakdown. The "stop and surface conflicts rather than silently redesign" governance rule
+    is preserved, reattributed to Spec Kit's own implement/analyze/converge phases.
+  - Development Workflow: pipeline updated to specification → clarification → technical plan →
+    checklist (when useful) → task breakdown → analyze → human approval → feature branch/
+    worktree → Spec Kit implementation (strict TDD per Principle IV) → convergence verification
+    → pull request → CI → human review → merge, with a repeat-until-converged loop. Replaces
+    "Superpowers TDD execution" with Spec-Kit-native implementation and convergence.
+  Rationale for both: explicit Product Owner/developer decision to migrate off Superpowers to a
+  Spec-Kit-only workflow with TDD enforced directly through this constitution rather than a
+  second methodology layered on top of Spec Kit. This is a workflow/tooling change, not a
+  product requirement change — no product functionality was altered.
 Added sections: none
-Removed sections: none
+Removed sections: none (the former "Spec Kit / Superpowers Boundary" section was renamed and
+  rewritten in place, not deleted outright — Modified above)
 Follow-up TODOs: none
 -->
 
@@ -27,8 +41,26 @@ Product functionality MUST NOT be added because it seems useful, standard, or co
 ### III. Small, Reviewable Changes
 No product feature work is committed directly to `main`. Each feature is developed on its own branch (or worktree), scoped to one approved task breakdown, and merged only via reviewed pull request after CI passes.
 
-### IV. Test-First Where Appropriate (NON-NEGOTIABLE for Critical Rules)
-The planned stack is xUnit (backend), Vitest and React Testing Library (frontend), and Playwright (critical end-to-end flows). High-risk behaviors — exclusive order claiming under concurrency, quantity-greater-than-one preservation through import/persistence/API/UI, unresolved-issue blocking of pick completion, ambiguous-match image suppression, and safe parser failure — REQUIRE automated test coverage before being considered done.
+### IV. Test-Driven Development (NON-NEGOTIABLE)
+For new or modified application behavior, the following Red → Green → Refactor cycle is required, not optional or "for critical rules only":
+
+1. Identify the behavior or acceptance criterion being implemented.
+2. Write the smallest meaningful automated test that demonstrates that behavior.
+3. Run the test and confirm it fails for the expected reason.
+4. Implement only enough production code to make that test pass.
+5. Run the relevant test and confirm it passes.
+6. Refactor while keeping the test suite green.
+7. Continue with the next behavior.
+
+The planned stack is xUnit (backend), Vitest and React Testing Library (frontend), and Playwright (critical end-to-end flows).
+
+**Task generation**: Spec Kit task breakdowns MUST include applicable automated test tasks. Where a behavior requires a test, the test task MUST appear before its corresponding implementation task. Tests MUST trace to user stories, acceptance criteria, functional requirements, business rules, and important error/edge cases.
+
+**Implementation**: New feature behavior MUST NOT be implemented first with tests added afterward merely to satisfy coverage. Existing tests MUST remain green throughout implementation.
+
+**Exceptions**: TDD does not require artificial tests for work where executable behavioral testing is not meaningful — documentation-only changes, certain static configuration changes, repository metadata. Any exception applied to application behavior MUST be stated explicitly (in the plan or task breakdown), never a silent bypass.
+
+**Verification**: A feature is not complete merely because production code exists. Completion requires: required automated tests exist; required tests pass; existing tests pass; implementation satisfies the approved specification; applicable acceptance criteria have verification evidence. This constitution is the sole, authoritative TDD policy for this project — no separate TDD tool or extension governs it.
 
 ### V. Safe Failure Over Silent Corruption
 The system MUST favor rejecting questionable data over silently accepting it. TCGplayer packing-slip parsing MUST fail safely and surface an import problem rather than silently create an incomplete or incorrect order. Catalog enrichment MUST NOT silently overwrite authoritative order attributes. An ambiguous or insufficiently confident catalog/image match MUST NOT be displayed as a best guess — **no image is better than the wrong image**.
@@ -51,16 +83,16 @@ This is single-business software for Loot Card Shop. Multi-tenant SaaS complexit
 ### XI. Reliability During Fulfillment
 Low and predictable infrastructure cost is preferred, but cost optimization MUST NOT knowingly make the production picking workflow unreliable. Reliability during active fulfillment work takes priority over marginal cost savings.
 
-## Spec Kit / Superpowers Boundary
+## Spec Kit Ownership
 
-Spec Kit owns planning: constitution, feature specification, clarification, technical planning, and task breakdown. Superpowers owns execution after planning is approved: test-driven development, executing approved tasks, systematic debugging, verification, and code quality review. Superpowers MUST NOT originate or silently redesign a feature; if execution surfaces a contradictory requirement, missing business rule, unclear workflow, or architectural conflict, it MUST stop and return the feature to Spec Kit clarification/planning.
+Spec Kit is this project's sole AI-assisted feature development methodology. It owns the complete structured feature lifecycle: constitution, feature specification, clarification, technical planning, task breakdown, artifact analysis, implementation, and convergence verification. No second planning or implementation methodology is layered on top of Spec Kit. If implementation surfaces a contradictory requirement, a missing business rule, an unclear workflow, an architectural conflict, or a requirement that cannot reasonably be implemented as specified, work MUST stop and return to Spec Kit clarification/planning — the specification and plan are never silently redesigned, and higher-level artifacts are never normalized to match whatever was implemented.
 
 ## Development Workflow
 
-Requirement → Spec Kit specification → clarification → technical plan → task breakdown → human approval → feature branch/worktree → Superpowers TDD execution → verification against the approved specification → code quality review → pull request → CI → human review → merge. The Spec Kit task breakdown (`tasks.md`) is the tracker for in-progress work; no GitHub issue is required per feature. See `docs/development/ai-assisted-development-workflow.md` for the full workflow and project-specific validation gates.
+Requirement → Spec Kit specification → clarification → technical plan → checklist (when useful) → task breakdown → analyze → human approval → feature branch/worktree → Spec Kit implementation (strict Red → Green → Refactor TDD per Principle IV) → convergence verification → pull request → CI → human review → merge. If convergence surfaces remaining required work, implementation and convergence repeat until converged. The Spec Kit task breakdown (`tasks.md`) is the tracker for in-progress work; no GitHub issue is required per feature. See `docs/development/ai-assisted-development-workflow.md` for the full workflow and project-specific validation gates.
 
 ## Governance
 
 This constitution is subordinate to confirmed Product Owner decisions and the approved PRD, per the source-of-truth hierarchy in `CLAUDE.md`. All specifications, plans, and pull requests must be consistent with these principles; deviations must be explicitly justified and, where they affect product behavior, escalated to the Product Owner rather than decided unilaterally during implementation. Amendments to this constitution require documentation of the change and rationale, and must not lower a safety-related principle (Sections V, VI, VII) without explicit Product Owner approval.
 
-**Version**: 1.0.1 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-19
+**Version**: 2.0.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-20
