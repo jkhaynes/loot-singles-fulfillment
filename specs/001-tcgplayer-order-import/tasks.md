@@ -74,7 +74,7 @@ T011 onward were **not** implemented as of this migration (verified via `git log
 - [X] T008 [P] Create `ImportAttempt` entity in `backend/src/LootSingles.Application/Import/ImportAttempt.cs` per data-model.md (StartedAt, CompletedAt, AttemptFailureCode, AttemptFailureMessage)
 - [X] T009 [P] Create `ImportOrderResult` entity in `backend/src/LootSingles.Application/Import/ImportOrderResult.cs` per data-model.md (ImportAttemptId, SourceOrderIdentifier, Outcome, FailureCode, FailureMessage, ResultingOrderId)
 - [X] T010 Create `LootSinglesDbContext` in `backend/src/LootSingles.Infrastructure/Persistence/LootSinglesDbContext.cs` with `DbSet`s for all four entities
-- [ ] T011 [P] Create EF Core entity configuration in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/OrderConfiguration.cs`, including a **unique index on `TcgplayerOrderId`** (FR-008 database-enforced guarantee)
+- [X] T011 [P] Create EF Core entity configuration in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/OrderConfiguration.cs`, including a **unique index on `TcgplayerOrderId`** (FR-008 database-enforced guarantee)
 - [ ] T012 [P] Create EF Core entity configurations for `OrderLine`, `ImportAttempt`, `ImportOrderResult` in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/`
 - [ ] T013 Generate the initial EF Core migration and verify `dotnet ef database update` succeeds against a local SQL Server instance
 - [ ] T014 Define `IPackingSlipParser` in `backend/src/LootSingles.Application/Import/IPackingSlipParser.cs` — the replaceable-integration seam (Constitution IX): given a PDF stream, yields raw per-order page data (order-identifier line, line-item table rows, and whether a trailing summary/index page was found)
