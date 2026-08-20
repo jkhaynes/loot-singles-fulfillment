@@ -1,0 +1,111 @@
+## ---------------------------------------------------------------------------
+## Claude Code local/agent state (may contain credentials, tokens, local
+## permissions or session data - skills/ commands under .claude/ are safe
+## to commit and are intentionally NOT ignored here)
+## ---------------------------------------------------------------------------
+.claude/settings.local.json
+.claude/*.local.json
+.claude/.credentials.json
+.mcp.local.json
+
+## ---------------------------------------------------------------------------
+## Secrets / local environment (never commit)
+## ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.key
+*.pem
+appsettings.*.local.json
+appsettings.Development.json
+secrets.json
+**/local.settings.json
+**/*.secrets.json
+
+## ---------------------------------------------------------------------------
+## .NET / ASP.NET Core / C# / EF Core
+## ---------------------------------------------------------------------------
+bin/
+obj/
+out/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+project.lock.json
+project.fragment.lock.json
+artifacts/
+*.dbmdl
+*.jfm
+*.pubxml
+*.pubxml.user
+*.publishsettings
+PublishProfiles/
+*.azurePubxml
+**/Migrations/*.Designer.cs.orig
+
+## ---------------------------------------------------------------------------
+## Node.js / React / TypeScript / Vitest / Playwright
+## ---------------------------------------------------------------------------
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+.turbo/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+
+## Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/blob-report/
+
+## ---------------------------------------------------------------------------
+## Visual Studio
+## ---------------------------------------------------------------------------
+.vs/
+*.sln.docstates
+*.suo
+*.userosscache
+
+## ---------------------------------------------------------------------------
+## Visual Studio Code
+## ---------------------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+*.code-workspace
+
+## ---------------------------------------------------------------------------
+## JetBrains (Rider / WebStorm)
+## ---------------------------------------------------------------------------
+.idea/
+*.iml
+*.iws
+
+## ---------------------------------------------------------------------------
+## OS files
+## ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+## ---------------------------------------------------------------------------
+## Azure / deployment credentials
+## ---------------------------------------------------------------------------
+*.PublishSettings
+azure-credentials.json
+.azure/
+
+## ---------------------------------------------------------------------------
+## Logs
+## ---------------------------------------------------------------------------
+*.log
+logs/
