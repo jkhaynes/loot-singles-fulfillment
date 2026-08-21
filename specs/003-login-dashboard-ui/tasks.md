@@ -98,8 +98,8 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 **Purpose**: Final verification against the spec's own validation guide and Definition of Done.
 
-- [ ] T025 [P] Walk through quickstart.md scenarios 1–8 end-to-end against a running instance and record the outcome of each in `specs/003-login-dashboard-ui/validation-results.md`
-- [ ] T026 Run the full backend (`dotnet test`) and frontend (`npm test`, Playwright e2e) suites and confirm everything is green
+- [X] T025 [P] Walk through quickstart.md scenarios 1–8 end-to-end against a running instance and record the outcome of each in `specs/003-login-dashboard-ui/validation-results.md` — all 8 pass (see validation-results.md for which were live-browser-verified vs. covered by their dedicated automated tests)
+- [X] T026 Run the full backend (`dotnet test`) and frontend (`npm test`, Playwright e2e) suites and confirm everything is green — 68 backend unit + 48 backend integration + 12 frontend unit + 4 Playwright all passing; fixed one stale Playwright assertion in `frontend/e2e/login.spec.ts` left over from T024 (expected old placeholder-screen text `'E2E Manager (ManagerAdmin)'` that the redesigned `DashboardPage` never renders; no spec requirement calls for that text, so the assertion was corrected to match the approved greeting-based design)
 - [X] T027 [P] Playwright test: at a mobile-width viewport (e.g., 375px), both the login screen and the Dashboard render with no horizontal scroll, in `frontend/e2e/responsive.spec.ts` (FR-006, SC-002)
 
 ---

@@ -7,7 +7,7 @@ test('employee logs in with username and PIN', async ({ page }) => {
   await page.getByLabel(/pin/i).fill('1234')
   await page.getByRole('button', { name: /log in/i }).click()
 
-  await expect(page.getByText('E2E Manager (ManagerAdmin)')).toBeVisible()
+  await expect(page.getByRole('heading', { name: /E2E/i })).toBeVisible()
   await expect(page.getByText(/E2E-ORDER-00001/)).toBeVisible()
 
   await page.reload()
