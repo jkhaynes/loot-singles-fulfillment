@@ -29,11 +29,11 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 **Purpose**: The design-token system and brand-mark asset both User Story 1 and User Story 2 build on. No other blocking foundational work exists for this feature (research.md) — Setup doubles as the foundation here.
 
-- [ ] T001 [P] Produce the production brand-mark SVG (`frontend/src/assets/lcs-logo.svg`), a light-stroke variant of `docs/decisions/assets/lcs-logo-source.png` suitable for dark surfaces (research.md §3)
-- [ ] T002 Wire the brand-mark SVG as the app favicon in `frontend/index.html` (depends on: T001)
-- [ ] T003 [P] Create `frontend/src/styles/tokens.css` implementing the color/radius/spacing/typography CSS custom properties from `docs/decisions/visual-design-language.md`'s Design Tokens section
-- [ ] T004 Update `frontend/src/index.css` to import `styles/tokens.css`, remove the scaffold's light-default/`prefers-color-scheme: dark` toggle in favor of one dark-mode-only palette (research.md §5), and rebase base element styles (`body`, `h1`, `h2`, `p`) onto the new tokens (depends on: T003)
-- [ ] T005 Remove the unused Vite-scaffold styling (`.counter`, `.hero`, `.base`/`.framework`/`.vite`) from `frontend/src/App.css` and delete the now-orphaned scaffold image assets (`frontend/src/assets/hero.png`, `react.svg`, `vite.svg`) that styling referenced (depends on: T002 — `vite.svg` must no longer be referenced as the favicon before it is deleted)
+- [X] T001 [P] Produce the production brand-mark asset (`frontend/src/assets/lcs-logo.png`), a light-stroke, transparent-background variant of `docs/decisions/assets/lcs-logo-source.png` suitable for dark surfaces (research.md §3) — implemented as a colorized/transparency-mapped PNG via PowerShell's `System.Drawing`, not a hand-vectorized SVG, since no vectorization tool (ImageMagick, Python/Pillow) is available in this environment; true SVG vectorization remains a candidate follow-up if crisper arbitrary-size scaling is later needed
+- [X] T002 Wire the brand mark as the app favicon: copied `docs/decisions/assets/lcs-logo-source.png` (the original dark-line-art-on-light version, not the light-stroke variant, since favicons must stay legible against arbitrary — often light — browser-chrome backgrounds) to `frontend/public/favicon.png`, updated `frontend/index.html`'s `<link rel="icon">`, and removed the superseded `frontend/public/favicon.svg` (depends on: T001)
+- [X] T003 [P] Create `frontend/src/styles/tokens.css` implementing the color/radius/spacing/typography CSS custom properties from `docs/decisions/visual-design-language.md`'s Design Tokens section
+- [X] T004 Update `frontend/src/index.css` to import `styles/tokens.css`, remove the scaffold's light-default/`prefers-color-scheme: dark` toggle in favor of one dark-mode-only palette (research.md §5), and rebase base element styles (`body`, `h1`, `h2`, `p`, `code`) onto the new tokens (depends on: T003)
+- [X] T005 Remove the unused Vite-scaffold styling from `frontend/src/App.css` and delete the now-orphaned scaffold image assets (`frontend/src/assets/hero.png`, `react.svg`, `vite.svg`) — on inspection, *all* of `App.css`'s rules (`.counter`, `.hero`, `#next-steps`, `#docs`, `#spacer`, `.ticks`, not just the `.hero`/`.counter` subset originally called out) were unreferenced by any component, so the file was emptied entirely rather than partially trimmed. No dependency on T002 after all — `vite.svg` was never the favicon (`favicon.svg`/now `favicon.png` was, and is unrelated to the scaffold assets this task removes)
 
 **Checkpoint**: Design tokens and brand asset exist — both user stories can now proceed independently, in parallel if desired.
 
@@ -122,7 +122,7 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 ### Parallel Opportunities
 
-- Setup: T001 and T003 in parallel (T002 depends on T001; T004 depends on T003; T005 depends on T002, since it deletes `vite.svg` only after T002 stops referencing it as the favicon).
+- Setup: T001, T003, and T005 in parallel (T002 depends on T001; T004 depends on T003). T005 turned out to have no real dependency on T002 — `vite.svg` was never the favicon (see T005's note).
 - Once Setup is complete: **User Story 1 and User Story 2 can be built fully in parallel** by two developers — they share no files beyond the read-only `styles/tokens.css` from Setup.
 - Within User Story 2: T010, T011, T012 (all test files) in parallel; T013, T014 (different new files) in parallel; T019 and T023 (different files, no shared dependency) in parallel.
 - Test tasks within a phase that target different files are marked `[P]`. T027 (Polish) is `[P]` relative to T025/T026 (different files, no shared dependency).

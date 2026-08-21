@@ -21,13 +21,16 @@
 
 ## 3. Brand Mark Asset Preparation
 
-**Decision**: Produce a production SVG of the Loot Card Shop logo (`frontend/src/assets/lcs-logo.svg`) with light strokes suitable for the dark-mode-first surfaces, derived from the source raster (`docs/decisions/assets/lcs-logo-source.png`). Used on the login screen; a favicon-sized export is also produced for the app's favicon.
+**Decision**: Produce a light-stroke, transparent-background PNG of the Loot Card Shop logo (`frontend/src/assets/lcs-logo.png`) for the dark-mode-first surfaces, derived from the source raster (`docs/decisions/assets/lcs-logo-source.png`) by mapping each pixel's luminance to alpha and recoloring to the `Text Primary` token — implemented via PowerShell's `System.Drawing`, since no vectorization tool (ImageMagick, Python/Pillow) is available in this environment. Used on the login screen. The favicon uses a separate, unmodified copy of the original source (`frontend/public/favicon.png`) rather than the light-stroke variant, since a favicon must stay legible against arbitrary — often light — browser-chrome backgrounds, not just this app's own dark surfaces.
 
-**Rationale**: `docs/decisions/visual-design-language.md`'s Brand Mark section already identifies that the source asset (black line art on a light background) is unusable as-is on a charcoal/slate surface. The login screen (US1) is this feature's natural first consumer of the mark. Producing the asset once, as a small task within this feature, avoids every future feature that touches branded chrome (app header, etc.) re-deriving it independently.
+**Rationale**: `docs/decisions/visual-design-language.md`'s Brand Mark section already identifies that the source asset (black line art on a light background) is unusable as-is on a charcoal/slate surface. The login screen (US1) is this feature's natural first consumer of the mark. Producing the asset once, as a small task within this feature, avoids every future feature that touches branded chrome (app header, etc.) re-deriving it independently. A true vector SVG was the original intent (data-model/plan originally specified `.svg`), but hand-tracing a multi-element illustration into accurate SVG path data without a vectorization tool would produce a worse result than a properly alpha-mapped raster export; this is recorded as a candidate follow-up (see Notes below), not a silent scope change.
 
 **Alternatives considered**:
-- Use the raw source PNG directly with a CSS filter (e.g., `invert()`) to fake a light variant — rejected; a filter-based inversion is fragile (breaks if the source asset changes) and produces a lower-quality result than a purpose-made light-stroke SVG export for a geometric line-art mark that vectorizes cleanly.
+- Use the raw source PNG directly with a CSS filter (e.g., `invert()`) to fake a light variant — rejected; a filter-based inversion is fragile (breaks if the source asset changes) and produces a lower-quality result than the alpha-mapped export actually used, which preserves the original line art's anti-aliasing exactly.
 - Defer logo use entirely to a later feature — rejected; the spec explicitly names the login screen as the natural first place to apply the mark, and the source asset already exists.
+- Use the light-stroke variant for the favicon too (as originally planned) — rejected on implementation; a light-on-transparent icon would be nearly invisible on the light browser-tab backgrounds most users still have by default, regardless of this app's own dark theme.
+
+**Note**: True SVG vectorization (for crisper scaling at arbitrary sizes) remains a reasonable future improvement if a design tool becomes available; the current PNG is sized at the source's native 360×360 resolution, which is more than sufficient for both the favicon and the login screen's brand-mark placement at this project's scale.
 
 ## 4. No Client-Side Routing Introduced
 

@@ -99,7 +99,7 @@ frontend/
 │   ├── styles/
 │   │   └── tokens.css                     # New: design-token CSS custom properties (docs/decisions/visual-design-language.md)
 │   ├── assets/
-│   │   └── lcs-logo.svg                   # New: production brand-mark asset, light-stroke variant for dark surfaces (research.md §3)
+│   │   └── lcs-logo.png                   # New: production brand-mark asset, light-stroke/transparent variant for dark surfaces (research.md §3)
 │   ├── App.tsx                            # Updated: render DashboardPage instead of the current placeholder div
 │   └── index.css                          # Updated: dark-mode-default base styles built on styles/tokens.css; scaffold-era rules removed
 ├── tests/
