@@ -1,34 +1,28 @@
 <!--
 Sync Impact Report
-Version change: 3.0.0 → 3.1.0
-MINOR — added a required post-implementation review gate to the development workflow. No Core
-Principle (I-XIII) was added, removed, redefined, or weakened by this amendment.
+Version change: 3.1.0 → 3.2.0
+MINOR — added a new, mandatory engineering standards section governing Entity Framework Core
+querying, tracking, persistence, relationship loading, bulk operations, cancellation, and
+performance review. No Core Principle (I-XIII) was added, removed, redefined, or weakened.
 
-Added:
-  - Spec Kit Ownership
-    "Code and design review" added to the structured feature lifecycle list, positioned between
-    Implementation and Convergence verification. Clarified that a Must Fix finding from this gate
-    rooted in a flawed technical plan returns to /speckit-plan, and one rooted in an unresolved or
-    contradictory requirement returns to /speckit-clarify — the same routing already required for
-    problems implementation itself surfaces. Ordinary implementation-level Must Fix findings are
-    captured as new tasks in the feature's existing tasks.md, not a separate tracker; Advisory
-    findings do not block completion.
-  - Development Workflow
-    Inserted "automated build/tests" and "code and design review (/code-design-review)" between
-    Spec Kit implementation and convergence verification, with a repeat-until-clean loop mirroring
-    the existing convergence repeat rule. Added a clarifying note distinguishing this gate (reviews
-    the actual implementation) from the pre-implementation human architecture and changeability
-    review earlier in the same list (reviews the proposed design).
+Added sections:
+  - Entity Framework Core Engineering Standards
+    Establishes testable rules for async database I/O, synchronous change-tracker additions,
+    no-tracking reads, projection, server-side query execution, existence checks, pagination,
+    intentional relationship loading, DbContext lifetime and threading, unit-of-work saves,
+    set-based bulk operations, cancellation propagation, and generated-query review.
 
 Modified principles:
   None.
 
+Removed sections:
+  None.
+
 Rationale:
-Implementation review previously relied on ad hoc human code review with no structured gate tied
-to this constitution's own architecture, maintainability, and safe-failure principles. Adding a
-defined post-implementation review step, with a Must Fix / Advisory classification that routes
-findings back into the existing tasks.md rather than a competing tracker, closes that gap without
-introducing a second development methodology alongside Spec Kit.
+The constitution had general persistence and efficiency guidance but no explicit EF Core standard.
+This amendment makes the intended database-access practices reviewable and prevents mechanical use
+of asynchronous APIs, unnecessary tracking or materialization, avoidable round trips, and unsafe
+DbContext usage.
 
 Follow-up TODOs: None.
 -->
@@ -228,6 +222,59 @@ The number of interfaces, layers, classes, or patterns in a design is not a meas
 
 The goal is understandable, testable, changeable software with intentional boundaries and no unnecessary machinery.
 
+## Entity Framework Core Engineering Standards
+
+EF Core code MUST favor correctness, clear intent, and efficient database access. Do not use EF
+features mechanically; choose behavior based on whether the operation actually requires database
+I/O, change tracking, or entity materialization.
+
+- **Use async only for operations that perform asynchronous database I/O.** Prefer `ToListAsync`,
+  `SingleOrDefaultAsync`, `AnyAsync`, `SaveChangesAsync`, `ExecuteUpdateAsync`, and similar methods
+  when database access occurs. Do not use `AddAsync` or `AddRangeAsync` by default; normal entity
+  adds only modify EF's in-memory change tracker and MUST use `Add` or `AddRange`. `AddAsync` is
+  appropriate only when an asynchronous value generator actually requires it.
+
+- **Use `AsNoTracking()` for read-only entity queries.** Queries whose entities will be modified
+  and persisted through the current `DbContext` MUST remain tracked. Do not add tracking when it
+  provides no value.
+
+- **Prefer projection for read models.** When callers only need part of an entity, use `Select` to
+  retrieve the required fields or DTO rather than materializing the complete entity graph.
+
+- **Keep query execution in the database.** Apply filtering, sorting, projection, and limiting
+  before materializing with `ToListAsync` or similar operations. Do not load an entire dataset into
+  memory and then filter it when the database can perform the operation.
+
+- **Avoid unnecessary database work.** Use `AnyAsync()` for existence checks rather than retrieving
+  entities or using `CountAsync() > 0`. Limit or paginate potentially large result sets.
+
+- **Load relationships intentionally.** Only `Include` relationships required by the operation.
+  Avoid patterns that introduce N+1 queries or unnecessarily large entity graphs. When multiple
+  collection includes could produce a Cartesian explosion, evaluate projection or `AsSplitQuery()`
+  rather than adding more joins blindly.
+
+- **Treat `DbContext` as a short-lived unit of work.** Do not store it as a singleton or share it
+  across threads. EF Core does not support parallel operations against the same `DbContext`; await
+  database operations before using that context again.
+
+- **Minimize database round trips.** Accumulate related tracked changes and normally call
+  `SaveChangesAsync` once per logical unit of work rather than after every entity modification.
+
+- **Prefer set-based operations for bulk changes.** When many rows can be updated or deleted
+  directly in the database, consider `ExecuteUpdateAsync` or `ExecuteDeleteAsync` instead of
+  loading, tracking, and modifying every entity. Be careful when mixing these operations with
+  already tracked entities because they bypass EF's change tracker.
+
+- **Propagate cancellation tokens** through async EF operations when the calling operation provides
+  one.
+
+- **Review generated query behavior when performance matters.** Consider query shape, indexes,
+  number of rows returned, joins, and database round trips rather than assuming a concise LINQ
+  expression is efficient.
+
+When multiple EF Core approaches are valid, prefer the simplest approach that produces correct
+SQL, minimizes unnecessary tracking and materialization, and remains clear to future maintainers.
+
 ## Spec Kit Ownership
 
 Spec Kit is this project's sole AI-assisted feature development methodology.
@@ -364,4 +411,4 @@ Safety-related principles, including Sections V, VI, and VII, MUST NOT be weaken
 
 Changes to maintainability or simplicity principles MUST preserve the balance between reasonable extensibility and avoiding speculative over-engineering.
 
-**Version**: 3.1.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-20
+**Version**: 3.2.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-21
