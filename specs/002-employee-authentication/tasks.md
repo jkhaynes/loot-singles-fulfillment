@@ -101,16 +101,16 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 ### Tests for User Story 2
 
-- [ ] T033 [P] [US2] Unit test `AuthenticationService.LoginAsync`: increments `FailedAttemptCount` on wrong PIN, locks the account at the configured threshold, returns `AccountLocked` for a locked account regardless of PIN correctness, and resets `FailedAttemptCount` on a successful login, in `backend/tests/LootSingles.UnitTests/Auth/AuthenticationServiceTests.cs`
-- [ ] T034 [P] [US2] Integration test: `POST /api/auth/login` returns `423` with the distinct locked-account message once the threshold is reached, remains `423` on a subsequent correct-PIN attempt, and a login succeeding below the threshold resets the count for future attempts, in `backend/tests/LootSingles.IntegrationTests/Auth/AuthControllerTests.cs`
+- [X] T033 [P] [US2] Unit test `AuthenticationService.LoginAsync`: increments `FailedAttemptCount` on wrong PIN, locks the account at the configured threshold, returns `AccountLocked` for a locked account regardless of PIN correctness, and resets `FailedAttemptCount` on a successful login, in `backend/tests/LootSingles.UnitTests/Auth/AuthenticationServiceTests.cs`
+- [X] T034 [P] [US2] Integration test: `POST /api/auth/login` returns `423` with the distinct locked-account message once the threshold is reached, remains `423` on a subsequent correct-PIN attempt, and a login succeeding below the threshold resets the count for future attempts, in `backend/tests/LootSingles.IntegrationTests/Auth/AuthControllerTests.cs`
 
 ### Implementation for User Story 2
 
-- [ ] T035 [US2] Add the lockout-threshold configuration (default 5, research.md §5) as an options class bound from `backend/src/LootSingles.Api/appsettings.json`
-- [ ] T036 [US2] Extend `AuthenticationResult` with `AccountLocked` in `backend/src/LootSingles.Application/Auth/AuthenticationResult.cs` (depends on: T025)
-- [ ] T037 [US2] Extend `AuthenticationService.LoginAsync` with lockout enforcement (check `IsLocked` first; increment/reset `FailedAttemptCount`; set `IsLocked` at threshold) in `backend/src/LootSingles.Application/Auth/AuthenticationService.cs` (depends on: T026, T035, T036; T033 must fail first)
-- [ ] T038 [US2] Update `AuthController`'s login endpoint to return `423` with the locked-account message for `AccountLocked` in `backend/src/LootSingles.Api/Controllers/AuthController.cs` (depends on: T027, T037; T034 must fail first)
-- [ ] T039 [US2] Update `LoginPage.tsx` to render the distinct locked-account message separately from the generic invalid-credentials message in `frontend/src/features/auth/LoginPage.tsx` (depends on: T029, T038)
+- [X] T035 [US2] Add the lockout-threshold configuration (default 5, research.md §5) as an options class bound from `backend/src/LootSingles.Api/appsettings.json`
+- [X] T036 [US2] Extend `AuthenticationResult` with `AccountLocked` in `backend/src/LootSingles.Application/Auth/AuthenticationResult.cs` (depends on: T025)
+- [X] T037 [US2] Extend `AuthenticationService.LoginAsync` with lockout enforcement (check `IsLocked` first; increment/reset `FailedAttemptCount`; set `IsLocked` at threshold) in `backend/src/LootSingles.Application/Auth/AuthenticationService.cs` (depends on: T026, T035, T036; T033 must fail first)
+- [X] T038 [US2] Update `AuthController`'s login endpoint to return `423` with the locked-account message for `AccountLocked` in `backend/src/LootSingles.Api/Controllers/AuthController.cs` (depends on: T027, T037; T034 must fail first)
+- [X] T039 [US2] Update `LoginPage.tsx` to render the distinct locked-account message separately from the generic invalid-credentials message in `frontend/src/features/auth/LoginPage.tsx` (depends on: T029, T038)
 
 **Checkpoint**: User Stories 1 and 2 both work independently.
 

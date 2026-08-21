@@ -12,7 +12,7 @@ public class AuthenticationServiceTests
         var repository = new FakeEmployeeRepository();
         var hasher = new Pbkdf2PinHasher();
         var employee = NewEmployee(repository, hasher, "jsmith", "1234", isActive: true);
-        var service = new AuthenticationService(repository, hasher);
+        var service = new AuthenticationService(repository, hasher, DefaultLockoutOptions());
 
         var result = await service.LoginAsync("jsmith", "1234", CancellationToken.None);
 
@@ -26,7 +26,7 @@ public class AuthenticationServiceTests
         var repository = new FakeEmployeeRepository();
         var hasher = new Pbkdf2PinHasher();
         NewEmployee(repository, hasher, "jsmith", "1234", isActive: true);
-        var service = new AuthenticationService(repository, hasher);
+        var service = new AuthenticationService(repository, hasher, DefaultLockoutOptions());
 
         var result = await service.LoginAsync("jsmith", "4321", CancellationToken.None);
 
@@ -38,7 +38,7 @@ public class AuthenticationServiceTests
     {
         var repository = new FakeEmployeeRepository();
         var hasher = new Pbkdf2PinHasher();
-        var service = new AuthenticationService(repository, hasher);
+        var service = new AuthenticationService(repository, hasher, DefaultLockoutOptions());
 
         var result = await service.LoginAsync("ghost", "1234", CancellationToken.None);
 
@@ -53,7 +53,7 @@ public class AuthenticationServiceTests
         var repository = new FakeEmployeeRepository();
         var hasher = new Pbkdf2PinHasher();
         NewEmployee(repository, hasher, "jsmith", "1234", isActive: false);
-        var service = new AuthenticationService(repository, hasher);
+        var service = new AuthenticationService(repository, hasher, DefaultLockoutOptions());
 
         var result = await service.LoginAsync("jsmith", suppliedPin, CancellationToken.None);
 
@@ -66,7 +66,7 @@ public class AuthenticationServiceTests
         var repository = new FakeEmployeeRepository();
         var hasher = new Pbkdf2PinHasher();
         NewEmployee(repository, hasher, "jsmith", "1234", isActive: true);
-        var service = new AuthenticationService(repository, hasher);
+        var service = new AuthenticationService(repository, hasher, DefaultLockoutOptions());
 
         var result = await service.LoginAsync("JSmith", "1234", CancellationToken.None);
 
@@ -79,7 +79,7 @@ public class AuthenticationServiceTests
         var repository = new FakeEmployeeRepository();
         var hasher = new Pbkdf2PinHasher();
         var employee = NewEmployee(repository, hasher, "jsmith", "1234", isActive: true);
-        var service = new AuthenticationService(repository, hasher);
+        var service = new AuthenticationService(repository, hasher, DefaultLockoutOptions());
 
         await service.LoginAsync("jsmith", "1234", CancellationToken.None);
 
@@ -88,6 +88,73 @@ public class AuthenticationServiceTests
         Assert.Equal(EmployeeAuditActionType.Login, auditEvent.ActionType);
         Assert.Null(auditEvent.TargetEmployeeId);
     }
+
+    [Fact]
+    public async Task LoginAsync_WrongPin_IncrementsFailedAttemptCount()
+    {
+        var repository = new FakeEmployeeRepository();
+        var hasher = new Pbkdf2PinHasher();
+        var employee = NewEmployee(repository, hasher, "jsmith", "1234", isActive: true);
+        var service = new AuthenticationService(repository, hasher, new LockoutOptions { FailedAttemptThreshold = 3 });
+
+        await service.LoginAsync("jsmith", "9999", CancellationToken.None);
+
+        Assert.Equal(1, employee.FailedAttemptCount);
+        Assert.False(employee.IsLocked);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WrongPinReachesThreshold_LocksAccountButStillReturnsInvalidCredentialsForThatAttempt()
+    {
+        var repository = new FakeEmployeeRepository();
+        var hasher = new Pbkdf2PinHasher();
+        var employee = NewEmployee(repository, hasher, "jsmith", "1234", isActive: true);
+        var service = new AuthenticationService(repository, hasher, new LockoutOptions { FailedAttemptThreshold = 3 });
+
+        AuthenticationResult? result = null;
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            result = await service.LoginAsync("jsmith", "9999", CancellationToken.None);
+        }
+
+        Assert.Equal(AuthenticationOutcome.InvalidCredentials, result!.Outcome);
+        Assert.True(employee.IsLocked);
+        Assert.Equal(3, employee.FailedAttemptCount);
+    }
+
+    [Theory]
+    [InlineData("1234")]
+    [InlineData("9999")]
+    public async Task LoginAsync_LockedAccount_ReturnsAccountLockedRegardlessOfPinCorrectness(string suppliedPin)
+    {
+        var repository = new FakeEmployeeRepository();
+        var hasher = new Pbkdf2PinHasher();
+        var employee = NewEmployee(repository, hasher, "jsmith", "1234", isActive: true);
+        employee.IsLocked = true;
+        var service = new AuthenticationService(repository, hasher, DefaultLockoutOptions());
+
+        var result = await service.LoginAsync("jsmith", suppliedPin, CancellationToken.None);
+
+        Assert.Equal(AuthenticationOutcome.AccountLocked, result.Outcome);
+    }
+
+    [Fact]
+    public async Task LoginAsync_SuccessfulLogin_ResetsFailedAttemptCount()
+    {
+        var repository = new FakeEmployeeRepository();
+        var hasher = new Pbkdf2PinHasher();
+        var employee = NewEmployee(repository, hasher, "jsmith", "1234", isActive: true);
+        var service = new AuthenticationService(repository, hasher, new LockoutOptions { FailedAttemptThreshold = 5 });
+        await service.LoginAsync("jsmith", "9999", CancellationToken.None);
+        await service.LoginAsync("jsmith", "9999", CancellationToken.None);
+        Assert.Equal(2, employee.FailedAttemptCount);
+
+        await service.LoginAsync("jsmith", "1234", CancellationToken.None);
+
+        Assert.Equal(0, employee.FailedAttemptCount);
+    }
+
+    private static LockoutOptions DefaultLockoutOptions() => new();
 
     private static Employee NewEmployee(
         FakeEmployeeRepository repository, IPinHasher hasher, string username, string pin, bool isActive)

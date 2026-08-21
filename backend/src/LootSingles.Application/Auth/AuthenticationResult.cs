@@ -9,6 +9,7 @@ public enum AuthenticationOutcome
 {
     Success,
     InvalidCredentials,
+    AccountLocked,
 }
 
 /// <summary>
@@ -22,4 +23,7 @@ public sealed record AuthenticationResult(AuthenticationOutcome Outcome, Employe
 
     public static readonly AuthenticationResult InvalidCredentials =
         new(AuthenticationOutcome.InvalidCredentials);
+
+    public static readonly AuthenticationResult AccountLocked =
+        new(AuthenticationOutcome.AccountLocked);
 }

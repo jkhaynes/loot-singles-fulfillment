@@ -3,10 +3,12 @@ using LootSingles.Domain.Employees;
 namespace LootSingles.Application.Auth;
 
 /// <summary>
-/// Verifies employee login credentials (FR-001, FR-004, FR-005) and records successful logins for
-/// auditability (FR-018).
+/// Verifies employee login credentials and records successful logins for auditability.
 /// </summary>
-public sealed class AuthenticationService(IEmployeeRepository repository, IPinHasher pinHasher)
+public sealed class AuthenticationService(
+    IEmployeeRepository repository,
+    IPinHasher pinHasher,
+    LockoutOptions lockoutOptions)
 {
     public async Task<AuthenticationResult> LoginAsync(
         string username, string pin, CancellationToken cancellationToken)
@@ -14,13 +16,30 @@ public sealed class AuthenticationService(IEmployeeRepository repository, IPinHa
         var employee = await repository.GetByNormalizedUsernameAsync(
             username.ToUpperInvariant(), cancellationToken);
 
-        // A deactivated account is rejected identically to a wrong PIN (FR-005) — never reveal
-        // that the username exists by checking the PIN first.
-        if (employee is null || !employee.IsActive || !pinHasher.Verify(employee.PinHash, pin))
+        // Inactive accounts always use the generic response, even if the retained record is locked.
+        if (employee is null || !employee.IsActive)
         {
             return AuthenticationResult.InvalidCredentials;
         }
 
+        if (employee.IsLocked)
+        {
+            return AuthenticationResult.AccountLocked;
+        }
+
+        if (!pinHasher.Verify(employee.PinHash, pin))
+        {
+            employee.FailedAttemptCount++;
+            if (employee.FailedAttemptCount >= lockoutOptions.FailedAttemptThreshold)
+            {
+                employee.IsLocked = true;
+            }
+
+            await repository.SaveChangesAsync(cancellationToken);
+            return AuthenticationResult.InvalidCredentials;
+        }
+
+        employee.FailedAttemptCount = 0;
         await repository.AddAuditEventAsync(
             new EmployeeAuditEvent
             {

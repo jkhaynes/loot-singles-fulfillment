@@ -33,6 +33,15 @@ public sealed partial class AuthController(AuthenticationService authenticationS
             return Unauthorized(new ErrorResponse("invalid_credentials", "Username or PIN is incorrect."));
         }
 
+        if (result.Outcome == AuthenticationOutcome.AccountLocked)
+        {
+            return StatusCode(
+                StatusCodes.Status423Locked,
+                new ErrorResponse(
+                    "account_locked",
+                    "This account is locked. Ask a Manager/Admin to unlock it."));
+        }
+
         var employee = result.Employee!;
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
             [

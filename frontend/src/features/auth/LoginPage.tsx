@@ -7,6 +7,9 @@ export interface LoginPageProps {
   onLoginSuccess: (employee: AuthenticatedEmployee) => void
 }
 
+const invalidCredentialsMessage = 'Username or PIN is incorrect.'
+const accountLockedMessage = 'This account is locked. Ask a Manager/Admin to unlock it.'
+
 export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [username, setUsername] = useState('')
   const [pin, setPin] = useState('')
@@ -22,7 +25,13 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       const employee = await login(username, pin)
       onLoginSuccess(employee)
     } catch (caught) {
-      setError(caught instanceof AuthApiError ? caught.message : 'Something went wrong. Please try again.')
+      if (caught instanceof AuthApiError && caught.code === 'account_locked') {
+        setError(accountLockedMessage)
+      } else if (caught instanceof AuthApiError && caught.code === 'invalid_credentials') {
+        setError(invalidCredentialsMessage)
+      } else {
+        setError('Something went wrong. Please try again.')
+      }
     } finally {
       setIsSubmitting(false)
     }

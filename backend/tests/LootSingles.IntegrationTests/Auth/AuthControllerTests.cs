@@ -3,6 +3,9 @@ using System.Net.Http.Json;
 using LootSingles.Api.Controllers;
 using LootSingles.Domain.Employees;
 using LootSingles.Infrastructure.Auth;
+using LootSingles.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace LootSingles.IntegrationTests.Auth;
 
@@ -72,6 +75,54 @@ public class AuthControllerTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
         Assert.Equal("invalid_credentials", body?.Error);
+    }
+
+    [Fact]
+    public async Task Login_ThresholdAttemptReturnsUnauthorizedThenSubsequentCorrectPinReturnsLocked()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        await SeedEmployeeAsync(factory, "jsmith", "1234", isActive: true);
+        using var client = factory.CreateAuthenticatedClient();
+
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var failedResponse = await client.PostAsJsonAsync(
+                "/api/auth/login", new LoginRequest("jsmith", "9999"));
+            Assert.Equal(HttpStatusCode.Unauthorized, failedResponse.StatusCode);
+        }
+
+        var lockedResponse = await client.PostAsJsonAsync(
+            "/api/auth/login", new LoginRequest("jsmith", "1234"));
+
+        Assert.Equal((HttpStatusCode)423, lockedResponse.StatusCode);
+        var body = await lockedResponse.Content.ReadFromJsonAsync<ErrorResponse>();
+        Assert.Equal("account_locked", body?.Error);
+        Assert.Equal("This account is locked. Ask a Manager/Admin to unlock it.", body?.Message);
+    }
+
+    [Fact]
+    public async Task Login_SuccessBelowThresholdResetsCountForFutureAttempts()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var employee = await SeedEmployeeAsync(factory, "jsmith", "1234", isActive: true);
+        using var client = factory.CreateAuthenticatedClient();
+
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            var failedResponse = await client.PostAsJsonAsync(
+                "/api/auth/login", new LoginRequest("jsmith", "9999"));
+            Assert.Equal(HttpStatusCode.Unauthorized, failedResponse.StatusCode);
+        }
+
+        var successfulResponse = await client.PostAsJsonAsync(
+            "/api/auth/login", new LoginRequest("jsmith", "1234"));
+
+        Assert.Equal(HttpStatusCode.OK, successfulResponse.StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
+        var persistedEmployee = await context.Employees.SingleAsync(candidate => candidate.Id == employee.Id);
+        Assert.Equal(0, persistedEmployee.FailedAttemptCount);
+        Assert.False(persistedEmployee.IsLocked);
     }
 
     [Fact]

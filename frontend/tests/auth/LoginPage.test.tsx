@@ -36,6 +36,25 @@ describe('LoginPage', () => {
     expect(await screen.findByText('Username or PIN is incorrect.')).toBeInTheDocument()
   })
 
+  it('shows the distinct locked-account message on a locked login', async () => {
+    vi.mocked(authApi.login).mockRejectedValue(
+      new authApi.AuthApiError(
+        'account_locked',
+        'This account is locked. Ask a Manager/Admin to unlock it.',
+      ),
+    )
+    const user = userEvent.setup()
+    render(<LoginPage onLoginSuccess={vi.fn()} />)
+
+    await user.type(screen.getByLabelText(/username/i), 'jsmith')
+    await user.type(screen.getByLabelText(/pin/i), '1234')
+    await user.click(screen.getByRole('button', { name: /log in/i }))
+
+    expect(
+      await screen.findByText('This account is locked. Ask a Manager/Admin to unlock it.'),
+    ).toBeInTheDocument()
+  })
+
   it('calls onLoginSuccess with the authenticated employee on success', async () => {
     const employee = { employeeId: 1, displayName: 'Jamie', role: 'Picker' }
     vi.mocked(authApi.login).mockResolvedValue(employee)

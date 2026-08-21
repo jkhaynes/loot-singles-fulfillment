@@ -20,6 +20,14 @@ builder.Services.AddScoped<IPackingSlipImportService, PackingSlipImportService>(
 
 builder.Services.AddScoped<IPinHasher, Pbkdf2PinHasher>();
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+var lockoutOptions = builder.Configuration
+    .GetSection(LockoutOptions.SectionName)
+    .Get<LockoutOptions>() ?? new LockoutOptions();
+if (lockoutOptions.FailedAttemptThreshold < 1)
+{
+    throw new InvalidOperationException("Authentication lockout threshold must be at least 1.");
+}
+builder.Services.AddSingleton(lockoutOptions);
 builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddScoped<EmployeeSessionCookieEvents>();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
