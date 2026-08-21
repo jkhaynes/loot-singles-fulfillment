@@ -13,6 +13,7 @@
 ### Session 2026-08-21
 
 - Q: How should this feature handle the Dashboard's In Progress, Needs Attention, and Picked sections, whose underlying order states (an order being actively picked, an order with an unresolved picking problem, a completed pick) don't exist yet since order claiming and the picking workflow are separate, not-yet-built features? → A: Show live data for the Ready section only, since that order state already exists; the other three sections show an explicit "not yet available" placeholder until the features that create those order states are built. No backend changes beyond reading existing order data are introduced by this feature.
+- Q: What accessibility standard should the login screen and Dashboard's color choices, text sizing, and keyboard/focus behavior be held to? → A: No specific accessibility target for this feature — visual polish only. Contrast ratios and keyboard/focus support are addressed ad hoc where convenient, not held to a formal standard (e.g., WCAG) or independently tested.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -114,3 +115,4 @@ A Loot Card Shop brand mark (a d20-and-helmet line-art logo) now exists and is r
 - The Dashboard is the same for both Picker and Manager/Admin roles in this feature's scope; the product requirements do not describe a role-differentiated dashboard, and none is introduced here.
 - High-level visual identity direction (dark-mode-first, accent color usage, corner/shadow/typography treatment) is now a confirmed Product Owner decision — see Design Direction above. Specific implementation values (exact hex codes, spacing scale, component-level styling) are not yet mandated and will be recorded in the technical plan rather than this specification.
 - The product requirements describe the dashboard's four groupings (Ready, In Progress, Needs Attention, Picked) as a "potential V1 dashboard" whose "exact design remains subject to UX validation" — this feature is that validation for the Ready section, which already has real underlying data; the other three groupings depend on order states that do not exist until future features introduce them.
+- No formal accessibility standard (e.g., WCAG) applies to this feature (`/speckit-clarify` 2026-08-21) — color contrast, text sizing, and keyboard/focus behavior are addressed ad hoc as part of general visual polish, not held to a specific ratio or independently audited/tested.
