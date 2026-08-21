@@ -10,7 +10,7 @@ Individual employee username + 4-digit-PIN authentication for the picker applica
 
 ## Technical Context
 
-**Language/Version**: C# 12 / .NET 8 (backend, per PRD §40.3); TypeScript 5 / React 18 (frontend, per PRD §40.1/§40.2) — first feature to scaffold `frontend/`
+**Language/Version**: C# 13 / .NET 10 (LTS) (backend — corrected 2026-08-21, see note below); TypeScript / React (frontend, per PRD §40.1/§40.2) — first feature to scaffold `frontend/`
 
 **Primary Dependencies**: ASP.NET Core Cookie Authentication middleware (`Microsoft.AspNetCore.Authentication.Cookies` — PRD §40.5's preferred "secure cookie-based authentication"), `Microsoft.AspNetCore.Identity`'s `PasswordHasher<T>` used standalone for PBKDF2 PIN hashing (an "established ASP.NET Core credential-security primitive" per PRD §40.5, without adopting the full Identity framework — see research.md §1), Entity Framework Core (persistence, consistent with feature 001); frontend: React, Vite, `react-router` for the login route, Vitest + React Testing Library, Playwright for the critical login E2E flow
 
@@ -51,6 +51,8 @@ Individual employee username + 4-digit-PIN authentication for the picker applica
 No violations to justify — Complexity Tracking is empty.
 
 **Post-Phase 1 re-check**: research.md, data-model.md, and contracts/ confirm the plain-POCO `Employee` domain model (XII), the explicit non-time-based lockout fields (XIII), and the deliberately API-only roster-management scope (II) as concrete designs, not just intentions. No new violations were introduced by the detailed design; all gates remain PASS/N/A as above.
+
+**Post-Phase 2 correction (2026-08-21) — target framework**: this plan originally stated ".NET 8" as the backend Language/Version, citing "PRD §40.3." On re-reading, neither PRD §40.3 nor the README actually pin a .NET version — both say only "ASP.NET Core Web API" / "C#"; ".NET 8" was an unstated assumption carried over from feature 001's plan (written when .NET 8 was current). Raised during Phase 2 implementation (this machine has no .NET 8 SDK at all, only .NET 10), the Product Owner confirmed the backend should target .NET 10 (the current LTS; .NET 8 support ends ~November 2026) rather than continue building new work against a framework nearing end of life. Since all six backend projects share one solution, this retargets feature 001's already-merged code (`net8.0` → `net10.0` across `LootSingles.Domain/Application/Infrastructure/Api` and both test projects) as well as this feature's new code — a deliberate, Product-Owner-confirmed exception to Principle III's "no unrelated refactoring bundled into a feature," justified because splitting the six projects across two different target frameworks within one solution is not a viable intermediate state. `Microsoft.Extensions.Identity.Core`'s explicit `PackageReference` (research.md §1) was removed as part of this change: .NET 10's NuGet package-pruning treats it as redundant once `FrameworkReference Include="Microsoft.AspNetCore.App"` is present, since the identity primitives moved into the shared framework's own package set. No other Constitution Check gate is affected — this is a build/runtime target change, not a design change.
 
 ## Project Structure
 

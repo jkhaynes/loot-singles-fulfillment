@@ -4,7 +4,7 @@ Validation guide for exercising this feature end-to-end once implemented. See [d
 
 ## Prerequisites
 
-- Backend: .NET 8 SDK, a reachable SQL Server/LocalDB instance configured via the `LootSingles` connection string (same setup as feature 001).
+- Backend: .NET 10 SDK, a reachable SQL Server/LocalDB instance configured via the `LootSingles` connection string (same setup as feature 001).
 - Frontend: Node.js (LTS), run from `frontend/`.
 - A seeded initial `ManagerAdmin` employee exists in the target database (spec Assumptions: at least one Manager/Admin account must always be able to authenticate; seeding is an operational/migration concern, not this feature's runtime behavior).
 

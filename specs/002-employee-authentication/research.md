@@ -2,7 +2,7 @@
 
 ## 1. PIN Hashing Mechanism
 
-**Decision**: Use `Microsoft.AspNetCore.Identity`'s `PasswordHasher<TUser>` (PBKDF2-HMACSHA256, ASP.NET Core's default) standalone, generic over the Domain's own `Employee` type, wrapped behind an Application-layer `IPinHasher` interface.
+**Decision**: Use `Microsoft.AspNetCore.Identity`'s `PasswordHasher<TUser>` (PBKDF2-HMACSHA256, ASP.NET Core's default) standalone, generic over the Domain's own `Employee` type, wrapped behind an Application-layer `IPinHasher` interface. On .NET 10 (plan.md's Post-Phase 2 correction), this type ships as part of the `Microsoft.AspNetCore.App` shared framework `LootSingles.Infrastructure` already references — no separate `Microsoft.Extensions.Identity.Core` NuGet package is needed (or accepted; .NET 10's package pruning rejects it as redundant).
 
 **Rationale**: PRD §40.5 directs "established ASP.NET Core Core authentication and credential-security primitives." `PasswordHasher<TUser>` is exactly that primitive — it does not require adopting the rest of ASP.NET Core Identity (see §9 below) and works against any plain class, so `Employee` stays a Domain POCO rather than an `IdentityUser` subclass (Constitution XII). Satisfies FR-003 (never plaintext, industry-standard hashing).
 
@@ -21,7 +21,7 @@
 
 ## 3. Immediate Session Invalidation on Deactivation
 
-**Decision**: A `CookieAuthenticationEvents.OnValidatePrincipal` handler with `ValidationInterval = TimeSpan.Zero`, checking the current `Employee.IsActive` (by the id claim) on every authenticated request; rejects the principal (forcing sign-out) when `false`.
+**Decision**: A `CookieAuthenticationEvents.ValidatePrincipal` override checking the current `Employee.IsActive` (by the id claim) on every authenticated request; calls `context.RejectPrincipal()` when `false` or the employee no longer exists. No explicit `SignOutAsync` call is needed — the raw cookie handler (not wrapped in ASP.NET Core Identity) raises `ValidatePrincipal` on every request by default, so a rejected principal simply keeps failing on each subsequent request; the browser-held cookie becomes permanently inert rather than being proactively cleared.
 
 **Rationale**: A cookie ticket is otherwise self-contained and would keep authenticating a deactivated employee until the ticket's own expiry, violating FR-012/SC-008 ("immediately... including for an employee who held an active session at the moment of deactivation"). Validating on every request is a single indexed primary-key lookup — negligible at this application's scale (Technical Context: tens of employees) — and keeps the cookie itself dead simple (Constitution XIII).
 

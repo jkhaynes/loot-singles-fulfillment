@@ -29,7 +29,7 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 **Purpose**: Add the one new backend package this feature needs, and scaffold the frontend project (first use in this repo).
 
-- [X] T001 Add a `Microsoft.Extensions.Identity.Core` package reference (the minimal package containing `PasswordHasher<T>` without pulling in EF Core-backed Identity stores, research.md §1) to `backend/src/LootSingles.Infrastructure/LootSingles.Infrastructure.csproj`
+- [X] T001 Add a `Microsoft.Extensions.Identity.Core` package reference (the minimal package containing `PasswordHasher<T>` without pulling in EF Core-backed Identity stores, research.md §1) to `backend/src/LootSingles.Infrastructure/LootSingles.Infrastructure.csproj` — superseded during Phase 2 by the plan.md 2026-08-21 .NET 10 correction: this package is now redundant (pruned) once the `Microsoft.AspNetCore.App` FrameworkReference is present, since `PasswordHasher<T>` ships in the shared framework on .NET 10; the explicit PackageReference was removed
 - [X] T002 [P] Scaffold the `frontend/` React + TypeScript + Vite project: `frontend/package.json`, `frontend/tsconfig.json`, `frontend/vite.config.ts`, `frontend/index.html`, `frontend/src/main.tsx`, `frontend/src/App.tsx`
 - [X] T003 [P] Configure frontend unit testing (Vitest + React Testing Library) in `frontend/package.json` and `frontend/vitest.config.ts`
 - [X] T004 [P] Configure Playwright for the frontend in `frontend/playwright.config.ts` and `frontend/e2e/` directory
@@ -42,23 +42,23 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T005 [P] Create `EmployeeRole` enum (`Picker`, `ManagerAdmin`) in `backend/src/LootSingles.Domain/Employees/EmployeeRole.cs` (research.md §6)
-- [ ] T006 [P] Create `EmployeeAuditActionType` enum (`Login`, `Logout`, `AccountCreated`, `Deactivated`, `Reactivated`, `PinReset`, `Unlocked`) in `backend/src/LootSingles.Domain/Employees/EmployeeAuditActionType.cs`
-- [ ] T007 [P] Create the `Employee` domain entity in `backend/src/LootSingles.Domain/Employees/Employee.cs` (`Id`, `Username`, `NormalizedUsername`, `DisplayName`, `PinHash`, `Role`, `IsActive`, `FailedAttemptCount`, `IsLocked`, `CreatedAt` — per data-model.md)
-- [ ] T008 [P] Create the `EmployeeAuditEvent` domain entity in `backend/src/LootSingles.Domain/Employees/EmployeeAuditEvent.cs` (`Id`, `ActorEmployeeId`, `TargetEmployeeId`, `ActionType`, `OccurredAt`)
-- [ ] T009 [P] Create the `IPinHasher` interface (`Hash`, `Verify`) in `backend/src/LootSingles.Application/Auth/IPinHasher.cs`
-- [ ] T010 [P] Create the `IEmployeeRepository` interface (`GetByNormalizedUsernameAsync`, `GetByIdAsync`, `AddAsync`, `ListAsync`, `AddAuditEventAsync`, `GetAuditEventsAsync`) in `backend/src/LootSingles.Application/Auth/IEmployeeRepository.cs`
-- [ ] T011 [P] Unit test: `Pbkdf2PinHasher` hashes a PIN, verifies the correct PIN, and rejects an incorrect PIN, in `backend/tests/LootSingles.UnitTests/Auth/Pbkdf2PinHasherTests.cs` — must fail (type doesn't exist yet)
-- [ ] T012 Implement `Pbkdf2PinHasher` (`IPinHasher` via `PasswordHasher<Employee>`, research.md §1) in `backend/src/LootSingles.Infrastructure/Auth/Pbkdf2PinHasher.cs` (depends on: T007, T009, T011 failing)
-- [ ] T013 [P] Create `EmployeeConfiguration` (EF Core Fluent API, unique index on `NormalizedUsername`, research.md §7) in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/EmployeeConfiguration.cs`
-- [ ] T014 [P] Create `EmployeeAuditEventConfiguration` in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/EmployeeAuditEventConfiguration.cs`
-- [ ] T015 Add `DbSet<Employee>` and `DbSet<EmployeeAuditEvent>` to `backend/src/LootSingles.Infrastructure/Persistence/LootSinglesDbContext.cs` (depends on: T007, T008, T013, T014)
-- [ ] T016 Generate and apply the EF Core migration for the `Employee`/`EmployeeAuditEvent` tables (depends on: T015)
-- [ ] T017 Implement `EmployeeRepository` (`IEmployeeRepository` over `LootSinglesDbContext`) in `backend/src/LootSingles.Infrastructure/Persistence/EmployeeRepository.cs` (depends on: T010, T016)
-- [ ] T018 [P] Integration test: the unique index on `NormalizedUsername` rejects a case-insensitive duplicate username (FR-014) in `backend/tests/LootSingles.IntegrationTests/Auth/EmployeeConfigurationTests.cs` (depends on: T016)
-- [ ] T019 Wire ASP.NET Core Cookie Authentication (HttpOnly, Secure, `SameSite=Strict`) and `AddAuthorization()` in `backend/src/LootSingles.Api/Program.cs` (depends on: T007; research.md §2)
-- [ ] T020 Create `EmployeeSessionCookieEvents` (`OnValidatePrincipal`, `ValidationInterval=Zero`, rejects the principal when the live `Employee.IsActive` is `false`, research.md §3) in `backend/src/LootSingles.Infrastructure/Auth/EmployeeSessionCookieEvents.cs` and wire it into T019's cookie options (depends on: T017, T019)
-- [ ] T021 [P] Integration test: a cookie for an employee whose `IsActive` is set to `false` directly in the database is rejected on the very next request (FR-012 mechanism) in `backend/tests/LootSingles.IntegrationTests/Auth/SessionInvalidationTests.cs` (depends on: T020)
+- [X] T005 [P] Create `EmployeeRole` enum (`Picker`, `ManagerAdmin`) in `backend/src/LootSingles.Domain/Employees/EmployeeRole.cs` (research.md §6)
+- [X] T006 [P] Create `EmployeeAuditActionType` enum (`Login`, `Logout`, `AccountCreated`, `Deactivated`, `Reactivated`, `PinReset`, `Unlocked`) in `backend/src/LootSingles.Domain/Employees/EmployeeAuditActionType.cs`
+- [X] T007 [P] Create the `Employee` domain entity in `backend/src/LootSingles.Domain/Employees/Employee.cs` (`Id`, `Username`, `NormalizedUsername`, `DisplayName`, `PinHash`, `Role`, `IsActive`, `FailedAttemptCount`, `IsLocked`, `CreatedAt` — per data-model.md)
+- [X] T008 [P] Create the `EmployeeAuditEvent` domain entity in `backend/src/LootSingles.Domain/Employees/EmployeeAuditEvent.cs` (`Id`, `ActorEmployeeId`, `TargetEmployeeId`, `ActionType`, `OccurredAt`)
+- [X] T009 [P] Create the `IPinHasher` interface (`Hash`, `Verify`) in `backend/src/LootSingles.Application/Auth/IPinHasher.cs`
+- [X] T010 [P] Create the `IEmployeeRepository` interface (`GetByNormalizedUsernameAsync`, `GetByIdAsync`, `AddAsync`, `ListAsync`, `AddAuditEventAsync`, `GetAuditEventsAsync`) in `backend/src/LootSingles.Application/Auth/IEmployeeRepository.cs`
+- [X] T011 [P] Unit test: `Pbkdf2PinHasher` hashes a PIN, verifies the correct PIN, and rejects an incorrect PIN, in `backend/tests/LootSingles.UnitTests/Auth/Pbkdf2PinHasherTests.cs` — must fail (type doesn't exist yet)
+- [X] T012 Implement `Pbkdf2PinHasher` (`IPinHasher` via `PasswordHasher<Employee>`, research.md §1) in `backend/src/LootSingles.Infrastructure/Auth/Pbkdf2PinHasher.cs` (depends on: T007, T009, T011 failing)
+- [X] T013 [P] Create `EmployeeConfiguration` (EF Core Fluent API, unique index on `NormalizedUsername`, research.md §7) in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/EmployeeConfiguration.cs`
+- [X] T014 [P] Create `EmployeeAuditEventConfiguration` in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/EmployeeAuditEventConfiguration.cs`
+- [X] T015 Add `DbSet<Employee>` and `DbSet<EmployeeAuditEvent>` to `backend/src/LootSingles.Infrastructure/Persistence/LootSinglesDbContext.cs` (depends on: T007, T008, T013, T014)
+- [X] T016 Generate and apply the EF Core migration for the `Employee`/`EmployeeAuditEvent` tables (depends on: T015)
+- [X] T017 Implement `EmployeeRepository` (`IEmployeeRepository` over `LootSinglesDbContext`) in `backend/src/LootSingles.Infrastructure/Persistence/EmployeeRepository.cs` (depends on: T010, T016)
+- [X] T018 [P] Integration test: the unique index on `NormalizedUsername` rejects a case-insensitive duplicate username (FR-014) in `backend/tests/LootSingles.IntegrationTests/Auth/EmployeeConfigurationTests.cs` (depends on: T016)
+- [X] T019 Wire ASP.NET Core Cookie Authentication (HttpOnly, Secure, `SameSite=Strict`) and `AddAuthorization()` in `backend/src/LootSingles.Api/Program.cs` (depends on: T007; research.md §2)
+- [X] T020 Create `EmployeeSessionCookieEvents` (`ValidatePrincipal` override, rejects the principal when the live `Employee.IsActive` is `false`, research.md §3) in `backend/src/LootSingles.Infrastructure/Auth/EmployeeSessionCookieEvents.cs` and wire it into T019's cookie options via `EventsType` (depends on: T017, T019)
+- [X] T021 [P] Integration test: a cookie for an employee whose `IsActive` is set to `false` directly in the database is rejected on the very next request (FR-012 mechanism) in `backend/tests/LootSingles.IntegrationTests/Auth/SessionInvalidationTests.cs` (depends on: T020)
 
 **Checkpoint**: Foundation ready — `Employee` persists, PINs hash/verify, cookies authenticate and self-invalidate on deactivation. User story implementation can now begin.
 

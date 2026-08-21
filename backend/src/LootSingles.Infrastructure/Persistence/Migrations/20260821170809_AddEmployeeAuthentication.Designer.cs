@@ -4,6 +4,7 @@ using LootSingles.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,13 +12,15 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LootSingles.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(LootSinglesDbContext))]
-    partial class LootSinglesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260821170809_AddEmployeeAuthentication")]
+    partial class AddEmployeeAuthentication
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.0")
+                .HasAnnotation("ProductVersion", "8.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -44,7 +47,7 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ImportAttempts", (string)null);
+                    b.ToTable("ImportAttempts");
                 });
 
             modelBuilder.Entity("LootSingles.Application.Import.ImportOrderResult", b =>
@@ -79,7 +82,7 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ResultingOrderId");
 
-                    b.ToTable("ImportOrderResults", (string)null);
+                    b.ToTable("ImportOrderResults");
                 });
 
             modelBuilder.Entity("LootSingles.Domain.Employees.Employee", b =>
@@ -127,7 +130,7 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                     b.HasIndex("NormalizedUsername")
                         .IsUnique();
 
-                    b.ToTable("Employees", (string)null);
+                    b.ToTable("Employees");
                 });
 
             modelBuilder.Entity("LootSingles.Domain.Employees.EmployeeAuditEvent", b =>
@@ -157,7 +160,7 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TargetEmployeeId");
 
-                    b.ToTable("EmployeeAuditEvents", (string)null);
+                    b.ToTable("EmployeeAuditEvents");
                 });
 
             modelBuilder.Entity("LootSingles.Domain.Orders.Order", b =>
@@ -183,7 +186,7 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                     b.HasIndex("TcgplayerOrderId")
                         .IsUnique();
 
-                    b.ToTable("Orders", (string)null);
+                    b.ToTable("Orders");
                 });
 
             modelBuilder.Entity("LootSingles.Domain.Orders.OrderLine", b =>
@@ -234,7 +237,7 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderLines", (string)null);
+                    b.ToTable("OrderLines");
                 });
 
             modelBuilder.Entity("LootSingles.Application.Import.ImportOrderResult", b =>

@@ -2,6 +2,7 @@ using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
 using LootSingles.Domain.Orders;
+using LootSingles.Domain.Employees;
 using LootSingles.Application.Import;
 
 namespace LootSingles.Infrastructure.Persistence;
@@ -37,6 +38,16 @@ public class LootSinglesDbContext : DbContext, IImportPersistence
     /// DbSet for ImportOrderResult entities.
     /// </summary>
     public DbSet<ImportOrderResult> ImportOrderResults => Set<ImportOrderResult>();
+
+    /// <summary>
+    /// DbSet for Employee entities.
+    /// </summary>
+    public DbSet<Employee> Employees => Set<Employee>();
+
+    /// <summary>
+    /// DbSet for EmployeeAuditEvent entities.
+    /// </summary>
+    public DbSet<EmployeeAuditEvent> EmployeeAuditEvents => Set<EmployeeAuditEvent>();
 
     public void AddImportAttempt(ImportAttempt attempt) => ImportAttempts.Add(attempt);
 
