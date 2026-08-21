@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Runtime.CompilerServices;
 using LootSingles.Application.Import;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
@@ -7,50 +8,55 @@ namespace LootSingles.Infrastructure.Import;
 
 public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
 {
-    public ParsedPackingSlip Parse(Stream packingSlipPdf)
+    public async IAsyncEnumerable<PackingSlipParseUpdate> ParseAsync(
+        Stream packingSlipPdf,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(packingSlipPdf);
 
         using var document = PdfDocument.Open(packingSlipPdf);
-        var orderBlocks = new List<RawOrderBlock>();
-        var summaryOrderIdentifiers = new List<string>();
-        var summaryPageFound = false;
-
+        var state = new ParseState();
         foreach (var page in document.GetPages())
         {
-            var words = page.GetWords().ToList();
-            var lines = GroupIntoLines(words);
-            var tableHeader = FindTableHeader(lines);
-
-            if (tableHeader is not null)
-            {
-                orderBlocks.Add(new RawOrderBlock
-                {
-                    OrderIdentifier = ExtractOrderIdentifier(lines),
-                    ProductLines = ExtractProductLines(words, lines, tableHeader),
-                });
-                continue;
-            }
-
-            var identifiers = words
-                .Select(word => word.Text.Trim())
-                .Where(text => SummaryOrderIdentifierPattern().IsMatch(text))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (identifiers.Count > 0)
-            {
-                summaryPageFound = true;
-                summaryOrderIdentifiers.AddRange(identifiers);
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            ProcessPage(page, state);
+            await Task.Yield();
+            yield return new PackingSlipParseUpdate(state.OrderBlocks.Count, false, null);
         }
 
-        return new ParsedPackingSlip
+        yield return new PackingSlipParseUpdate(
+            state.OrderBlocks.Count,
+            true,
+            state.ToResult());
+    }
+
+    private static void ProcessPage(Page page, ParseState state)
+    {
+        var words = page.GetWords().ToList();
+        var lines = GroupIntoLines(words);
+        var tableHeader = FindTableHeader(lines);
+
+        if (tableHeader is not null)
         {
-            OrderBlocks = orderBlocks,
-            SummaryPageFound = summaryPageFound,
-            SummaryOrderIdentifiers = summaryOrderIdentifiers,
-        };
+            state.OrderBlocks.Add(new RawOrderBlock
+            {
+                OrderIdentifier = ExtractOrderIdentifier(lines),
+                ProductLines = ExtractProductLines(words, lines, tableHeader),
+            });
+            return;
+        }
+
+        var identifiers = words
+            .Select(word => word.Text.Trim())
+            .Where(text => SummaryOrderIdentifierPattern().IsMatch(text))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (identifiers.Count > 0)
+        {
+            state.SummaryPageFound = true;
+            state.SummaryOrderIdentifiers.AddRange(identifiers);
+        }
     }
 
     private static string? ExtractOrderIdentifier(IReadOnlyList<TextLine> lines)
@@ -168,4 +174,20 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
     private static partial Regex CurrencyAmountPattern();
 
     private sealed record TextLine(double Bottom, List<Word> Words);
+
+    private sealed class ParseState
+    {
+        public List<RawOrderBlock> OrderBlocks { get; } = [];
+
+        public bool SummaryPageFound { get; set; }
+
+        public List<string> SummaryOrderIdentifiers { get; } = [];
+
+        public ParsedPackingSlip ToResult() => new()
+        {
+            OrderBlocks = OrderBlocks,
+            SummaryPageFound = SummaryPageFound,
+            SummaryOrderIdentifiers = SummaryOrderIdentifiers,
+        };
+    }
 }

@@ -43,6 +43,20 @@ public class RejectionTests
     }
 
     [Fact]
+    public async Task ImportAsync_ReadableNonPackingSlip_RecordsUnreadablePdfWithoutOrderResults()
+    {
+        await using var context = ImportTestSupport.CreateInMemoryContext();
+        var final = await ImportTestSupport.ImportFixtureAsync(
+            ImportTestSupport.CreateService(context), "not-a-packing-slip.pdf");
+
+        Assert.Equal(FailureType.UnreadablePdf, final.ImportAttempt.AttemptFailureCode);
+        Assert.Contains("recognizable order", final.ImportAttempt.AttemptFailureMessage,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(final.ImportAttempt.ImportOrderResults);
+        Assert.Empty(await context.Orders.ToListAsync());
+    }
+
+    [Fact]
     public async Task ImportAsync_SummaryMismatch_RejectsAttemptBeforePersistingOrders()
     {
         await using var context = ImportTestSupport.CreateInMemoryContext();

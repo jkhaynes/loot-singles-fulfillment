@@ -12,7 +12,9 @@ public static partial class OrderLineExtractor
         var segments = source.RawDescription.Split(" - ", StringSplitOptions.TrimEntries);
         if (segments.Length < 4)
         {
-            throw new FormatException($"Product description has an unexpected format: '{source.RawDescription}'.");
+            throw new OrderLineExtractionException(
+                FailureType.MissingProductName,
+                $"Product description has an unexpected format: '{source.RawDescription}'.");
         }
 
         var collectorIndex = Array.FindIndex(
@@ -21,14 +23,18 @@ public static partial class OrderLineExtractor
             segment => CollectorNumberPattern().IsMatch(segment));
         if (collectorIndex < 0)
         {
-            throw new FormatException($"Product description has no collector number: '{source.RawDescription}'.");
+            throw new OrderLineExtractionException(
+                FailureType.MissingCollectorNumber,
+                $"Product description has no collector number: '{source.RawDescription}'.");
         }
 
         var setAndProduct = string.Join(" - ", segments.Skip(1).Take(collectorIndex - 1));
         var separator = setAndProduct.LastIndexOf(':');
         if (separator < 0)
         {
-            throw new FormatException($"Product description has no set/product separator: '{source.RawDescription}'.");
+            throw new OrderLineExtractionException(
+                FailureType.MissingProductName,
+                $"Product description has no set/product separator: '{source.RawDescription}'.");
         }
 
         var productName = setAndProduct[(separator + 1)..].Trim();

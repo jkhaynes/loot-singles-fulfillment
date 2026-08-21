@@ -15,13 +15,14 @@ public static class OrderLineValidator
         {
             orderLine = OrderLineExtractor.Extract(source);
         }
-        catch (FormatException exception) when (exception.Message.Contains("collector number", StringComparison.Ordinal))
+        catch (OrderLineExtractionException exception)
         {
-            return Invalid(FailureType.MissingCollectorNumber, $"Collector number is missing or unreadable for product line '{source.RawDescription}'.");
-        }
-        catch (FormatException)
-        {
-            return Invalid(FailureType.MissingProductName, $"Product name is missing or unreadable for product line '{source.RawDescription}'.");
+            var field = exception.FailureType == FailureType.MissingCollectorNumber
+                ? "Collector number"
+                : "Product name";
+            return Invalid(
+                exception.FailureType,
+                $"{field} is missing or unreadable for product line '{source.RawDescription}'.");
         }
 
         if (string.IsNullOrWhiteSpace(orderLine.ProductName))

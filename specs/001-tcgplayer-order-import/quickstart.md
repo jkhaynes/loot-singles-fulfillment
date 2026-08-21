@@ -73,3 +73,20 @@ For any successfully imported `OrderLine`, compare its `RawDescription` field ag
 Enumerate `ImportAsync`'s updates for the ~200-order-scale fixture (or a synthetic large fixture if a real one isn't available) without discarding intermediate values.
 
 **Expect**: `OrdersProcessed`, `SucceededCount`, and `FailedCount` increase monotonically across updates; `OrdersDetected` is stable and correct once the file has been scanned; the final update has `IsComplete = true`.
+
+## Validation record
+
+Validated on 2026-08-20 with `dotnet test backend/LootSingles.sln --no-restore`:
+
+| Scenario | Automated coverage | Result |
+|---|---|---|
+| Valid import | `ValidImportTests` | Pass |
+| Partial import | `PartialImportTests` | Pass |
+| Defensive rejection | `RejectionTests`, `AtomicPersistenceTests` | Pass |
+| Duplicate detection and race | `DuplicateOrderTests` | Pass |
+| Condition/variant disambiguation | `ConditionVariantParserTests`, `OrderLineExtractionTests` | Pass |
+| No retained customer PII or PDF | `PiiExclusionTests`, `PiiRetentionTests` | Pass |
+| Raw description retained | `OrderLineExtractionTests`, `ValidImportTests` | Pass |
+| Observable progress | `ProgressReportingTests` | Pass |
+
+The resolved NuGet dependency graph was also reviewed from `project.assets.json` and each package's local `.nuspec`/license metadata. Dependencies use permissive MIT, Apache-2.0, BSD-style, or Microsoft redistributable terms; no AGPL or commercial-only dependency is present. PdfPig is Apache-2.0 licensed (its custom package's `.nuspec` omits the license field, so this was verified against the upstream repository).

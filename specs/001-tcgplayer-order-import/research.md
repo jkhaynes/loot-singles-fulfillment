@@ -4,7 +4,7 @@
 
 **Decision**: PdfPig (`UglyToad.PdfPig`)
 
-**Rationale**: Pure managed .NET library (no native/unmanaged dependency to deploy on Azure Container Apps), MIT-licensed (no cost or licensing risk for a low-cost internal tool, Constitution XI), actively maintained, and exposes per-page text with word/line positioning — needed to reliably detect page boundaries (one order per page, per the real example file) and to parse the line-item table's column structure (Quantity | Description | Price | Total Price) rather than treating the page as one flat text blob.
+**Rationale**: Pure managed .NET library (no native/unmanaged dependency to deploy on Azure Container Apps), Apache-2.0-licensed (no cost or licensing conflict for a low-cost internal tool, Constitution XI), actively maintained, and exposes per-page text with word/line positioning — needed to reliably detect page boundaries (one order per page, per the real example file) and to parse the line-item table's column structure (Quantity | Description | Price | Total Price) rather than treating the page as one flat text blob.
 
 **Alternatives considered**:
 - **iText7** — strong extraction quality, but its free tier is AGPL, which requires either open-sourcing this proprietary internal tool or purchasing a commercial license. Rejected on licensing/cost grounds (Constitution XI: prioritize low, predictable cost).
@@ -47,6 +47,8 @@
 
 **Alternatives considered**:
 - **One `SaveChangesAsync()` for the entire batch** — would make the whole batch atomic (contradicting FR-005's partial-import requirement: a single order's persistence failure would roll back every other successfully-parsed order in the same file). Rejected.
+
+**Failure classification within the per-order boundary**: Every failure encountered while saving one order — whether a duplicate-key violation or any other persistence failure — is caught within the per-order loop and recorded as a typed `ImportOrderResult` rejection (`DuplicateOrder` for the former, a distinct code for the latter), never allowed to propagate as an exception. This is required by "continues to the next order" above: an uncaught exception would abort the `IAsyncEnumerable` and prevent every subsequent order in the batch from being attempted, directly violating FR-016's "MUST NOT prevent other, independent orders... from still being persisted." Exception propagation is reserved for failures outside this per-order boundary (see contracts/import-service.md). This was corrected on 2026-08-20 after `/code-design-review` found an interim implementation (T059) had let non-duplicate persistence failures propagate as exceptions, which — while matching a too-broadly-written earlier version of contracts/import-service.md — silently violated this decision and FR-016 for the multi-order-batch case; no test at the time combined a multi-order fixture with a persistence-failure interceptor, so the regression wasn't caught until manual review.
 
 ## 6. Duplicate-order race safety (FR-008)
 

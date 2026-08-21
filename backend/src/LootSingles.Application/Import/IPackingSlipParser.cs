@@ -11,11 +11,14 @@ namespace LootSingles.Application.Import;
 public interface IPackingSlipParser
 {
     /// <summary>
-    /// Parses a packing slip PDF into one raw block per order page, plus the detected
-    /// summary/index page's order-identifier list (if present) for the FR-013 cross-check.
+    /// Incrementally parses a packing slip PDF, reporting the number of order pages
+    /// discovered so far and returning the complete raw result in the final update.
     /// Performs no field-level validation — that is the caller's responsibility once this
     /// raw data is extracted.
     /// </summary>
     /// <param name="packingSlipPdf">A readable stream of the packing slip PDF's bytes.</param>
-    ParsedPackingSlip Parse(Stream packingSlipPdf);
+    /// <param name="cancellationToken">Stops parsing without converting cancellation into a rejection.</param>
+    IAsyncEnumerable<PackingSlipParseUpdate> ParseAsync(
+        Stream packingSlipPdf,
+        CancellationToken cancellationToken = default);
 }

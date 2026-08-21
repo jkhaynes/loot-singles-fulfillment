@@ -64,9 +64,11 @@ Represents the outcome for one order within an `ImportAttempt` (spec Key Entitie
 | ImportAttemptId | FK → ImportAttempt | Required. Belongs to exactly one ImportAttempt |
 | SourceOrderIdentifier | string, nullable | Null only when the identifier itself could not be read (`MissingOrderIdentifier`) |
 | Outcome | enum | `Succeeded` \| `Rejected` |
-| FailureCode | enum, nullable | One of `MissingOrderIdentifier`, `NoProductLines`, `InvalidQuantity`, `MissingProductName`, `MissingSet`, `MissingCollectorNumber`, `MissingCondition`, `DuplicateOrder` (FR-006). Required when `Outcome = Rejected`; null when `Succeeded` |
+| FailureCode | enum, nullable | One of `MissingOrderIdentifier`, `NoProductLines`, `InvalidQuantity`, `MissingProductName`, `MissingSet`, `MissingCollectorNumber`, `MissingCondition`, `DuplicateOrder` (FR-006), or `PersistenceFailure`. Required when `Outcome = Rejected`; null when `Succeeded` |
 | FailureMessage | string, nullable | Human-readable detail; required when `Outcome = Rejected` |
 | ResultingOrderId | FK → Order, nullable | Set when `Outcome = Succeeded`; null when `Rejected` |
+
+`PersistenceFailure` is not one of FR-006's minimum-set codes (FR-006 says "at minimum," not "exactly") — it exists to satisfy FR-016: a genuine, non-duplicate persistence error while saving this order MUST be represented as a typed rejection here rather than an exception, or it would block sibling orders in the same batch from being persisted (research.md §5). It is distinct from the FR-005 validation-failure codes above: those are raised *before* persistence is attempted (the order was never confidently reconstructible), while `PersistenceFailure` is raised *during* persistence of an order that already passed validation.
 
 ## Relationships
 

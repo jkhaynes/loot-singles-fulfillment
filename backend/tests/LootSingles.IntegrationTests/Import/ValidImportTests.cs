@@ -58,7 +58,15 @@ public class ValidImportTests
         foreach (var fixtureName in fixtureNames)
         {
             await using var expectedStream = OpenFixture(fixtureName);
-            expectedOrders.AddRange(parser.Parse(expectedStream).OrderBlocks);
+            ParsedPackingSlip? expectedPackingSlip = null;
+            await foreach (var update in parser.ParseAsync(expectedStream))
+            {
+                if (update.IsComplete)
+                {
+                    expectedPackingSlip = update.PackingSlip;
+                }
+            }
+            expectedOrders.AddRange(Assert.IsType<ParsedPackingSlip>(expectedPackingSlip).OrderBlocks);
 
             await using var importStream = OpenFixture(fixtureName);
             await foreach (var _ in service.ImportAsync(importStream, CancellationToken.None))

@@ -17,19 +17,54 @@ public sealed class PackingSlipImportService(
 
         ParsedPackingSlip? parsed = null;
         string? unreadableMessage = null;
-        try
+        await using var parseEnumerator = parser.ParseAsync(packingSlipPdf, cancellationToken)
+            .GetAsyncEnumerator(cancellationToken);
+        while (true)
         {
-            parsed = parser.Parse(packingSlipPdf);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            unreadableMessage = $"The supplied file could not be read as a packing-slip PDF: {exception.Message}";
+            PackingSlipParseUpdate? parseUpdate = null;
+            bool hasNext;
+            try
+            {
+                hasNext = await parseEnumerator.MoveNextAsync();
+                if (hasNext)
+                {
+                    parseUpdate = parseEnumerator.Current;
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                unreadableMessage = $"The supplied file could not be read as a packing-slip PDF: {exception.Message}";
+                break;
+            }
+
+            if (!hasNext)
+            {
+                break;
+            }
+
+            if (parseUpdate!.IsComplete)
+            {
+                parsed = parseUpdate.PackingSlip;
+                break;
+            }
+
+            yield return Update(parseUpdate.OrdersDetected, 0, 0, 0, false, attempt);
         }
 
         if (parsed is null)
         {
             attempt.AttemptFailureCode = FailureType.UnreadablePdf;
             attempt.AttemptFailureMessage = unreadableMessage;
+            await CompleteAttemptAsync(attempt, cancellationToken);
+            yield return Update(0, 0, 0, 0, true, attempt);
+            yield break;
+        }
+
+        if (parsed.OrderBlocks.Count == 0)
+        {
+            attempt.AttemptFailureCode = FailureType.UnreadablePdf;
+            attempt.AttemptFailureMessage =
+                "The supplied PDF does not contain any recognizable order pages from a packing slip.";
             await CompleteAttemptAsync(attempt, cancellationToken);
             yield return Update(0, 0, 0, 0, true, attempt);
             yield break;
@@ -88,7 +123,7 @@ public sealed class PackingSlipImportService(
                         exception.IsDuplicate ? FailureType.DuplicateOrder : FailureType.PersistenceFailure,
                         exception.IsDuplicate
                             ? $"Order '{block.OrderIdentifier}' was already imported by a concurrent operation."
-                            : $"Order '{block.OrderIdentifier}' could not be persisted atomically: {exception.InnerException?.Message}");
+                            : $"Order '{block.OrderIdentifier}' could not be saved; no order or product lines were retained. Retry the import or contact support if the problem continues.");
                     failed++;
                 }
             }
