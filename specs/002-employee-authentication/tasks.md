@@ -250,3 +250,9 @@ Task: "Create IEmployeeRepository interface in backend/src/LootSingles.Applicati
 - `[Story]` label maps each task to its user story for traceability.
 - Constitution Principle IV requires every test task to fail for the expected reason before its implementation task begins.
 - Commit after each task or logical group; stop at any checkpoint to validate a story independently.
+
+---
+
+## Phase 9: Convergence
+
+- [X] T058 [P] Add a full-HTTP integration test proving deactivation immediately invalidates an already-active session: log in as employee X on one client to obtain a session cookie, use a separate authenticated Manager/Admin client against the same `AuthWebApplicationFactory` to call `POST /api/employees/{X.Id}/deactivate`, then reuse X's original client/cookie to make a follow-up request (e.g. `GET /api/auth/me`) and assert `401` — the literal quickstart.md scenario 13 flow through the real HTTP pipeline, not the existing synthetic `ValidatePrincipal`-only test in `SessionInvalidationTests.cs` per SC-008 (partial)

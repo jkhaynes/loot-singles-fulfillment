@@ -23,13 +23,13 @@ model. The browser scenarios ran against the Playwright-managed E2E API host and
 | 10 | Picker cannot perform admin actions | PASS | `PickerReceivesForbiddenFromEveryEmployeeEndpoint` exercises every employee-management route |
 | 11 | Session survives reload and expires after inactivity | PASS | Playwright reload flow; `SessionCookie_AuthenticatesAcrossSeparateRequests`; `SessionCookie_AfterThirtyMinutesOfInactivity_ReturnsUnauthorized` with an advanced server clock |
 | 12 | Explicit logout | PASS | Playwright logout/re-login requirement; `Logout_EndsSessionImmediately` |
-| 13 | Deactivation immediately invalidates an active session | PASS | `ValidatePrincipal_EmployeeDeactivatedSinceIssuance_RejectsThePrincipal` |
+| 13 | Deactivation immediately invalidates an active session | PASS | `Deactivation_ViaRealEndpoint_InvalidatesAlreadyActiveSessionOnNextRequest` (full HTTP-pipeline flow); `ValidatePrincipal_EmployeeDeactivatedSinceIssuance_RejectsThePrincipal` (event-handler unit coverage) |
 | 14 | Auditability | PASS | Login/logout audit assertions; `Manager_CanCreateListAndReadAuditEvents`; management-service audit assertions |
 
-Targeted execution totals:
+Targeted execution totals (updated after the `/code-design-review` and `/speckit-converge` follow-up work, T053–T058):
 
-- Authentication unit tests: 21 passed, 0 failed.
-- Authentication integration tests: 19 passed, 0 failed.
+- Authentication unit tests: 41 passed, 0 failed.
+- Authentication integration tests: 21 passed, 0 failed.
 - Playwright browser tests: 2 passed, 0 failed.
 
 ## PIN and Credential Logging Audit

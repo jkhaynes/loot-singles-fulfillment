@@ -1,4 +1,7 @@
+using System.Net;
+using System.Net.Http.Json;
 using System.Security.Claims;
+using LootSingles.Api.Controllers;
 using LootSingles.Application.Auth;
 using LootSingles.Domain.Employees;
 using LootSingles.Infrastructure.Auth;
@@ -14,6 +17,53 @@ namespace LootSingles.IntegrationTests.Auth;
 
 public class SessionInvalidationTests
 {
+    [Fact]
+    public async Task Deactivation_ViaRealEndpoint_InvalidatesAlreadyActiveSessionOnNextRequest()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var target = await SeedEmployeeAsync(factory, "sessiontarget", "1234", EmployeeRole.Picker);
+        await SeedEmployeeAsync(factory, "sessionmanager", "1234", EmployeeRole.ManagerAdmin);
+
+        using var targetClient = factory.CreateAuthenticatedClient();
+        Assert.Equal(HttpStatusCode.OK, (await targetClient.PostAsJsonAsync(
+            "/api/auth/login", new LoginRequest("sessiontarget", "1234"))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await targetClient.GetAsync("/api/auth/me")).StatusCode);
+
+        using var managerClient = factory.CreateAuthenticatedClient();
+        Assert.Equal(HttpStatusCode.OK, (await managerClient.PostAsJsonAsync(
+            "/api/auth/login", new LoginRequest("sessionmanager", "1234"))).StatusCode);
+
+        Assert.Equal(HttpStatusCode.NoContent,
+            (await managerClient.PostAsync($"/api/employees/{target.Id}/deactivate", null)).StatusCode);
+
+        var response = await targetClient.GetAsync("/api/auth/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    private static async Task<Employee> SeedEmployeeAsync(
+        AuthWebApplicationFactory factory, string username, string pin, EmployeeRole role)
+    {
+        var hasher = new Pbkdf2PinHasher();
+        var employee = new Employee
+        {
+            Username = username,
+            NormalizedUsername = username.ToUpperInvariant(),
+            DisplayName = username,
+            PinHash = hasher.Hash(pin),
+            Role = role,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+        await factory.SeedAsync(context =>
+        {
+            context.Employees.Add(employee);
+            return Task.CompletedTask;
+        });
+
+        return employee;
+    }
+
     [Fact]
     public async Task ValidatePrincipal_EmployeeDeactivatedSinceIssuance_RejectsThePrincipal()
     {
