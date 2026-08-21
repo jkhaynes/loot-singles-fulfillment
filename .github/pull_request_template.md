@@ -35,6 +35,7 @@ Does the implementation match the approved specification?
 - [ ] Tests added or updated
 - [ ] Test suite passes
 - [ ] Specification compliance verified
+- [ ] `/code-design-review` completed with zero remaining Must Fix findings
 - [ ] Relevant Playwright validation completed
 - [ ] No secrets committed
 - [ ] No plaintext PINs stored
