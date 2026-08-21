@@ -1,28 +1,37 @@
 <!--
 Sync Impact Report
-Version change: 3.1.0 → 3.2.0
-MINOR — added a new, mandatory engineering standards section governing Entity Framework Core
-querying, tracking, persistence, relationship loading, bulk operations, cancellation, and
-performance review. No Core Principle (I-XIII) was added, removed, redefined, or weakened.
-
-Added sections:
-  - Entity Framework Core Engineering Standards
-    Establishes testable rules for async database I/O, synchronous change-tracker additions,
-    no-tracking reads, projection, server-side query execution, existence checks, pagination,
-    intentional relationship loading, DbContext lifetime and threading, unit-of-work saves,
-    set-based bulk operations, cancellation propagation, and generated-query review.
+Version change: 3.2.0 → 3.3.0
+MINOR — strengthened Principle XIII's duplication-consolidation guidance from a SHOULD to a MUST,
+with an explicit trigger and required action, and cross-referenced it from Principle III so the
+required consolidation is not mistaken for the unrelated refactoring that principle forbids
+bundling into a feature. No Core Principle (I-XIII) was removed or redefined in a way that
+weakens governance.
 
 Modified principles:
+  III. Small, Reviewable Changes — added a cross-reference clarifying that consolidating a
+    newly-recognized duplicate concept per Principle XIII is in-scope for the current change, not
+    unrelated refactoring, provided it is captured as a task for traceability.
+  XIII. Simplicity and Proportional Abstraction — the duplication-consolidation guidance was
+    strengthened from SHOULD to MUST: once a second concrete use case shows an existing type,
+    helper, or abstraction already solves the same problem a change is about to duplicate, the
+    design MUST consolidate into a shared implementation as part of that same change, not as a
+    new one-off duplicate and not deferred to a future task.
+
+Added sections:
   None.
 
 Removed sections:
   None.
 
 Rationale:
-The constitution had general persistence and efficiency guidance but no explicit EF Core standard.
-This amendment makes the intended database-access practices reviewable and prevents mechanical use
-of asynchronous APIs, unnecessary tracking or materialization, avoidable round trips, and unsafe
-DbContext usage.
+During code-design-review follow-up work on feature 002-employee-authentication, a fix introduced
+a new `DuplicateUsernameException` that duplicated the exact purpose of the already-existing
+`OrderPersistenceException` from feature 001 (both translate a provider-specific database
+unique-constraint exception into a typed Application-layer exception, per Principle XII's rule
+against Application/Domain code depending on EF Core types directly). The Developer's correction —
+don't recreate an object the codebase already has; once there is more than one use case, refactor
+it as part of the current work — is now a durable, checkable constitution rule rather than a
+one-off note, so it is enforced consistently across future features and reviews.
 
 Follow-up TODOs: None.
 -->
@@ -60,6 +69,8 @@ Each feature is developed on its own branch or worktree, scoped to one approved 
 Changes SHOULD be kept small enough that their behavior, architectural impact, and test evidence can be meaningfully reviewed.
 
 Unrelated refactoring MUST NOT be bundled into a feature merely because nearby code could also be improved. When a required architectural correction is necessary to implement the approved feature safely or maintainably, it MUST be represented in the plan and task breakdown.
+
+Consolidating a newly-recognized duplicate concept into a shared implementation, as Principle XIII requires the moment a second concrete use case appears, is not the unrelated refactoring this rule forbids — it is in-scope for the current change, provided it is captured as a task in the task breakdown for traceability.
 
 ### IV. Test-Driven Development (NON-NEGOTIABLE)
 
@@ -214,7 +225,7 @@ An abstraction MUST NOT be introduced solely because a design pattern could appl
 
 A single implementation MAY remain concrete when no meaningful substitution, dependency boundary, or variation point exists.
 
-Duplication MAY be temporarily preferable to premature abstraction when the correct shared concept is not yet understood. Once duplicated behavior is clearly the same business or domain concept, the design SHOULD consolidate it at the appropriate boundary.
+Duplication MAY be temporarily preferable to premature abstraction when the correct shared concept is not yet understood. Once a second concrete use case shows that an existing type, helper, or abstraction already in the codebase solves the same problem a change is about to duplicate, the design MUST consolidate into a shared implementation as part of that same change — not as a new one-off duplicate, and not deferred to a future task. Recognizing and merging a newly-duplicated concept the moment a second use case appears is itself the correct scope for the current change, not the unrelated refactoring Principle III forbids bundling into unrelated work.
 
 Plans MUST explain non-obvious abstractions and the concrete problem each one solves.
 
@@ -411,4 +422,4 @@ Safety-related principles, including Sections V, VI, and VII, MUST NOT be weaken
 
 Changes to maintainability or simplicity principles MUST preserve the balance between reasonable extensibility and avoiding speculative over-engineering.
 
-**Version**: 3.2.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-21
+**Version**: 3.3.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-21
