@@ -1,34 +1,37 @@
 <!--
 Sync Impact Report
-Version change: 3.0.0 → 3.1.0
-MINOR — added a required post-implementation review gate to the development workflow. No Core
-Principle (I-XIII) was added, removed, redefined, or weakened by this amendment.
-
-Added:
-  - Spec Kit Ownership
-    "Code and design review" added to the structured feature lifecycle list, positioned between
-    Implementation and Convergence verification. Clarified that a Must Fix finding from this gate
-    rooted in a flawed technical plan returns to /speckit-plan, and one rooted in an unresolved or
-    contradictory requirement returns to /speckit-clarify — the same routing already required for
-    problems implementation itself surfaces. Ordinary implementation-level Must Fix findings are
-    captured as new tasks in the feature's existing tasks.md, not a separate tracker; Advisory
-    findings do not block completion.
-  - Development Workflow
-    Inserted "automated build/tests" and "code and design review (/code-design-review)" between
-    Spec Kit implementation and convergence verification, with a repeat-until-clean loop mirroring
-    the existing convergence repeat rule. Added a clarifying note distinguishing this gate (reviews
-    the actual implementation) from the pre-implementation human architecture and changeability
-    review earlier in the same list (reviews the proposed design).
+Version change: 3.2.0 → 3.3.0
+MINOR — strengthened Principle XIII's duplication-consolidation guidance from a SHOULD to a MUST,
+with an explicit trigger and required action, and cross-referenced it from Principle III so the
+required consolidation is not mistaken for the unrelated refactoring that principle forbids
+bundling into a feature. No Core Principle (I-XIII) was removed or redefined in a way that
+weakens governance.
 
 Modified principles:
+  III. Small, Reviewable Changes — added a cross-reference clarifying that consolidating a
+    newly-recognized duplicate concept per Principle XIII is in-scope for the current change, not
+    unrelated refactoring, provided it is captured as a task for traceability.
+  XIII. Simplicity and Proportional Abstraction — the duplication-consolidation guidance was
+    strengthened from SHOULD to MUST: once a second concrete use case shows an existing type,
+    helper, or abstraction already solves the same problem a change is about to duplicate, the
+    design MUST consolidate into a shared implementation as part of that same change, not as a
+    new one-off duplicate and not deferred to a future task.
+
+Added sections:
+  None.
+
+Removed sections:
   None.
 
 Rationale:
-Implementation review previously relied on ad hoc human code review with no structured gate tied
-to this constitution's own architecture, maintainability, and safe-failure principles. Adding a
-defined post-implementation review step, with a Must Fix / Advisory classification that routes
-findings back into the existing tasks.md rather than a competing tracker, closes that gap without
-introducing a second development methodology alongside Spec Kit.
+During code-design-review follow-up work on feature 002-employee-authentication, a fix introduced
+a new `DuplicateUsernameException` that duplicated the exact purpose of the already-existing
+`OrderPersistenceException` from feature 001 (both translate a provider-specific database
+unique-constraint exception into a typed Application-layer exception, per Principle XII's rule
+against Application/Domain code depending on EF Core types directly). The Developer's correction —
+don't recreate an object the codebase already has; once there is more than one use case, refactor
+it as part of the current work — is now a durable, checkable constitution rule rather than a
+one-off note, so it is enforced consistently across future features and reviews.
 
 Follow-up TODOs: None.
 -->
@@ -66,6 +69,8 @@ Each feature is developed on its own branch or worktree, scoped to one approved 
 Changes SHOULD be kept small enough that their behavior, architectural impact, and test evidence can be meaningfully reviewed.
 
 Unrelated refactoring MUST NOT be bundled into a feature merely because nearby code could also be improved. When a required architectural correction is necessary to implement the approved feature safely or maintainably, it MUST be represented in the plan and task breakdown.
+
+Consolidating a newly-recognized duplicate concept into a shared implementation, as Principle XIII requires the moment a second concrete use case appears, is not the unrelated refactoring this rule forbids — it is in-scope for the current change, provided it is captured as a task in the task breakdown for traceability.
 
 ### IV. Test-Driven Development (NON-NEGOTIABLE)
 
@@ -220,13 +225,66 @@ An abstraction MUST NOT be introduced solely because a design pattern could appl
 
 A single implementation MAY remain concrete when no meaningful substitution, dependency boundary, or variation point exists.
 
-Duplication MAY be temporarily preferable to premature abstraction when the correct shared concept is not yet understood. Once duplicated behavior is clearly the same business or domain concept, the design SHOULD consolidate it at the appropriate boundary.
+Duplication MAY be temporarily preferable to premature abstraction when the correct shared concept is not yet understood. Once a second concrete use case shows that an existing type, helper, or abstraction already in the codebase solves the same problem a change is about to duplicate, the design MUST consolidate into a shared implementation as part of that same change — not as a new one-off duplicate, and not deferred to a future task. Recognizing and merging a newly-duplicated concept the moment a second use case appears is itself the correct scope for the current change, not the unrelated refactoring Principle III forbids bundling into unrelated work.
 
 Plans MUST explain non-obvious abstractions and the concrete problem each one solves.
 
 The number of interfaces, layers, classes, or patterns in a design is not a measure of architectural quality.
 
 The goal is understandable, testable, changeable software with intentional boundaries and no unnecessary machinery.
+
+## Entity Framework Core Engineering Standards
+
+EF Core code MUST favor correctness, clear intent, and efficient database access. Do not use EF
+features mechanically; choose behavior based on whether the operation actually requires database
+I/O, change tracking, or entity materialization.
+
+- **Use async only for operations that perform asynchronous database I/O.** Prefer `ToListAsync`,
+  `SingleOrDefaultAsync`, `AnyAsync`, `SaveChangesAsync`, `ExecuteUpdateAsync`, and similar methods
+  when database access occurs. Do not use `AddAsync` or `AddRangeAsync` by default; normal entity
+  adds only modify EF's in-memory change tracker and MUST use `Add` or `AddRange`. `AddAsync` is
+  appropriate only when an asynchronous value generator actually requires it.
+
+- **Use `AsNoTracking()` for read-only entity queries.** Queries whose entities will be modified
+  and persisted through the current `DbContext` MUST remain tracked. Do not add tracking when it
+  provides no value.
+
+- **Prefer projection for read models.** When callers only need part of an entity, use `Select` to
+  retrieve the required fields or DTO rather than materializing the complete entity graph.
+
+- **Keep query execution in the database.** Apply filtering, sorting, projection, and limiting
+  before materializing with `ToListAsync` or similar operations. Do not load an entire dataset into
+  memory and then filter it when the database can perform the operation.
+
+- **Avoid unnecessary database work.** Use `AnyAsync()` for existence checks rather than retrieving
+  entities or using `CountAsync() > 0`. Limit or paginate potentially large result sets.
+
+- **Load relationships intentionally.** Only `Include` relationships required by the operation.
+  Avoid patterns that introduce N+1 queries or unnecessarily large entity graphs. When multiple
+  collection includes could produce a Cartesian explosion, evaluate projection or `AsSplitQuery()`
+  rather than adding more joins blindly.
+
+- **Treat `DbContext` as a short-lived unit of work.** Do not store it as a singleton or share it
+  across threads. EF Core does not support parallel operations against the same `DbContext`; await
+  database operations before using that context again.
+
+- **Minimize database round trips.** Accumulate related tracked changes and normally call
+  `SaveChangesAsync` once per logical unit of work rather than after every entity modification.
+
+- **Prefer set-based operations for bulk changes.** When many rows can be updated or deleted
+  directly in the database, consider `ExecuteUpdateAsync` or `ExecuteDeleteAsync` instead of
+  loading, tracking, and modifying every entity. Be careful when mixing these operations with
+  already tracked entities because they bypass EF's change tracker.
+
+- **Propagate cancellation tokens** through async EF operations when the calling operation provides
+  one.
+
+- **Review generated query behavior when performance matters.** Consider query shape, indexes,
+  number of rows returned, joins, and database round trips rather than assuming a concise LINQ
+  expression is efficient.
+
+When multiple EF Core approaches are valid, prefer the simplest approach that produces correct
+SQL, minimizes unnecessary tracking and materialization, and remains clear to future maintainers.
 
 ## Spec Kit Ownership
 
@@ -364,4 +422,4 @@ Safety-related principles, including Sections V, VI, and VII, MUST NOT be weaken
 
 Changes to maintainability or simplicity principles MUST preserve the balance between reasonable extensibility and avoiding speculative over-engineering.
 
-**Version**: 3.1.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-20
+**Version**: 3.3.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-21
