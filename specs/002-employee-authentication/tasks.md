@@ -29,10 +29,10 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 **Purpose**: Add the one new backend package this feature needs, and scaffold the frontend project (first use in this repo).
 
-- [ ] T001 Add a `Microsoft.AspNetCore.Identity` package reference (for the standalone `PasswordHasher<T>` primitive, research.md §1) to `backend/src/LootSingles.Infrastructure/LootSingles.Infrastructure.csproj`
-- [ ] T002 [P] Scaffold the `frontend/` React + TypeScript + Vite project: `frontend/package.json`, `frontend/tsconfig.json`, `frontend/vite.config.ts`, `frontend/index.html`, `frontend/src/main.tsx`, `frontend/src/App.tsx`
-- [ ] T003 [P] Configure frontend unit testing (Vitest + React Testing Library) in `frontend/package.json` and `frontend/vitest.config.ts`
-- [ ] T004 [P] Configure Playwright for the frontend in `frontend/playwright.config.ts` and `frontend/e2e/` directory
+- [X] T001 Add a `Microsoft.Extensions.Identity.Core` package reference (the minimal package containing `PasswordHasher<T>` without pulling in EF Core-backed Identity stores, research.md §1) to `backend/src/LootSingles.Infrastructure/LootSingles.Infrastructure.csproj`
+- [X] T002 [P] Scaffold the `frontend/` React + TypeScript + Vite project: `frontend/package.json`, `frontend/tsconfig.json`, `frontend/vite.config.ts`, `frontend/index.html`, `frontend/src/main.tsx`, `frontend/src/App.tsx`
+- [X] T003 [P] Configure frontend unit testing (Vitest + React Testing Library) in `frontend/package.json` and `frontend/vitest.config.ts`
+- [X] T004 [P] Configure Playwright for the frontend in `frontend/playwright.config.ts` and `frontend/e2e/` directory
 
 ---
 
