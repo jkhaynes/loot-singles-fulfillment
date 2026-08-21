@@ -13,11 +13,11 @@ public interface IEmployeeRepository
 
     Task<Employee?> GetByIdAsync(int id, CancellationToken cancellationToken);
 
-    Task AddAsync(Employee employee, CancellationToken cancellationToken);
+    void Add(Employee employee);
 
     Task<IReadOnlyList<Employee>> ListAsync(CancellationToken cancellationToken);
 
-    Task AddAuditEventAsync(EmployeeAuditEvent auditEvent, CancellationToken cancellationToken);
+    void AddAuditEvent(EmployeeAuditEvent auditEvent);
 
     Task<IReadOnlyList<EmployeeAuditEvent>> GetAuditEventsAsync(int employeeId, CancellationToken cancellationToken);
 

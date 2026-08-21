@@ -29,6 +29,7 @@ if (lockoutOptions.FailedAttemptThreshold < 1)
 }
 builder.Services.AddSingleton(lockoutOptions);
 builder.Services.AddScoped<AuthenticationService>();
+builder.Services.AddScoped<EmployeeManagementService>();
 builder.Services.AddScoped<EmployeeSessionCookieEvents>();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

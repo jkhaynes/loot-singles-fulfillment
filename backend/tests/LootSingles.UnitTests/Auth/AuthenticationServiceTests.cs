@@ -186,19 +186,17 @@ public class AuthenticationServiceTests
         public Task<Employee?> GetByIdAsync(int id, CancellationToken cancellationToken) =>
             Task.FromResult(Employees.SingleOrDefault(employee => employee.Id == id));
 
-        public Task AddAsync(Employee employee, CancellationToken cancellationToken)
+        public void Add(Employee employee)
         {
             Employees.Add(employee);
-            return Task.CompletedTask;
         }
 
         public Task<IReadOnlyList<Employee>> ListAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<Employee>>(Employees);
 
-        public Task AddAuditEventAsync(EmployeeAuditEvent auditEvent, CancellationToken cancellationToken)
+        public void AddAuditEvent(EmployeeAuditEvent auditEvent)
         {
             AuditEvents.Add(auditEvent);
-            return Task.CompletedTask;
         }
 
         public Task<IReadOnlyList<EmployeeAuditEvent>> GetAuditEventsAsync(int employeeId, CancellationToken cancellationToken) =>

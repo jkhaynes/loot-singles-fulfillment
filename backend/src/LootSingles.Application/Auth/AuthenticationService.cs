@@ -40,14 +40,13 @@ public sealed class AuthenticationService(
         }
 
         employee.FailedAttemptCount = 0;
-        await repository.AddAuditEventAsync(
+        repository.AddAuditEvent(
             new EmployeeAuditEvent
             {
                 ActorEmployeeId = employee.Id,
                 ActionType = EmployeeAuditActionType.Login,
                 OccurredAt = DateTimeOffset.UtcNow,
-            },
-            cancellationToken);
+            });
         await repository.SaveChangesAsync(cancellationToken);
 
         return AuthenticationResult.Success(employee);

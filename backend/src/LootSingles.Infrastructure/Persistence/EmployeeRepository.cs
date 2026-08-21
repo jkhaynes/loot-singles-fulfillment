@@ -15,27 +15,25 @@ public class EmployeeRepository(LootSinglesDbContext context) : IEmployeeReposit
     public Task<Employee?> GetByIdAsync(int id, CancellationToken cancellationToken) =>
         context.Employees.SingleOrDefaultAsync(employee => employee.Id == id, cancellationToken);
 
-    public Task AddAsync(Employee employee, CancellationToken cancellationToken)
-    {
-        context.Employees.Add(employee);
-        return Task.CompletedTask;
-    }
+    public void Add(Employee employee) => context.Employees.Add(employee);
 
     public async Task<IReadOnlyList<Employee>> ListAsync(CancellationToken cancellationToken) =>
         await context.Employees.AsNoTracking().OrderBy(employee => employee.Username).ToListAsync(cancellationToken);
 
-    public Task AddAuditEventAsync(EmployeeAuditEvent auditEvent, CancellationToken cancellationToken)
-    {
+    public void AddAuditEvent(EmployeeAuditEvent auditEvent) =>
         context.EmployeeAuditEvents.Add(auditEvent);
-        return Task.CompletedTask;
-    }
 
-    public async Task<IReadOnlyList<EmployeeAuditEvent>> GetAuditEventsAsync(int employeeId, CancellationToken cancellationToken) =>
-        await context.EmployeeAuditEvents
+    public async Task<IReadOnlyList<EmployeeAuditEvent>> GetAuditEventsAsync(int employeeId, CancellationToken cancellationToken)
+    {
+        var auditEvents = await context.EmployeeAuditEvents
             .AsNoTracking()
             .Where(auditEvent => auditEvent.ActorEmployeeId == employeeId || auditEvent.TargetEmployeeId == employeeId)
-            .OrderByDescending(auditEvent => auditEvent.OccurredAt)
             .ToListAsync(cancellationToken);
+
+        // SQLite cannot translate DateTimeOffset ordering; this bounded per-employee audit set is
+        // ordered after materialization so production SQL Server and integration SQLite agree.
+        return auditEvents.OrderByDescending(auditEvent => auditEvent.OccurredAt).ToList();
+    }
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         context.SaveChangesAsync(cancellationToken);

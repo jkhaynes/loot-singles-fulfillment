@@ -124,13 +124,13 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 ### Tests for User Story 3
 
-- [ ] T040 [P] [US3] Unit test `EmployeeManagementService`: create rejects a case-insensitive duplicate username; deactivate/reactivate toggle `IsActive`; reactivating a previously locked account clears the lockout and resets `FailedAttemptCount`; reset-pin replaces the hash without touching lock state; unlock clears the lock without touching the PIN, in `backend/tests/LootSingles.UnitTests/Auth/EmployeeManagementServiceTests.cs`
-- [ ] T041 [P] [US3] Integration tests for all `/api/employees...` endpoints (create 201/409/400, deactivate/reactivate incl. reactivate-clears-lockout, reset-pin, unlock, list, audit-events listing, and `403` for every endpoint when called by a Picker-role session), in `backend/tests/LootSingles.IntegrationTests/Auth/EmployeesControllerTests.cs`
+- [X] T040 [P] [US3] Unit test `EmployeeManagementService`: create rejects a case-insensitive duplicate username; deactivate/reactivate toggle `IsActive`; reactivating a previously locked account clears the lockout and resets `FailedAttemptCount`; reset-pin replaces the hash without touching lock state; unlock clears the lock without touching the PIN, in `backend/tests/LootSingles.UnitTests/Auth/EmployeeManagementServiceTests.cs`
+- [X] T041 [P] [US3] Integration tests for all `/api/employees...` endpoints (create 201/409/400, deactivate/reactivate incl. reactivate-clears-lockout, reset-pin, unlock, list, audit-events listing, and `403` for every endpoint when called by a Picker-role session), in `backend/tests/LootSingles.IntegrationTests/Auth/EmployeesControllerTests.cs`
 
 ### Implementation for User Story 3
 
-- [ ] T042 [US3] Implement `EmployeeManagementService` (`CreateAsync`, `DeactivateAsync`, `ReactivateAsync` with lockout-clear, `ResetPinAsync`, `UnlockAsync`), recording the matching `EmployeeAuditEvent` for each, in `backend/src/LootSingles.Application/Auth/EmployeeManagementService.cs` (depends on: T009, T010, T012, T017; T040 must fail first)
-- [ ] T043 [US3] Implement `EmployeesController` (`POST /`, `GET /`, `POST /{id}/deactivate`, `POST /{id}/reactivate`, `POST /{id}/reset-pin`, `POST /{id}/unlock`, `GET /{id}/audit-events`), each requiring `[Authorize(Roles = "ManagerAdmin")]`, in `backend/src/LootSingles.Api/Controllers/EmployeesController.cs` (depends on: T042; T041 must fail first)
+- [X] T042 [US3] Implement `EmployeeManagementService` (`CreateAsync`, `DeactivateAsync`, `ReactivateAsync` with lockout-clear, `ResetPinAsync`, `UnlockAsync`), recording the matching `EmployeeAuditEvent` for each, in `backend/src/LootSingles.Application/Auth/EmployeeManagementService.cs` (depends on: T009, T010, T012, T017; T040 must fail first)
+- [X] T043 [US3] Implement `EmployeesController` (`POST /`, `GET /`, `POST /{id}/deactivate`, `POST /{id}/reactivate`, `POST /{id}/reset-pin`, `POST /{id}/unlock`, `GET /{id}/audit-events`), each requiring `[Authorize(Roles = "ManagerAdmin")]`, in `backend/src/LootSingles.Api/Controllers/EmployeesController.cs` (depends on: T042; T041 must fail first)
 
 **Checkpoint**: User Stories 1, 2, and 3 all work independently.
 

@@ -13,9 +13,17 @@ export default defineConfig({
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command:
+        'dotnet run --no-launch-profile --project ../backend/tests/LootSingles.E2EHost/LootSingles.E2EHost.csproj',
+      url: 'http://127.0.0.1:5098/health',
+      reuseExistingServer: false,
+    },
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+    },
+  ],
 })
