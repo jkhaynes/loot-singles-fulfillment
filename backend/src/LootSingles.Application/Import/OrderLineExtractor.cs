@@ -5,14 +5,14 @@ namespace LootSingles.Application.Import;
 
 public static partial class OrderLineExtractor
 {
-    public static OrderLine Extract(RawProductLine source)
+    public static OrderLineValidationResult Extract(RawProductLine source)
     {
         ArgumentNullException.ThrowIfNull(source);
 
         var segments = source.RawDescription.Split(" - ", StringSplitOptions.TrimEntries);
         if (segments.Length < 4)
         {
-            throw new OrderLineExtractionException(
+            return OrderLineValidationResult.Invalid(
                 FailureType.MissingProductName,
                 $"Product description has an unexpected format: '{source.RawDescription}'.");
         }
@@ -23,7 +23,7 @@ public static partial class OrderLineExtractor
             segment => CollectorNumberPattern().IsMatch(segment));
         if (collectorIndex < 0)
         {
-            throw new OrderLineExtractionException(
+            return OrderLineValidationResult.Invalid(
                 FailureType.MissingCollectorNumber,
                 $"Product description has no collector number: '{source.RawDescription}'.");
         }
@@ -32,7 +32,7 @@ public static partial class OrderLineExtractor
         var separator = setAndProduct.LastIndexOf(':');
         if (separator < 0)
         {
-            throw new OrderLineExtractionException(
+            return OrderLineValidationResult.Invalid(
                 FailureType.MissingProductName,
                 $"Product description has no set/product separator: '{source.RawDescription}'.");
         }
@@ -45,7 +45,7 @@ public static partial class OrderLineExtractor
             segments[^1],
             markers.Length == 0 ? null : string.Join(", ", markers));
 
-        return new OrderLine
+        var orderLine = new OrderLine
         {
             RawDescription = source.RawDescription,
             ProductLine = segments[0],
@@ -59,6 +59,7 @@ public static partial class OrderLineExtractor
             Variant = conditionAndVariant.Variant,
             Quantity = int.Parse(source.QuantityText),
         };
+        return new OrderLineValidationResult(orderLine, null, null);
     }
 
     [GeneratedRegex(@"\([^()]+\)", RegexOptions.CultureInvariant)]

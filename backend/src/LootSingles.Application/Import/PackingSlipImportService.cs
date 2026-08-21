@@ -93,7 +93,7 @@ public sealed class PackingSlipImportService(
             };
             attempt.ImportOrderResults.Add(result);
 
-            var validationFailure = ValidateBlock(block);
+            var (lineResults, validationFailure) = ValidateBlock(block);
             if (validationFailure is not null)
             {
                 Reject(result, validationFailure.Value.Type, validationFailure.Value.Message);
@@ -107,7 +107,7 @@ public sealed class PackingSlipImportService(
             }
             else
             {
-                var order = CreateOrder(block);
+                var order = CreateOrder(block, lineResults);
                 result.Outcome = ImportOutcome.Succeeded;
                 persistence.AddOrder(order);
                 try
@@ -143,28 +143,31 @@ public sealed class PackingSlipImportService(
         await persistence.SaveChangesAsync(cancellationToken);
     }
 
-    private static (FailureType Type, string Message)? ValidateBlock(RawOrderBlock block)
+    private static (List<OrderLineValidationResult> LineResults, (FailureType Type, string Message)? Failure) ValidateBlock(
+        RawOrderBlock block)
     {
+        var lineResults = new List<OrderLineValidationResult>();
         if (string.IsNullOrWhiteSpace(block.OrderIdentifier))
-            return (FailureType.MissingOrderIdentifier, "An order page is missing its order identifier.");
+            return (lineResults, (FailureType.MissingOrderIdentifier, "An order page is missing its order identifier."));
         if (block.ProductLines.Count == 0)
-            return (FailureType.NoProductLines, $"Order '{block.OrderIdentifier}' contains no product lines.");
+            return (lineResults, (FailureType.NoProductLines, $"Order '{block.OrderIdentifier}' contains no product lines."));
 
         foreach (var line in block.ProductLines)
         {
             var validation = OrderLineValidator.Validate(line);
+            lineResults.Add(validation);
             if (!validation.IsValid)
-                return (validation.FailureType!.Value, $"Order '{block.OrderIdentifier}': {validation.FailureMessage}");
+                return (lineResults, (validation.FailureType!.Value, $"Order '{block.OrderIdentifier}': {validation.FailureMessage}"));
         }
-        return null;
+        return (lineResults, null);
     }
 
-    private static Order CreateOrder(RawOrderBlock block) => new()
+    private static Order CreateOrder(RawOrderBlock block, List<OrderLineValidationResult> lineResults) => new()
     {
         TcgplayerOrderId = block.OrderIdentifier!,
         Status = OrderStatus.Ready,
         ImportedAt = DateTimeOffset.UtcNow,
-        OrderLines = block.ProductLines.Select(line => OrderLineValidator.Validate(line).OrderLine!).ToList(),
+        OrderLines = lineResults.Select(result => result.OrderLine!).ToList(),
     };
 
     private static void Reject(ImportOrderResult result, FailureType type, string message)

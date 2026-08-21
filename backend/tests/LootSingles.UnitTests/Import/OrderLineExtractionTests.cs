@@ -18,14 +18,16 @@ public class OrderLineExtractionTests
 
         var result = OrderLineExtractor.Extract(source);
 
-        Assert.Equal("Pokemon", result.ProductLine);
-        Assert.Equal("Genesect ex", result.ProductName);
-        Assert.Equal("SV: Black Bolt", result.Set);
-        Assert.Equal("#067/086", result.CollectorNumber);
-        Assert.Equal("Double Rare", result.Rarity);
-        Assert.Equal("Near Mint", result.Condition);
-        Assert.Equal("Holofoil", result.Variant);
-        Assert.Equal(2, result.Quantity);
+        Assert.True(result.IsValid);
+        var orderLine = result.OrderLine!;
+        Assert.Equal("Pokemon", orderLine.ProductLine);
+        Assert.Equal("Genesect ex", orderLine.ProductName);
+        Assert.Equal("SV: Black Bolt", orderLine.Set);
+        Assert.Equal("#067/086", orderLine.CollectorNumber);
+        Assert.Equal("Double Rare", orderLine.Rarity);
+        Assert.Equal("Near Mint", orderLine.Condition);
+        Assert.Equal("Holofoil", orderLine.Variant);
+        Assert.Equal(2, orderLine.Quantity);
     }
 
     [Fact]
@@ -39,7 +41,8 @@ public class OrderLineExtractionTests
 
         var result = OrderLineExtractor.Extract(source);
 
-        Assert.Equal(RealFixtureDescription, result.RawDescription);
+        Assert.True(result.IsValid);
+        Assert.Equal(RealFixtureDescription, result.OrderLine!.RawDescription);
     }
 
     [Theory]
@@ -82,11 +85,13 @@ public class OrderLineExtractionTests
             RawDescription = description,
         });
 
-        Assert.Equal(expectedSet, result.Set);
-        Assert.Equal(expectedProductName, result.ProductName);
-        Assert.Equal(expectedCollectorNumber, result.CollectorNumber);
-        Assert.Equal(expectedRarity, result.Rarity);
-        Assert.Equal(expectedCondition, result.Condition);
-        Assert.Equal(expectedVariant, result.Variant);
+        Assert.True(result.IsValid);
+        var orderLine = result.OrderLine!;
+        Assert.Equal(expectedSet, orderLine.Set);
+        Assert.Equal(expectedProductName, orderLine.ProductName);
+        Assert.Equal(expectedCollectorNumber, orderLine.CollectorNumber);
+        Assert.Equal(expectedRarity, orderLine.Rarity);
+        Assert.Equal(expectedCondition, orderLine.Condition);
+        Assert.Equal(expectedVariant, orderLine.Variant);
     }
 }
