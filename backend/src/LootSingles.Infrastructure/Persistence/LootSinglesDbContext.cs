@@ -40,8 +40,33 @@ public class LootSinglesDbContext : DbContext, IImportPersistence
 
     public void AddOrder(Order order) => Orders.Add(order);
 
-    async Task IImportPersistence.SaveChangesAsync(CancellationToken cancellationToken) =>
-        await SaveChangesAsync(cancellationToken);
+    public void DiscardOrder(Order order)
+    {
+        foreach (var line in order.OrderLines.ToList()) Entry(line).State = EntityState.Detached;
+        Entry(order).State = EntityState.Detached;
+    }
+
+    public Task<bool> OrderExistsAsync(string tcgplayerOrderId, CancellationToken cancellationToken) =>
+        Orders.AnyAsync(order => order.TcgplayerOrderId == tcgplayerOrderId, cancellationToken);
+
+    async Task IImportPersistence.SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception)
+        {
+            var details = exception.ToString();
+            var duplicate = details.Contains("UNIQUE", StringComparison.OrdinalIgnoreCase)
+                || details.Contains("duplicate", StringComparison.OrdinalIgnoreCase)
+                || details.Contains("IX_Orders_TcgplayerOrderId", StringComparison.OrdinalIgnoreCase);
+            throw new OrderPersistenceException(
+                duplicate ? "The order identifier already exists." : "The order could not be persisted atomically.",
+                duplicate,
+                exception);
+        }
+    }
 
     /// <summary>
     /// Configures the model using the Fluent API.

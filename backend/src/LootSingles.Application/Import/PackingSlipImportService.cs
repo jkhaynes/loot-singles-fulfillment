@@ -12,58 +12,151 @@ public sealed class PackingSlipImportService(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(packingSlipPdf);
-
-        var parsed = parser.Parse(packingSlipPdf);
         var attempt = new ImportAttempt { StartedAt = DateTimeOffset.UtcNow };
         persistence.AddImportAttempt(attempt);
 
+        ParsedPackingSlip? parsed = null;
+        string? unreadableMessage = null;
+        try
+        {
+            parsed = parser.Parse(packingSlipPdf);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            unreadableMessage = $"The supplied file could not be read as a packing-slip PDF: {exception.Message}";
+        }
+
+        if (parsed is null)
+        {
+            attempt.AttemptFailureCode = FailureType.UnreadablePdf;
+            attempt.AttemptFailureMessage = unreadableMessage;
+            await CompleteAttemptAsync(attempt, cancellationToken);
+            yield return Update(0, 0, 0, 0, true, attempt);
+            yield break;
+        }
+
+        if (HasSummaryMismatch(parsed, out var mismatchMessage))
+        {
+            attempt.AttemptFailureCode = FailureType.SummaryMismatch;
+            attempt.AttemptFailureMessage = mismatchMessage;
+            await CompleteAttemptAsync(attempt, cancellationToken);
+            yield return Update(parsed.OrderBlocks.Count, 0, 0, 0, true, attempt);
+            yield break;
+        }
+
         var processed = 0;
         var succeeded = 0;
-
+        var failed = 0;
         foreach (var block in parsed.OrderBlocks)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            var order = new Order
-            {
-                TcgplayerOrderId = block.OrderIdentifier
-                    ?? throw new FormatException("A valid import requires an order identifier."),
-                Status = OrderStatus.Ready,
-                ImportedAt = DateTimeOffset.UtcNow,
-                OrderLines = block.ProductLines.Select(OrderLineExtractor.Extract).ToList(),
-            };
             var result = new ImportOrderResult
             {
                 ImportAttemptId = attempt.Id,
                 SourceOrderIdentifier = block.OrderIdentifier,
-                Outcome = ImportOutcome.Succeeded,
+                Outcome = ImportOutcome.Rejected,
             };
-
             attempt.ImportOrderResults.Add(result);
-            persistence.AddOrder(order);
-            await persistence.SaveChangesAsync(cancellationToken);
-            result.ResultingOrderId = order.Id;
-            processed++;
-            succeeded++;
 
-            yield return new ImportProgressUpdate(
-                parsed.OrderBlocks.Count,
-                processed,
-                succeeded,
-                0,
-                false,
-                attempt);
+            var validationFailure = ValidateBlock(block);
+            if (validationFailure is not null)
+            {
+                Reject(result, validationFailure.Value.Type, validationFailure.Value.Message);
+                failed++;
+            }
+            else if (await persistence.OrderExistsAsync(block.OrderIdentifier!, cancellationToken))
+            {
+                Reject(result, FailureType.DuplicateOrder,
+                    $"Order '{block.OrderIdentifier}' was already imported and was left unchanged.");
+                failed++;
+            }
+            else
+            {
+                var order = CreateOrder(block);
+                result.Outcome = ImportOutcome.Succeeded;
+                persistence.AddOrder(order);
+                try
+                {
+                    await persistence.SaveChangesAsync(cancellationToken);
+                    result.ResultingOrderId = order.Id;
+                    succeeded++;
+                }
+                catch (OrderPersistenceException exception)
+                {
+                    persistence.DiscardOrder(order);
+                    Reject(result,
+                        exception.IsDuplicate ? FailureType.DuplicateOrder : FailureType.PersistenceFailure,
+                        exception.IsDuplicate
+                            ? $"Order '{block.OrderIdentifier}' was already imported by a concurrent operation."
+                            : $"Order '{block.OrderIdentifier}' could not be persisted atomically: {exception.InnerException?.Message}");
+                    failed++;
+                }
+            }
+
+            processed++;
+            await persistence.SaveChangesAsync(cancellationToken);
+            yield return Update(parsed.OrderBlocks.Count, processed, succeeded, failed, false, attempt);
         }
 
+        await CompleteAttemptAsync(attempt, cancellationToken);
+        yield return Update(parsed.OrderBlocks.Count, processed, succeeded, failed, true, attempt);
+    }
+
+    private async Task CompleteAttemptAsync(ImportAttempt attempt, CancellationToken cancellationToken)
+    {
         attempt.CompletedAt = DateTimeOffset.UtcNow;
         await persistence.SaveChangesAsync(cancellationToken);
-
-        yield return new ImportProgressUpdate(
-            parsed.OrderBlocks.Count,
-            processed,
-            succeeded,
-            0,
-            true,
-            attempt);
     }
+
+    private static (FailureType Type, string Message)? ValidateBlock(RawOrderBlock block)
+    {
+        if (string.IsNullOrWhiteSpace(block.OrderIdentifier))
+            return (FailureType.MissingOrderIdentifier, "An order page is missing its order identifier.");
+        if (block.ProductLines.Count == 0)
+            return (FailureType.NoProductLines, $"Order '{block.OrderIdentifier}' contains no product lines.");
+
+        foreach (var line in block.ProductLines)
+        {
+            var validation = OrderLineValidator.Validate(line);
+            if (!validation.IsValid)
+                return (validation.FailureType!.Value, $"Order '{block.OrderIdentifier}': {validation.FailureMessage}");
+        }
+        return null;
+    }
+
+    private static Order CreateOrder(RawOrderBlock block) => new()
+    {
+        TcgplayerOrderId = block.OrderIdentifier!,
+        Status = OrderStatus.Ready,
+        ImportedAt = DateTimeOffset.UtcNow,
+        OrderLines = block.ProductLines.Select(line => OrderLineValidator.Validate(line).OrderLine!).ToList(),
+    };
+
+    private static void Reject(ImportOrderResult result, FailureType type, string message)
+    {
+        result.Outcome = ImportOutcome.Rejected;
+        result.FailureCode = type;
+        result.FailureMessage = message;
+        result.ResultingOrderId = null;
+    }
+
+    private static bool HasSummaryMismatch(ParsedPackingSlip parsed, out string? message)
+    {
+        message = null;
+        if (!parsed.SummaryPageFound) return false;
+
+        var parsedIds = parsed.OrderBlocks.Select(block => block.OrderIdentifier)
+            .Where(identifier => !string.IsNullOrWhiteSpace(identifier))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var summaryIds = parsed.SummaryOrderIdentifiers.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (parsedIds.SetEquals(summaryIds)) return false;
+
+        message = $"Packing-slip summary mismatch. Parsed orders: [{string.Join(", ", parsedIds)}]; "
+            + $"summary orders: [{string.Join(", ", summaryIds)}].";
+        return true;
+    }
+
+    private static ImportProgressUpdate Update(
+        int detected, int processed, int succeeded, int failed, bool complete, ImportAttempt attempt) =>
+        new(detected, processed, succeeded, failed, complete, attempt);
 }

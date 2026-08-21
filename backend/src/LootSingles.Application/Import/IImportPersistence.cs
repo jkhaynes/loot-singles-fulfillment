@@ -8,5 +8,9 @@ public interface IImportPersistence
 
     void AddOrder(Order order);
 
+    void DiscardOrder(Order order);
+
+    Task<bool> OrderExistsAsync(string tcgplayerOrderId, CancellationToken cancellationToken);
+
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

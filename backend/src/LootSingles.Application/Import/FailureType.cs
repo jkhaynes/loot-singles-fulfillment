@@ -34,5 +34,8 @@ public enum FailureType
     SummaryMismatch,
 
     /// <summary>Attempt-wide failure: PDF file could not be read or parsed (FR-015).</summary>
-    UnreadablePdf
+    UnreadablePdf,
+
+    /// <summary>Per-order failure: validated order data could not be persisted atomically.</summary>
+    PersistenceFailure
 }
