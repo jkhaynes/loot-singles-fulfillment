@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "pretest:e2e": "dotnet build ../backend/tests/LootSingles.E2EHost/LootSingles.E2EHost.csproj",
     "test:e2e": "playwright test"
   },
   "dependencies": {

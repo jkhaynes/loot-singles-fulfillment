@@ -54,5 +54,8 @@ export async function me(): Promise<AuthenticatedEmployee | null> {
 }
 
 export async function logout(): Promise<void> {
-  await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+  const response = await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+  if (!response.ok) {
+    await throwApiError(response)
+  }
 }

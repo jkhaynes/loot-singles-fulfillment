@@ -3,7 +3,7 @@ import { useAuth } from './features/auth/AuthContext'
 import './App.css'
 
 function App() {
-  const { employee, isLoading, login } = useAuth()
+  const { employee, isLoading, login, logout } = useAuth()
 
   if (isLoading) {
     return null
@@ -14,9 +14,12 @@ function App() {
   }
 
   return (
-    <p>
-      Logged in as {employee.displayName} ({employee.role})
-    </p>
+    <div>
+      <p>
+        Logged in as {employee.displayName} ({employee.role})
+      </p>
+      <button type="button" onClick={logout}>Log out</button>
+    </div>
   )
 }
 

@@ -1,10 +1,12 @@
 using LootSingles.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace LootSingles.IntegrationTests.Auth;
 
@@ -17,9 +19,11 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection _keepAliveConnection;
     private readonly string _connectionString;
+    private readonly TimeProvider? _timeProvider;
 
-    public AuthWebApplicationFactory()
+    public AuthWebApplicationFactory(TimeProvider? timeProvider = null)
     {
+        _timeProvider = timeProvider;
         _connectionString = $"Data Source=auth-api-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
         _keepAliveConnection = new SqliteConnection(_connectionString);
         _keepAliveConnection.Open();
@@ -32,6 +36,12 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<DbContextOptions<LootSinglesDbContext>>();
             services.RemoveAll<Microsoft.EntityFrameworkCore.Infrastructure.IDbContextOptionsConfiguration<LootSinglesDbContext>>();
             services.AddDbContext<LootSinglesDbContext>(options => options.UseSqlite(_connectionString));
+            if (_timeProvider is not null)
+            {
+                services.PostConfigure<CookieAuthenticationOptions>(
+                    CookieAuthenticationDefaults.AuthenticationScheme,
+                    options => options.TimeProvider = _timeProvider);
+            }
         });
     }
 

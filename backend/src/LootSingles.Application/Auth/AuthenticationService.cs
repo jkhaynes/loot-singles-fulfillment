@@ -51,4 +51,16 @@ public sealed class AuthenticationService(
 
         return AuthenticationResult.Success(employee);
     }
+
+    public async Task RecordLogoutAsync(int employeeId, CancellationToken cancellationToken)
+    {
+        repository.AddAuditEvent(
+            new EmployeeAuditEvent
+            {
+                ActorEmployeeId = employeeId,
+                ActionType = EmployeeAuditActionType.Logout,
+                OccurredAt = DateTimeOffset.UtcNow,
+            });
+        await repository.SaveChangesAsync(cancellationToken);
+    }
 }

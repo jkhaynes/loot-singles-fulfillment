@@ -144,15 +144,15 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 ### Tests for User Story 4
 
-- [ ] T044 [P] [US4] Integration tests: the same cookie authenticates across two separate requests with no re-authentication (reload simulation); a request made after the 30-minute inactivity window (advanced/fake clock) returns `401`; `POST /api/auth/logout` ends the session immediately (a following `GET /api/auth/me` returns `401`), in `backend/tests/LootSingles.IntegrationTests/Auth/AuthControllerTests.cs`
-- [ ] T045 [P] [US4] Frontend unit test: `AuthContext` restores the session on load and clears it after logout, in `frontend/tests/auth/AuthContext.test.tsx`
+- [X] T044 [P] [US4] Integration tests: the same cookie authenticates across two separate requests with no re-authentication (reload simulation); a request made after the 30-minute inactivity window (advanced/fake clock) returns `401`; `POST /api/auth/logout` ends the session immediately (a following `GET /api/auth/me` returns `401`), in `backend/tests/LootSingles.IntegrationTests/Auth/AuthControllerTests.cs`
+- [X] T045 [P] [US4] Frontend unit test: `AuthContext` restores the session on load and clears it after logout, in `frontend/tests/auth/AuthContext.test.tsx`
 
 ### Implementation for User Story 4
 
-- [ ] T046 [US4] Configure the cookie's sliding expiration (`ExpireTimeSpan = 30 minutes`, `SlidingExpiration = true`, FR-010) in `backend/src/LootSingles.Api/Program.cs` (depends on: T019; T044 must fail first)
-- [ ] T047 [US4] Implement `AuthController`'s `POST /api/auth/logout` (`SignOutAsync`) in `backend/src/LootSingles.Api/Controllers/AuthController.cs` (depends on: T027; T044 must fail first)
-- [ ] T048 [US4] Add a logout action and affordance to `AuthContext.tsx` / the app shell in `frontend/src/features/auth/AuthContext.tsx` (depends on: T030, T047; T045 must fail first)
-- [ ] T049 [US4] Playwright e2e test: session survives a reload, explicit logout requires re-login, in `frontend/e2e/login.spec.ts` (depends on: T046, T048)
+- [X] T046 [US4] Configure the cookie's sliding expiration (`ExpireTimeSpan = 30 minutes`, `SlidingExpiration = true`, FR-010) in `backend/src/LootSingles.Api/Program.cs` (depends on: T019; T044 must fail first)
+- [X] T047 [US4] Implement `AuthController`'s `POST /api/auth/logout` (`SignOutAsync`) in `backend/src/LootSingles.Api/Controllers/AuthController.cs` (depends on: T027; T044 must fail first)
+- [X] T048 [US4] Add a logout action and affordance to `AuthContext.tsx` / the app shell in `frontend/src/features/auth/AuthContext.tsx` (depends on: T030, T047; T045 must fail first)
+- [X] T049 [US4] Playwright e2e test: session survives a reload, explicit logout requires re-login, in `frontend/e2e/login.spec.ts` (depends on: T046, T048)
 
 **Checkpoint**: All four user stories work independently and together.
 

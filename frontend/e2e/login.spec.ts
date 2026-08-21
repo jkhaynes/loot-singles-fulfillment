@@ -8,6 +8,13 @@ test('employee logs in with username and PIN', async ({ page }) => {
   await page.getByRole('button', { name: /log in/i }).click()
 
   await expect(page.getByText('Logged in as E2E Manager (ManagerAdmin)')).toBeVisible()
+
+  await page.reload()
+  await expect(page.getByText('Logged in as E2E Manager (ManagerAdmin)')).toBeVisible()
+
+  await page.getByRole('button', { name: /log out/i }).click()
+  await expect(page.getByRole('heading', { name: 'Log in' })).toBeVisible()
+  await expect(page.getByLabel(/username/i)).toBeVisible()
 })
 
 test('wrong PIN shows the generic error and does not log in', async ({ page }) => {

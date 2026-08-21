@@ -149,6 +149,57 @@ public class AuthControllerTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public async Task SessionCookie_AuthenticatesAcrossSeparateRequests()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        await SeedEmployeeAsync(factory, "jsmith", "1234", isActive: true);
+        using var client = factory.CreateAuthenticatedClient();
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync(
+            "/api/auth/login", new LoginRequest("jsmith", "1234"))).StatusCode);
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/auth/me")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/auth/me")).StatusCode);
+    }
+
+    [Fact]
+    public async Task SessionCookie_AfterThirtyMinutesOfInactivity_ReturnsUnauthorized()
+    {
+        var clock = new ManualTimeProvider(DateTimeOffset.UtcNow);
+        await using var factory = new AuthWebApplicationFactory(clock);
+        await SeedEmployeeAsync(factory, "jsmith", "1234", isActive: true);
+        using var client = factory.CreateAuthenticatedClient();
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync(
+            "/api/auth/login", new LoginRequest("jsmith", "1234"))).StatusCode);
+
+        clock.Advance(TimeSpan.FromMinutes(31));
+        var response = await client.GetAsync("/api/auth/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Logout_EndsSessionImmediately()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var employee = await SeedEmployeeAsync(factory, "jsmith", "1234", isActive: true);
+        using var client = factory.CreateAuthenticatedClient();
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync(
+            "/api/auth/login", new LoginRequest("jsmith", "1234"))).StatusCode);
+
+        var logoutResponse = await client.PostAsync("/api/auth/logout", null);
+        var meResponse = await client.GetAsync("/api/auth/me");
+
+        Assert.Equal(HttpStatusCode.NoContent, logoutResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, meResponse.StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
+        var logoutAudit = await context.EmployeeAuditEvents.SingleAsync(
+            item => item.ActionType == EmployeeAuditActionType.Logout);
+        Assert.Equal(employee.Id, logoutAudit.ActorEmployeeId);
+        Assert.Null(logoutAudit.TargetEmployeeId);
+    }
+
     private static async Task<Employee> SeedEmployeeAsync(
         AuthWebApplicationFactory factory, string username, string pin, bool isActive)
     {
@@ -171,5 +222,14 @@ public class AuthControllerTests
         });
 
         return employee;
+    }
+
+    private sealed class ManualTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        private DateTimeOffset _utcNow = utcNow;
+
+        public override DateTimeOffset GetUtcNow() => _utcNow;
+
+        public void Advance(TimeSpan duration) => _utcNow += duration;
     }
 }

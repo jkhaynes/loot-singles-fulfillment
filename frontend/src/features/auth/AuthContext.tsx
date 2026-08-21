@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { me } from './authApi'
+import { logout as logoutRequest, me } from './authApi'
 import type { AuthenticatedEmployee } from './authApi'
 
 interface AuthContextValue {
   employee: AuthenticatedEmployee | null
   isLoading: boolean
   login: (employee: AuthenticatedEmployee) => void
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -39,7 +40,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setEmployee(loggedInEmployee)
   }
 
-  return <AuthContext.Provider value={{ employee, isLoading, login }}>{children}</AuthContext.Provider>
+  async function logout() {
+    await logoutRequest()
+    setEmployee(null)
+  }
+
+  return <AuthContext.Provider value={{ employee, isLoading, login, logout }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth(): AuthContextValue {

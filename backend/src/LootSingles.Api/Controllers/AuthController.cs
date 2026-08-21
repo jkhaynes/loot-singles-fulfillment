@@ -66,6 +66,16 @@ public sealed partial class AuthController(AuthenticationService authenticationS
         return Ok(ToResponse(employeeId, displayName, role));
     }
 
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
+    {
+        var employeeId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        await authenticationService.RecordLogoutAsync(employeeId, cancellationToken);
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        return NoContent();
+    }
+
     private static AuthResponse ToResponse(int employeeId, string displayName, string role) =>
         new(employeeId, displayName, role);
 

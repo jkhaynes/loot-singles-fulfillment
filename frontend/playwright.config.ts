@@ -16,7 +16,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        'dotnet run --no-launch-profile --project ../backend/tests/LootSingles.E2EHost/LootSingles.E2EHost.csproj',
+        'dotnet ../backend/tests/LootSingles.E2EHost/bin/Debug/net10.0/LootSingles.E2EHost.dll',
       url: 'http://127.0.0.1:5098/health',
       reuseExistingServer: false,
     },
