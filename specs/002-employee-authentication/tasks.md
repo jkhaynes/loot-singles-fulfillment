@@ -162,9 +162,9 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 **Purpose**: Final verification against the spec's own validation guide and Definition of Done.
 
-- [ ] T050 [P] Walk through quickstart.md scenarios 1–14 end-to-end against a running instance and record the outcome of each
-- [ ] T051 [P] Audit backend logging configuration and code paths touching `Employee.PinHash`/raw PIN values to confirm no plaintext PIN is ever logged (constitution VII, FR-003)
-- [ ] T052 Run the full backend (`dotnet test`) and frontend (`npm test`, Playwright e2e) suites and confirm everything is green
+- [X] T050 [P] Walk through quickstart.md scenarios 1–14 end-to-end against a running instance and record the outcome of each
+- [X] T051 [P] Audit backend logging configuration and code paths touching `Employee.PinHash`/raw PIN values to confirm no plaintext PIN is ever logged (constitution VII, FR-003)
+- [X] T052 Run the full backend (`dotnet test`) and frontend (`npm test`, Playwright e2e) suites and confirm everything is green
 
 ---
 
