@@ -74,20 +74,20 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T022 [P] [US1] Unit test `AuthenticationService.LoginAsync`: correct credentials → `Success`; wrong PIN → `InvalidCredentials`; nonexistent username → `InvalidCredentials` (identical to wrong PIN); deactivated account → `InvalidCredentials` regardless of PIN correctness, in `backend/tests/LootSingles.UnitTests/Auth/AuthenticationServiceTests.cs`
-- [ ] T023 [P] [US1] Integration test: `POST /api/auth/login` returns `200` + sets the auth cookie on success, identical `401` body for wrong-PIN/nonexistent-username/deactivated-account; `GET /api/auth/me` returns the authenticated employee's identity, in `backend/tests/LootSingles.IntegrationTests/Auth/AuthControllerTests.cs`
-- [ ] T024 [P] [US1] Frontend unit test: `LoginPage` renders username + PIN fields and shows the generic error message on a failed login, in `frontend/tests/auth/LoginPage.test.tsx`
+- [X] T022 [P] [US1] Unit test `AuthenticationService.LoginAsync`: correct credentials → `Success`; wrong PIN → `InvalidCredentials`; nonexistent username → `InvalidCredentials` (identical to wrong PIN); deactivated account → `InvalidCredentials` regardless of PIN correctness, in `backend/tests/LootSingles.UnitTests/Auth/AuthenticationServiceTests.cs`
+- [X] T023 [P] [US1] Integration test: `POST /api/auth/login` returns `200` + sets the auth cookie on success, identical `401` body for wrong-PIN/nonexistent-username/deactivated-account; `GET /api/auth/me` returns the authenticated employee's identity, in `backend/tests/LootSingles.IntegrationTests/Auth/AuthControllerTests.cs`
+- [X] T024 [P] [US1] Frontend unit test: `LoginPage` renders username + PIN fields and shows the generic error message on a failed login, in `frontend/tests/auth/LoginPage.test.tsx`
 
 ### Implementation for User Story 1
 
-- [ ] T025 [US1] Create `AuthenticationResult` (`Success`, `InvalidCredentials`) in `backend/src/LootSingles.Application/Auth/AuthenticationResult.cs`
-- [ ] T026 [US1] Implement `AuthenticationService.LoginAsync` (normalize + look up username, verify PIN via `IPinHasher`, reject inactive accounts identically to wrong-PIN, record an `EmployeeAuditEvent(Login)` on success) in `backend/src/LootSingles.Application/Auth/AuthenticationService.cs` (depends on: T009, T010, T025; T022 must fail first)
-- [ ] T027 [US1] Implement `AuthController`: `POST /api/auth/login` (issues the cookie with employee-id + role claims on success) and `GET /api/auth/me`, in `backend/src/LootSingles.Api/Controllers/AuthController.cs` (depends on: T026; T023 must fail first)
-- [ ] T028 [P] [US1] Implement `authApi.ts` (`login`, `me`) in `frontend/src/features/auth/authApi.ts`
-- [ ] T029 [US1] Implement `LoginPage.tsx` (username + PIN form, calls `authApi.login`, shows the generic error) in `frontend/src/features/auth/LoginPage.tsx` (depends on: T028; T024 must fail first)
-- [ ] T030 [US1] Implement `AuthContext.tsx` (session state, whoami-on-load via `authApi.me`) in `frontend/src/features/auth/AuthContext.tsx` (depends on: T028)
-- [ ] T031 [US1] Wire `LoginPage`/`AuthContext` into `frontend/src/App.tsx` and `frontend/src/main.tsx` (depends on: T029, T030)
-- [ ] T032 [US1] Playwright e2e test: successful login flow in `frontend/e2e/login.spec.ts` (depends on: T027, T031)
+- [X] T025 [US1] Create `AuthenticationResult` (`Success`, `InvalidCredentials`) in `backend/src/LootSingles.Application/Auth/AuthenticationResult.cs`
+- [X] T026 [US1] Implement `AuthenticationService.LoginAsync` (normalize + look up username, verify PIN via `IPinHasher`, reject inactive accounts identically to wrong-PIN, record an `EmployeeAuditEvent(Login)` on success) in `backend/src/LootSingles.Application/Auth/AuthenticationService.cs` (depends on: T009, T010, T025; T022 must fail first)
+- [X] T027 [US1] Implement `AuthController`: `POST /api/auth/login` (issues the cookie with employee-id + role claims on success) and `GET /api/auth/me`, in `backend/src/LootSingles.Api/Controllers/AuthController.cs` (depends on: T026; T023 must fail first)
+- [X] T028 [P] [US1] Implement `authApi.ts` (`login`, `me`) in `frontend/src/features/auth/authApi.ts`
+- [X] T029 [US1] Implement `LoginPage.tsx` (username + PIN form, calls `authApi.login`, shows the generic error) in `frontend/src/features/auth/LoginPage.tsx` (depends on: T028; T024 must fail first)
+- [X] T030 [US1] Implement `AuthContext.tsx` (session state, whoami-on-load via `authApi.me`) in `frontend/src/features/auth/AuthContext.tsx` (depends on: T028)
+- [X] T031 [US1] Wire `LoginPage`/`AuthContext` into `frontend/src/App.tsx` and `frontend/src/main.tsx` (depends on: T029, T030)
+- [X] T032 [US1] Playwright e2e test: successful login flow in `frontend/e2e/login.spec.ts` (depends on: T027, T031)
 
 **Checkpoint**: User Story 1 is fully functional and independently testable.
 

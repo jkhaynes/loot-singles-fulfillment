@@ -20,6 +20,7 @@ builder.Services.AddScoped<IPackingSlipImportService, PackingSlipImportService>(
 
 builder.Services.AddScoped<IPinHasher, Pbkdf2PinHasher>();
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddScoped<EmployeeSessionCookieEvents>();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -42,3 +43,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Exposed so WebApplicationFactory<Program> in the integration test project can host this app in-process.
+public partial class Program;
