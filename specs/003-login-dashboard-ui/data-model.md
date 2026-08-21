@@ -28,10 +28,12 @@ Both `ProductCount` and `TotalQuantity` are computed server-side within the EF C
 Orders
   .AsNoTracking()
   .Where(o => o.Status == OrderStatus.Ready)
-  .Select(o => new OrderSummary(o.Id, o.TcgplayerOrderId, o.OrderLines.Count, o.OrderLines.Sum(l => l.Quantity)))
+  .Select(o => new { o.ImportedAt, Summary = new OrderSummary(o.Id, o.TcgplayerOrderId, o.OrderLines.Count, o.OrderLines.Sum(l => l.Quantity)) })
+  .ToListAsync()
+  -- then ordered by ImportedAt and mapped to OrderSummary after materialization
 ```
 
-No pagination (matches the existing unpaginated `GET /api/employees` precedent at this project's scale, plan.md Scale/Scope). No ordering requirement is specified by the spec; a stable, deterministic order (e.g., by `ImportedAt` ascending, oldest-ready-first) is a reasonable implementation default, not a functional requirement.
+No pagination (matches the existing unpaginated `GET /api/employees` precedent at this project's scale, plan.md Scale/Scope). No ordering requirement is specified by the spec; a stable, deterministic order (oldest-ready-first, by `ImportedAt`) is a reasonable implementation default, not a functional requirement. The ordering is applied after materialization rather than via a SQL `ORDER BY`, because SQLite (used in integration tests) cannot translate ordering on `DateTimeOffset` — the same constraint already documented for `EmployeeRepository.GetAuditEventsAsync` in feature 002.
 
 ## In Progress / Needs Attention / Picked
 

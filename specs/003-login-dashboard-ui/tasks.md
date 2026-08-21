@@ -71,24 +71,24 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T010 [P] [US2] Unit test: the Dashboard's summary projection computes `ProductCount` (distinct order lines) and `TotalQuantity` (sum of line quantities) correctly from `Order`/`OrderLine` fixtures, in `backend/tests/LootSingles.UnitTests/Dashboard/DashboardServiceTests.cs` — must fail (types don't exist yet)
-- [ ] T011 [P] [US2] Integration test: `GET /api/dashboard` returns `401` when not authenticated, `200` with an empty `ready.orders` array when no Ready orders exist, and `200` with correct per-order summaries when Ready orders exist, in `backend/tests/LootSingles.IntegrationTests/Dashboard/DashboardControllerTests.cs` — must fail
-- [ ] T012 [P] [US2] Frontend test: `DashboardPage` renders the Ready section from live data (including the empty-state message when there are none), renders the three "not yet available" placeholder sections, and invokes logout when its logout control is activated (FR-008), in `frontend/tests/dashboard/DashboardPage.test.tsx` — must fail (component doesn't exist yet)
+- [X] T010 [P] [US2] Unit test: the Dashboard's summary projection computes `ProductCount` (distinct order lines) and `TotalQuantity` (sum of line quantities) correctly from `Order`/`OrderLine` fixtures, in `backend/tests/LootSingles.UnitTests/Dashboard/DashboardServiceTests.cs` — must fail (types don't exist yet)
+- [X] T011 [P] [US2] Integration test: `GET /api/dashboard` returns `401` when not authenticated, `200` with an empty `ready.orders` array when no Ready orders exist, and `200` with correct per-order summaries when Ready orders exist, in `backend/tests/LootSingles.IntegrationTests/Dashboard/DashboardControllerTests.cs` — must fail
+- [X] T012 [P] [US2] Frontend test: `DashboardPage` renders the Ready section from live data (including the empty-state message when there are none), renders the three "not yet available" placeholder sections, and invokes logout when its logout control is activated (FR-008), in `frontend/tests/dashboard/DashboardPage.test.tsx` — must fail (component doesn't exist yet)
 
 ### Implementation for User Story 2
 
-- [ ] T013 [P] [US2] Create the `OrderSummary` read-model record (`OrderId`, `TcgplayerOrderId`, `ProductCount`, `TotalQuantity`) in `backend/src/LootSingles.Application/Dashboard/OrderSummary.cs` (data-model.md)
-- [ ] T014 [P] [US2] Create the `IDashboardRepository` interface (`GetReadyOrderSummariesAsync`) in `backend/src/LootSingles.Application/Dashboard/IDashboardRepository.cs` (Constitution IX/XII persistence seam)
-- [ ] T015 [US2] Implement `DashboardService` in `backend/src/LootSingles.Application/Dashboard/DashboardService.cs` (depends on: T013, T014; T010 must fail first)
-- [ ] T016 [US2] Implement `DashboardRepository` (`IDashboardRepository` over `LootSinglesDbContext`, `AsNoTracking` + server-side `Count`/`Sum` projection per data-model.md) in `backend/src/LootSingles.Infrastructure/Persistence/DashboardRepository.cs` (depends on: T014)
-- [ ] T017 [US2] Register `IDashboardRepository` and `DashboardService` in `backend/src/LootSingles.Api/Program.cs` (depends on: T015, T016)
-- [ ] T018 [US2] Implement `DashboardController` (`GET /api/dashboard`, `[Authorize]` with no role restriction, contracts/dashboard-api.md) in `backend/src/LootSingles.Api/Controllers/DashboardController.cs` (depends on: T017; T011 must fail first)
-- [ ] T019 [P] [US2] Implement `dashboardApi.ts` (`getDashboard`) in `frontend/src/features/dashboard/dashboardApi.ts` (calls contracts/dashboard-api.md's endpoint)
-- [ ] T020 [US2] Implement `DashboardPage.tsx` (Ready section from live data, the three static placeholder sections, logout action) in `frontend/src/features/dashboard/DashboardPage.tsx` (depends on: T019; T012 must fail first)
-- [ ] T021 [US2] Create `frontend/src/features/dashboard/DashboardPage.css`, styled from `styles/tokens.css` (distinct section treatments, comfortably tappable logout control, responsive layout per FR-006) (depends on: T004, T020)
-- [ ] T022 [US2] Wire `DashboardPage` into `frontend/src/App.tsx`, replacing the current authenticated placeholder (depends on: T020)
-- [ ] T023 [P] [US2] Seed one sample Ready order (with product lines) in `backend/tests/LootSingles.E2EHost/Program.cs` for Playwright validation
-- [ ] T024 [US2] Update `frontend/e2e/login.spec.ts`'s existing tests: replace the prior placeholder-text assertion with an assertion that the Dashboard's Ready section (showing the seeded order) appears after login, and update — not remove — the same spec's existing reload and logout assertions so they check the new Dashboard content instead of the old placeholder text (FR-008, US2 AC6) (depends on: T018, T022, T023)
+- [X] T013 [P] [US2] Create the `OrderSummary` read-model record (`OrderId`, `TcgplayerOrderId`, `ProductCount`, `TotalQuantity`) in `backend/src/LootSingles.Application/Dashboard/OrderSummary.cs` (data-model.md)
+- [X] T014 [P] [US2] Create the `IDashboardRepository` interface (`GetReadyOrderSummariesAsync`) in `backend/src/LootSingles.Application/Dashboard/IDashboardRepository.cs` (Constitution IX/XII persistence seam)
+- [X] T015 [US2] Implement `DashboardService` in `backend/src/LootSingles.Application/Dashboard/DashboardService.cs` (depends on: T013, T014; T010 must fail first)
+- [X] T016 [US2] Implement `DashboardRepository` (`IDashboardRepository` over `LootSinglesDbContext`, `AsNoTracking` + server-side `Count`/`Sum` projection per data-model.md) in `backend/src/LootSingles.Infrastructure/Persistence/DashboardRepository.cs` (depends on: T014) — ordering applied after materialization, not via SQL `ORDER BY` (SQLite cannot translate `DateTimeOffset` ordering; see data-model.md)
+- [X] T017 [US2] Register `IDashboardRepository` and `DashboardService` in `backend/src/LootSingles.Api/Program.cs` (depends on: T015, T016)
+- [X] T018 [US2] Implement `DashboardController` (`GET /api/dashboard`, `[Authorize]` with no role restriction, contracts/dashboard-api.md) in `backend/src/LootSingles.Api/Controllers/DashboardController.cs` (depends on: T017; T011 must fail first)
+- [X] T019 [P] [US2] Implement `dashboardApi.ts` (`getDashboard`) in `frontend/src/features/dashboard/dashboardApi.ts` (calls contracts/dashboard-api.md's endpoint)
+- [X] T020 [US2] Implement `DashboardPage.tsx` (Ready section from live data, the three static placeholder sections, logout action) in `frontend/src/features/dashboard/DashboardPage.tsx` (depends on: T019; T012 must fail first)
+- [X] T021 [US2] Create `frontend/src/features/dashboard/DashboardPage.css`, styled from `styles/tokens.css` (distinct section treatments, comfortably tappable logout control, responsive layout per FR-006) (depends on: T004, T020)
+- [X] T022 [US2] Wire `DashboardPage` into `frontend/src/App.tsx`, replacing the current authenticated placeholder (depends on: T020)
+- [X] T023 [P] [US2] Seed one sample Ready order (with product lines) in `backend/tests/LootSingles.E2EHost/Program.cs` for Playwright validation — also registered `IDashboardRepository`/`DashboardService` in the E2E host's DI container, required for `DashboardController` to resolve there
+- [X] T024 [US2] Update `frontend/e2e/login.spec.ts`'s existing tests: replace the prior placeholder-text assertion with an assertion that the Dashboard's Ready section (showing the seeded order) appears after login, and update — not remove — the same spec's existing reload and logout assertions so they check the new Dashboard content instead of the old placeholder text (FR-008, US2 AC6) (depends on: T018, T022, T023)
 
 **Checkpoint**: User Stories 1 and 2 both work independently and together.
 
@@ -100,7 +100,7 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 - [ ] T025 [P] Walk through quickstart.md scenarios 1–8 end-to-end against a running instance and record the outcome of each in `specs/003-login-dashboard-ui/validation-results.md`
 - [ ] T026 Run the full backend (`dotnet test`) and frontend (`npm test`, Playwright e2e) suites and confirm everything is green
-- [ ] T027 [P] Playwright test: at a mobile-width viewport (e.g., 375px), both the login screen and the Dashboard render with no horizontal scroll, in `frontend/e2e/responsive.spec.ts` (FR-006, SC-002)
+- [X] T027 [P] Playwright test: at a mobile-width viewport (e.g., 375px), both the login screen and the Dashboard render with no horizontal scroll, in `frontend/e2e/responsive.spec.ts` (FR-006, SC-002)
 
 ---
 

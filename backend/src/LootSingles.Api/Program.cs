@@ -1,4 +1,5 @@
 using LootSingles.Application.Auth;
+using LootSingles.Application.Dashboard;
 using LootSingles.Application.Import;
 using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Import;
@@ -31,6 +32,8 @@ builder.Services.AddSingleton(lockoutOptions);
 builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddScoped<EmployeeManagementService>();
 builder.Services.AddScoped<EmployeeSessionCookieEvents>();
+builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+builder.Services.AddScoped<DashboardService>();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {

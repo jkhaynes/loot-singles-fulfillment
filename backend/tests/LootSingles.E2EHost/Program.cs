@@ -1,6 +1,8 @@
 using LootSingles.Api.Controllers;
 using LootSingles.Application.Auth;
+using LootSingles.Application.Dashboard;
 using LootSingles.Domain.Employees;
+using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -23,6 +25,8 @@ builder.Services.AddSingleton(new LockoutOptions());
 builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddScoped<EmployeeManagementService>();
 builder.Services.AddScoped<EmployeeSessionCookieEvents>();
+builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+builder.Services.AddScoped<DashboardService>();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -58,6 +62,25 @@ static async Task SeedAsync(IServiceProvider services)
         PinHash = pinHasher.Hash("1234"),
         Role = EmployeeRole.ManagerAdmin,
         CreatedAt = DateTimeOffset.UtcNow,
+    });
+    context.Orders.Add(new Order
+    {
+        TcgplayerOrderId = "E2E-ORDER-00001",
+        Status = OrderStatus.Ready,
+        ImportedAt = DateTimeOffset.UtcNow,
+        OrderLines =
+        [
+            new OrderLine
+            {
+                RawDescription = "Pikachu - Base Set - #58/102 - Common - Near Mint",
+                ProductLine = "Pokemon",
+                ProductName = "Pikachu",
+                Set = "Base Set",
+                CollectorNumber = "#58/102",
+                Condition = "Near Mint",
+                Quantity = 2,
+            },
+        ],
     });
     await context.SaveChangesAsync();
 }
