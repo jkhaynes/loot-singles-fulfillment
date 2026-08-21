@@ -8,40 +8,45 @@ AI accelerates development but is not an autonomous source of product requiremen
 
 ## Command Cheat Sheet
 
-What to actually type, in order.
+What to actually type, in order:
 
-**1. Planning (Spec Kit slash commands, run once per feature):**
 ```
 /speckit-specify <feature description>
 /speckit-clarify
 /speckit-plan
+```
+
+→ human architecture and changeability review (required — see constitution "Architecture and Changeability Review") →
+
+```
+/speckit-checklist   (optional quality gate, when useful)
 /speckit-tasks
-```
-Optional quality gates between tasks and implementation:
-```
-/speckit-checklist
 /speckit-analyze
 ```
-The Spec Kit `git` extension is installed and handles branching/committing for this pipeline automatically — no extra commands needed:
-- `/speckit-specify` creates and switches to a new feature branch before spec work starts (`before_specify` hook, mandatory).
-- `/speckit-specify`, `/speckit-clarify`, `/speckit-plan`, and `/speckit-tasks` each auto-commit their output immediately after running (`after_*` hooks, mandatory), so work is checked in between every planning step rather than accumulating into one large diff.
-- `implement`/`checklist`/`analyze`/`taskstoissues` commit hooks are left as prompted/optional — Superpowers owns commit discipline during implementation (TDD commits, `finishing-a-development-branch`), so auto-committing there is not enabled.
-- Config lives in `.specify/extensions.yml` (hook wiring) and `.specify/extensions/git/git-config.yml` (branch naming, commit messages, per-event enable/disable).
 
-**2. Human checkpoint (not a command):** review and approve `tasks.md`. This is the tracker for in-progress work — no GitHub issue is required per feature.
+→ human approval of `tasks.md` (the tracker; no GitHub issue needed) →
 
-**3. Implementation — no dedicated slash command exists for this step.** Superpowers skills auto-trigger off plain instructions rather than shipping `/superpowers-*` commands. Say:
 ```
-Implement tasks.md
-```
-Claude is required (via `using-superpowers`) to invoke the right skill chain itself — `using-git-worktrees` → `subagent-driven-development` (or `executing-plans` for a single session) → per-task TDD/debugging/review → `verification-before-completion` → `finishing-a-development-branch`. To force a specific execution mode instead of letting Claude choose:
-```
-Use superpowers:subagent-driven-development to execute tasks.md
+/speckit-implement
 ```
 
-**4. End of implementation (a prompt you answer, not a command you initiate):** `finishing-a-development-branch` asks you to choose merge locally / push+PR / keep as-is.
+→ automated build/tests pass →
 
-**Do not use `/speckit-implement`.** Spec Kit ships this as a generic task-runner, but it bypasses Superpowers' TDD/debugging/review discipline, which conflicts with the Spec Kit/Superpowers boundary in [`CLAUDE.md`](../../CLAUDE.md). Plain "Implement tasks.md" is the correct trigger for this project, not `/speckit-implement`.
+```
+/code-design-review
+```
+
+→ remediate any Must Fix findings as new tasks in the existing `tasks.md`, via `/speckit-implement`, then re-run `/code-design-review` — repeat until no Must Fix findings remain →
+
+```
+/speckit-converge
+```
+
+→ pull request → CI → human review → merge
+
+Repeat `/speckit-implement` → `/speckit-converge` until convergence is reported — that loop, not a single implement pass, is what "done" means for a feature. `/code-design-review` sits inside that loop too: it must be clean (zero Must Fix findings) before `/speckit-converge` runs.
+
+The Spec Kit `git` extension branches and commits along the way automatically (branch created before `/speckit-specify`; each planning command offers a confirmed commit after it runs). Config: `.specify/extensions.yml` and `.specify/extensions/git/git-config.yml`.
 
 ## Roles
 
@@ -55,15 +60,11 @@ Owns technical decisions, code review, architecture, and approval of specificati
 
 ### Spec Kit
 
-Owns specification and planning: constitution, feature specification, clarification, technical planning, and task breakdown.
-
-### Superpowers
-
-Owns disciplined execution and verification, via a fixed set of skills invoked in sequence for every feature: isolate the workspace, execute tasks test-first, debug systematically on failure, verify with evidence before any completion claim, get an independent code review, and close out the branch. See [Superpowers Execution In Detail](#superpowers-execution-in-detail) below for what each skill actually does.
+Owns the complete AI-assisted feature lifecycle: constitution, feature specification, clarification, technical planning, task breakdown, artifact analysis, implementation, code and design review, and convergence verification. No second execution methodology runs alongside it. Strict Test-Driven Development (Red → Green → Refactor) is enforced directly through the project constitution's Principle IV during implementation, not by a separate tool.
 
 ### Claude Code
 
-Acts as the AI implementation agent, operating under the constraints in [`CLAUDE.md`](../../CLAUDE.md), Spec Kit, and Superpowers.
+Acts as the AI implementation agent, operating under the constraints in [`CLAUDE.md`](../../CLAUDE.md) and Spec Kit.
 
 ## Source of Truth Hierarchy
 
@@ -73,63 +74,41 @@ See the hierarchy defined in [`CLAUDE.md`](../../CLAUDE.md). When artifacts conf
 
 ```text
 1.  Product Owner feedback or approved PRD requirement
-2.  Spec Kit feature specification      (/speckit.specify)
-3.  Spec Kit clarification              (/speckit.clarify)
-4.  Spec Kit technical plan             (/speckit.plan)
-5.  Spec Kit task breakdown             (/speckit.tasks)
-6.  Human review / approval        (tasks.md is the tracker — no GitHub issue required)
-7.  Superpowers takes over execution — see the detailed breakdown below
+2.  Spec Kit feature specification      (/speckit-specify)
+3.  Spec Kit clarification              (/speckit-clarify)
+4.  Spec Kit technical plan             (/speckit-plan)
+5.  Human architecture and changeability review   (required — see constitution "Architecture and Changeability Review")
+6.  Spec Kit checklist                  (/speckit-checklist) — optional quality gate, when useful
+7.  Spec Kit task breakdown             (/speckit-tasks)
+8.  Spec Kit artifact analysis          (/speckit-analyze)
+9.  Human review / approval        (tasks.md is the tracker — no GitHub issue required)
+10. Spec Kit implementation             (/speckit-implement) — strict TDD per constitution Principle IV
+11. Automated build/tests pass
+12. Code and Design Review              (/code-design-review) — evaluates the actual implementation; repeat 10-12 until zero Must Fix findings remain
+13. Spec Kit convergence verification   (/speckit-converge) — repeat 10-13 until converged
+14. Pull request, CI, human review, merge
 ```
 
-Spec Kit artifacts (specification, plan, tasks) are the implementation contract for a feature. Superpowers executes against that contract; it does not originate or silently amend it. If execution surfaces a contradiction, missing rule, or architectural conflict, work returns to Spec Kit clarification/planning rather than being resolved ad hoc during implementation.
+Spec Kit artifacts (specification, plan, tasks) are the implementation contract for a feature. `/speckit-implement` executes against that contract; it does not originate or silently amend it. If execution or `/code-design-review` surfaces a contradiction, missing rule, or architectural conflict, work returns to Spec Kit clarification/planning rather than being resolved ad hoc during implementation — see the source-of-truth hierarchy in [`CLAUDE.md`](../../CLAUDE.md).
 
-## Superpowers Execution In Detail
+## Code and Design Review Gate
 
-Step 7 above ("Superpowers takes over execution") is not one action, it is a fixed sequence of named skills. Each skill has its own enforcement rules (an "Iron Law") that Claude Code cannot skip by rationalizing — e.g. "tests after achieve the same purpose" or "linter passed" are explicitly called out as invalid excuses in the skill definitions themselves. This section documents what actually happens, not a paraphrase of it.
+`/code-design-review` is Spec Kit's post-implementation review gate — it is not a second development methodology, and it does not replace human PR review.
 
-```text
-7a. using-git-worktrees        — isolate this feature's work from other branches
-7b. subagent-driven-development — for independent, plan-listed tasks (preferred);
-    or executing-plans          — for a single continuous session
-7c. Per task, repeated for every task in the breakdown:
-      i.   test-driven-development
-           RED:    write one failing test, run it, confirm it fails for the
-                    right reason (not a typo)
-           GREEN:  write the minimal code to pass it, run it, confirm all
-                    tests pass
-           REFACTOR: clean up only with tests staying green
-           Iron law: no production code without a failing test written first
-      ii.  systematic-debugging (only if a test/build/behavior fails
-           unexpectedly)
-           Phase 1: root cause investigation (read the error, reproduce it,
-                     check recent changes, trace data flow)
-           Phase 2: pattern analysis (find working examples, diff against them)
-           Phase 3: single hypothesis, smallest possible test of it
-           Phase 4: fix the root cause (via TDD), verify, and if 3+ fixes have
-                     failed, stop and question the architecture instead of
-                     trying a 4th fix
-      iii. requesting-code-review
-           Dispatch an independent reviewer subagent (not the implementer)
-           against the task's diff and the plan/spec it was built from.
-      iv.  receiving-code-review
-           Evaluate feedback technically before acting on it: verify against
-           the codebase, implement what's correct, push back with reasoning
-           on what's wrong — no reflexive agreement, no blind implementation.
-7d. verification-before-completion
-      Before ANY "done"/"passing"/"fixed" claim: identify the command that
-      proves it, run it fresh in that same turn, read the full output, and
-      only then state the claim — with the evidence attached. "Should pass
-      now" or trusting a prior run is treated as a false claim.
-7e. finishing-a-development-branch
-      Run the full test suite on the branch. If green, present the human
-      with the integration decision — merge locally, push and open a Pull
-      Request, or leave the branch as-is — execute whichever is chosen, then
-      clean up the isolated workspace. This is where CI, human review, and
-      merge actually happen: they are the outcome of the option chosen here,
-      not separate manual steps.
-```
+| Step | Evaluates | When |
+|---|---|---|
+| Human architecture/changeability review | The *proposed design* | After `/speckit-plan`, before task breakdown |
+| `/code-design-review` | The *actual implementation* | After `/speckit-implement`, once local build/tests pass |
+| `/speckit-converge` | Final conformance to the approved spec/plan/tasks | After review is clean, before PR |
 
-If a task turns out not to be independent of others, or the whole feature is being executed in one continuous session rather than parallel subagents, `executing-plans` is used in place of `subagent-driven-development` for step 7b — the per-task discipline in 7c-7d is identical either way. For multiple unrelated failures across independent subsystems (e.g. several unrelated failing test files), `dispatching-parallel-agents` may investigate them concurrently rather than one at a time.
+`/code-design-review` classifies findings as **Must Fix** or **Advisory**:
+
+- **Must Fix** findings are added as new tasks to the feature's existing `tasks.md` — never a separate or competing task-tracking system — and are resolved by running `/speckit-implement` again. `/code-design-review` is then re-run; repeat until no Must Fix findings remain.
+- **Advisory** findings (optional improvements, subjective preferences, speculative optimizations) do not block completion.
+- A Must Fix finding that traces back to a flawed technical plan means returning to `/speckit-plan`, not patching around the plan in code.
+- A Must Fix finding that traces back to an unresolved or contradictory requirement means returning to `/speckit-clarify`.
+
+This gate applies to application-code changes and is required before `/speckit-converge`. It does not apply to documentation-only or configuration-only changes.
 
 ## Feature Branches
 

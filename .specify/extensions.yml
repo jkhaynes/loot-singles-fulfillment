@@ -97,7 +97,7 @@ hooks:
   - extension: git
     command: speckit.git.commit
     enabled: true
-    optional: false
+    optional: true
     priority: 10
     prompt: Commit specification changes?
     description: Auto-commit after specification
@@ -106,7 +106,7 @@ hooks:
   - extension: git
     command: speckit.git.commit
     enabled: true
-    optional: false
+    optional: true
     priority: 10
     prompt: Commit clarification changes?
     description: Auto-commit after spec clarification
@@ -115,7 +115,7 @@ hooks:
   - extension: git
     command: speckit.git.commit
     enabled: true
-    optional: false
+    optional: true
     priority: 10
     prompt: Commit plan changes?
     description: Auto-commit after implementation planning
@@ -124,7 +124,7 @@ hooks:
   - extension: git
     command: speckit.git.commit
     enabled: true
-    optional: false
+    optional: true
     priority: 10
     prompt: Commit task changes?
     description: Auto-commit after task generation

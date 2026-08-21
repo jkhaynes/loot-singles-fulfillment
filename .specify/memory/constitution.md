@@ -1,17 +1,36 @@
 <!--
 Sync Impact Report
-Version change: 1.0.0 → 1.0.1 (PATCH — workflow wording clarification, no principle added/removed/redefined)
-Modified principles: none
-Modified sections:
-  - Development Workflow: removed "GitHub issue" as a required pipeline step between human
-    approval of the task breakdown and feature branch/worktree creation; added a sentence
-    naming tasks.md as the tracker for in-progress work, so no GitHub issue is required per
-    feature. Rationale: for this single-developer/single-Product-Owner internal tool, a GitHub
-    issue duplicated tracking that tasks.md already provides, and the step was unenforced
-    overhead with no reader.
-Added sections: none
-Removed sections: none
-Follow-up TODOs: none
+Version change: 3.0.0 → 3.1.0
+MINOR — added a required post-implementation review gate to the development workflow. No Core
+Principle (I-XIII) was added, removed, redefined, or weakened by this amendment.
+
+Added:
+  - Spec Kit Ownership
+    "Code and design review" added to the structured feature lifecycle list, positioned between
+    Implementation and Convergence verification. Clarified that a Must Fix finding from this gate
+    rooted in a flawed technical plan returns to /speckit-plan, and one rooted in an unresolved or
+    contradictory requirement returns to /speckit-clarify — the same routing already required for
+    problems implementation itself surfaces. Ordinary implementation-level Must Fix findings are
+    captured as new tasks in the feature's existing tasks.md, not a separate tracker; Advisory
+    findings do not block completion.
+  - Development Workflow
+    Inserted "automated build/tests" and "code and design review (/code-design-review)" between
+    Spec Kit implementation and convergence verification, with a repeat-until-clean loop mirroring
+    the existing convergence repeat rule. Added a clarifying note distinguishing this gate (reviews
+    the actual implementation) from the pre-implementation human architecture and changeability
+    review earlier in the same list (reviews the proposed design).
+
+Modified principles:
+  None.
+
+Rationale:
+Implementation review previously relied on ad hoc human code review with no structured gate tied
+to this constitution's own architecture, maintainability, and safe-failure principles. Adding a
+defined post-implementation review step, with a Must Fix / Advisory classification that routes
+findings back into the existing tasks.md rather than a competing tracker, closes that gap without
+introducing a second development methodology alongside Spec Kit.
+
+Follow-up TODOs: None.
 -->
 
 # Loot Singles Fulfillment Constitution
@@ -19,48 +38,330 @@ Follow-up TODOs: none
 ## Core Principles
 
 ### I. Product Owner Authority
-Confirmed Product Owner decisions outrank assumptions and outrank every other artifact in this repository, including this constitution. The source-of-truth hierarchy, highest first, is: Product Owner decisions → approved PRD → approved Spec Kit feature specification → approved Spec Kit technical plan → approved task breakdown → implementation. When artifacts at different levels conflict, work MUST stop for clarification rather than silently resolving in favor of the lower-level artifact.
+
+Confirmed Product Owner decisions are authoritative for product behavior, business workflow, priorities, and acceptance criteria.
+
+For product behavior and scope, the source-of-truth hierarchy, highest first, is:
+
+Product Owner decisions → approved PRD → approved Spec Kit feature specification → approved Spec Kit technical plan → approved task breakdown → implementation.
+
+The Product Owner does not implicitly override engineering, security, privacy, testing, reliability, or architectural principles established by this constitution. If a Product Owner decision conflicts with one of those principles, the conflict MUST be surfaced for explicit resolution rather than silently weakening the engineering standard or silently changing the product requirement.
+
+When artifacts at different levels conflict, work MUST stop for clarification rather than silently resolving in favor of the lower-level artifact.
 
 ### II. No Invented Requirements
-Product functionality MUST NOT be added because it seems useful, standard, or convenient. Every requirement MUST trace to a confirmed Product Owner decision, the approved PRD (`docs/prd/Loot_Singles_Fulfillment_PRD_v0.3.md`), or an approved Spec Kit feature specification. Open questions documented in the PRD remain open; they MUST NOT be silently converted into implementation assumptions.
+
+Product functionality MUST NOT be added because it seems useful, standard, or convenient. Every requirement MUST trace to a confirmed Product Owner decision, the approved PRD (`docs/prd/Loot_Singles_Fulfillment_PRD_v0.3.md`), or an approved Spec Kit feature specification.
+
+Open questions documented in the PRD remain open; they MUST NOT be silently converted into implementation assumptions.
+
+Engineering abstractions, extensibility mechanisms, validation behavior, or infrastructure decisions MUST NOT introduce new user-facing product behavior that has not been approved.
 
 ### III. Small, Reviewable Changes
-No product feature work is committed directly to `main`. Each feature is developed on its own branch (or worktree), scoped to one approved task breakdown, and merged only via reviewed pull request after CI passes.
 
-### IV. Test-First Where Appropriate (NON-NEGOTIABLE for Critical Rules)
-The planned stack is xUnit (backend), Vitest and React Testing Library (frontend), and Playwright (critical end-to-end flows). High-risk behaviors — exclusive order claiming under concurrency, quantity-greater-than-one preservation through import/persistence/API/UI, unresolved-issue blocking of pick completion, ambiguous-match image suppression, and safe parser failure — REQUIRE automated test coverage before being considered done.
+No product feature work is committed directly to `main`.
+
+Each feature is developed on its own branch or worktree, scoped to one approved task breakdown, and merged only through a reviewed pull request after CI passes.
+
+Changes SHOULD be kept small enough that their behavior, architectural impact, and test evidence can be meaningfully reviewed.
+
+Unrelated refactoring MUST NOT be bundled into a feature merely because nearby code could also be improved. When a required architectural correction is necessary to implement the approved feature safely or maintainably, it MUST be represented in the plan and task breakdown.
+
+### IV. Test-Driven Development (NON-NEGOTIABLE)
+
+For new or modified application behavior, the following Red → Green → Refactor cycle is required, not optional or limited only to critical rules:
+
+1. Identify the behavior or acceptance criterion being implemented.
+2. Write the smallest meaningful automated test that demonstrates that behavior.
+3. Run the test and confirm it fails for the expected reason.
+4. Implement only enough production code to make that test pass.
+5. Run the relevant test and confirm it passes.
+6. Refactor while keeping the test suite green.
+7. Continue with the next behavior.
+
+The planned stack is xUnit for backend testing, Vitest and React Testing Library for frontend testing, and Playwright for critical end-to-end flows.
+
+**Task generation:** Spec Kit task breakdowns MUST include applicable automated test tasks. Where a behavior requires a test, the test task MUST appear before its corresponding implementation task. Tests MUST trace to user stories, acceptance criteria, functional requirements, business rules, and important error and edge cases.
+
+**Implementation:** New feature behavior MUST NOT be implemented first with tests added afterward merely to satisfy coverage. Previously passing tests MUST remain green throughout implementation. During the Red phase, only the newly introduced test or tests demonstrating the behavior currently being implemented are expected to fail, and they MUST fail for the expected reason.
+
+**Refactoring:** Refactoring performed during the TDD cycle MUST preserve externally observable behavior unless a behavior change is itself part of the approved requirement. The relevant test suite MUST remain green throughout refactoring.
+
+**Exceptions:** TDD does not require artificial tests for work where executable behavioral testing is not meaningful, including documentation-only changes, certain static configuration changes, and repository metadata. Any exception applied to application behavior MUST be stated explicitly in the plan or task breakdown and MUST NOT be a silent bypass.
+
+**Verification:** A feature is not complete merely because production code exists. Completion requires that required automated tests exist, required tests pass, existing tests pass, implementation satisfies the approved specification, and applicable acceptance criteria have verification evidence.
+
+This constitution is the sole authoritative TDD policy for this project. No separate TDD methodology, tool, or extension governs feature implementation.
 
 ### V. Safe Failure Over Silent Corruption
-The system MUST favor rejecting questionable data over silently accepting it. TCGplayer packing-slip parsing MUST fail safely and surface an import problem rather than silently create an incomplete or incorrect order. Catalog enrichment MUST NOT silently overwrite authoritative order attributes. An ambiguous or insufficiently confident catalog/image match MUST NOT be displayed as a best guess — **no image is better than the wrong image**.
+
+The system MUST favor rejecting questionable data over silently accepting it.
+
+TCGplayer packing-slip parsing MUST fail safely and surface an import problem rather than silently create an incomplete or incorrect order.
+
+Catalog enrichment MUST NOT silently overwrite authoritative order attributes.
+
+An ambiguous or insufficiently confident catalog or image match MUST NOT be displayed as a best guess.
+
+**No image is better than the wrong image.**
+
+Expected malformed external input SHOULD be modeled as an application condition rather than treated as an unexpected programming failure.
 
 ### VI. Server-Enforced Critical Business Rules
-The backend, not the frontend, is the enforcement point for authentication, exclusive order claiming/concurrency, and order state transitions. Exclusive order claiming MUST be concurrency-safe: two employees pressing "Pick Next Order" (or claiming the same order) at approximately the same time MUST NOT both succeed in claiming the same order.
+
+The backend, not the frontend, is the enforcement point for authentication, exclusive order claiming and concurrency, and order state transitions.
+
+Exclusive order claiming MUST be concurrency-safe: two employees pressing "Pick Next Order" or attempting to claim the same order at approximately the same time MUST NOT both succeed in claiming the same order.
+
+Frontend validation MAY improve usability but MUST NOT be the sole enforcement mechanism for critical business rules.
 
 ### VII. Data Minimization and Credential Security
-Customer PII MUST be minimized and MUST NOT be exposed to pickers beyond what picking requires. Employee PINs MUST NEVER be stored in plaintext; secure hashing, failed-attempt protection, and session management are required. No credentials, PINs, connection strings, API keys, Azure credentials, or tokens may ever be committed to this repository.
+
+Customer PII MUST be minimized and MUST NOT be exposed to pickers beyond what picking requires.
+
+Employee PINs MUST NEVER be stored in plaintext. Secure hashing, failed-attempt protection, and session management are required.
+
+No credentials, PINs, connection strings, API keys, Azure credentials, tokens, or other secrets may ever be committed to this repository.
+
+Sensitive information MUST NOT be added to logs, fixtures, example files, screenshots, test data, or documentation when synthetic or sanitized data can serve the same purpose.
 
 ### VIII. One Responsive Product
-Desktop and mobile phone are served by a single responsive Progressive Web App, not separate codebases. Responsive UX differences MUST NOT create separate fulfillment systems.
+
+Desktop and mobile phone are served by a single responsive Progressive Web App, not separate codebases.
+
+Responsive UX differences MUST NOT create separate fulfillment systems or duplicate business logic.
+
+Platform-specific presentation differences MAY exist where needed for usability, but the same domain and application behavior MUST remain authoritative across form factors.
 
 ### IX. Replaceable Integrations
-TCGplayer order ingestion (currently packing-slip PDF parsing) and card catalog enrichment (currently Scryfall, Pokémon TCG API, Lorcast, and a still-undetermined One Piece provider) are adapters, not the application domain. Either MUST be replaceable — by a future supported TCGplayer API, or by different/additional catalog providers — without redesigning the picking domain or user experience. Catalog providers are supplemental and MUST NOT become the source of truth for sold order data; imported TCGplayer order data remains authoritative.
+
+TCGplayer order ingestion, currently packing-slip PDF parsing, and card catalog enrichment, currently Scryfall, Pokémon TCG API, Lorcast, and a still-undetermined One Piece provider, are adapters rather than the application domain.
+
+Either MUST be replaceable by a future supported TCGplayer API or by different or additional catalog providers without redesigning the picking domain or user experience.
+
+Catalog providers are supplemental and MUST NOT become the source of truth for sold order data. Imported TCGplayer order data remains authoritative.
+
+Source-specific import adapters MUST translate external representations into source-neutral application input before source-independent business validation where practical.
+
+Expected malformed external input MUST be represented through typed results, explicit failure concepts, or another stable programmatic contract. Consumers MUST NOT determine application behavior by inspecting human-readable exception message text.
+
+Source-independent validation and business rules MUST NOT be duplicated across source-specific adapters.
+
+Adding another supported ingestion source MUST NOT require rewriting the picking domain or duplicating source-independent validation behavior.
+
+Provider-specific quirks MUST remain contained within the appropriate adapter boundary rather than leaking throughout the application.
 
 ### X. Single-Business Scope
-This is single-business software for Loot Card Shop. Multi-tenant SaaS complexity MUST NOT be introduced for hypothetical future customers.
+
+This is single-business software for Loot Card Shop.
+
+Multi-tenant SaaS complexity MUST NOT be introduced for hypothetical future customers.
+
+Extensibility requirements in this constitution apply to real architectural variation within the approved product scope. They MUST NOT be interpreted as a requirement to generalize the application for unknown future businesses or customers.
 
 ### XI. Reliability During Fulfillment
-Low and predictable infrastructure cost is preferred, but cost optimization MUST NOT knowingly make the production picking workflow unreliable. Reliability during active fulfillment work takes priority over marginal cost savings.
 
-## Spec Kit / Superpowers Boundary
+Low and predictable infrastructure cost is preferred, but cost optimization MUST NOT knowingly make the production picking workflow unreliable.
 
-Spec Kit owns planning: constitution, feature specification, clarification, technical planning, and task breakdown. Superpowers owns execution after planning is approved: test-driven development, executing approved tasks, systematic debugging, verification, and code quality review. Superpowers MUST NOT originate or silently redesign a feature; if execution surfaces a contradictory requirement, missing business rule, unclear workflow, or architectural conflict, it MUST stop and return the feature to Spec Kit clarification/planning.
+Reliability during active fulfillment work takes priority over marginal cost savings.
+
+Failure modes that affect fulfillment MUST be explicit and observable. The application MUST NOT report an operation as successful when required persistence, validation, concurrency enforcement, or authoritative processing has failed.
+
+### XII. Maintainable and Extensible Design
+
+Application code MUST be designed for maintainability and for foreseeable variation already implied by approved requirements.
+
+Extensibility does not mean supporting every hypothetical future use. It means avoiding designs that make known or reasonably foreseeable changes unnecessarily invasive.
+
+The following rules apply:
+
+- Each component MUST have a clear, focused responsibility.
+- Parsing, validation, domain behavior, persistence, infrastructure, presentation, and orchestration MUST remain separate concerns unless the technical plan documents a concrete reason to combine them.
+- Domain and application logic MUST NOT depend directly on UI frameworks, persistence implementations, external service implementations, or source-specific import formats.
+- Expected validation, parsing, and business failures MUST be represented through typed results, domain concepts, or other explicit programmatic contracts. Production control flow MUST NOT depend on parsing human-readable exception message text.
+- Domain objects SHOULD make invalid states difficult to represent.
+- Untrusted, incomplete, or partially parsed external data SHOULD use an appropriate input, candidate, parsed, or result model rather than prematurely constructing a domain object that implies validity.
+- Where approved requirements reveal a genuine variation point, the design MUST provide an appropriate extension boundary rather than requiring repeated modification of unrelated orchestration logic or continued growth of a central conditional method.
+- Shared domain, business, and validation rules MUST NOT be duplicated across adapters, controllers, UI components, persistence code, or other source-specific implementations.
+- Public APIs and abstractions MUST remain focused and minimal.
+- Composition SHOULD be preferred over inheritance unless inheritance accurately represents the domain relationship and provides a concrete benefit.
+- Dependencies SHOULD point toward stable domain and application concepts rather than outward toward volatile infrastructure details.
+- Infrastructure-specific concerns MUST remain at appropriate application boundaries.
+- A component that coordinates multiple collaborators SHOULD primarily orchestrate them rather than absorb their individual parsing, validation, persistence, or business responsibilities.
+- Adding the next foreseeable implementation of a known variation point SHOULD primarily require adding or replacing the relevant implementation rather than modifying several unrelated consumers.
+
+SOLID principles are design guidance under this principle, not a requirement to create an interface, abstraction, or design pattern for every class.
+
+During technical planning, significant components MUST be evaluated for responsibility, dependency direction, expected variation, and change cost before implementation tasks are generated.
+
+If adding the next already-foreseeable case would require modifying several unrelated components, duplicating domain rules, interpreting exception text, or substantially expanding central branching logic, the plan MUST consider a more appropriate boundary or extension mechanism before implementation.
+
+### XIII. Simplicity and Proportional Abstraction
+
+Maintainability and extensibility MUST NOT be pursued through speculative abstraction or unnecessary architecture.
+
+The implementation MUST prefer the simplest design that satisfies:
+
+- The approved requirements
+- The technical plan
+- This constitution
+- Known or reasonably foreseeable change points
+
+Interfaces, factories, strategies, repositories, pipelines, base classes, providers, handlers, builders, and other abstractions MUST have a concrete purpose such as:
+
+- Supporting a known substitution or variation point
+- Isolating an external or infrastructure dependency
+- Protecting a meaningful architectural boundary
+- Improving testability where direct dependencies would make meaningful testing difficult
+- Preventing duplication of an established shared concept
+- Enforcing dependency direction
+
+An abstraction MUST NOT be introduced solely because a design pattern could apply, because SOLID is mentioned in this constitution, or because a hypothetical future requirement might exist.
+
+A single implementation MAY remain concrete when no meaningful substitution, dependency boundary, or variation point exists.
+
+Duplication MAY be temporarily preferable to premature abstraction when the correct shared concept is not yet understood. Once duplicated behavior is clearly the same business or domain concept, the design SHOULD consolidate it at the appropriate boundary.
+
+Plans MUST explain non-obvious abstractions and the concrete problem each one solves.
+
+The number of interfaces, layers, classes, or patterns in a design is not a measure of architectural quality.
+
+The goal is understandable, testable, changeable software with intentional boundaries and no unnecessary machinery.
+
+## Spec Kit Ownership
+
+Spec Kit is this project's sole AI-assisted feature development methodology.
+
+It owns the complete structured feature lifecycle:
+
+- Constitution
+- Feature specification
+- Clarification
+- Technical planning
+- Checklists where useful
+- Task breakdown
+- Artifact analysis
+- Implementation
+- Code and design review
+- Convergence verification
+
+No second planning or implementation methodology is layered on top of Spec Kit.
+
+If implementation surfaces:
+
+- A contradictory requirement
+- A missing business rule
+- An unclear workflow
+- An architectural conflict
+- A requirement that cannot reasonably be implemented as specified
+- A conflict with this constitution
+
+work MUST stop and return to the appropriate Spec Kit clarification or planning phase.
+
+This rule applies equally to findings surfaced by the Code and Design Review gate (`/code-design-review`): a Must Fix finding rooted in a flawed technical plan returns to `/speckit-plan`; a Must Fix finding rooted in an unresolved or contradictory requirement returns to `/speckit-clarify`. Must Fix findings that are ordinary implementation-level defects are captured as new tasks in the feature's existing `tasks.md` — not a separate or competing task-tracking system — and resolved through `/speckit-implement`. Advisory findings from `/code-design-review` do not block completion.
+
+The specification and plan MUST NOT be silently redesigned during implementation.
+
+Higher-level requirement artifacts MUST NOT be normalized to match whatever code happens to exist.
+
+### Architecture and Changeability Review
+
+During technical planning, Spec Kit MUST evaluate the proposed design against the maintainability, extensibility, simplicity, dependency, testing, and domain-integrity principles in this constitution.
+
+For each significant component or architectural boundary relevant to the feature, the plan MUST consider:
+
+1. **Responsibility** — What single conceptual job does this component perform?
+2. **Boundaries** — Which concerns belong here, and which explicitly do not?
+3. **Dependency direction** — What does this component depend on, and are those dependencies pointing toward stable application or domain concepts where appropriate?
+4. **Foreseeable variation** — Which approved or clearly anticipated cases are likely to vary?
+5. **Extension cost** — What would need to change to support the next foreseeable case?
+6. **Failure modeling** — How are expected parsing, validation, business, infrastructure, and integration failures represented?
+7. **Domain integrity** — At what point does untrusted, incomplete, or external input become a valid domain object?
+8. **Testability** — Can important behavior be tested without unnecessary infrastructure or unrelated application components?
+9. **Abstraction rationale** — Does each non-trivial abstraction solve a concrete problem?
+10. **Simplicity** — Is there a simpler design that preserves the required boundaries, correctness, and changeability?
+
+The plan does not need to create abstractions for every possible future change.
+
+It MUST, however, address variation points already implied by the approved requirements or by concrete integrations the feature is explicitly expected to support.
+
+Architecture MUST NOT be considered acceptable solely because it compiles, passes its current tests, or satisfies the immediate happy path.
 
 ## Development Workflow
 
-Requirement → Spec Kit specification → clarification → technical plan → task breakdown → human approval → feature branch/worktree → Superpowers TDD execution → verification against the approved specification → code quality review → pull request → CI → human review → merge. The Spec Kit task breakdown (`tasks.md`) is the tracker for in-progress work; no GitHub issue is required per feature. See `docs/development/ai-assisted-development-workflow.md` for the full workflow and project-specific validation gates.
+The normal feature lifecycle is:
+
+Requirement  
+→ Spec Kit specification  
+→ clarification  
+→ technical plan  
+→ human architecture and changeability review  
+→ checklist when useful  
+→ task breakdown  
+→ analyze  
+→ human approval  
+→ feature branch or worktree  
+→ Spec Kit implementation using strict Red → Green → Refactor TDD per Principle IV  
+→ automated build/tests  
+→ code and design review (`/code-design-review`)  
+→ convergence verification  
+→ pull request  
+→ CI  
+→ human review  
+→ merge
+
+Code and design review evaluates the actual implementation against the approved specification, plan, and this constitution; it is distinct from the human architecture and changeability review earlier in this list, which evaluates the proposed design before implementation exists. Must Fix findings are captured as new tasks in the existing `tasks.md` and resolved through implementation; Advisory findings do not block progress. This step is required for application-code changes before convergence verification.
+
+If convergence surfaces remaining required work:
+
+Implementation  
+→ convergence verification  
+→ repeat until converged.
+
+If code and design review surfaces remaining Must Fix findings:
+
+Implementation  
+→ code and design review  
+→ repeat until no Must Fix findings remain, before proceeding to convergence verification.
+
+The Spec Kit task breakdown (`tasks.md`) is the tracker for in-progress feature work. No GitHub issue is required per feature.
+
+Before task generation is approved, the technical plan SHOULD be reviewed specifically for:
+
+- Responsibility boundaries
+- Dependency direction
+- Known variation points
+- Failure modeling
+- Domain integrity
+- Testability
+- Appropriate extensibility
+- Unnecessary abstraction
+
+See `docs/development/ai-assisted-development-workflow.md` for the full workflow and project-specific validation gates.
 
 ## Governance
 
-This constitution is subordinate to confirmed Product Owner decisions and the approved PRD, per the source-of-truth hierarchy in `CLAUDE.md`. All specifications, plans, and pull requests must be consistent with these principles; deviations must be explicitly justified and, where they affect product behavior, escalated to the Product Owner rather than decided unilaterally during implementation. Amendments to this constitution require documentation of the change and rationale, and must not lower a safety-related principle (Sections V, VI, VII) without explicit Product Owner approval.
+Confirmed Product Owner decisions and the approved PRD govern product behavior and business requirements according to Principle I.
 
-**Version**: 1.0.1 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-19
+This constitution governs engineering, architecture, testing, security, privacy, reliability, and development-process standards.
+
+Neither source of authority MUST be silently rewritten to resolve a conflict with the other. A meaningful conflict between an approved product requirement and an engineering principle MUST be surfaced for explicit resolution.
+
+All specifications, technical plans, task breakdowns, implementations, and pull requests MUST be consistent with these principles.
+
+A deviation from a constitution `MUST` requires explicit documentation of:
+
+- The principle being deviated from
+- Why compliance is not reasonably achievable or would cause a more serious conflict
+- The scope of the deviation
+- The mitigation used instead
+
+Where a deviation changes product behavior or acceptance criteria, it MUST also be escalated to the Product Owner.
+
+Amendments to this constitution require documentation of the change and rationale.
+
+Safety-related principles, including Sections V, VI, and VII, MUST NOT be weakened without explicit Product Owner and Developer approval.
+
+Changes to maintainability or simplicity principles MUST preserve the balance between reasonable extensibility and avoiding speculative over-engineering.
+
+**Version**: 3.1.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-20
