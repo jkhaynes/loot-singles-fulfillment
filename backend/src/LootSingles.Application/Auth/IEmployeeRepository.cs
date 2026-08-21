@@ -13,6 +13,8 @@ public interface IEmployeeRepository
 
     Task<Employee?> GetByIdAsync(int id, CancellationToken cancellationToken);
 
+    Task<bool> ExistsAsync(int id, CancellationToken cancellationToken);
+
     void Add(Employee employee);
 
     Task<IReadOnlyList<Employee>> ListAsync(CancellationToken cancellationToken);

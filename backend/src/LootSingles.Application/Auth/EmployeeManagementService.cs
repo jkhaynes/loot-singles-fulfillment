@@ -1,3 +1,4 @@
+using LootSingles.Application.Persistence;
 using LootSingles.Domain.Employees;
 
 namespace LootSingles.Application.Auth;
@@ -15,6 +16,11 @@ public sealed class EmployeeManagementService(IEmployeeRepository repository, IP
         EmployeeRole role,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(username) || !PinFormat.IsValid(initialPin))
+        {
+            return EmployeeManagementResult.InvalidRequest;
+        }
+
         var normalizedUsername = username.ToUpperInvariant();
         if (await repository.GetByNormalizedUsernameAsync(normalizedUsername, cancellationToken) is not null)
         {
@@ -31,8 +37,19 @@ public sealed class EmployeeManagementService(IEmployeeRepository repository, IP
             CreatedAt = DateTimeOffset.UtcNow,
         };
         repository.Add(employee);
-        // Persist first so database-generated employee IDs are available to the audit event.
-        await repository.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            // Persist first so database-generated employee IDs are available to the audit event.
+            await repository.SaveChangesAsync(cancellationToken);
+        }
+        catch (UniqueConstraintViolationException)
+        {
+            // Another request created the same case-insensitive username between the check above
+            // and this save; the unique index (FR-014) is the actual source of truth.
+            return EmployeeManagementResult.UsernameTaken;
+        }
+
         await AddAuditEventAsync(
             actorEmployeeId, employee.Id, EmployeeAuditActionType.AccountCreated, cancellationToken);
 
@@ -55,9 +72,16 @@ public sealed class EmployeeManagementService(IEmployeeRepository repository, IP
             }, cancellationToken);
 
     public Task<EmployeeManagementResult> ResetPinAsync(
-        int actorEmployeeId, int targetEmployeeId, string newPin, CancellationToken cancellationToken) =>
-        ChangeAsync(actorEmployeeId, targetEmployeeId, EmployeeAuditActionType.PinReset,
+        int actorEmployeeId, int targetEmployeeId, string newPin, CancellationToken cancellationToken)
+    {
+        if (!PinFormat.IsValid(newPin))
+        {
+            return Task.FromResult(EmployeeManagementResult.InvalidRequest);
+        }
+
+        return ChangeAsync(actorEmployeeId, targetEmployeeId, EmployeeAuditActionType.PinReset,
             employee => employee.PinHash = pinHasher.Hash(newPin), cancellationToken);
+    }
 
     public Task<EmployeeManagementResult> UnlockAsync(
         int actorEmployeeId, int targetEmployeeId, CancellationToken cancellationToken) =>
@@ -73,6 +97,9 @@ public sealed class EmployeeManagementService(IEmployeeRepository repository, IP
 
     public Task<Employee?> GetByIdAsync(int employeeId, CancellationToken cancellationToken) =>
         repository.GetByIdAsync(employeeId, cancellationToken);
+
+    public Task<bool> ExistsAsync(int employeeId, CancellationToken cancellationToken) =>
+        repository.ExistsAsync(employeeId, cancellationToken);
 
     public Task<IReadOnlyList<EmployeeAuditEvent>> GetAuditEventsAsync(
         int employeeId, CancellationToken cancellationToken) =>

@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using LootSingles.Application.Persistence;
 using LootSingles.Domain.Orders;
 
 namespace LootSingles.Application.Import;
@@ -116,14 +117,18 @@ public sealed class PackingSlipImportService(
                     result.ResultingOrderId = order.Id;
                     succeeded++;
                 }
-                catch (OrderPersistenceException exception)
+                catch (UniqueConstraintViolationException)
                 {
                     persistence.DiscardOrder(order);
-                    Reject(result,
-                        exception.IsDuplicate ? FailureType.DuplicateOrder : FailureType.PersistenceFailure,
-                        exception.IsDuplicate
-                            ? $"Order '{block.OrderIdentifier}' was already imported by a concurrent operation."
-                            : $"Order '{block.OrderIdentifier}' could not be saved; no order or product lines were retained. Retry the import or contact support if the problem continues.");
+                    Reject(result, FailureType.DuplicateOrder,
+                        $"Order '{block.OrderIdentifier}' was already imported by a concurrent operation.");
+                    failed++;
+                }
+                catch (OrderPersistenceException)
+                {
+                    persistence.DiscardOrder(order);
+                    Reject(result, FailureType.PersistenceFailure,
+                        $"Order '{block.OrderIdentifier}' could not be saved; no order or product lines were retained. Retry the import or contact support if the problem continues.");
                     failed++;
                 }
             }

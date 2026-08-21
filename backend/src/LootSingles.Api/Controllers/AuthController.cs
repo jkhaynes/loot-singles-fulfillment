@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using System.Text.RegularExpressions;
 using LootSingles.Application.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -15,13 +14,13 @@ namespace LootSingles.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/auth")]
-public sealed partial class AuthController(AuthenticationService authenticationService) : ControllerBase
+public sealed class AuthController(AuthenticationService authenticationService) : ControllerBase
 {
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(request.Username) || !FourDigitPinPattern().IsMatch(request.Pin ?? string.Empty))
+        if (string.IsNullOrEmpty(request.Username) || !PinFormat.IsValid(request.Pin))
         {
             return BadRequest(new ErrorResponse("invalid_request", "Username and a 4-digit numeric PIN are required."));
         }
@@ -78,9 +77,6 @@ public sealed partial class AuthController(AuthenticationService authenticationS
 
     private static AuthResponse ToResponse(int employeeId, string displayName, string role) =>
         new(employeeId, displayName, role);
-
-    [GeneratedRegex(@"^\d{4}$")]
-    private static partial Regex FourDigitPinPattern();
 }
 
 public sealed record LoginRequest(string? Username, string? Pin);

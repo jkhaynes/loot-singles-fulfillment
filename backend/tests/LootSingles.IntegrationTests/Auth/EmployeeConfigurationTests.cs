@@ -1,3 +1,4 @@
+using LootSingles.Application.Persistence;
 using LootSingles.Domain.Employees;
 using LootSingles.Infrastructure.Persistence;
 using Microsoft.Data.Sqlite;
@@ -25,6 +26,29 @@ public class EmployeeConfigurationTests
         second.Employees.Add(NewEmployee("JSmith"));
 
         await Assert.ThrowsAsync<DbUpdateException>(() => second.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task EmployeeRepositorySaveChangesAsync_CaseInsensitiveDuplicateUsername_ThrowsUniqueConstraintViolationException()
+    {
+        var connectionString = $"Data Source=employees-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
+        await using var keeper = new SqliteConnection(connectionString);
+        await keeper.OpenAsync();
+        await using (var setup = CreateContext(connectionString)) await setup.Database.EnsureCreatedAsync();
+
+        await using (var first = CreateContext(connectionString))
+        {
+            var firstRepository = new EmployeeRepository(first);
+            firstRepository.Add(NewEmployee("jsmith"));
+            await firstRepository.SaveChangesAsync(CancellationToken.None);
+        }
+
+        await using var second = CreateContext(connectionString);
+        var secondRepository = new EmployeeRepository(second);
+        secondRepository.Add(NewEmployee("JSmith"));
+
+        await Assert.ThrowsAsync<UniqueConstraintViolationException>(
+            () => secondRepository.SaveChangesAsync(CancellationToken.None));
     }
 
     private static LootSinglesDbContext CreateContext(string connectionString) =>

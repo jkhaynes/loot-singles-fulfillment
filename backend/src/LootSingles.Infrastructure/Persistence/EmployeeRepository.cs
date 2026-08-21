@@ -1,4 +1,5 @@
 using LootSingles.Application.Auth;
+using LootSingles.Application.Persistence;
 using LootSingles.Domain.Employees;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,6 +15,9 @@ public class EmployeeRepository(LootSinglesDbContext context) : IEmployeeReposit
 
     public Task<Employee?> GetByIdAsync(int id, CancellationToken cancellationToken) =>
         context.Employees.SingleOrDefaultAsync(employee => employee.Id == id, cancellationToken);
+
+    public Task<bool> ExistsAsync(int id, CancellationToken cancellationToken) =>
+        context.Employees.AnyAsync(employee => employee.Id == id, cancellationToken);
 
     public void Add(Employee employee) => context.Employees.Add(employee);
 
@@ -35,6 +39,15 @@ public class EmployeeRepository(LootSinglesDbContext context) : IEmployeeReposit
         return auditEvents.OrderByDescending(auditEvent => auditEvent.OccurredAt).ToList();
     }
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken) =>
-        context.SaveChangesAsync(cancellationToken);
+    public async Task SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (DuplicateKeyDetector.IsDuplicateKeyViolation(exception))
+        {
+            throw new UniqueConstraintViolationException("Username is already in use.", exception);
+        }
+    }
 }

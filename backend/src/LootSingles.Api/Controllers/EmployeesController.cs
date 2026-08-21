@@ -18,9 +18,7 @@ public sealed class EmployeesController(EmployeeManagementService managementServ
     public async Task<IActionResult> Create(
         [FromBody] CreateEmployeeRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Username)
-            || string.IsNullOrWhiteSpace(request.DisplayName)
-            || !IsValidPin(request.InitialPin)
+        if (string.IsNullOrWhiteSpace(request.DisplayName)
             || !Enum.TryParse<EmployeeRole>(request.Role, ignoreCase: false, out var role))
         {
             return BadRequest(new ErrorResponse("invalid_request", "Valid employee details are required."));
@@ -28,11 +26,16 @@ public sealed class EmployeesController(EmployeeManagementService managementServ
 
         var result = await managementService.CreateAsync(
             ActorEmployeeId(),
-            request.Username,
+            request.Username ?? string.Empty,
             request.DisplayName,
-            request.InitialPin!,
+            request.InitialPin ?? string.Empty,
             role,
             cancellationToken);
+
+        if (result.Outcome == EmployeeManagementOutcome.InvalidRequest)
+        {
+            return BadRequest(new ErrorResponse("invalid_request", "Valid employee details are required."));
+        }
 
         if (result.Outcome == EmployeeManagementOutcome.UsernameTaken)
         {
@@ -73,13 +76,14 @@ public sealed class EmployeesController(EmployeeManagementService managementServ
     public async Task<IActionResult> ResetPin(
         int id, [FromBody] ResetPinRequest request, CancellationToken cancellationToken)
     {
-        if (!IsValidPin(request.NewPin))
+        var result = await managementService.ResetPinAsync(
+            ActorEmployeeId(), id, request.NewPin ?? string.Empty, cancellationToken);
+
+        if (result.Outcome == EmployeeManagementOutcome.InvalidRequest)
         {
             return BadRequest(new ErrorResponse("invalid_request", "A 4-digit numeric PIN is required."));
         }
 
-        var result = await managementService.ResetPinAsync(
-            ActorEmployeeId(), id, request.NewPin!, cancellationToken);
         return result.Outcome == EmployeeManagementOutcome.NotFound ? NotFound() : Ok();
     }
 
@@ -93,7 +97,7 @@ public sealed class EmployeesController(EmployeeManagementService managementServ
     [HttpGet("{id:int}/audit-events")]
     public async Task<IActionResult> AuditEvents(int id, CancellationToken cancellationToken)
     {
-        if (await managementService.GetByIdAsync(id, cancellationToken) is null)
+        if (!await managementService.ExistsAsync(id, cancellationToken))
         {
             return NotFound();
         }
@@ -108,9 +112,6 @@ public sealed class EmployeesController(EmployeeManagementService managementServ
 
     private int ActorEmployeeId() =>
         int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-    private static bool IsValidPin(string? pin) =>
-        pin is { Length: 4 } && pin.All(char.IsAsciiDigit);
 }
 
 public sealed record CreateEmployeeRequest(

@@ -1,9 +1,8 @@
-using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Data.SqlClient;
 using LootSingles.Domain.Orders;
 using LootSingles.Domain.Employees;
 using LootSingles.Application.Import;
+using LootSingles.Application.Persistence;
 
 namespace LootSingles.Infrastructure.Persistence;
 
@@ -68,35 +67,14 @@ public class LootSinglesDbContext : DbContext, IImportPersistence
         {
             await SaveChangesAsync(cancellationToken);
         }
+        catch (DbUpdateException exception) when (DuplicateKeyDetector.IsDuplicateKeyViolation(exception))
+        {
+            throw new UniqueConstraintViolationException("The order identifier already exists.", exception);
+        }
         catch (DbUpdateException exception)
         {
-            var duplicate = IsDuplicateKeyViolation(exception);
-            throw new OrderPersistenceException(
-                duplicate ? "The order identifier already exists." : "The order could not be persisted atomically.",
-                duplicate,
-                exception);
+            throw new OrderPersistenceException("The order could not be persisted atomically.", exception);
         }
-    }
-
-    private static bool IsDuplicateKeyViolation(Exception exception)
-    {
-        for (var current = exception; current is not null; current = current.InnerException)
-        {
-            if (current is SqlException sqlException
-                && sqlException.Errors.Cast<SqlError>().Any(error => error.Number is 2601 or 2627))
-            {
-                return true;
-            }
-
-            if (current is DbException dbException
-                && current.GetType().FullName == "Microsoft.Data.Sqlite.SqliteException"
-                && current.GetType().GetProperty("SqliteErrorCode")?.GetValue(dbException) is 19)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>

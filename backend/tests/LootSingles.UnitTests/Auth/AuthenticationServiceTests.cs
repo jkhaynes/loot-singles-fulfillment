@@ -60,6 +60,22 @@ public class AuthenticationServiceTests
         Assert.Equal(AuthenticationOutcome.InvalidCredentials, result.Outcome);
     }
 
+    [Theory]
+    [InlineData("1234")]
+    [InlineData("9999")]
+    public async Task LoginAsync_DeactivatedAndLockedAccount_ReturnsInvalidCredentialsNotAccountLocked(string suppliedPin)
+    {
+        var repository = new FakeEmployeeRepository();
+        var hasher = new Pbkdf2PinHasher();
+        var employee = NewEmployee(repository, hasher, "jsmith", "1234", isActive: false);
+        employee.IsLocked = true;
+        var service = new AuthenticationService(repository, hasher, DefaultLockoutOptions());
+
+        var result = await service.LoginAsync("jsmith", suppliedPin, CancellationToken.None);
+
+        Assert.Equal(AuthenticationOutcome.InvalidCredentials, result.Outcome);
+    }
+
     [Fact]
     public async Task LoginAsync_UsernameIsCaseInsensitive_ReturnsSuccess()
     {
@@ -185,6 +201,9 @@ public class AuthenticationServiceTests
 
         public Task<Employee?> GetByIdAsync(int id, CancellationToken cancellationToken) =>
             Task.FromResult(Employees.SingleOrDefault(employee => employee.Id == id));
+
+        public Task<bool> ExistsAsync(int id, CancellationToken cancellationToken) =>
+            Task.FromResult(Employees.Any(employee => employee.Id == id));
 
         public void Add(Employee employee)
         {

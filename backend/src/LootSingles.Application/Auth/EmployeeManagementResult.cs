@@ -7,6 +7,7 @@ public enum EmployeeManagementOutcome
     Success,
     NotFound,
     UsernameTaken,
+    InvalidRequest,
 }
 
 public sealed record EmployeeManagementResult(
@@ -21,4 +22,7 @@ public sealed record EmployeeManagementResult(
 
     public static readonly EmployeeManagementResult UsernameTaken =
         new(EmployeeManagementOutcome.UsernameTaken);
+
+    public static readonly EmployeeManagementResult InvalidRequest =
+        new(EmployeeManagementOutcome.InvalidRequest);
 }

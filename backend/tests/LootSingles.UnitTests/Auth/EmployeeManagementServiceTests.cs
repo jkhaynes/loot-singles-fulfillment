@@ -1,4 +1,5 @@
 using LootSingles.Application.Auth;
+using LootSingles.Application.Persistence;
 using LootSingles.Domain.Employees;
 using LootSingles.Infrastructure.Auth;
 
@@ -18,6 +19,36 @@ public class EmployeeManagementServiceTests
         Assert.Equal(EmployeeManagementOutcome.UsernameTaken, result.Outcome);
         Assert.Single(repository.Employees);
         Assert.Empty(repository.AuditEvents);
+    }
+
+    [Theory]
+    [InlineData("", "1234")]
+    [InlineData("   ", "1234")]
+    [InlineData("jsmith", "12a4")]
+    [InlineData("jsmith", "123")]
+    [InlineData("jsmith", "")]
+    public async Task CreateAsync_InvalidUsernameOrPin_ReturnsInvalidRequestWithoutPersisting(
+        string username, string initialPin)
+    {
+        var repository = new FakeEmployeeRepository();
+        var service = new EmployeeManagementService(repository, new Pbkdf2PinHasher());
+
+        var result = await service.CreateAsync(9, username, "Jamie", initialPin, EmployeeRole.Picker, default);
+
+        Assert.Equal(EmployeeManagementOutcome.InvalidRequest, result.Outcome);
+        Assert.Empty(repository.Employees);
+        Assert.Empty(repository.AuditEvents);
+    }
+
+    [Fact]
+    public async Task CreateAsync_ConcurrentDuplicateUsername_ReturnsUsernameTaken()
+    {
+        var repository = new FakeEmployeeRepository { ThrowDuplicateUsernameOnNextSave = true };
+        var service = new EmployeeManagementService(repository, new Pbkdf2PinHasher());
+
+        var result = await service.CreateAsync(9, "jsmith", "Jamie", "1234", EmployeeRole.Picker, default);
+
+        Assert.Equal(EmployeeManagementOutcome.UsernameTaken, result.Outcome);
     }
 
     [Fact]
@@ -77,6 +108,25 @@ public class EmployeeManagementServiceTests
         AssertAudit(repository, EmployeeAuditActionType.PinReset, 9, 1);
     }
 
+    [Theory]
+    [InlineData("12a4")]
+    [InlineData("123")]
+    [InlineData("")]
+    public async Task ResetPinAsync_InvalidPin_ReturnsInvalidRequestWithoutChangingHash(string newPin)
+    {
+        var repository = new FakeEmployeeRepository();
+        var hasher = new Pbkdf2PinHasher();
+        var employee = NewEmployee(1, "jsmith", hasher.Hash("1234"));
+        repository.Employees.Add(employee);
+        var service = new EmployeeManagementService(repository, hasher);
+
+        var result = await service.ResetPinAsync(9, 1, newPin, default);
+
+        Assert.Equal(EmployeeManagementOutcome.InvalidRequest, result.Outcome);
+        Assert.True(hasher.Verify(employee.PinHash, "1234"));
+        Assert.Empty(repository.AuditEvents);
+    }
+
     [Fact]
     public async Task UnlockAsync_ClearsLockoutWithoutChangingPin()
     {
@@ -132,11 +182,14 @@ public class EmployeeManagementServiceTests
     {
         public List<Employee> Employees { get; } = [];
         public List<EmployeeAuditEvent> AuditEvents { get; } = [];
+        public bool ThrowDuplicateUsernameOnNextSave { get; set; }
 
         public Task<Employee?> GetByNormalizedUsernameAsync(string normalizedUsername, CancellationToken token) =>
             Task.FromResult(Employees.SingleOrDefault(item => item.NormalizedUsername == normalizedUsername));
         public Task<Employee?> GetByIdAsync(int id, CancellationToken token) =>
             Task.FromResult(Employees.SingleOrDefault(item => item.Id == id));
+        public Task<bool> ExistsAsync(int id, CancellationToken token) =>
+            Task.FromResult(Employees.Any(item => item.Id == id));
         public void Add(Employee employee)
         {
             employee.Id = Employees.Count + 1;
@@ -150,6 +203,16 @@ public class EmployeeManagementServiceTests
         }
         public Task<IReadOnlyList<EmployeeAuditEvent>> GetAuditEventsAsync(int employeeId, CancellationToken token) =>
             Task.FromResult<IReadOnlyList<EmployeeAuditEvent>>(AuditEvents);
-        public Task SaveChangesAsync(CancellationToken token) => Task.CompletedTask;
+        public Task SaveChangesAsync(CancellationToken token)
+        {
+            if (ThrowDuplicateUsernameOnNextSave)
+            {
+                ThrowDuplicateUsernameOnNextSave = false;
+                throw new UniqueConstraintViolationException(
+                    "Username is already in use.", new InvalidOperationException("simulated unique-index violation"));
+            }
+
+            return Task.CompletedTask;
+        }
     }
 }

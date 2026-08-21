@@ -168,6 +168,20 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 ---
 
+## Phase 8: Code and Design Review Follow-ups
+
+**Purpose**: Resolve findings from the `/code-design-review` pass (see `validation-results.md`'s companion review). Must Fix findings block `/speckit-converge`; the two Advisory items below were selected for inclusion alongside them.
+
+- [X] T053 [P] Centralize the FR-008 4-digit-numeric PIN format rule (and username-required check) in `LootSingles.Application.Auth` instead of duplicating it across `AuthController.FourDigitPinPattern()` and `EmployeesController.IsValidPin()`; have `EmployeeManagementService.CreateAsync`/`ResetPinAsync` enforce it directly and return a typed invalid-input outcome (extend `EmployeeManagementResult`) rather than relying solely on controller-side checks (Must Fix 1, Constitution XII — no duplicated validation rules, domain integrity)
+- [X] T054 [P] Add a unit test asserting that an employee with `IsActive = false` **and** `IsLocked = true` receives `AuthenticationOutcome.InvalidCredentials` (not `AccountLocked`) in `backend/tests/LootSingles.UnitTests/Auth/AuthenticationServiceTests.cs`, covering the data-model.md state-transition table's inactive-takes-precedence-over-locked rule (Must Fix 2, Constitution IV)
+- [X] T055 Catch a unique-index violation on `SaveChangesAsync` in `EmployeeManagementService.CreateAsync` and return `EmployeeManagementResult.UsernameTaken` instead of letting a concurrent duplicate-username race surface as an unhandled `DbUpdateException`, reusing the existing `IsDuplicateKeyViolation` pattern from `LootSinglesDbContext` (Advisory 1)
+- [X] T056 [P] Replace the tracked `GetByIdAsync` existence check in `EmployeesController.AuditEvents` with an `AnyAsync()`-based existence check (or fold it into `GetAuditEventsAsync`) to avoid an unnecessary tracked entity fetch, per the constitution's EF Core Engineering Standards (Advisory 2)
+- [X] T057 Consolidate `DuplicateUsernameException` (T055) with feature 001's existing `OrderPersistenceException` duplicate-key case into one shared `LootSingles.Application.Persistence.UniqueConstraintViolationException`, used by both `EmployeeRepository` and `LootSinglesDbContext.IImportPersistence.SaveChangesAsync`, instead of two feature-specific exception types for the same concept (unique-constraint violation crossing the persistence boundary, Constitution XII/XIII)
+
+**Checkpoint**: Re-run `/code-design-review` after these are implemented; zero remaining Must Fix findings required before `/speckit-converge`.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
