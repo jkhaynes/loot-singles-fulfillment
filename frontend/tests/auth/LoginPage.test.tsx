@@ -55,6 +55,37 @@ describe('LoginPage', () => {
     ).toBeInTheDocument()
   })
 
+  it('marks the locked-account error with a variant attribute distinct from the generic error', async () => {
+    vi.mocked(authApi.login).mockRejectedValue(
+      new authApi.AuthApiError(
+        'account_locked',
+        'This account is locked. Ask a Manager/Admin to unlock it.',
+      ),
+    )
+    const user = userEvent.setup()
+    render(<LoginPage onLoginSuccess={vi.fn()} />)
+
+    await user.type(screen.getByLabelText(/username/i), 'jsmith')
+    await user.type(screen.getByLabelText(/pin/i), '1234')
+    await user.click(screen.getByRole('button', { name: /log in/i }))
+
+    expect(await screen.findByRole('alert')).toHaveAttribute('data-variant', 'locked')
+  })
+
+  it('marks the generic invalid-credentials error with a variant attribute distinct from the locked error', async () => {
+    vi.mocked(authApi.login).mockRejectedValue(
+      new authApi.AuthApiError('invalid_credentials', 'Username or PIN is incorrect.'),
+    )
+    const user = userEvent.setup()
+    render(<LoginPage onLoginSuccess={vi.fn()} />)
+
+    await user.type(screen.getByLabelText(/username/i), 'jsmith')
+    await user.type(screen.getByLabelText(/pin/i), '9999')
+    await user.click(screen.getByRole('button', { name: /log in/i }))
+
+    expect(await screen.findByRole('alert')).toHaveAttribute('data-variant', 'generic')
+  })
+
   it('calls onLoginSuccess with the authenticated employee on success', async () => {
     const employee = { employeeId: 1, displayName: 'Jamie', role: 'Picker' }
     vi.mocked(authApi.login).mockResolvedValue(employee)

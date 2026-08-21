@@ -49,13 +49,13 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 > **NOTE: Write this test FIRST, ensure it FAILS before implementation**
 
-- [ ] T006 [P] [US1] Frontend test: `LoginPage`'s rendered error element carries a distinguishing attribute (e.g., `data-variant="locked"` vs `data-variant="generic"`) for the locked-account message vs. the generic invalid-credentials message (FR-002), in `frontend/tests/auth/LoginPage.test.tsx` — must fail (attribute doesn't exist yet)
+- [X] T006 [P] [US1] Frontend test: `LoginPage`'s rendered error element carries a distinguishing attribute (e.g., `data-variant="locked"` vs `data-variant="generic"`) for the locked-account message vs. the generic invalid-credentials message (FR-002), in `frontend/tests/auth/LoginPage.test.tsx` — must fail (attribute doesn't exist yet)
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Redesign `frontend/src/features/auth/LoginPage.tsx`'s markup — token-driven layout, brand mark placement, and the distinguishing error-state attribute from T006 — without changing its props, field `id`/`label` associations, or submitted behavior (FR-001) (depends on: T001, T004; T006 must fail first)
-- [ ] T008 [US1] Create `frontend/src/features/auth/LoginPage.css`, styled entirely from the tokens in `styles/tokens.css` (soft rounded corners, restrained shadows, layered surface, comfortably tappable controls) (depends on: T004, T007)
-- [ ] T009 [US1] Verify `frontend/tests/auth/LoginPage.test.tsx`'s existing behavioral assertions and `frontend/e2e/login.spec.ts`'s existing login/error assertions still pass unchanged against the redesigned `LoginPage` (regression check, FR-001) (depends on: T007, T008)
+- [X] T007 [US1] Redesign `frontend/src/features/auth/LoginPage.tsx`'s markup — token-driven layout, brand mark placement, and the distinguishing error-state attribute from T006 — without changing its props, field `id`/`label` associations, or submitted behavior (FR-001) (depends on: T001, T004; T006 must fail first)
+- [X] T008 [US1] Create `frontend/src/features/auth/LoginPage.css`, styled entirely from the tokens in `styles/tokens.css` (soft rounded corners, restrained shadows, layered surface, comfortably tappable controls) (depends on: T004, T007)
+- [X] T009 [US1] Verify `frontend/tests/auth/LoginPage.test.tsx`'s existing behavioral assertions and `frontend/e2e/login.spec.ts`'s existing login/error assertions still pass unchanged against the redesigned `LoginPage` (regression check, FR-001) (depends on: T007, T008) — verified via Vitest (8/8 passing) and Playwright (2/2 passing)
 
 **Checkpoint**: User Story 1 is fully functional and independently testable — the login screen is redesigned with no behavior change.
 
