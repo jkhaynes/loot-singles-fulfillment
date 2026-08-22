@@ -3,6 +3,7 @@ using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LootSingles.IntegrationTests.Import;
 
@@ -49,7 +50,8 @@ public class ValidImportTests
         var parser = new PdfPigPackingSlipParser();
         IPackingSlipImportService service = new PackingSlipImportService(
             parser,
-            new ImportRepository(dbContext)
+            new ImportRepository(dbContext),
+            NullLogger<PackingSlipImportService>.Instance
         );
         var fixtureNames = new[]
         {

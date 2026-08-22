@@ -1,8 +1,10 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using LootSingles.Application.Import;
+using LootSingles.Infrastructure.Persistence;
 using LootSingles.IntegrationTests.Auth;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -10,6 +12,58 @@ namespace LootSingles.IntegrationTests.ImportUi;
 
 public sealed class ImportsControllerScaleTests
 {
+    [Fact]
+    public async Task TwoHundredOrderPdfTraversesRealParserServiceRepositoryAndDatabase()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await ImportUiTestSupport.LoginAsync(factory);
+
+        var lines = await ImportUiTestSupport.PostFixtureAsync(client, "large-200-order-batch.pdf");
+        var snapshots = lines.Select(line => JsonDocument.Parse(line)).ToArray();
+
+        try
+        {
+            Assert.Equal(201, snapshots.Length);
+            Assert.Equal(
+                Enumerable.Range(1, 200),
+                snapshots[..^1]
+                    .Select(snapshot =>
+                        snapshot.RootElement.GetProperty("ordersProcessed").GetInt32()
+                    )
+            );
+            Assert.All(
+                snapshots[..^1],
+                snapshot =>
+                    Assert.Equal(
+                        "inProgress",
+                        snapshot.RootElement.GetProperty("status").GetString()
+                    )
+            );
+
+            var terminal = snapshots[^1].RootElement;
+            Assert.Equal("completed", terminal.GetProperty("status").GetString());
+            Assert.Equal(200, terminal.GetProperty("ordersDetected").GetInt32());
+            Assert.Equal(200, terminal.GetProperty("ordersProcessed").GetInt32());
+            Assert.Equal(200, terminal.GetProperty("succeededCount").GetInt32());
+            Assert.Equal(0, terminal.GetProperty("failedCount").GetInt32());
+            Assert.Equal(200, terminal.GetProperty("results").GetArrayLength());
+
+            await using var scope = factory.Services.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
+            var orders = await context.Orders.Include(order => order.OrderLines).ToListAsync();
+            Assert.Equal(200, orders.Count);
+            Assert.Equal(200, orders.Select(order => order.TcgplayerOrderId).Distinct().Count());
+            Assert.All(orders, order => Assert.Single(order.OrderLines));
+        }
+        finally
+        {
+            foreach (var snapshot in snapshots)
+            {
+                snapshot.Dispose();
+            }
+        }
+    }
+
     [Fact]
     public async Task TwoHundredOrderTransportEmitsIncreasingProgressAndOneTerminalSnapshot()
     {

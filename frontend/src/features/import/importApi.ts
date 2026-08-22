@@ -1,4 +1,4 @@
-export type ImportStatus = 'inProgress' | 'completed' | 'failed' | 'interrupted'
+export type ImportStatus = 'inProgress' | 'completed' | 'failed' | 'interrupted' | 'cancelled'
 export interface ImportOrderResult {
   sourceOrderIdentifier: string | null
   outcome: 'succeeded' | 'rejected'
@@ -24,13 +24,17 @@ const errors: Record<number, string> = {
   415: 'The selected file must be a PDF.',
   500: 'The server could not start the import. Please retry.',
 }
-export async function* importPackingSlip(file: File): AsyncGenerator<ImportSnapshot> {
+export async function* importPackingSlip(
+  file: File,
+  signal?: AbortSignal,
+): AsyncGenerator<ImportSnapshot> {
   const form = new FormData()
   form.append('file', file)
   const response = await fetch('/api/imports', {
     method: 'POST',
     body: form,
     credentials: 'include',
+    signal,
   })
   if (!response.ok)
     throw new Error(
@@ -55,7 +59,8 @@ export async function* importPackingSlip(file: File): AsyncGenerator<ImportSnaps
       }
       if (done) break
     }
-  } catch {
+  } catch (caught) {
+    if (signal?.aborted) throw caught
     /* an incomplete stream is represented as Interrupted below */
   }
   yield {

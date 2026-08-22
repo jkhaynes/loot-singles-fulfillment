@@ -135,6 +135,23 @@ No project-initialization tasks are required. This feature extends the existing 
 
 ---
 
+## Phase 7: Full-Feature Review Follow-ups
+
+**Purpose**: Close the remaining cancellation, backend verification, and information-disclosure issues found during the final full-feature review.
+
+- [X] T046 [US1] Supersede the production-path verification claim of T040/T041 by replacing the first-request `IPackingSlipImportService` test double in `backend/tests/LootSingles.IntegrationTests/ImportUi/ImportsControllerCancellationTests.cs` with the production `PackingSlipImportService`. Keep `ImportRepository` authoritative by wrapping/decorating `IImportPersistence` only in the test host: delegate every real operation to `ImportRepository` and pause immediately before the second order's `SaveChangesAsync`; use a deterministic parser as the other below-service test control. Abort the real HTTP request after receiving the first progress snapshot, then assert that the first order and its complete `OrderLine` graph remain committed, the paused order leaves no partial graph, and a retry through the production service reports the committed order as `duplicateOrder` while importing every remaining valid order exactly once (FR-015, FR-016, SC-008). T040/T041 remain historical evidence that HTTP cancellation reaches a service double, but no longer serve as production-service transaction evidence.
+- [X] T047 [P] [US1] Add failing application/integration tests for parser exceptions containing a distinctive secret value. Assert the terminal `unreadablePdf` result uses exactly `The supplied PDF could not be read as a TCGplayer packing slip.` and that the secret appears in neither the HTTP response, persisted `ImportAttempt.AttemptFailureMessage`, nor captured application logs. Assert structured logging retains only safe diagnostics needed to classify the failure, including the exception type and a stable event/message, without recording the exception object, exception message, uploaded content, stack trace, or customer data. The tests MUST fail against the current raw `exception.Message` behavior before T048 begins (FR-006, FR-012).
+- [X] T048 [US1] Replace raw parser-exception disclosure in `backend/src/LootSingles.Application/Import/PackingSlipImportService.cs` with the exact employee-safe message `The supplied PDF could not be read as a TCGplayer packing slip.` and sanitized structured logging. Inject `ILogger<PackingSlipImportService>` and log only safe classification data such as the exception type and a stable event/message; do not pass the exception object or its message to the logger or place it in persisted/transport-facing fields. Update all production/test construction sites and make T047 pass without changing typed `unreadablePdf` behavior (depends on T047).
+- [X] T049 [P] [US1] Add failing frontend API and component tests in `frontend/tests/import/importApi.test.ts` and `frontend/tests/import/ImportPage.test.tsx` for deliberate cancellation. Prove `importPackingSlip` forwards an `AbortSignal` to `fetch` and preserves an intentional `AbortError`; while an import is running, the visible Cancel Import action plus application and browser-history navigation ask for confirmation; refresh/tab-close registers a native `beforeunload` warning; declining leaves the request running; confirming aborts it; navigation occurs only after abort; the on-page Cancel action retains the last snapshot as `cancelled` with safe-retry guidance; and deliberate cancellation never shows "Connection lost." The tests MUST fail before T050 and T051 begin (FR-017, FR-020, FR-021).
+- [X] T050 [US1] Extend `frontend/src/features/import/importApi.ts` so `ImportStatus` includes client-only `cancelled` and `importPackingSlip` accepts an `AbortSignal`, passes it to `fetch`, and rethrows/preserves an employee-initiated `AbortError` instead of translating it into `interrupted`. Preserve the current Interrupted derivation for unexpected transport, framing, and premature-EOF failures (depends on T049; FR-017, FR-021).
+- [X] T051 [US1] Implement guarded cancellation in `frontend/src/features/import/ImportPage.tsx`: own one `AbortController` per submission/retry; guard application and browser-history navigation; register the browser-native `beforeunload` warning for refresh/tab close only while running; expose a visible Cancel Import action; and abort on confirmed cancellation, confirmed navigation, or final component cleanup. Declining keeps the import and progress stream active; confirmed navigation aborts before leaving; confirmed Cancel stays on the page and derives a `cancelled` snapshot from the last received state, explaining that completed orders remain imported and remaining work stopped while offering safe retry. Ensure settled attempts cannot be aborted by stale controllers and retries always receive a fresh controller (depends on T049, T050; FR-020, FR-021).
+- [X] T052 [US1] Extend `frontend/e2e/order-import.spec.ts` with a paced multi-order import proving deliberate cancellation end to end: decline application/browser-history navigation once and observe progress continue; confirm leaving and verify abort occurs before navigation; exercise the browser-native refresh/tab-close guard; confirm already-completed orders remain browsable; and retry to import every remaining order without duplicates. Separately cover on-page Cancel Import, retained partial results, `cancelled` labeling, safe retry, and the absence of the unexpected connection-loss message (depends on T046, T051; FR-015–FR-017, FR-020, FR-021, SC-008).
+- [X] T053 [P] [US1] Extend `backend/tools/LootSingles.FixtureGenerator` to generate a deterministic `large-200-order-batch.pdf` containing exactly 200 valid, uniquely identified orders with at least one valid product line each, document the fixture, and commit the generated PDF under `backend/tests/LootSingles.Fixtures/PackingSlips/` (SC-003).
+- [X] T054 [US1] Add a production-path HTTP integration test in `backend/tests/LootSingles.IntegrationTests/ImportUi/ImportsControllerScaleTests.cs` that uploads `large-200-order-batch.pdf` through the real `PdfPigPackingSlipParser`, `PackingSlipImportService`, `ImportRepository`, and database. Assert visible strictly increasing intermediate progress, exactly 200 successful terminal results, 200 uniquely persisted Orders with complete OrderLine graphs, and one terminal `Completed` snapshot; retain T042 as focused transport-coalescing coverage (depends on T053; FR-003, SC-003).
+- [X] T055 Run final Phase 7 validation after T046, T048, T052, and T054: `dotnet build backend/LootSingles.sln`, `dotnet test backend/LootSingles.sln`, CSharpier check, `npm --prefix frontend test`, `npm --prefix frontend run build`, `npm --prefix frontend run lint`, `npm --prefix frontend run format:check`, and `npm --prefix frontend run test:e2e`. Confirm cancellation/Interrupted/Failed remain distinct, the real 200-order path passes, all prior quickstart scenarios remain green, and only explicitly documented pre-existing warnings remain.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -145,6 +162,7 @@ No project-initialization tasks are required. This feature extends the existing 
 - **User Story 2 (Phase 4)**: Depends on Foundational (T001–T004) completion. Independent of User Story 1's implementation, though its E2E task (T031) conveniently reuses T019's sign-in flow.
 - **Polish (Phase 5)**: Depends on both user stories being complete.
 - **Code Review Follow-ups (Phase 6)**: Depends on Phase 5 and resolves the review findings before convergence verification.
+- **Full-Feature Review Follow-ups (Phase 7)**: Depends on Phase 6. T046 independently strengthens server cancellation evidence; T047 → T048 is a strict Red → Green information-disclosure fix; T049 → T050 → T051 → T052 implements deliberate client cancellation and guarded navigation; T053 → T054 adds real 200-order pipeline evidence; T055 is the final quality gate.
 
 ### Within Foundational
 
@@ -175,6 +193,15 @@ No project-initialization tasks are required. This feature extends the existing 
 - T042, T043, and T044 are independent verification-gap tasks and can run in parallel with T036, T038, and T040.
 - T045 depends on T037, T039, and T041–T044.
 
+### Within Full-Feature Review Follow-ups
+
+- T046 can proceed independently because it changes only cancellation-test infrastructure unless the production-path test exposes a real defect.
+- T047 → T048 is a strict Red → Green chain.
+- T049 supplies the failing frontend tests for T050 and T051; T050 must complete before T051, and T052 validates the completed client/server behavior.
+- T053 → T054 supplies the real parser/service/persistence scale verification missing from T042.
+- T055 depends on T046, T048, T052, and T054.
+- T046, T047, T049, and T053 can be implemented in parallel.
+
 ### Parallel Opportunities
 
 - All Foundational tasks (T001, T002, T003, T004) are marked [P] and can run in parallel — different files/concerns, no dependencies among them.
@@ -182,6 +209,7 @@ No project-initialization tasks are required. This feature extends the existing 
 - All User Story 2 test tasks (T020–T022) can be written in parallel — 3 independent files.
 - T025 and T026 (OrdersService and OrderRepository) can be implemented in parallel once T024 exists.
 - T036, T038, T040, T042, T043, and T044 can be implemented in parallel because they affect separate test files and behaviors.
+- T046, T047, T049, and T053 can be implemented in parallel because they cover independent server cancellation, parser-error, client cancellation, and scale-fixture concerns.
 - User Story 1 and User Story 2 can be implemented in parallel by different developers once Phase 2 is complete.
 
 ---

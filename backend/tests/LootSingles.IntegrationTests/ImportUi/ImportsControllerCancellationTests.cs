@@ -21,15 +21,18 @@ public sealed class ImportCancellationCollection
 public sealed class ImportsControllerCancellationTests
 {
     [Fact]
-    public async Task AbortedRequestPreservesCommittedOrderAndRetryImportsRemainingOrderOnce()
+    public async Task AbortedRequestPreservesCommittedOrderAndRetryImportsRemainingOrdersOnce()
     {
         await using var rootFactory = new AuthWebApplicationFactory();
         await using var factory = rootFactory.WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
-                services.RemoveAll<IPackingSlipImportService>();
+                services.RemoveAll<IPackingSlipParser>();
+                services.RemoveAll<IImportPersistence>();
                 services.AddSingleton<CancellationScenarioState>();
-                services.AddScoped<IPackingSlipImportService, CancellationScenarioService>();
+                services.AddScoped<IPackingSlipParser, CancellationScenarioParser>();
+                services.AddScoped<ImportRepository>();
+                services.AddScoped<IImportPersistence, PausingImportPersistence>();
             })
         );
         using var client = await ImportUiTestSupport.LoginAsync(factory);
@@ -51,8 +54,16 @@ public sealed class ImportsControllerCancellationTests
         using (var firstSnapshot = JsonDocument.Parse(firstLine))
         {
             Assert.Equal(1, firstSnapshot.RootElement.GetProperty("ordersProcessed").GetInt32());
+            Assert.Equal(
+                "CANCEL-COMMITTED",
+                firstSnapshot
+                    .RootElement.GetProperty("results")[0]
+                    .GetProperty("sourceOrderIdentifier")
+                    .GetString()
+            );
         }
 
+        await state.SecondOrderSaveReached.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellation.Cancel();
         reader.Dispose();
         await firstStream.DisposeAsync();
@@ -64,9 +75,9 @@ public sealed class ImportsControllerCancellationTests
             var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
             var orders = await context.Orders.Include(order => order.OrderLines).ToListAsync();
 
-            Assert.Single(orders);
-            Assert.Equal("CANCEL-COMMITTED", orders[0].TcgplayerOrderId);
-            Assert.Single(orders[0].OrderLines);
+            var committed = Assert.Single(orders);
+            Assert.Equal("CANCEL-COMMITTED", committed.TcgplayerOrderId);
+            Assert.Single(committed.OrderLines);
             Assert.DoesNotContain(orders, order => order.TcgplayerOrderId == "CANCEL-IN-FLIGHT");
         }
 
@@ -88,6 +99,12 @@ public sealed class ImportsControllerCancellationTests
         Assert.Contains(
             results,
             result =>
+                result.GetProperty("sourceOrderIdentifier").GetString() == "CANCEL-IN-FLIGHT"
+                && result.GetProperty("outcome").GetString() == "succeeded"
+        );
+        Assert.Contains(
+            results,
+            result =>
                 result.GetProperty("sourceOrderIdentifier").GetString() == "CANCEL-REMAINING"
                 && result.GetProperty("outcome").GetString() == "succeeded"
         );
@@ -97,7 +114,7 @@ public sealed class ImportsControllerCancellationTests
             var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
             var orders = await context.Orders.Include(order => order.OrderLines).ToListAsync();
 
-            Assert.Equal(2, orders.Count);
+            Assert.Equal(3, orders.Count);
             Assert.All(orders, order => Assert.Single(order.OrderLines));
             Assert.All(
                 orders.GroupBy(order => order.TcgplayerOrderId),
@@ -108,96 +125,59 @@ public sealed class ImportsControllerCancellationTests
 
     private sealed class CancellationScenarioState
     {
-        private int _invocationCount;
+        private int _saveCount;
+        private int _pauseClaimed;
+
+        public TaskCompletionSource SecondOrderSaveReached { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public TaskCompletionSource CancellationObserved { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public int NextInvocation() => Interlocked.Increment(ref _invocationCount);
+        public bool ShouldPauseBeforeSave() =>
+            Interlocked.Increment(ref _saveCount) == 3
+            && Interlocked.Exchange(ref _pauseClaimed, 1) == 0;
     }
 
-    private sealed class CancellationScenarioService(
-        LootSinglesDbContext context,
+    private sealed class PausingImportPersistence(
+        ImportRepository inner,
         CancellationScenarioState state
-    ) : IPackingSlipImportService
+    ) : IImportPersistence
     {
-        public async IAsyncEnumerable<ImportProgressUpdate> ImportAsync(
-            Stream packingSlipPdf,
-            [EnumeratorCancellation] CancellationToken cancellationToken = default
-        )
+        public void AddImportAttempt(ImportAttempt attempt) => inner.AddImportAttempt(attempt);
+
+        public void AddOrder(Order order) => inner.AddOrder(order);
+
+        public void DiscardOrder(Order order) => inner.DiscardOrder(order);
+
+        public Task<bool> OrderExistsAsync(
+            string tcgplayerOrderId,
+            CancellationToken cancellationToken
+        ) => inner.OrderExistsAsync(tcgplayerOrderId, cancellationToken);
+
+        public async Task SaveChangesAsync(CancellationToken cancellationToken)
         {
-            if (state.NextInvocation() > 1)
+            if (state.ShouldPauseBeforeSave())
             {
-                var retryService = new PackingSlipImportService(
-                    new RetryParser(),
-                    new ImportRepository(context)
-                );
-                await foreach (
-                    var update in retryService
-                        .ImportAsync(packingSlipPdf, cancellationToken)
-                        .WithCancellation(cancellationToken)
-                )
+                state.SecondOrderSaveReached.TrySetResult();
+                try
                 {
-                    yield return update;
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
                 }
-
-                yield break;
-            }
-
-            var committedOrder = NewOrder("CANCEL-COMMITTED");
-            context.Orders.Add(committedOrder);
-            await context.SaveChangesAsync(cancellationToken);
-
-            var attempt = new ImportAttempt { StartedAt = DateTimeOffset.UtcNow };
-            attempt.ImportOrderResults.Add(
-                new ImportOrderResult
+                finally
                 {
-                    ImportAttemptId = 0,
-                    SourceOrderIdentifier = committedOrder.TcgplayerOrderId,
-                    Outcome = ImportOutcome.Succeeded,
-                    ResultingOrderId = committedOrder.Id,
-                }
-            );
-            yield return new ImportProgressUpdate(2, 1, 1, 0, false, attempt);
-
-            context.Orders.Add(NewOrder("CANCEL-IN-FLIGHT"));
-            try
-            {
-                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
-            }
-            finally
-            {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    state.CancellationObserved.TrySetResult();
-                }
-            }
-        }
-
-        private static Order NewOrder(string identifier) =>
-            new()
-            {
-                TcgplayerOrderId = identifier,
-                Status = OrderStatus.Ready,
-                ImportedAt = DateTimeOffset.UtcNow,
-                OrderLines =
-                [
-                    new OrderLine
+                    if (cancellationToken.IsCancellationRequested)
                     {
-                        RawDescription = "Pokemon - Test Set: Test Card - #1 - Common - Near Mint",
-                        ProductLine = "Pokemon",
-                        ProductName = "Test Card",
-                        Set = "Test Set",
-                        CollectorNumber = "#1",
-                        Rarity = "Common",
-                        Condition = "Near Mint",
-                        Quantity = 1,
-                    },
-                ],
-            };
+                        state.CancellationObserved.TrySetResult();
+                    }
+                }
+            }
+
+            await inner.SaveChangesAsync(cancellationToken);
+        }
     }
 
-    private sealed class RetryParser : IPackingSlipParser
+    private sealed class CancellationScenarioParser : IPackingSlipParser
     {
         public async IAsyncEnumerable<PackingSlipParseUpdate> ParseAsync(
             Stream packingSlipPdf,
@@ -206,11 +186,16 @@ public sealed class ImportsControllerCancellationTests
         {
             await Task.Yield();
             yield return new PackingSlipParseUpdate(
-                2,
+                3,
                 true,
                 new ParsedPackingSlip
                 {
-                    OrderBlocks = [NewBlock("CANCEL-COMMITTED"), NewBlock("CANCEL-REMAINING")],
+                    OrderBlocks =
+                    [
+                        NewBlock("CANCEL-COMMITTED"),
+                        NewBlock("CANCEL-IN-FLIGHT"),
+                        NewBlock("CANCEL-REMAINING"),
+                    ],
                     SummaryPageFound = false,
                     SummaryOrderIdentifiers = [],
                 }

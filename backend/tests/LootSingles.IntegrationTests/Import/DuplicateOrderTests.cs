@@ -3,6 +3,7 @@ using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LootSingles.IntegrationTests.Import;
 
@@ -71,11 +72,13 @@ public class DuplicateOrderTests
         await using var secondContext = CreateSqliteContext(connectionString);
         var firstService = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
-            new CoordinatedPersistence(firstContext, barrier)
+            new CoordinatedPersistence(firstContext, barrier),
+            NullLogger<PackingSlipImportService>.Instance
         );
         var secondService = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
-            new CoordinatedPersistence(secondContext, barrier)
+            new CoordinatedPersistence(secondContext, barrier),
+            NullLogger<PackingSlipImportService>.Instance
         );
 
         var results = await Task.WhenAll(

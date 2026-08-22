@@ -126,7 +126,11 @@ internal sealed class ObservableProgressImportService(PackingSlipImportService i
         {
             yield return update;
 
-            if (!update.IsComplete && update.OrdersProcessed > 0)
+            if (
+                !update.IsComplete
+                && update.OrdersProcessed > 0
+                && update.OrdersProcessed < update.OrdersDetected
+            )
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(750), cancellationToken);
             }

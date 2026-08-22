@@ -2,6 +2,7 @@ using LootSingles.Application.Import;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LootSingles.IntegrationTests.Import;
 
@@ -15,7 +16,11 @@ internal static class ImportTestSupport
         );
 
     public static PackingSlipImportService CreateService(LootSinglesDbContext context) =>
-        new(new PdfPigPackingSlipParser(), new ImportRepository(context));
+        new(
+            new PdfPigPackingSlipParser(),
+            new ImportRepository(context),
+            NullLogger<PackingSlipImportService>.Instance
+        );
 
     public static FileStream OpenFixture(string name) =>
         File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "PackingSlips", name));

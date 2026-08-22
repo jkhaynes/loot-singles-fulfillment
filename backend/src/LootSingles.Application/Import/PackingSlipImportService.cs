@@ -1,14 +1,19 @@
 using System.Runtime.CompilerServices;
 using LootSingles.Application.Persistence;
 using LootSingles.Domain.Orders;
+using Microsoft.Extensions.Logging;
 
 namespace LootSingles.Application.Import;
 
 public sealed class PackingSlipImportService(
     IPackingSlipParser parser,
-    IImportPersistence persistence
+    IImportPersistence persistence,
+    ILogger<PackingSlipImportService> logger
 ) : IPackingSlipImportService
 {
+    private const string UnreadablePdfMessage =
+        "The supplied PDF could not be read as a TCGplayer packing slip.";
+
     public async IAsyncEnumerable<ImportProgressUpdate> ImportAsync(
         Stream packingSlipPdf,
         [EnumeratorCancellation] CancellationToken cancellationToken = default
@@ -37,8 +42,11 @@ public sealed class PackingSlipImportService(
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                unreadableMessage =
-                    $"The supplied file could not be read as a packing-slip PDF: {exception.Message}";
+                logger.LogWarning(
+                    "Packing-slip parsing failed with exception type {ExceptionType}.",
+                    exception.GetType().FullName
+                );
+                unreadableMessage = UnreadablePdfMessage;
                 break;
             }
 

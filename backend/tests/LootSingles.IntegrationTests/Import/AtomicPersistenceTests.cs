@@ -5,6 +5,7 @@ using LootSingles.Infrastructure.Persistence;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LootSingles.IntegrationTests.Import;
 
@@ -23,7 +24,8 @@ public class AtomicPersistenceTests
         await context.Database.EnsureCreatedAsync();
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
-            new ImportRepository(context)
+            new ImportRepository(context),
+            NullLogger<PackingSlipImportService>.Instance
         );
 
         var final = await ImportTestSupport.ImportFixtureAsync(
@@ -52,7 +54,8 @@ public class AtomicPersistenceTests
         await context.Database.EnsureCreatedAsync();
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
-            new ImportRepository(context)
+            new ImportRepository(context),
+            NullLogger<PackingSlipImportService>.Instance
         );
 
         var final = await ImportTestSupport.ImportFixtureAsync(
@@ -78,7 +81,8 @@ public class AtomicPersistenceTests
         await context.Database.EnsureCreatedAsync();
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
-            new ImportRepository(context)
+            new ImportRepository(context),
+            NullLogger<PackingSlipImportService>.Instance
         );
 
         var final = await ImportTestSupport.ImportFixtureAsync(

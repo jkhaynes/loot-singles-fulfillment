@@ -36,16 +36,18 @@ Invariants:
 - `Completed` is terminal and means the service finished evaluating the file, including ordinary unreadable-file, mismatch, and per-order rejection outcomes.
 - `Failed` is terminal and means the server confirmed an infrastructure/operation failure while it could still communicate. The UI retains completed-order counters/results, labels the batch Failed, explains that completed orders remain imported, and offers retry.
 - `operationFailureMessage` is non-null only for `Failed`; it contains no exception, stack trace, or customer data and is not parsed for control flow.
-- `Interrupted` is client-only, never sent by the server, and is derived when the connection ends before `Completed` or `Failed`. The last snapshot remains visible only as explicitly incomplete and potentially stale context, with connection-loss explanation and retry.
+- `Interrupted` is client-only, never sent by the server, and is derived when an unexpected transport, framing, or premature-EOF failure ends the connection before `Completed` or `Failed`. The last snapshot remains visible only as explicitly incomplete and potentially stale context, with connection-loss explanation and retry.
+- `Cancelled` is client-only, never sent by the server, and is derived when the employee intentionally aborts the active request. The last snapshot remains visible as partial context, the UI explains that completed orders remain imported and remaining work stopped, and retry is offered without a connection-loss message.
 - `SummaryMismatch` is warning severity alongside results; `UnreadablePdf` is file-failure severity.
 
 ```text
 Idle -> InProgress -> Completed
                   |-> Failed
-                  `-> Interrupted (client-derived missing terminal update)
+                  |-> Interrupted (client-derived unexpected missing terminal update)
+                  `-> Cancelled (client-derived intentional abort)
 ```
 
-Completed can contain all successes, mixed outcomes, unreadable input with no results, or a mismatch warning with partial/full results. Failed and Interrupted may leave previously completed per-order transactions committed and therefore retain qualified partial snapshots. A retry converges on one Order per source identifier: committed orders become typed duplicates and missing orders are imported.
+Completed can contain all successes, mixed outcomes, unreadable input with no results, or a mismatch warning with partial/full results. Failed, Interrupted, and Cancelled may leave previously completed per-order transactions committed and therefore retain qualified partial snapshots. A retry converges on one Order per source identifier: committed orders become typed duplicates and missing orders are imported.
 
 ## Order list item (read projection)
 

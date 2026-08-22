@@ -11,6 +11,10 @@ instead of hand-authoring or hand-patching fixture PDFs: a fixture missing the `
 a corrupted trailer, fails in ways that are easy to misdiagnose as a parser bug (see the 2026-08-21
 fix that regenerated 6 fixtures which had exactly these problems).
 
+`large-200-order-batch.pdf` is the deterministic production-pipeline scale fixture. It contains
+exactly 200 synthetic orders with one valid product line each and is used to verify the real PDF
+parser, import service, repository, database, and HTTP streaming path together.
+
 ## Usage
 
 ```powershell

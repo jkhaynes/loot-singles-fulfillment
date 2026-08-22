@@ -17,6 +17,10 @@
 - Q: What maximum PDF upload size should the system accept before rejecting the request? → A: 25 MB maximum.
 - Q: When the server sends a terminal Failed update after some orders were processed, should the UI retain those partial results? → A: Keep partial results with a Failed label, explain that completed orders remain imported, and offer a safe retry.
 
+### Session 2026-08-22
+
+- Q: What should happen when an employee deliberately cancels an import or navigates away while it is running? → A: Guard application and browser-history navigation so the employee can stay and continue or confirm leaving and stop the remaining work. Provide a visible Cancel Import action. A confirmed cancellation aborts the request, preserves already-completed orders and partial results, offers safe retry, and is shown as a distinct client-only Cancelled state rather than as an unexpected connection loss. Refreshing or closing the tab uses the browser's native leave-page warning.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Employee Uploads a Packing Slip and Sees What Happened (Priority: P1)
@@ -36,6 +40,9 @@ An authenticated employee has a TCGplayer packing slip PDF (often bundling sever
 5. **Given** a large packing slip batch (on the order of 200 orders) is submitted, **When** processing is underway, **Then** the employee sees progress (e.g., orders processed so far) rather than an unresponsive-looking screen, and the final per-order results once processing completes.
 6. **Given** the import request fails for a reason unrelated to the packing slip's content (e.g., a network or server error interrupts the request), **When** this happens, **Then** the employee sees a clear message that the import could not be completed and should be retried — distinct from a per-order rejection — rather than an unresponsive screen or a misleading "no orders found" result.
 7. **Given** a packing slip PDF whose summary/index page lists a different set of order identifiers than what was actually parsed from the document, **When** it is submitted, **Then** the employee sees a distinct, batch-level warning about the mismatch, separate from and in addition to the per-order success/failure results.
+8. **Given** an import is running, **When** the employee attempts application or browser-history navigation and declines the confirmation, **Then** the employee remains on the import screen and processing continues.
+9. **Given** an import is running, **When** the employee confirms navigation away, **Then** the request is aborted before navigation, completed orders remain imported, and remaining processing stops.
+10. **Given** an import is running, **When** the employee confirms Cancel Import, **Then** the employee remains on the import screen with a distinct Cancelled state, retained partial results, and safe-retry guidance rather than a connection-loss message.
 
 ---
 
@@ -60,8 +67,9 @@ An authenticated employee wants to confirm whether a particular order has alread
 
 - What happens when an employee submits a file that isn't a PDF at all (e.g., an image or spreadsheet)? The system rejects it with a clear message before or during processing, and no orders are reported as imported (Acceptance Scenario US1-4).
 - What happens when an employee submits a PDF larger than 25 MB? The system rejects it before import processing with a clear size-limit message, and no orders are reported as imported.
-- What happens when the employee navigates away from the import screen before an in-progress upload finishes? This feature does not need to preserve or resume that in-progress result — the employee can re-check via the browse view (User Story 2) or re-submit if unsure.
-- What happens when the HTTP connection ends before the employee receives a terminal Completed or Failed update? The UI enters an Interrupted state, says the connection was lost and the overall outcome is uncertain, preserves the last received counters and per-order results as explicitly incomplete and potentially stale context, and offers a safe retry. Already-committed per-order transactions remain; retrying cannot create duplicate orders and imports any valid orders that were not committed before cancellation.
+- What happens when the employee navigates away from the import screen before an in-progress upload finishes? Application and browser-history navigation is guarded. Declining keeps the employee on the page and processing continues. Confirming aborts the request before navigation; completed orders remain imported and remaining processing stops. Refreshing or closing the tab uses the browser's native leave-page warning.
+- What happens when the HTTP connection ends unexpectedly before the employee receives a terminal Completed or Failed update? The UI enters an Interrupted state, says the connection was lost and the overall outcome is uncertain, preserves the last received counters and per-order results as explicitly incomplete and potentially stale context, and offers a safe retry. Already-committed per-order transactions remain; retrying cannot create duplicate orders and imports any valid orders that were not committed before interruption.
+- What happens when the employee deliberately cancels without leaving the import screen? The request is aborted, the UI enters a distinct client-only Cancelled state, completed results remain visible as partial context, and safe retry is offered without claiming the connection was lost.
 - What happens when the server reports a terminal Failed update after processing some orders? The UI keeps the partial counters and per-order results visible, labels the batch Failed, explains that completed orders remain imported, and offers a safe retry; it does not present the partial batch as Completed.
 - What happens when two employees upload the same packing slip at nearly the same time? The existing Order Import feature's race-safe duplicate guarantee applies unchanged; whichever request's order is persisted first succeeds, and the other reports that order as an already-imported duplicate (per Acceptance Scenario US1-3), never a hard failure.
 - What happens when an order's status is something other than "Ready" (e.g., a status introduced by a future order-claiming/picking feature)? The browse view reflects whatever status the order actually has — it never fabricates or defaults a status.
@@ -85,12 +93,14 @@ An authenticated employee wants to confirm whether a particular order has alread
 - **FR-011**: Both the import screen and the browse view MUST be fully usable on a mobile phone-sized viewport and a desktop-sized viewport, as a single responsive experience.
 - **FR-012**: Neither the import screen nor the browse view MUST display any customer shipping information (name, mailing address, or contact details) — consistent with the Order Import feature's existing data-minimization guarantee that this data is never persisted in the first place.
 - **FR-013**: When the Order Import feature's summary/index cross-check detects a mismatch between the packing slip's listed order identifiers and what was actually parsed, the system MUST show the employee a distinct, batch-level warning about the mismatch, separate from the per-order success/failure results — this signal MUST NOT be silently dropped or folded into another message (`/speckit-clarify` 2026-08-21).
-- **FR-014**: Import progress updates exposed to the employee MUST use an explicit InProgress, Completed, or Failed status. InProgress updates MUST be emitted only when another order finishes processing, not for parser-internal page, line, or field activity.
+- **FR-014**: Server import progress updates MUST use an explicit InProgress, Completed, or Failed transport status. InProgress updates MUST be emitted only when another order finishes processing, not for parser-internal page, line, or field activity. The client MAY derive Interrupted for unexpected termination and Cancelled for an employee-initiated abort; neither client-only state is emitted by the server.
 - **FR-015**: The system MUST cancel remaining import processing when its HTTP request is aborted while preserving every already-completed per-order transaction; an active order MUST NOT leave partially persisted order data.
 - **FR-016**: Re-uploading the same packing slip after interruption MUST be safe and MUST NOT create duplicate orders; already-committed orders MUST remain unique and valid orders not previously committed MAY import on retry.
-- **FR-017**: If the client connection ends before a terminal Completed or Failed update arrives, the UI MUST enter an Interrupted state, explain that the connection was lost and the outcome may be partial, retain the last received snapshot only as visibly incomplete and potentially stale context, and allow the employee to retry safely.
+- **FR-017**: If the client connection ends unexpectedly before a terminal Completed or Failed update arrives, the UI MUST enter an Interrupted state, explain that the connection was lost and the outcome may be partial, retain the last received snapshot only as visibly incomplete and potentially stale context, and allow the employee to retry safely. A deliberate employee cancellation MUST NOT be presented as Interrupted or as a connection loss.
 - **FR-018**: The system MUST reject an uploaded PDF larger than 25 MB before import processing begins and MUST show a clear message identifying the 25 MB limit.
 - **FR-019**: When a terminal Failed update follows one or more processed orders, the UI MUST retain the partial counters and per-order results, visibly label the batch Failed, explain that completed orders remain imported, and offer a safe retry without presenting the batch as Completed.
+- **FR-020**: While an import is running, the UI MUST provide a Cancel Import action and guard application and browser-history navigation away. The confirmation MUST explain that completed orders remain imported and remaining processing will stop; refresh and tab-close attempts MUST use the browser's native leave-page warning.
+- **FR-021**: After deliberate cancellation, the UI MUST display a distinct client-only Cancelled state, retain the last received counters and completed-order results as partial context, explain that completed orders remain imported, and allow the employee to retry safely.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -108,7 +118,7 @@ An authenticated employee wants to confirm whether a particular order has alread
 - **SC-005**: 100% of import screen and browse view renders on both a representative mobile viewport and a representative desktop viewport show no horizontal scrolling, overlapping content, or illegible text.
 - **SC-006**: 0 instances of customer shipping information appearing anywhere in the import screen or browse view.
 - **SC-007**: 100% of imports where the packing slip's summary/index page disagrees with its actually-parsed orders show the employee a distinct mismatch warning — 0 instances of this signal being silently absorbed into another message or omitted.
-- **SC-008**: In automated interruption-and-retry scenarios, every source order identifier is persisted at most once, no Order has a partial Order Line graph, and every valid order not committed before interruption can be imported by retrying the same PDF.
+- **SC-008**: In automated interruption-or-cancellation-and-retry scenarios, every source order identifier is persisted at most once, no Order has a partial Order Line graph, and every valid order not committed before termination can be imported by retrying the same PDF.
 - **SC-009**: 100% of uploads larger than 25 MB are rejected before import processing and produce no newly imported orders.
 
 ## Assumptions

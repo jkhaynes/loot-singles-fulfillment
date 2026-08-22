@@ -46,6 +46,31 @@ string BuildDescription(
 var fixtures = new (string FileName, PackingSlipDocument Document)[]
 {
     (
+        "large-200-order-batch.pdf",
+        new PackingSlipDocument(
+            Enumerable
+                .Range(1, 200)
+                .Select(index => new OrderPageSpec(
+                    $"LARGE-BATCH-{index:D3}",
+                    [
+                        new ProductLineSpec(
+                            "1",
+                            BuildDescription(
+                                validSet,
+                                $"{validProductName} {index:D3}",
+                                validCollectorNumber,
+                                validRarity,
+                                validCondition
+                            ),
+                            "$1.00",
+                            "$1.00"
+                        ),
+                    ]
+                ))
+                .ToArray()
+        )
+    ),
+    (
         "invalid-quantity.pdf",
         new PackingSlipDocument([
             new OrderPageSpec(

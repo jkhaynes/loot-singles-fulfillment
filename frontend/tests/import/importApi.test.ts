@@ -11,6 +11,28 @@ function response(body: string, status = 200) {
 }
 
 describe('importPackingSlip', () => {
+  it('forwards the abort signal and preserves an intentional AbortError', async () => {
+    const controller = new AbortController()
+    const abortError = new DOMException('The operation was aborted.', 'AbortError')
+    const fetchMock = vi.fn().mockRejectedValue(abortError)
+    vi.stubGlobal('fetch', fetchMock)
+
+    const consume = async () => {
+      for await (const _ of importPackingSlip(
+        new File(['pdf'], 'orders.pdf', { type: 'application/pdf' }),
+        controller.signal,
+      ))
+        void _
+    }
+
+    controller.abort()
+    await expect(consume()).rejects.toBe(abortError)
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/imports',
+      expect.objectContaining({ signal: controller.signal }),
+    )
+  })
+
   it('replaces state for each line and stops at a terminal snapshot', async () => {
     vi.stubGlobal(
       'fetch',
