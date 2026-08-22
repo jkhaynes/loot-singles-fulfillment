@@ -34,7 +34,8 @@
   flex-wrap: wrap;
 }
 
-.dashboard-import-action {
+.dashboard-import-action,
+.dashboard-orders-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -50,12 +51,23 @@
   transition: background 0.15s ease;
 }
 
+.dashboard-orders-action {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+}
+
 .dashboard-import-action:hover {
   background: var(--color-brand-primary-hover);
 }
 
 .dashboard-import-action:focus-visible {
   outline: 2px solid var(--color-text-primary);
+  outline-offset: 2px;
+}
+
+.dashboard-orders-action:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
   outline-offset: 2px;
 }
 
@@ -215,6 +227,7 @@
   }
 
   .dashboard-import-action,
+  .dashboard-orders-action,
   .dashboard-logout {
     flex: 1;
   }

@@ -34,6 +34,21 @@ for (const viewport of [
     await page.getByRole('button', { name: /import orders/i }).click()
     await expect(page.getByText(/3 of 3/)).toBeVisible()
     await expect(page.locator('[data-outcome="rejected"]').first()).toBeVisible()
+    await page.getByRole('link', { name: /back to dashboard/i }).click()
+    await page.getByRole('link', { name: /browse orders/i }).click()
+    await expect(page).toHaveURL(/\/orders$/)
+    await expect(page.getByRole('heading', { name: /browse orders/i })).toBeVisible()
+
+    const seededOrder = page.getByRole('article', { name: /E2E-ORDER-00001/i })
+    await expect(seededOrder).toContainText('ready')
+    await expect(seededOrder.getByRole('time')).toBeVisible()
+
+    const importedOrder = page.getByRole('article', {
+      name: /PARTIAL-BATCH-VALID-1/i,
+    })
+    await expect(importedOrder).toContainText('ready')
+    await expect(importedOrder.getByRole('time')).toBeVisible()
+    await expect(page.getByText(/customer|shipping address/i)).toHaveCount(0)
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,

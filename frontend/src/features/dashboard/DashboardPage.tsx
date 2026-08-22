@@ -60,6 +60,9 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
           <p className="dashboard-header__subtitle">Ready to pick some orders?</p>
         </div>
         <div className="dashboard-header__actions">
+          <Link to="/orders" className="dashboard-orders-action">
+            Browse Orders
+          </Link>
           <Link to="/import" className="dashboard-import-action">
             Import Orders
           </Link>

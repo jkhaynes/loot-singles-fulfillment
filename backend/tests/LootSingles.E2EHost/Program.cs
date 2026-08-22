@@ -4,6 +4,7 @@ using LootSingles.Api.Controllers;
 using LootSingles.Application.Auth;
 using LootSingles.Application.Dashboard;
 using LootSingles.Application.Import;
+using LootSingles.Application.Orders;
 using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Auth;
@@ -42,9 +43,8 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IImportPersistence, ImportRepository>();
 builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
 builder.Services.AddScoped<IPackingSlipImportService, PackingSlipImportService>();
-
-// IOrderRepository/OrderRepository and OrdersService are registered by Phase 4 (US2) T027 once
-// those Application/Infrastructure types exist (specs/004-order-import-ui/tasks.md T022-T025).
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<OrdersService>();
 builder
     .Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

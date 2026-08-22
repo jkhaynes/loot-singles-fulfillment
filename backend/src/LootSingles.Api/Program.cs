@@ -4,6 +4,7 @@ using LootSingles.Api.Controllers;
 using LootSingles.Application.Auth;
 using LootSingles.Application.Dashboard;
 using LootSingles.Application.Import;
+using LootSingles.Application.Orders;
 using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
@@ -55,6 +56,8 @@ builder.Services.AddScoped<EmployeeManagementService>();
 builder.Services.AddScoped<EmployeeSessionCookieEvents>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<OrdersService>();
 builder
     .Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
