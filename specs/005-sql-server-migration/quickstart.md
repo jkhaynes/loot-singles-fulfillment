@@ -8,6 +8,15 @@ No Azure resources are created by this feature. Azure validation applies only af
 - Docker-compatible runtime able to run `mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-22.04`
 - For later Azure validation: authorized `loot-singles-dev` access, outbound TCP 1433, and an allowed network path
 
+Verify the local container prerequisite and pinned image before running database-backed tests:
+
+```powershell
+docker version
+docker manifest inspect mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-22.04
+```
+
+Both commands must succeed. If `docker` is not found, install and start a Docker-compatible runtime before Phase 2; do not substitute another database provider.
+
 ## Disposable SQL Server validation
 
 ```powershell

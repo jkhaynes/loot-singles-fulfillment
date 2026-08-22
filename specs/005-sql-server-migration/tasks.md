@@ -15,8 +15,8 @@
 
 **Purpose**: Add the test dependency without removing providers still needed by the compiling pre-migration suite.
 
-- [ ] T001 Add `Testcontainers.MsSql` version 4.14.0 while retaining existing packages temporarily in `backend/tests/LootSingles.IntegrationTests/LootSingles.IntegrationTests.csproj`
-- [ ] T002 [P] Verify and retain the `mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-22.04` image and Docker prerequisite without credentials in `specs/005-sql-server-migration/quickstart.md`
+- [X] T001 Add `Testcontainers.MsSql` version 4.14.0 while retaining existing packages temporarily in `backend/tests/LootSingles.IntegrationTests/LootSingles.IntegrationTests.csproj`
+- [X] T002 [P] Verify and retain the `mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-22.04` image and Docker prerequisite without credentials in `specs/005-sql-server-migration/quickstart.md`
 
 ---
 
@@ -26,11 +26,11 @@
 
 **⚠️ CRITICAL**: User-story database tasks cannot start until this phase passes.
 
-- [ ] T003 Add failing lifecycle tests for unique names, migration-before-use, cross-lease isolation, and explicit database cleanup in `backend/tests/LootSingles.IntegrationTests/Infrastructure/SqlServerDatabaseFixtureTests.cs`
-- [ ] T004 Implement a single-run `mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-22.04` `MsSqlContainer` lifecycle with non-secret startup diagnostics in `backend/tests/LootSingles.IntegrationTests/Infrastructure/SqlServerContainerFixture.cs` to make the container-start portion of T003 pass
-- [ ] T005 Implement collision-resistant create/migrate/connection/dispose/drop behavior, including context disposal and SQL client pool clearing, in `backend/tests/LootSingles.IntegrationTests/Infrastructure/SqlServerDatabaseLease.cs` to make the remainder of T003 pass
-- [ ] T006 Register the shared fixture lifetime and safe test parallelization policy in `backend/tests/LootSingles.IntegrationTests/Infrastructure/SqlServerTestCollection.cs`
-- [ ] T007 Run `SqlServerDatabaseFixtureTests`, confirm all T003 tests pass, and record any runtime/image prerequisite correction in `specs/005-sql-server-migration/quickstart.md`
+- [X] T003 Add failing lifecycle tests for unique names, migration-before-use, cross-lease isolation, and explicit database cleanup in `backend/tests/LootSingles.IntegrationTests/Infrastructure/SqlServerDatabaseFixtureTests.cs`
+- [X] T004 Implement a single-run `mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-22.04` `MsSqlContainer` lifecycle with non-secret startup diagnostics in `backend/tests/LootSingles.IntegrationTests/Infrastructure/SqlServerContainerFixture.cs` to make the container-start portion of T003 pass
+- [X] T005 Implement collision-resistant create/migrate/connection/dispose/drop behavior, including context disposal and SQL client pool clearing, in `backend/tests/LootSingles.IntegrationTests/Infrastructure/SqlServerDatabaseLease.cs` to make the remainder of T003 pass
+- [X] T006 Register the shared fixture lifetime and safe test parallelization policy in `backend/tests/LootSingles.IntegrationTests/Infrastructure/SqlServerTestCollection.cs`
+- [X] T007 Run `SqlServerDatabaseFixtureTests`, confirm all T003 tests pass, and record any runtime/image prerequisite correction in `specs/005-sql-server-migration/quickstart.md`
 
 **Checkpoint**: Tests can acquire independent, migrated SQL Server databases without Azure access.
 
