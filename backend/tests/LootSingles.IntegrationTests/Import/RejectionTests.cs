@@ -67,7 +67,7 @@ public class RejectionTests
     }
 
     [Fact]
-    public async Task ImportAsync_SummaryMismatch_RejectsAttemptBeforePersistingOrders()
+    public async Task ImportAsync_SummaryMismatch_WarnsAndProcessesValidOrders()
     {
         await using var context = ImportTestSupport.CreateInMemoryContext();
         var final = await ImportTestSupport.ImportFixtureAsync(
@@ -78,6 +78,15 @@ public class RejectionTests
         Assert.Equal(FailureType.SummaryMismatch, final.ImportAttempt.AttemptFailureCode);
         Assert.Contains("SUM-ACTUAL-IDX", final.ImportAttempt.AttemptFailureMessage);
         Assert.Contains("SUM-DIFFERENT-IDX", final.ImportAttempt.AttemptFailureMessage);
-        Assert.Empty(await context.Orders.ToListAsync());
+        Assert.Contains(
+            final.ImportAttempt.ImportOrderResults,
+            result =>
+                result.SourceOrderIdentifier == "SUM-ACTUAL-IDX"
+                && result.Outcome == ImportOutcome.Succeeded
+        );
+        Assert.Contains(
+            await context.Orders.ToListAsync(),
+            order => order.TcgplayerOrderId == "SUM-ACTUAL-IDX"
+        );
     }
 }

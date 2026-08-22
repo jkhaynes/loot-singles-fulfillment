@@ -32,6 +32,7 @@ for (const viewport of [
         ),
       )
     await page.getByRole('button', { name: /import orders/i }).click()
+    await expect(page.getByText(/[12] of 3 orders processed/i)).toBeVisible()
     await expect(page.getByText(/3 of 3/)).toBeVisible()
     await expect(page.locator('[data-outcome="rejected"]').first()).toBeVisible()
     await page.getByRole('link', { name: /back to dashboard/i }).click()

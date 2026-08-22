@@ -27,8 +27,9 @@ argument to write elsewhere instead, e.g. `dotnet run -- C:\scratch\preview`.
 
 Add an entry to the `fixtures` array in `Program.cs` using `OrderPageSpec`/`ProductLineSpec`. Reuse
 the `validSet`/`validProductName`/etc. constants and only change the field you're deliberately
-breaking, so the fixture's intent stays obvious from the diff. Run the tool, then run the affected
-tests — `dotnet test` from `backend/`.
+breaking, so the fixture's intent stays obvious from the diff. Pass `summaryOrderIdentifiers` when
+the fixture deliberately needs its summary page to disagree with its valid order pages. Run the
+tool, then run the affected tests — `dotnet test` from `backend/`.
 
 Sanitization requirement from `backend/tests/LootSingles.Fixtures/README.md` still applies: don't
 put real customer PII into a fixture spec.

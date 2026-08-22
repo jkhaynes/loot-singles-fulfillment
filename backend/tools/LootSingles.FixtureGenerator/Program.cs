@@ -178,6 +178,31 @@ var fixtures = new (string FileName, PackingSlipDocument Document)[]
         ])
     ),
     (
+        "summary-mismatch.pdf",
+        new PackingSlipDocument(
+            [
+                new OrderPageSpec(
+                    "SUM-ACTUAL-IDX",
+                    [
+                        new ProductLineSpec(
+                            "1",
+                            BuildDescription(
+                                validSet,
+                                validProductName,
+                                validCollectorNumber,
+                                validRarity,
+                                validCondition
+                            ),
+                            "$1.00",
+                            "$1.00"
+                        ),
+                    ]
+                ),
+            ],
+            summaryOrderIdentifiers: ["SUM-DIFFERENT-IDX"]
+        )
+    ),
+    (
         "partial-batch-one-bad-order.pdf",
         new PackingSlipDocument([
             new OrderPageSpec(

@@ -79,9 +79,6 @@ public sealed class PackingSlipImportService(
         {
             attempt.AttemptFailureCode = FailureType.SummaryMismatch;
             attempt.AttemptFailureMessage = mismatchMessage;
-            await CompleteAttemptAsync(attempt, cancellationToken);
-            yield return Update(parsed.OrderBlocks.Count, 0, 0, 0, true, attempt);
-            yield break;
         }
 
         var processed = 0;

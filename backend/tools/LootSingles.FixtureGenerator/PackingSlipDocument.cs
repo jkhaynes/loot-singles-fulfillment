@@ -22,11 +22,12 @@ public sealed record OrderPageSpec(
 /// Builds packing-slip PDF fixtures matching the layout PdfPigPackingSlipParser expects:
 /// one page per order (Ship To block, "Order Number:" line, a Quantity/Description/Price/Total
 /// Price table with a trailing "&lt;N&gt; Total" row), followed by one summary page listing every
-/// non-null order identifier as its own word token.
+/// non-null order identifier as its own word token unless an intentional summary override is supplied.
 /// </summary>
 public sealed class PackingSlipDocument(
     IReadOnlyList<OrderPageSpec> orders,
-    bool includeSummaryPage = true
+    bool includeSummaryPage = true,
+    IReadOnlyList<string>? summaryOrderIdentifiers = null
 ) : IDocument
 {
     public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
@@ -42,7 +43,14 @@ public sealed class PackingSlipDocument(
 
         if (includeSummaryPage)
         {
-            container.Page(page => ComposeSummaryPage(page, orders));
+            var identifiers =
+                summaryOrderIdentifiers
+                ?? orders
+                    .Select(order => order.OrderIdentifier)
+                    .Where(identifier => !string.IsNullOrEmpty(identifier))
+                    .Select(identifier => identifier!)
+                    .ToList();
+            container.Page(page => ComposeSummaryPage(page, identifiers));
         }
     }
 
@@ -110,7 +118,10 @@ public sealed class PackingSlipDocument(
             });
     }
 
-    private static void ComposeSummaryPage(PageDescriptor page, IReadOnlyList<OrderPageSpec> orders)
+    private static void ComposeSummaryPage(
+        PageDescriptor page,
+        IReadOnlyList<string> orderIdentifiers
+    )
     {
         page.Size(PageSizes.Letter);
         page.Margin(36);
@@ -120,13 +131,9 @@ public sealed class PackingSlipDocument(
             .Column(column =>
             {
                 column.Spacing(4);
-                foreach (
-                    var identifier in orders
-                        .Select(order => order.OrderIdentifier)
-                        .Where(identifier => !string.IsNullOrEmpty(identifier))
-                )
+                foreach (var identifier in orderIdentifiers)
                 {
-                    column.Item().Text(identifier!);
+                    column.Item().Text(identifier);
                 }
             });
     }

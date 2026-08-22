@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using LootSingles.Application.Import;
@@ -10,6 +12,33 @@ namespace LootSingles.IntegrationTests.ImportUi;
 
 public sealed class ImportsControllerFailureTests
 {
+    [Fact]
+    public async Task ExceptionBeforeProgressReturnsSafe500ProblemDetails()
+    {
+        await using var rootFactory = new AuthWebApplicationFactory();
+        await using var factory = rootFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IPackingSlipImportService>();
+                services.AddScoped<IPackingSlipImportService, EarlyThrowingService>();
+            })
+        );
+        using var client = await ImportUiTestSupport.LoginAsync(factory);
+        using var form = ImportUiTestSupport.FileForm([1]);
+
+        var response = await client.PostAsync("/api/imports", form);
+        var content = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        Assert.DoesNotContain(
+            "secret customer detail",
+            content,
+            StringComparison.OrdinalIgnoreCase
+        );
+        Assert.DoesNotContain("\"status\":\"failed\"", content, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task ExceptionAfterProgressEndsWithSafeFailedSnapshot()
     {
@@ -57,6 +86,23 @@ public sealed class ImportsControllerFailureTests
 
             await Task.Yield();
             throw new InvalidOperationException("secret customer detail");
+        }
+    }
+
+    private sealed class EarlyThrowingService : IPackingSlipImportService
+    {
+        public async IAsyncEnumerable<ImportProgressUpdate> ImportAsync(
+            Stream stream,
+            [EnumeratorCancellation] CancellationToken token = default
+        )
+        {
+            await Task.Yield();
+            if (stream.CanRead)
+            {
+                throw new InvalidOperationException("secret customer detail");
+            }
+
+            yield break;
         }
     }
 }

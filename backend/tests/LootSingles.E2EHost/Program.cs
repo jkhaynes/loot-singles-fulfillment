@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using LootSingles.Api.Controllers;
@@ -42,7 +43,8 @@ builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IImportPersistence, ImportRepository>();
 builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
-builder.Services.AddScoped<IPackingSlipImportService, PackingSlipImportService>();
+builder.Services.AddScoped<PackingSlipImportService>();
+builder.Services.AddScoped<IPackingSlipImportService, ObservableProgressImportService>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<OrdersService>();
 builder
@@ -106,4 +108,28 @@ static async Task SeedAsync(IServiceProvider services)
         }
     );
     await context.SaveChangesAsync();
+}
+
+internal sealed class ObservableProgressImportService(PackingSlipImportService inner)
+    : IPackingSlipImportService
+{
+    public async IAsyncEnumerable<ImportProgressUpdate> ImportAsync(
+        Stream packingSlipPdf,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
+    {
+        await foreach (
+            var update in inner
+                .ImportAsync(packingSlipPdf, cancellationToken)
+                .WithCancellation(cancellationToken)
+        )
+        {
+            yield return update;
+
+            if (!update.IsComplete && update.OrdersProcessed > 0)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(750), cancellationToken);
+            }
+        }
+    }
 }

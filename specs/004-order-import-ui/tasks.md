@@ -118,6 +118,23 @@ No project-initialization tasks are required. This feature extends the existing 
 
 ---
 
+## Phase 6: Code Review Follow-ups
+
+**Purpose**: Resolve the Must Fix behavior defects and verification gaps found during the full-feature code review. For behavior corrections, preserve strict Red → Green → Refactor ordering.
+
+- [X] T036 [P] [US1] Add a failing integration test in `backend/tests/LootSingles.IntegrationTests/ImportUi/ImportsControllerDuplicateAndWarningTests.cs` proving that a packing slip with a `summaryMismatch` still evaluates and persists its valid orders, returns their per-order results and counters, and carries the distinct batch warning alongside those results (FR-005, FR-013). The test MUST fail against the current early-exit behavior before T037 begins.
+- [X] T037 [US1] Correct summary-mismatch handling in `backend/src/LootSingles.Application/Import/PackingSlipImportService.cs`: retain `AttemptFailureCode = SummaryMismatch` and its warning message, continue processing every parsed order block normally, persist valid orders independently, and emit the warning alongside the final per-order results rather than completing with zero processed orders. Make T036 pass without weakening existing duplicate, unreadable-file, or partial-import behavior (depends on T036).
+- [X] T038 [P] [US1] Add a failing integration test in `backend/tests/LootSingles.IntegrationTests/ImportUi/ImportsControllerFailureTests.cs` with an import-service double that throws before yielding any snapshot; assert `POST /api/imports` returns `500` Problem Details with a safe generic message and no NDJSON terminal record or exception/customer detail. Retain the existing after-progress test proving that a failure after response streaming begins produces terminal `Failed` (FR-007, FR-019). The new test MUST fail against the current all-exceptions-to-`Failed` behavior before T039 begins.
+- [X] T039 [US1] Split pre-stream and mid-stream failure handling in `backend/src/LootSingles.Api/Controllers/ImportsController.cs`: when an infrastructure exception occurs before the response has started, return `500` Problem Details; once NDJSON streaming has started, retain the terminal `Failed` snapshot behavior and partial results. Never emit false `Completed`, exception text, stack traces, or customer data. Make T038 pass (depends on T038).
+- [X] T040 [P] [US1] Replace the reflection-only test in `backend/tests/LootSingles.IntegrationTests/ImportUi/ImportsControllerCancellationTests.cs` with the planned HTTP cancellation integration scenario: abort after at least one order commits, prove `HttpContext.RequestAborted` reaches `ImportAsync`, verify the active order leaves no partial `Order`/`OrderLine` graph, then re-upload and assert the committed order is reported as a typed duplicate while every remaining valid order imports exactly once (FR-015, FR-016, SC-008).
+- [X] T041 [US1] Make the cancellation/retry integration scenario from T040 pass, changing `backend/src/LootSingles.Api/Controllers/ImportsController.cs`, the import application service, or persistence adapter only if the new behavioral test exposes a defect; preserve committed per-order transactions and database-authoritative duplicate safety (depends on T040).
+- [X] T042 [P] [US1] Replace the three-order line-count assertion in `backend/tests/LootSingles.IntegrationTests/ImportUi/ImportsControllerScaleTests.cs` with the specified synthetic approximately 200-order `IPackingSlipImportService` test double; assert strictly increasing `ordersProcessed` snapshots, suppression of parser-only/non-increasing updates, all 200 successes, and exactly one terminal `Completed` snapshot (FR-003, SC-003).
+- [X] T043 [P] [US1] Expand `backend/tests/LootSingles.IntegrationTests/ImportUi/ImportsControllerValidationTests.cs` to cover multiple `file` fields, an incorrectly named file field, malformed multipart input, and files exactly at and one byte above `26,214,400` bytes. Use an import-service spy and database assertions to prove invalid/oversized requests never invoke processing or create orders, while the exact-boundary request reaches normal parser evaluation (FR-018, SC-009).
+- [X] T044 [P] [US1] Strengthen `frontend/e2e/order-import.spec.ts` so both desktop and mobile runs observe at least one visible intermediate progress state before terminal completion, then retain the existing final per-order outcomes, browse continuity, PII-exclusion, and horizontal-overflow assertions (FR-003, SC-005).
+- [X] T045 Run the complete quickstart validation after T037, T039, and T041–T044: backend build/tests, frontend tests/build, and the full Playwright suite. Confirm all nine scenarios now have direct automated evidence, formatter/lint checks remain clean apart from documented pre-existing warnings, and mark the review follow-up phase complete.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -127,6 +144,7 @@ No project-initialization tasks are required. This feature extends the existing 
 - **User Story 1 (Phase 3)**: Depends on Foundational (T001–T004) completion. No dependency on User Story 2.
 - **User Story 2 (Phase 4)**: Depends on Foundational (T001–T004) completion. Independent of User Story 1's implementation, though its E2E task (T031) conveniently reuses T019's sign-in flow.
 - **Polish (Phase 5)**: Depends on both user stories being complete.
+- **Code Review Follow-ups (Phase 6)**: Depends on Phase 5 and resolves the review findings before convergence verification.
 
 ### Within Foundational
 
@@ -150,12 +168,20 @@ No project-initialization tasks are required. This feature extends the existing 
 - T030 depends on T022, T029, and T002.
 - T031 depends on T030, T019, and T028.
 
+### Within Code Review Follow-ups
+
+- T036 → T037 and T038 → T039 are strict Red → Green behavior-fix chains.
+- T040 → T041 verifies and, if necessary, corrects end-to-end cancellation and retry behavior.
+- T042, T043, and T044 are independent verification-gap tasks and can run in parallel with T036, T038, and T040.
+- T045 depends on T037, T039, and T041–T044.
+
 ### Parallel Opportunities
 
 - All Foundational tasks (T001, T002, T003, T004) are marked [P] and can run in parallel — different files/concerns, no dependencies among them.
 - All User Story 1 test tasks (T005–T013) can be written in parallel — 9 independent files.
 - All User Story 2 test tasks (T020–T022) can be written in parallel — 3 independent files.
 - T025 and T026 (OrdersService and OrderRepository) can be implemented in parallel once T024 exists.
+- T036, T038, T040, T042, T043, and T044 can be implemented in parallel because they affect separate test files and behaviors.
 - User Story 1 and User Story 2 can be implemented in parallel by different developers once Phase 2 is complete.
 
 ---

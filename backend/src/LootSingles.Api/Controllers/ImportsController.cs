@@ -39,7 +39,7 @@ public sealed class ImportsController(
             form = await Request.ReadFormAsync(HttpContext.RequestAborted);
         }
         catch (Exception exception)
-            when (exception is InvalidDataException or BadHttpRequestException)
+            when (exception is InvalidDataException or BadHttpRequestException or IOException)
         {
             await WriteProblemAsync(
                 StatusCodes.Status400BadRequest,
@@ -141,6 +141,15 @@ public sealed class ImportsController(
         }
         catch
         {
+            if (!Response.HasStarted)
+            {
+                await WriteProblemAsync(
+                    StatusCodes.Status500InternalServerError,
+                    "The import could not be started. Please retry."
+                );
+                return;
+            }
+
             var failedSnapshot = (
                 lastSnapshot ?? ImportSnapshot.Empty(ImportOperationStatus.Failed)
             ) with
@@ -174,6 +183,7 @@ public sealed class ImportsController(
     private async Task WriteProblemAsync(int status, string detail)
     {
         Response.StatusCode = status;
+        Response.ContentType = "application/problem+json";
 
         var problem = new ProblemDetails
         {
@@ -182,7 +192,12 @@ public sealed class ImportsController(
             Detail = detail,
         };
 
-        await Response.WriteAsJsonAsync(problem, jsonOptions.Value.JsonSerializerOptions);
+        await JsonSerializer.SerializeAsync(
+            Response.Body,
+            problem,
+            jsonOptions.Value.JsonSerializerOptions,
+            HttpContext.RequestAborted
+        );
     }
 
     private enum ImportOperationStatus
