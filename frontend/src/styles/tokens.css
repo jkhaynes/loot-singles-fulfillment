@@ -1,0 +1,48 @@
+/*
+ * Design tokens (docs/decisions/visual-design-language.md).
+ * Dark mode is the only theme (research.md §5) — no light variant is defined.
+ */
+:root {
+  /* Color */
+  --color-background: #0f1115;
+  --color-surface: #171a21;
+  --color-surface-elevated: #1e222b;
+  --color-border: #2b303b;
+
+  --color-text-primary: #f2f3f5;
+  --color-text-secondary: #b4b8c2;
+  --color-text-muted: #7a7f8c;
+
+  --color-brand-primary: #34c77b;
+  --color-brand-primary-hover: #2ca868;
+  --color-success: #34c77b;
+  --color-warning: #e2a33d;
+  --color-danger: #e5484d;
+  --color-info: #4c9fe8;
+
+  /* Radius */
+  --radius-small: 6px;
+  --radius-medium: 10px;
+  --radius-large: 16px;
+
+  /* Spacing scale (base-4) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Typography scale */
+  --font-size-display: 32px;
+  --font-size-h1: 24px;
+  --font-size-h2: 18px;
+  --font-size-body: 15px;
+  --font-size-body-small: 13px;
+  --font-size-caption: 12px;
+
+  --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+}
