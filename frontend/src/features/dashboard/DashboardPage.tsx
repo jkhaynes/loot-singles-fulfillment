@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { AuthenticatedEmployee } from '../auth/authApi'
 import { getDashboard } from './dashboardApi'
 import type { DashboardData } from './dashboardApi'
@@ -58,9 +59,14 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
           </h1>
           <p className="dashboard-header__subtitle">Ready to pick some orders?</p>
         </div>
-        <button type="button" className="dashboard-logout" onClick={() => onLogout()}>
-          Log out
-        </button>
+        <div className="dashboard-header__actions">
+          <Link to="/import" className="dashboard-import-action">
+            Import Orders
+          </Link>
+          <button type="button" className="dashboard-logout" onClick={() => onLogout()}>
+            Log out
+          </button>
+        </div>
       </header>
 
       <div className="dashboard-stats">

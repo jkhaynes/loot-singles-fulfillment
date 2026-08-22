@@ -26,10 +26,9 @@ export function ImportPage() {
   const retry = snapshot?.status === 'failed' || snapshot?.status === 'interrupted'
   return (
     <main className="import-page">
-      <nav className="import-nav">
-        <Link to="/">Dashboard</Link>
-        <Link to="/orders">Browse orders</Link>
-      </nav>
+      <Link to="/" className="import-back-action">
+        <span aria-hidden="true">←</span> Back to Dashboard
+      </Link>
       <section className="import-card">
         <h1>Import packing slip</h1>
         <p>Upload one TCGplayer packing-slip PDF (25 MB maximum).</p>

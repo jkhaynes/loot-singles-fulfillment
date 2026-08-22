@@ -42,6 +42,18 @@ const base: importApi.ImportSnapshot = {
 
 describe('ImportPage', () => {
   beforeEach(() => vi.resetAllMocks())
+
+  it('provides a button-style return to Dashboard without premature Orders navigation', () => {
+    render(
+      <MemoryRouter>
+        <ImportPage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('link', { name: /back to dashboard/i })).toHaveAttribute('href', '/')
+    expect(screen.queryByRole('link', { name: /browse orders/i })).not.toBeInTheDocument()
+  })
+
   it('submits a file and renders progress and specific per-order outcomes', async () => {
     vi.mocked(importApi.importPackingSlip).mockReturnValue(
       snapshots({ ...base, status: 'inProgress', ordersProcessed: 1 }, base),

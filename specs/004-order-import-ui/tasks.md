@@ -74,6 +74,9 @@ No project-initialization tasks are required. This feature extends the existing 
 - [X] T017 [P] [US1] Implement `frontend/src/features/import/importApi.ts`: a multipart `POST /api/imports` call whose response body is decoded as NDJSON into a typed `ImportSnapshot` async sequence (status `InProgress`/`Completed`/`Failed`), non-stream error-response mapping for `400`/`413`/`415`/`401`/`500`, and a client-derived `Interrupted` snapshot when the stream/connection ends before a terminal line. Makes T012 pass.
 - [X] T018 [US1] Implement `frontend/src/features/import/{ImportPage.tsx,ImportPage.css}`: PDF file picker and submit control, live "N of M orders processed" progress, a per-order outcome list with each rejection's specific reason, the summary-mismatch warning banner, the unreadable-file message, the `Failed` banner (retained partial results + retry), the `Interrupted` banner (incomplete/stale labeling + retry), no customer/shipping data anywhere on the screen (FR-012), a responsive layout with no mobile horizontal scroll (FR-011), and navigation links to the Dashboard and the Orders browse view. Mount `<Route path="/import" element={<ImportPage />} />` in `frontend/src/App.tsx` (built on T002's router shell). Makes T013 pass.
 - [X] T019 [US1] Add the Playwright import scenario to `frontend/e2e/order-import.spec.ts` (built on T003's E2EHost wiring): sign in, navigate to the Import screen, upload a fixture PDF (`backend/tests/LootSingles.Fixtures/PackingSlips/partial-batch-one-bad-order.pdf`), observe live progress followed by terminal per-order results with no customer/shipping data, at both a desktop and a mobile viewport with no horizontal overflow (FR-011, SC-005).
+- [X] T033 [P] [US1] Add failing component tests before implementation: extend `frontend/tests/dashboard/DashboardPage.test.tsx` to require a prominent application-style "Import Orders" action targeting `/import`, and extend `frontend/tests/import/ImportPage.test.tsx` to require a button-style "Back to Dashboard" control targeting `/` while asserting that no "Browse orders" navigation is rendered. These tests encode the confirmed near-term navigation direction: use focused action controls for the two available screens and defer a shared top navigation or sidebar until additional destinations justify it (supersedes only the navigation-link portion of completed T018; depends on T002 and T018).
+- [X] T034 [US1] Implement the tested two-screen navigation: add a prominent responsive "Import Orders" action in `frontend/src/features/dashboard/{DashboardPage.tsx,DashboardPage.css}`; replace `ImportPage.tsx`'s plain Dashboard hyperlink with a clearly styled button-like "Back to Dashboard" control in `frontend/src/features/import/{ImportPage.tsx,ImportPage.css}`; and remove the premature "Browse orders" link until the Orders screen exists. Use React Router navigation semantics underneath, preserve keyboard/focus behavior, and do not introduce a sidebar or shared navigation shell yet (depends on T033).
+- [X] T035 [US1] Update `frontend/e2e/order-import.spec.ts` to navigate from Dashboard to Import through the visible "Import Orders" action, verify the button-style return control navigates back to Dashboard, verify no Orders navigation is shown on Import, and retain the existing desktop/mobile import and horizontal-overflow assertions (depends on T034 and T019).
 
 **Checkpoint**: User Story 1 is fully functional and independently testable — an employee can upload a packing slip and see exactly what happened.
 
@@ -132,11 +135,12 @@ No project-initialization tasks are required. This feature extends the existing 
 
 ### Within User Story 1
 
-- Tests (T005–T013) MUST be written and confirmed failing before implementation (T014–T019) begins.
+- Tests (T005–T013) MUST be written and confirmed failing before implementation (T014–T019) begins; T033 adds the failing navigation component tests before T034 implementation.
 - T014 → T015 → T016 (same file, sequential).
 - T017 is independent of T014–T016 (different files/layers).
 - T018 depends on T013 (its own failing tests) and T017 (the API it calls).
 - T019 depends on T018 (the page it drives) and T003 (E2EHost wiring).
+- T033 depends on T002 and T018; T034 depends on T033; T035 depends on T034 and T019.
 
 ### Within User Story 2
 
@@ -178,7 +182,7 @@ Task: "Component tests: ImportPage states in frontend/tests/import/ImportPage.te
 ### MVP First (User Story 1 Only)
 
 1. Complete Phase 2: Foundational (T001–T004).
-2. Complete Phase 3: User Story 1 (T005–T019).
+2. Complete Phase 3: User Story 1 (T005–T019 and T033–T035).
 3. **STOP and VALIDATE**: Run the User Story 1 slice of quickstart.md's end-to-end scenarios (1, 2, 3, 5, 6, 7, 9) independently.
 4. Demo the import screen — this alone unblocks self-serve order entry (the "front door" gap called out in spec.md).
 

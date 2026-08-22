@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { DashboardPage } from '../../src/features/dashboard/DashboardPage'
 import * as dashboardApi from '../../src/features/dashboard/dashboardApi'
 
@@ -10,6 +11,14 @@ vi.mock('../../src/features/dashboard/dashboardApi', async (importOriginal) => {
 })
 
 const employee = { employeeId: 1, displayName: 'Jamie', role: 'Picker' }
+
+function renderDashboard(onLogout = vi.fn()) {
+  return render(
+    <MemoryRouter>
+      <DashboardPage employee={employee} onLogout={onLogout} />
+    </MemoryRouter>,
+  )
+}
 
 describe('DashboardPage', () => {
   beforeEach(() => {
@@ -31,7 +40,7 @@ describe('DashboardPage', () => {
       },
     })
 
-    render(<DashboardPage employee={employee} onLogout={vi.fn()} />)
+    renderDashboard()
 
     const row = await screen.findByRole('row', { name: /F0000001-ABC001-00001/ })
     expect(within(row).getByText('2')).toBeInTheDocument()
@@ -54,7 +63,7 @@ describe('DashboardPage', () => {
       },
     })
 
-    render(<DashboardPage employee={employee} onLogout={vi.fn()} />)
+    renderDashboard()
 
     const row = await screen.findByRole('row', { name: /F0000001-ABC001-00001/ })
     const [, , quantityCell] = within(row).getAllByRole('cell')
@@ -76,7 +85,7 @@ describe('DashboardPage', () => {
       },
     })
 
-    render(<DashboardPage employee={employee} onLogout={vi.fn()} />)
+    renderDashboard()
 
     const row = await screen.findByRole('row', { name: /F0000002-ABC002-00002/ })
     const [, , quantityCell] = within(row).getAllByRole('cell')
@@ -88,7 +97,7 @@ describe('DashboardPage', () => {
       new Error('Failed to load dashboard (status 500)'),
     )
 
-    render(<DashboardPage employee={employee} onLogout={vi.fn()} />)
+    renderDashboard()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/couldn.?t load/i)
     expect(screen.queryByText(/no orders ready to pick/i)).not.toBeInTheDocument()
@@ -98,7 +107,7 @@ describe('DashboardPage', () => {
   it('shows an empty-state message when there are no Ready orders', async () => {
     vi.mocked(dashboardApi.getDashboard).mockResolvedValue({ ready: { count: 0, orders: [] } })
 
-    render(<DashboardPage employee={employee} onLogout={vi.fn()} />)
+    renderDashboard()
 
     expect(await screen.findByText(/no orders ready to pick/i)).toBeInTheDocument()
   })
@@ -106,7 +115,7 @@ describe('DashboardPage', () => {
   it('renders the three not-yet-available placeholder sections', async () => {
     vi.mocked(dashboardApi.getDashboard).mockResolvedValue({ ready: { count: 0, orders: [] } })
 
-    render(<DashboardPage employee={employee} onLogout={vi.fn()} />)
+    renderDashboard()
     await screen.findByText(/no orders ready to pick/i)
 
     expect(screen.getByText('In Progress')).toBeInTheDocument()
@@ -120,10 +129,19 @@ describe('DashboardPage', () => {
     const onLogout = vi.fn()
     const user = userEvent.setup()
 
-    render(<DashboardPage employee={employee} onLogout={onLogout} />)
+    renderDashboard(onLogout)
     await screen.findByText(/no orders ready to pick/i)
     await user.click(screen.getByRole('button', { name: /log out/i }))
 
     expect(onLogout).toHaveBeenCalledOnce()
+  })
+
+  it('provides a prominent Import Orders action targeting the import screen', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({ ready: { count: 0, orders: [] } })
+
+    renderDashboard()
+    await screen.findByText(/no orders ready to pick/i)
+
+    expect(screen.getByRole('link', { name: /import orders/i })).toHaveAttribute('href', '/import')
   })
 })

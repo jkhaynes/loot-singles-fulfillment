@@ -12,7 +12,18 @@ for (const viewport of [
     await page.getByLabel(/pin/i).fill('1234')
     await page.getByRole('button', { name: /log in/i }).click()
     await expect(page.getByRole('heading', { name: /E2E/i })).toBeVisible()
-    await page.goto('/import')
+
+    await page.getByRole('link', { name: /import orders/i }).click()
+    await expect(page).toHaveURL(/\/import$/)
+    await expect(page.getByRole('link', { name: /back to dashboard/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /browse orders/i })).toHaveCount(0)
+
+    await page.getByRole('link', { name: /back to dashboard/i }).click()
+    await expect(page).toHaveURL(/\/$/)
+    await expect(page.getByRole('heading', { name: /E2E/i })).toBeVisible()
+
+    await page.getByRole('link', { name: /import orders/i }).click()
+    await expect(page).toHaveURL(/\/import$/)
     await page
       .getByLabel(/packing slip/i)
       .setInputFiles(
