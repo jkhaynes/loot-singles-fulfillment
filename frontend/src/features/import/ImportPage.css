@@ -1,0 +1,103 @@
+.import-page {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-5);
+  text-align: left;
+}
+.import-nav {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+.import-nav a {
+  color: var(--color-brand-primary);
+}
+.import-card {
+  max-width: 800px;
+  margin: auto;
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  overflow-wrap: anywhere;
+}
+.import-card h1 {
+  margin: 0 0 var(--space-2);
+}
+.import-card form {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+.import-card input,
+.import-card button {
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+}
+.import-card button {
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-small);
+  background: var(--color-brand-primary);
+  color: #07130d;
+  font-weight: 700;
+  cursor: pointer;
+}
+.import-card button:disabled {
+  opacity: 0.55;
+}
+.import-results {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+.import-progress {
+  font-weight: 700;
+}
+.import-alert {
+  padding: var(--space-3);
+  border: 1px solid;
+  border-radius: var(--radius-small);
+}
+.import-alert--warning {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+.import-alert--error {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+.import-order-list {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+.import-order-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  overflow-wrap: anywhere;
+}
+.import-order-list li[data-outcome="rejected"] {
+  border-left: 4px solid var(--color-danger);
+}
+.import-order-list li[data-outcome="succeeded"] {
+  border-left: 4px solid var(--color-success);
+}
+@media (max-width: 600px) {
+  .import-page {
+    padding: var(--space-3);
+  }
+  .import-card {
+    padding: var(--space-4);
+  }
+  .import-order-list li {
+    flex-direction: column;
+  }
+}
