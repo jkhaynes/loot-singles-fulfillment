@@ -13,7 +13,8 @@ public class OrderLineConfiguration : IEntityTypeConfiguration<OrderLine>
 {
     public void Configure(EntityTypeBuilder<OrderLine> builder)
     {
-        builder.HasOne<Order>()
+        builder
+            .HasOne<Order>()
             .WithMany(order => order.OrderLines)
             .HasForeignKey(orderLine => orderLine.OrderId)
             .IsRequired();

@@ -13,7 +13,8 @@ public class ConditionVariantParserTests
     public void Parse_SeparatesKnownConditionPrefixFromVariant(
         string source,
         string expectedCondition,
-        string? expectedVariant)
+        string? expectedVariant
+    )
     {
         var result = ConditionVariantParser.Parse(source);
 

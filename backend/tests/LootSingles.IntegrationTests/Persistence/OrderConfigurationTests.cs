@@ -22,8 +22,11 @@ public class OrderConfigurationTests
         var entityType = context.Model.FindEntityType(typeof(Order));
         Assert.NotNull(entityType);
 
-        var index = entityType.GetIndexes()
-            .SingleOrDefault(i => i.Properties.Select(p => p.Name).SequenceEqual([nameof(Order.TcgplayerOrderId)]));
+        var index = entityType
+            .GetIndexes()
+            .SingleOrDefault(i =>
+                i.Properties.Select(p => p.Name).SequenceEqual([nameof(Order.TcgplayerOrderId)])
+            );
 
         Assert.NotNull(index);
         Assert.True(index.IsUnique);

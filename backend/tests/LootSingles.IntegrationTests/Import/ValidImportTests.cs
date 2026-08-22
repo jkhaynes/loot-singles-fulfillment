@@ -3,6 +3,7 @@ using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LootSingles.IntegrationTests.Import;
 
@@ -47,7 +48,11 @@ public class ValidImportTests
             .Options;
         await using var dbContext = new LootSinglesDbContext(options);
         var parser = new PdfPigPackingSlipParser();
-        IPackingSlipImportService service = new PackingSlipImportService(parser, dbContext);
+        IPackingSlipImportService service = new PackingSlipImportService(
+            parser,
+            new ImportRepository(dbContext),
+            NullLogger<PackingSlipImportService>.Instance
+        );
         var fixtureNames = new[]
         {
             "valid-multi-order-batch.pdf",
@@ -66,16 +71,16 @@ public class ValidImportTests
                     expectedPackingSlip = update.PackingSlip;
                 }
             }
-            expectedOrders.AddRange(Assert.IsType<ParsedPackingSlip>(expectedPackingSlip).OrderBlocks);
+            expectedOrders.AddRange(
+                Assert.IsType<ParsedPackingSlip>(expectedPackingSlip).OrderBlocks
+            );
 
             await using var importStream = OpenFixture(fixtureName);
-            await foreach (var _ in service.ImportAsync(importStream, CancellationToken.None))
-            {
-            }
+            await foreach (var _ in service.ImportAsync(importStream, CancellationToken.None)) { }
         }
 
-        var persistedOrders = await dbContext.Orders
-            .Include(order => order.OrderLines)
+        var persistedOrders = await dbContext
+            .Orders.Include(order => order.OrderLines)
             .OrderBy(order => order.Id)
             .ToListAsync();
 
@@ -83,12 +88,16 @@ public class ValidImportTests
         Assert.All(persistedOrders, order => Assert.Equal(OrderStatus.Ready, order.Status));
         Assert.Equal(
             expectedOrders.Select(order => order.OrderIdentifier).Order(),
-            persistedOrders.Select(order => order.TcgplayerOrderId).Order());
+            persistedOrders.Select(order => order.TcgplayerOrderId).Order()
+        );
 
         var expectedLines = ExpectedFixtureLines.Select(ExpectedLine.Parse).ToList();
-        var actualLines = persistedOrders.SelectMany(order => order.OrderLines
-            .OrderBy(line => line.Id)
-            .Select(line => new { order.TcgplayerOrderId, Line = line }))
+        var actualLines = persistedOrders
+            .SelectMany(order =>
+                order
+                    .OrderLines.OrderBy(line => line.Id)
+                    .Select(line => new { order.TcgplayerOrderId, Line = line })
+            )
             .ToList();
 
         Assert.Equal(expectedLines.Count, actualLines.Count);
@@ -110,18 +119,18 @@ public class ValidImportTests
 
         var duplicateLineOrder = Assert.Single(
             persistedOrders,
-            order => order.TcgplayerOrderId == "DUPLICATE-LINE-FIXTURE");
+            order => order.TcgplayerOrderId == "DUPLICATE-LINE-FIXTURE"
+        );
         var duplicateLines = duplicateLineOrder.OrderLines.OrderBy(line => line.Id).ToList();
         Assert.Equal(2, duplicateLines.Count);
         Assert.Equal(duplicateLines[0].RawDescription, duplicateLines[1].RawDescription);
         Assert.Equal(new[] { 1, 2 }, duplicateLines.Select(line => line.Quantity));
     }
 
-    private static FileStream OpenFixture(string fixtureName) => File.OpenRead(Path.Combine(
-        AppContext.BaseDirectory,
-        "Fixtures",
-        "PackingSlips",
-        fixtureName));
+    private static FileStream OpenFixture(string fixtureName) =>
+        File.OpenRead(
+            Path.Combine(AppContext.BaseDirectory, "Fixtures", "PackingSlips", fixtureName)
+        );
 
     private sealed record ExpectedLine(
         string OrderIdentifier,
@@ -133,7 +142,8 @@ public class ValidImportTests
         string? Rarity,
         string Condition,
         string? Variant,
-        string RawDescription)
+        string RawDescription
+    )
     {
         public static ExpectedLine Parse(string value)
         {
@@ -148,7 +158,8 @@ public class ValidImportTests
                 NullIfEmpty(fields[6]),
                 fields[7],
                 NullIfEmpty(fields[8]),
-                fields[9]);
+                fields[9]
+            );
         }
 
         private static string? NullIfEmpty(string value) => value.Length == 0 ? null : value;

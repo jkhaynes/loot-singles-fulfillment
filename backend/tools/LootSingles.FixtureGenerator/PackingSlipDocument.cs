@@ -4,22 +4,31 @@ using QuestPDF.Infrastructure;
 
 namespace LootSingles.FixtureGenerator;
 
-public sealed record ProductLineSpec(string QuantityText, string RawDescription, string UnitPrice, string ExtPrice);
+public sealed record ProductLineSpec(
+    string QuantityText,
+    string RawDescription,
+    string UnitPrice,
+    string ExtPrice
+);
 
 public sealed record OrderPageSpec(
     string? OrderIdentifier,
     IReadOnlyList<ProductLineSpec> Lines,
     string ShipToName = "Fixture Customer",
-    string ShipToAddress = "100 Example Lane");
+    string ShipToAddress = "100 Example Lane"
+);
 
 /// <summary>
 /// Builds packing-slip PDF fixtures matching the layout PdfPigPackingSlipParser expects:
 /// one page per order (Ship To block, "Order Number:" line, a Quantity/Description/Price/Total
 /// Price table with a trailing "&lt;N&gt; Total" row), followed by one summary page listing every
-/// non-null order identifier as its own word token.
+/// non-null order identifier as its own word token unless an intentional summary override is supplied.
 /// </summary>
-public sealed class PackingSlipDocument(IReadOnlyList<OrderPageSpec> orders, bool includeSummaryPage = true)
-    : IDocument
+public sealed class PackingSlipDocument(
+    IReadOnlyList<OrderPageSpec> orders,
+    bool includeSummaryPage = true,
+    IReadOnlyList<string>? summaryOrderIdentifiers = null
+) : IDocument
 {
     public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
 
@@ -34,7 +43,14 @@ public sealed class PackingSlipDocument(IReadOnlyList<OrderPageSpec> orders, boo
 
         if (includeSummaryPage)
         {
-            container.Page(page => ComposeSummaryPage(page, orders));
+            var identifiers =
+                summaryOrderIdentifiers
+                ?? orders
+                    .Select(order => order.OrderIdentifier)
+                    .Where(identifier => !string.IsNullOrEmpty(identifier))
+                    .Select(identifier => identifier!)
+                    .ToList();
+            container.Page(page => ComposeSummaryPage(page, identifiers));
         }
     }
 
@@ -44,71 +60,81 @@ public sealed class PackingSlipDocument(IReadOnlyList<OrderPageSpec> orders, boo
         page.Margin(36);
         page.DefaultTextStyle(style => style.FontSize(9).FontFamily(Fonts.Arial));
 
-        page.Content().Column(column =>
-        {
-            column.Spacing(6);
-            column.Item().Text($"Ship To: {order.ShipToName}");
-            column.Item().Text(order.ShipToAddress);
-            column.Item().PaddingTop(15).Text(text =>
+        page.Content()
+            .Column(column =>
             {
-                text.Span("Order Number: ");
-                if (!string.IsNullOrEmpty(order.OrderIdentifier))
-                {
-                    text.Span(order.OrderIdentifier);
-                }
+                column.Spacing(6);
+                column.Item().Text($"Ship To: {order.ShipToName}");
+                column.Item().Text(order.ShipToAddress);
+                column
+                    .Item()
+                    .PaddingTop(15)
+                    .Text(text =>
+                    {
+                        text.Span("Order Number: ");
+                        if (!string.IsNullOrEmpty(order.OrderIdentifier))
+                        {
+                            text.Span(order.OrderIdentifier);
+                        }
+                    });
+
+                column
+                    .Item()
+                    .PaddingTop(15)
+                    .Table(table =>
+                    {
+                        table.ColumnsDefinition(columns =>
+                        {
+                            columns.ConstantColumn(50);
+                            columns.ConstantColumn(370);
+                            columns.ConstantColumn(60);
+                            columns.ConstantColumn(60);
+                        });
+
+                        table.Header(header =>
+                        {
+                            header.Cell().Text("Quantity");
+                            header.Cell().Text("Description");
+                            header.Cell().Text("Price");
+                            header.Cell().Text("Total Price");
+                        });
+
+                        foreach (var line in order.Lines)
+                        {
+                            table.Cell().Text(line.QuantityText);
+                            table.Cell().Text(line.RawDescription);
+                            table.Cell().Text(line.UnitPrice);
+                            table.Cell().Text(line.ExtPrice);
+                        }
+
+                        var totalQuantity = order.Lines.Sum(line =>
+                            int.TryParse(line.QuantityText, out var qty) ? Math.Max(qty, 0) : 0
+                        );
+                        table.Cell().Text(totalQuantity.ToString());
+                        table.Cell().Text("Total");
+                        table.Cell().Text(string.Empty);
+                        table.Cell().Text(string.Empty);
+                    });
             });
-
-            column.Item().PaddingTop(15).Table(table =>
-            {
-                table.ColumnsDefinition(columns =>
-                {
-                    columns.ConstantColumn(50);
-                    columns.ConstantColumn(370);
-                    columns.ConstantColumn(60);
-                    columns.ConstantColumn(60);
-                });
-
-                table.Header(header =>
-                {
-                    header.Cell().Text("Quantity");
-                    header.Cell().Text("Description");
-                    header.Cell().Text("Price");
-                    header.Cell().Text("Total Price");
-                });
-
-                foreach (var line in order.Lines)
-                {
-                    table.Cell().Text(line.QuantityText);
-                    table.Cell().Text(line.RawDescription);
-                    table.Cell().Text(line.UnitPrice);
-                    table.Cell().Text(line.ExtPrice);
-                }
-
-                var totalQuantity = order.Lines
-                    .Sum(line => int.TryParse(line.QuantityText, out var qty) ? Math.Max(qty, 0) : 0);
-                table.Cell().Text(totalQuantity.ToString());
-                table.Cell().Text("Total");
-                table.Cell().Text(string.Empty);
-                table.Cell().Text(string.Empty);
-            });
-        });
     }
 
-    private static void ComposeSummaryPage(PageDescriptor page, IReadOnlyList<OrderPageSpec> orders)
+    private static void ComposeSummaryPage(
+        PageDescriptor page,
+        IReadOnlyList<string> orderIdentifiers
+    )
     {
         page.Size(PageSizes.Letter);
         page.Margin(36);
         page.DefaultTextStyle(style => style.FontSize(9).FontFamily(Fonts.Arial));
 
-        page.Content().Column(column =>
-        {
-            column.Spacing(4);
-            foreach (var identifier in orders
-                .Select(order => order.OrderIdentifier)
-                .Where(identifier => !string.IsNullOrEmpty(identifier)))
+        page.Content()
+            .Column(column =>
             {
-                column.Item().Text(identifier!);
-            }
-        });
+                column.Spacing(4);
+                foreach (var identifier in orderIdentifiers)
+                {
+                    column.Item().Text(identifier);
+                }
+            });
     }
 }

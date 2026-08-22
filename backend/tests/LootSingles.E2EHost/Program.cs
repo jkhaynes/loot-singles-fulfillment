@@ -1,9 +1,15 @@
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using LootSingles.Api.Controllers;
 using LootSingles.Application.Auth;
 using LootSingles.Application.Dashboard;
+using LootSingles.Application.Import;
+using LootSingles.Application.Orders;
 using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Auth;
+using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.Sqlite;
@@ -17,8 +23,16 @@ await connection.OpenAsync();
 builder.Services.AddSingleton(connection);
 builder.Services.AddDbContext<LootSinglesDbContext>(options => options.UseSqlite(connection));
 
-builder.Services.AddControllers()
-    .AddApplicationPart(typeof(AuthController).Assembly);
+builder
+    .Services.AddControllers()
+    .AddApplicationPart(typeof(AuthController).Assembly)
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)
+        );
+    });
 builder.Services.AddScoped<IPinHasher, Pbkdf2PinHasher>();
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddSingleton(new LockoutOptions());
@@ -27,7 +41,14 @@ builder.Services.AddScoped<EmployeeManagementService>();
 builder.Services.AddScoped<EmployeeSessionCookieEvents>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<DashboardService>();
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+builder.Services.AddScoped<IImportPersistence, ImportRepository>();
+builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
+builder.Services.AddScoped<PackingSlipImportService>();
+builder.Services.AddScoped<IPackingSlipImportService, ObservableProgressImportService>();
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<OrdersService>();
+builder
+    .Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
         options.Cookie.HttpOnly = true;
@@ -54,33 +75,65 @@ static async Task SeedAsync(IServiceProvider services)
     var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
     var pinHasher = scope.ServiceProvider.GetRequiredService<IPinHasher>();
     await context.Database.EnsureCreatedAsync();
-    context.Employees.Add(new Employee
-    {
-        Username = "e2emanager",
-        NormalizedUsername = "E2EMANAGER",
-        DisplayName = "E2E Manager",
-        PinHash = pinHasher.Hash("1234"),
-        Role = EmployeeRole.ManagerAdmin,
-        CreatedAt = DateTimeOffset.UtcNow,
-    });
-    context.Orders.Add(new Order
-    {
-        TcgplayerOrderId = "E2E-ORDER-00001",
-        Status = OrderStatus.Ready,
-        ImportedAt = DateTimeOffset.UtcNow,
-        OrderLines =
-        [
-            new OrderLine
-            {
-                RawDescription = "Pikachu - Base Set - #58/102 - Common - Near Mint",
-                ProductLine = "Pokemon",
-                ProductName = "Pikachu",
-                Set = "Base Set",
-                CollectorNumber = "#58/102",
-                Condition = "Near Mint",
-                Quantity = 2,
-            },
-        ],
-    });
+    context.Employees.Add(
+        new Employee
+        {
+            Username = "e2emanager",
+            NormalizedUsername = "E2EMANAGER",
+            DisplayName = "E2E Manager",
+            PinHash = pinHasher.Hash("1234"),
+            Role = EmployeeRole.ManagerAdmin,
+            CreatedAt = DateTimeOffset.UtcNow,
+        }
+    );
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00001",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow,
+            OrderLines =
+            [
+                new OrderLine
+                {
+                    RawDescription = "Pikachu - Base Set - #58/102 - Common - Near Mint",
+                    ProductLine = "Pokemon",
+                    ProductName = "Pikachu",
+                    Set = "Base Set",
+                    CollectorNumber = "#58/102",
+                    Condition = "Near Mint",
+                    Quantity = 2,
+                },
+            ],
+        }
+    );
     await context.SaveChangesAsync();
+}
+
+internal sealed class ObservableProgressImportService(PackingSlipImportService inner)
+    : IPackingSlipImportService
+{
+    public async IAsyncEnumerable<ImportProgressUpdate> ImportAsync(
+        Stream packingSlipPdf,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
+    {
+        await foreach (
+            var update in inner
+                .ImportAsync(packingSlipPdf, cancellationToken)
+                .WithCancellation(cancellationToken)
+        )
+        {
+            yield return update;
+
+            if (
+                !update.IsComplete
+                && update.OrdersProcessed > 0
+                && update.OrdersProcessed < update.OrdersDetected
+            )
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(750), cancellationToken);
+            }
+        }
+    }
 }

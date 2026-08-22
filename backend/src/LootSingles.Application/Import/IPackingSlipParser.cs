@@ -20,5 +20,6 @@ public interface IPackingSlipParser
     /// <param name="cancellationToken">Stops parsing without converting cancellation into a rejection.</param>
     IAsyncEnumerable<PackingSlipParseUpdate> ParseAsync(
         Stream packingSlipPdf,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 }

@@ -8,13 +8,19 @@ namespace LootSingles.Application.Auth;
 public sealed class AuthenticationService(
     IEmployeeRepository repository,
     IPinHasher pinHasher,
-    LockoutOptions lockoutOptions)
+    LockoutOptions lockoutOptions
+)
 {
     public async Task<AuthenticationResult> LoginAsync(
-        string username, string pin, CancellationToken cancellationToken)
+        string username,
+        string pin,
+        CancellationToken cancellationToken
+    )
     {
         var employee = await repository.GetByNormalizedUsernameAsync(
-            username.ToUpperInvariant(), cancellationToken);
+            username.ToUpperInvariant(),
+            cancellationToken
+        );
 
         // Inactive accounts always use the generic response, even if the retained record is locked.
         if (employee is null || !employee.IsActive)
@@ -46,7 +52,8 @@ public sealed class AuthenticationService(
                 ActorEmployeeId = employee.Id,
                 ActionType = EmployeeAuditActionType.Login,
                 OccurredAt = DateTimeOffset.UtcNow,
-            });
+            }
+        );
         await repository.SaveChangesAsync(cancellationToken);
 
         return AuthenticationResult.Success(employee);
@@ -60,7 +67,8 @@ public sealed class AuthenticationService(
                 ActorEmployeeId = employeeId,
                 ActionType = EmployeeAuditActionType.Logout,
                 OccurredAt = DateTimeOffset.UtcNow,
-            });
+            }
+        );
         await repository.SaveChangesAsync(cancellationToken);
     }
 }

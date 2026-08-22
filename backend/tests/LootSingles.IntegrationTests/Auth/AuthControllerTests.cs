@@ -18,7 +18,10 @@ public class AuthControllerTests
         var employee = await SeedEmployeeAsync(factory, "jsmith", "1234", isActive: true);
         using var client = factory.CreateAuthenticatedClient();
 
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("jsmith", "1234"));
+        var loginResponse = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest("jsmith", "1234")
+        );
 
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
         var body = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>();
@@ -39,7 +42,10 @@ public class AuthControllerTests
         await SeedEmployeeAsync(factory, "jsmith", "1234", isActive: true);
         using var client = factory.CreateAuthenticatedClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("jsmith", "9999"));
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest("jsmith", "9999")
+        );
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
@@ -53,8 +59,14 @@ public class AuthControllerTests
         await SeedEmployeeAsync(factory, "jsmith", "1234", isActive: true);
         using var client = factory.CreateAuthenticatedClient();
 
-        var wrongPinResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("jsmith", "9999"));
-        var nonexistentResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("ghost", "1234"));
+        var wrongPinResponse = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest("jsmith", "9999")
+        );
+        var nonexistentResponse = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest("ghost", "1234")
+        );
 
         Assert.Equal(HttpStatusCode.Unauthorized, nonexistentResponse.StatusCode);
         var wrongPinBody = await wrongPinResponse.Content.ReadFromJsonAsync<ErrorResponse>();
@@ -70,7 +82,10 @@ public class AuthControllerTests
         await SeedEmployeeAsync(factory, "jsmith", "1234", isActive: false);
         using var client = factory.CreateAuthenticatedClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("jsmith", "1234"));
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest("jsmith", "1234")
+        );
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<ErrorResponse>();
@@ -87,12 +102,16 @@ public class AuthControllerTests
         for (var attempt = 0; attempt < 5; attempt++)
         {
             var failedResponse = await client.PostAsJsonAsync(
-                "/api/auth/login", new LoginRequest("jsmith", "9999"));
+                "/api/auth/login",
+                new LoginRequest("jsmith", "9999")
+            );
             Assert.Equal(HttpStatusCode.Unauthorized, failedResponse.StatusCode);
         }
 
         var lockedResponse = await client.PostAsJsonAsync(
-            "/api/auth/login", new LoginRequest("jsmith", "1234"));
+            "/api/auth/login",
+            new LoginRequest("jsmith", "1234")
+        );
 
         Assert.Equal((HttpStatusCode)423, lockedResponse.StatusCode);
         var body = await lockedResponse.Content.ReadFromJsonAsync<ErrorResponse>();
@@ -110,17 +129,23 @@ public class AuthControllerTests
         for (var attempt = 0; attempt < 4; attempt++)
         {
             var failedResponse = await client.PostAsJsonAsync(
-                "/api/auth/login", new LoginRequest("jsmith", "9999"));
+                "/api/auth/login",
+                new LoginRequest("jsmith", "9999")
+            );
             Assert.Equal(HttpStatusCode.Unauthorized, failedResponse.StatusCode);
         }
 
         var successfulResponse = await client.PostAsJsonAsync(
-            "/api/auth/login", new LoginRequest("jsmith", "1234"));
+            "/api/auth/login",
+            new LoginRequest("jsmith", "1234")
+        );
 
         Assert.Equal(HttpStatusCode.OK, successfulResponse.StatusCode);
         using var scope = factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
-        var persistedEmployee = await context.Employees.SingleAsync(candidate => candidate.Id == employee.Id);
+        var persistedEmployee = await context.Employees.SingleAsync(candidate =>
+            candidate.Id == employee.Id
+        );
         Assert.Equal(0, persistedEmployee.FailedAttemptCount);
         Assert.False(persistedEmployee.IsLocked);
     }
@@ -132,7 +157,10 @@ public class AuthControllerTests
         await SeedEmployeeAsync(factory, "jsmith", "1234", isActive: true);
         using var client = factory.CreateAuthenticatedClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("jsmith", "12a"));
+        var response = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest("jsmith", "12a")
+        );
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -155,8 +183,12 @@ public class AuthControllerTests
         await using var factory = new AuthWebApplicationFactory();
         await SeedEmployeeAsync(factory, "jsmith", "1234", isActive: true);
         using var client = factory.CreateAuthenticatedClient();
-        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync(
-            "/api/auth/login", new LoginRequest("jsmith", "1234"))).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (
+                await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("jsmith", "1234"))
+            ).StatusCode
+        );
 
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/auth/me")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/auth/me")).StatusCode);
@@ -169,8 +201,12 @@ public class AuthControllerTests
         await using var factory = new AuthWebApplicationFactory(clock);
         await SeedEmployeeAsync(factory, "jsmith", "1234", isActive: true);
         using var client = factory.CreateAuthenticatedClient();
-        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync(
-            "/api/auth/login", new LoginRequest("jsmith", "1234"))).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (
+                await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("jsmith", "1234"))
+            ).StatusCode
+        );
 
         clock.Advance(TimeSpan.FromMinutes(31));
         var response = await client.GetAsync("/api/auth/me");
@@ -184,8 +220,12 @@ public class AuthControllerTests
         await using var factory = new AuthWebApplicationFactory();
         var employee = await SeedEmployeeAsync(factory, "jsmith", "1234", isActive: true);
         using var client = factory.CreateAuthenticatedClient();
-        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync(
-            "/api/auth/login", new LoginRequest("jsmith", "1234"))).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (
+                await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("jsmith", "1234"))
+            ).StatusCode
+        );
 
         var logoutResponse = await client.PostAsync("/api/auth/logout", null);
         var meResponse = await client.GetAsync("/api/auth/me");
@@ -194,14 +234,19 @@ public class AuthControllerTests
         Assert.Equal(HttpStatusCode.Unauthorized, meResponse.StatusCode);
         using var scope = factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
-        var logoutAudit = await context.EmployeeAuditEvents.SingleAsync(
-            item => item.ActionType == EmployeeAuditActionType.Logout);
+        var logoutAudit = await context.EmployeeAuditEvents.SingleAsync(item =>
+            item.ActionType == EmployeeAuditActionType.Logout
+        );
         Assert.Equal(employee.Id, logoutAudit.ActorEmployeeId);
         Assert.Null(logoutAudit.TargetEmployeeId);
     }
 
     private static async Task<Employee> SeedEmployeeAsync(
-        AuthWebApplicationFactory factory, string username, string pin, bool isActive)
+        AuthWebApplicationFactory factory,
+        string username,
+        string pin,
+        bool isActive
+    )
     {
         var hasher = new Pbkdf2PinHasher();
         var employee = new Employee

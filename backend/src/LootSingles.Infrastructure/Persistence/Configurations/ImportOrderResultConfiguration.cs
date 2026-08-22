@@ -14,7 +14,8 @@ public class ImportOrderResultConfiguration : IEntityTypeConfiguration<ImportOrd
 {
     public void Configure(EntityTypeBuilder<ImportOrderResult> builder)
     {
-        builder.HasOne<Order>()
+        builder
+            .HasOne<Order>()
             .WithMany()
             .HasForeignKey(result => result.ResultingOrderId)
             .IsRequired(false);

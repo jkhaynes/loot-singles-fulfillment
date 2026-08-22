@@ -1,4 +1,6 @@
 using LootSingles.Application.Import;
+using LootSingles.Infrastructure.Persistence;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LootSingles.IntegrationTests.Import;
 
@@ -38,7 +40,11 @@ public class ProgressReportingTests
         const int orderCount = 200;
         var parser = new SyntheticProgressiveParser(orderCount);
         await using var context = ImportTestSupport.CreateInMemoryContext();
-        var service = new PackingSlipImportService(parser, context);
+        var service = new PackingSlipImportService(
+            parser,
+            new ImportRepository(context),
+            NullLogger<PackingSlipImportService>.Instance
+        );
         await using var source = new MemoryStream([0]);
         await using var updates = service.ImportAsync(source).GetAsyncEnumerator();
 
@@ -57,7 +63,10 @@ public class ProgressReportingTests
         Assert.True(parser.IsComplete);
         AssertMonotonic(observed.Select(update => update.OrdersDetected));
         AssertMonotonic(observed.Select(update => update.OrdersProcessed));
-        Assert.Contains(observed, update => update.OrdersDetected < orderCount && !update.IsComplete);
+        Assert.Contains(
+            observed,
+            update => update.OrdersDetected < orderCount && !update.IsComplete
+        );
         var final = observed[^1];
         Assert.True(final.IsComplete);
         Assert.Equal(orderCount, final.OrdersDetected);
@@ -68,9 +77,14 @@ public class ProgressReportingTests
     private static void AssertMonotonic(IEnumerable<int> values)
     {
         var sequence = values.ToList();
-        Assert.All(sequence.Zip(sequence.Skip(1)), pair => Assert.True(
-            pair.First <= pair.Second,
-            $"Expected a non-decreasing sequence, but found {pair.First} before {pair.Second}."));
+        Assert.All(
+            sequence.Zip(sequence.Skip(1)),
+            pair =>
+                Assert.True(
+                    pair.First <= pair.Second,
+                    $"Expected a non-decreasing sequence, but found {pair.First} before {pair.Second}."
+                )
+        );
     }
 
     private sealed class SyntheticProgressiveParser(int orderCount) : IPackingSlipParser
@@ -80,35 +94,43 @@ public class ProgressReportingTests
         public async IAsyncEnumerable<PackingSlipParseUpdate> ParseAsync(
             Stream packingSlipPdf,
             [System.Runtime.CompilerServices.EnumeratorCancellation]
-            CancellationToken cancellationToken = default)
+                CancellationToken cancellationToken = default
+        )
         {
             var blocks = new List<RawOrderBlock>();
             for (var index = 1; index <= orderCount; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                blocks.Add(new RawOrderBlock
-                {
-                    OrderIdentifier = $"SYNTHETIC-{index:D6}-ORDER",
-                    ProductLines =
-                    [
-                        new RawProductLine
-                        {
-                            QuantityText = "1",
-                            RawDescription = "Pokemon - Test Set: Test Card - #1 - Common - Near Mint",
-                        },
-                    ],
-                });
+                blocks.Add(
+                    new RawOrderBlock
+                    {
+                        OrderIdentifier = $"SYNTHETIC-{index:D6}-ORDER",
+                        ProductLines =
+                        [
+                            new RawProductLine
+                            {
+                                QuantityText = "1",
+                                RawDescription =
+                                    "Pokemon - Test Set: Test Card - #1 - Common - Near Mint",
+                            },
+                        ],
+                    }
+                );
                 await Task.Yield();
                 yield return new PackingSlipParseUpdate(index, false, null);
             }
 
             IsComplete = true;
-            yield return new PackingSlipParseUpdate(orderCount, true, new ParsedPackingSlip
-            {
-                OrderBlocks = blocks,
-                SummaryPageFound = false,
-                SummaryOrderIdentifiers = [],
-            });
+            yield return new PackingSlipParseUpdate(
+                orderCount,
+                true,
+                new ParsedPackingSlip
+                {
+                    OrderBlocks = blocks,
+                    SummaryPageFound = false,
+                    SummaryOrderIdentifiers = [],
+                }
+            );
         }
     }
 }

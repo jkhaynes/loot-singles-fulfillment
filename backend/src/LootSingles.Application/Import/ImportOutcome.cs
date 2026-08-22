@@ -9,5 +9,5 @@ public enum ImportOutcome
     Succeeded,
 
     /// <summary>The order could not be imported due to validation failures or missing required data.</summary>
-    Rejected
+    Rejected,
 }

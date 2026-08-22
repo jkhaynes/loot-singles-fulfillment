@@ -6,4 +6,5 @@ public sealed record ImportProgressUpdate(
     int SucceededCount,
     int FailedCount,
     bool IsComplete,
-    ImportAttempt ImportAttempt);
+    ImportAttempt ImportAttempt
+);

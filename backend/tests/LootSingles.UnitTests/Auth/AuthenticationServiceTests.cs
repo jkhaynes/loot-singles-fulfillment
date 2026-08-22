@@ -48,7 +48,9 @@ public class AuthenticationServiceTests
     [Theory]
     [InlineData("1234")]
     [InlineData("9999")]
-    public async Task LoginAsync_DeactivatedAccount_ReturnsInvalidCredentialsRegardlessOfPinCorrectness(string suppliedPin)
+    public async Task LoginAsync_DeactivatedAccount_ReturnsInvalidCredentialsRegardlessOfPinCorrectness(
+        string suppliedPin
+    )
     {
         var repository = new FakeEmployeeRepository();
         var hasher = new Pbkdf2PinHasher();
@@ -63,7 +65,9 @@ public class AuthenticationServiceTests
     [Theory]
     [InlineData("1234")]
     [InlineData("9999")]
-    public async Task LoginAsync_DeactivatedAndLockedAccount_ReturnsInvalidCredentialsNotAccountLocked(string suppliedPin)
+    public async Task LoginAsync_DeactivatedAndLockedAccount_ReturnsInvalidCredentialsNotAccountLocked(
+        string suppliedPin
+    )
     {
         var repository = new FakeEmployeeRepository();
         var hasher = new Pbkdf2PinHasher();
@@ -111,7 +115,11 @@ public class AuthenticationServiceTests
         var repository = new FakeEmployeeRepository();
         var hasher = new Pbkdf2PinHasher();
         var employee = NewEmployee(repository, hasher, "jsmith", "1234", isActive: true);
-        var service = new AuthenticationService(repository, hasher, new LockoutOptions { FailedAttemptThreshold = 3 });
+        var service = new AuthenticationService(
+            repository,
+            hasher,
+            new LockoutOptions { FailedAttemptThreshold = 3 }
+        );
 
         await service.LoginAsync("jsmith", "9999", CancellationToken.None);
 
@@ -125,7 +133,11 @@ public class AuthenticationServiceTests
         var repository = new FakeEmployeeRepository();
         var hasher = new Pbkdf2PinHasher();
         var employee = NewEmployee(repository, hasher, "jsmith", "1234", isActive: true);
-        var service = new AuthenticationService(repository, hasher, new LockoutOptions { FailedAttemptThreshold = 3 });
+        var service = new AuthenticationService(
+            repository,
+            hasher,
+            new LockoutOptions { FailedAttemptThreshold = 3 }
+        );
 
         AuthenticationResult? result = null;
         for (var attempt = 0; attempt < 3; attempt++)
@@ -141,7 +153,9 @@ public class AuthenticationServiceTests
     [Theory]
     [InlineData("1234")]
     [InlineData("9999")]
-    public async Task LoginAsync_LockedAccount_ReturnsAccountLockedRegardlessOfPinCorrectness(string suppliedPin)
+    public async Task LoginAsync_LockedAccount_ReturnsAccountLockedRegardlessOfPinCorrectness(
+        string suppliedPin
+    )
     {
         var repository = new FakeEmployeeRepository();
         var hasher = new Pbkdf2PinHasher();
@@ -160,7 +174,11 @@ public class AuthenticationServiceTests
         var repository = new FakeEmployeeRepository();
         var hasher = new Pbkdf2PinHasher();
         var employee = NewEmployee(repository, hasher, "jsmith", "1234", isActive: true);
-        var service = new AuthenticationService(repository, hasher, new LockoutOptions { FailedAttemptThreshold = 5 });
+        var service = new AuthenticationService(
+            repository,
+            hasher,
+            new LockoutOptions { FailedAttemptThreshold = 5 }
+        );
         await service.LoginAsync("jsmith", "9999", CancellationToken.None);
         await service.LoginAsync("jsmith", "9999", CancellationToken.None);
         Assert.Equal(2, employee.FailedAttemptCount);
@@ -173,7 +191,12 @@ public class AuthenticationServiceTests
     private static LockoutOptions DefaultLockoutOptions() => new();
 
     private static Employee NewEmployee(
-        FakeEmployeeRepository repository, IPinHasher hasher, string username, string pin, bool isActive)
+        FakeEmployeeRepository repository,
+        IPinHasher hasher,
+        string username,
+        string pin,
+        bool isActive
+    )
     {
         var employee = new Employee
         {
@@ -196,8 +219,15 @@ public class AuthenticationServiceTests
 
         public List<EmployeeAuditEvent> AuditEvents { get; } = [];
 
-        public Task<Employee?> GetByNormalizedUsernameAsync(string normalizedUsername, CancellationToken cancellationToken) =>
-            Task.FromResult(Employees.SingleOrDefault(employee => employee.NormalizedUsername == normalizedUsername));
+        public Task<Employee?> GetByNormalizedUsernameAsync(
+            string normalizedUsername,
+            CancellationToken cancellationToken
+        ) =>
+            Task.FromResult(
+                Employees.SingleOrDefault(employee =>
+                    employee.NormalizedUsername == normalizedUsername
+                )
+            );
 
         public Task<Employee?> GetByIdAsync(int id, CancellationToken cancellationToken) =>
             Task.FromResult(Employees.SingleOrDefault(employee => employee.Id == id));
@@ -218,10 +248,18 @@ public class AuthenticationServiceTests
             AuditEvents.Add(auditEvent);
         }
 
-        public Task<IReadOnlyList<EmployeeAuditEvent>> GetAuditEventsAsync(int employeeId, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<EmployeeAuditEvent>>(AuditEvents
-                .Where(auditEvent => auditEvent.ActorEmployeeId == employeeId || auditEvent.TargetEmployeeId == employeeId)
-                .ToList());
+        public Task<IReadOnlyList<EmployeeAuditEvent>> GetAuditEventsAsync(
+            int employeeId,
+            CancellationToken cancellationToken
+        ) =>
+            Task.FromResult<IReadOnlyList<EmployeeAuditEvent>>(
+                AuditEvents
+                    .Where(auditEvent =>
+                        auditEvent.ActorEmployeeId == employeeId
+                        || auditEvent.TargetEmployeeId == employeeId
+                    )
+                    .ToList()
+            );
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }

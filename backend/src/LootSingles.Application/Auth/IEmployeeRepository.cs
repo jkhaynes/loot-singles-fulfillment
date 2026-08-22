@@ -9,7 +9,10 @@ namespace LootSingles.Application.Auth;
 /// </summary>
 public interface IEmployeeRepository
 {
-    Task<Employee?> GetByNormalizedUsernameAsync(string normalizedUsername, CancellationToken cancellationToken);
+    Task<Employee?> GetByNormalizedUsernameAsync(
+        string normalizedUsername,
+        CancellationToken cancellationToken
+    );
 
     Task<Employee?> GetByIdAsync(int id, CancellationToken cancellationToken);
 
@@ -21,7 +24,10 @@ public interface IEmployeeRepository
 
     void AddAuditEvent(EmployeeAuditEvent auditEvent);
 
-    Task<IReadOnlyList<EmployeeAuditEvent>> GetAuditEventsAsync(int employeeId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<EmployeeAuditEvent>> GetAuditEventsAsync(
+        int employeeId,
+        CancellationToken cancellationToken
+    );
 
     /// <summary>
     /// Persists all pending changes (additions and modifications to tracked entities).

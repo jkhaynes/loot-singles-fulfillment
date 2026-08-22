@@ -1,33 +1,31 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+    <ItemGroup>
+        <ProjectReference Include="..\LootSingles.Application\LootSingles.Application.csproj" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\LootSingles.Application\LootSingles.Application.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- Cookie authentication types (EmployeeSessionCookieEvents) live in the shared ASP.NET Core
+    <ItemGroup>
+        <!-- Cookie authentication types (EmployeeSessionCookieEvents) live in the shared ASP.NET Core
          framework rather than a NuGet package; this library isn't Sdk.Web, so it needs an explicit
          FrameworkReference to see them. -->
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-  </ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
-    <!-- Microsoft.Extensions.Identity.Core (PasswordHasher<T>, research.md #1) is now part of the
+    <ItemGroup>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
+        <!-- Microsoft.Extensions.Identity.Core (PasswordHasher<T>, research.md #1) is now part of the
          ASP.NET Core shared framework this project already references below, so .NET 10's NuGet
          package pruning rejects an explicit PackageReference to it (NU1510) as redundant. -->
-    <PackageReference Include="UglyToad.PdfPig" Version="1.7.0-custom-5" />
-  </ItemGroup>
+        <PackageReference Include="UglyToad.PdfPig" Version="1.7.0-custom-5" />
+    </ItemGroup>
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-  </PropertyGroup>
-
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    </PropertyGroup>
 </Project>

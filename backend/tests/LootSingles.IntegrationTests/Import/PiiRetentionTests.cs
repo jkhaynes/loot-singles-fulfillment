@@ -28,8 +28,10 @@ public class PiiRetentionTests
         var retainedText = string.Join('\n', orders.SelectMany(GetPersistedText));
 
         Assert.NotEmpty(orders);
-        Assert.All(SourceCustomerPii, pii =>
-            Assert.DoesNotContain(pii, retainedText, StringComparison.OrdinalIgnoreCase));
+        Assert.All(
+            SourceCustomerPii,
+            pii => Assert.DoesNotContain(pii, retainedText, StringComparison.OrdinalIgnoreCase)
+        );
     }
 
     [Theory]
@@ -44,27 +46,28 @@ public class PiiRetentionTests
         await using var context = ImportTestSupport.CreateInMemoryContext();
         var service = ImportTestSupport.CreateService(context);
         await using var source = new MemoryStream(sourceBytes, writable: false);
-        await foreach (var _ in service.ImportAsync(source))
-        {
-        }
+        await foreach (var _ in service.ImportAsync(source)) { }
 
         var matchesAfter = FindFilesWithHash(Path.GetTempPath(), sourceBytes.Length, sourceHash);
         Assert.Empty(matchesAfter.Except(matchesBefore, StringComparer.OrdinalIgnoreCase));
     }
 
     private static IEnumerable<string?> GetPersistedText(Order order) =>
-        new[] { order.TcgplayerOrderId }
-            .Concat(order.OrderLines.SelectMany(line => new[]
-            {
-                line.RawDescription,
-                line.ProductLine,
-                line.ProductName,
-                line.Set,
-                line.CollectorNumber,
-                line.Rarity,
-                line.Condition,
-                line.Variant,
-            }));
+        new[] { order.TcgplayerOrderId }.Concat(
+            order.OrderLines.SelectMany(line =>
+                new[]
+                {
+                    line.RawDescription,
+                    line.ProductLine,
+                    line.ProductName,
+                    line.Set,
+                    line.CollectorNumber,
+                    line.Rarity,
+                    line.Condition,
+                    line.Variant,
+                }
+            )
+        );
 
     private static async Task<byte[]> ReadFixtureBytesAsync(string fixtureName)
     {
@@ -74,7 +77,11 @@ public class PiiRetentionTests
         return buffer.ToArray();
     }
 
-    private static HashSet<string> FindFilesWithHash(string root, int expectedLength, string expectedHash)
+    private static HashSet<string> FindFilesWithHash(
+        string root,
+        int expectedLength,
+        string expectedHash
+    )
     {
         var matches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var path in EnumerateFilesSafely(root))
@@ -93,12 +100,8 @@ public class PiiRetentionTests
                     matches.Add(file.FullName);
                 }
             }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
 
         return matches;

@@ -4,5 +4,6 @@ public interface IPackingSlipImportService
 {
     IAsyncEnumerable<ImportProgressUpdate> ImportAsync(
         Stream packingSlipPdf,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 }

@@ -24,10 +24,15 @@ public class PiiExclusionTests
         var exposedMembers = new[] { typeof(Order).Assembly, typeof(ImportAttempt).Assembly }
             .Distinct()
             .SelectMany(assembly => assembly.GetExportedTypes())
-            .SelectMany(type => GetSettableMembers(type)
-                .Where(member => PiiTerms.Any(term =>
-                    member.Name.Contains(term, StringComparison.OrdinalIgnoreCase)))
-                .Select(member => $"{type.FullName}.{member.Name}"))
+            .SelectMany(type =>
+                GetSettableMembers(type)
+                    .Where(member =>
+                        PiiTerms.Any(term =>
+                            member.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
+                        )
+                    )
+                    .Select(member => $"{type.FullName}.{member.Name}")
+            )
             .Order()
             .ToList();
 

@@ -15,5 +15,6 @@ public class Pbkdf2PinHasher : IPinHasher
     public string Hash(string pin) => _hasher.HashPassword(null!, pin);
 
     public bool Verify(string pinHash, string suppliedPin) =>
-        _hasher.VerifyHashedPassword(null!, pinHash, suppliedPin) != PasswordVerificationResult.Failed;
+        _hasher.VerifyHashedPassword(null!, pinHash, suppliedPin)
+        != PasswordVerificationResult.Failed;
 }

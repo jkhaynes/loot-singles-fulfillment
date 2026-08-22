@@ -41,5 +41,6 @@ public class ImportAttempt
     /// Empty when <see cref="AttemptFailureCode"/> is <see cref="FailureType.UnreadablePdf"/>,
     /// since no orders could even be evaluated.
     /// </summary>
-    public ICollection<ImportOrderResult> ImportOrderResults { get; set; } = new List<ImportOrderResult>();
+    public ICollection<ImportOrderResult> ImportOrderResults { get; set; } =
+        new List<ImportOrderResult>();
 }

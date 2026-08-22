@@ -18,18 +18,32 @@ public sealed class AuthController(AuthenticationService authenticationService) 
 {
     [HttpPost("login")]
     [AllowAnonymous]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Login(
+        [FromBody] LoginRequest request,
+        CancellationToken cancellationToken
+    )
     {
         if (string.IsNullOrEmpty(request.Username) || !PinFormat.IsValid(request.Pin))
         {
-            return BadRequest(new ErrorResponse("invalid_request", "Username and a 4-digit numeric PIN are required."));
+            return BadRequest(
+                new ErrorResponse(
+                    "invalid_request",
+                    "Username and a 4-digit numeric PIN are required."
+                )
+            );
         }
 
-        var result = await authenticationService.LoginAsync(request.Username, request.Pin!, cancellationToken);
+        var result = await authenticationService.LoginAsync(
+            request.Username,
+            request.Pin!,
+            cancellationToken
+        );
 
         if (result.Outcome == AuthenticationOutcome.InvalidCredentials)
         {
-            return Unauthorized(new ErrorResponse("invalid_credentials", "Username or PIN is incorrect."));
+            return Unauthorized(
+                new ErrorResponse("invalid_credentials", "Username or PIN is incorrect.")
+            );
         }
 
         if (result.Outcome == AuthenticationOutcome.AccountLocked)
@@ -38,17 +52,22 @@ public sealed class AuthController(AuthenticationService authenticationService) 
                 StatusCodes.Status423Locked,
                 new ErrorResponse(
                     "account_locked",
-                    "This account is locked. Ask a Manager/Admin to unlock it."));
+                    "This account is locked. Ask a Manager/Admin to unlock it."
+                )
+            );
         }
 
         var employee = result.Employee!;
-        var principal = new ClaimsPrincipal(new ClaimsIdentity(
-            [
-                new Claim(ClaimTypes.NameIdentifier, employee.Id.ToString()),
-                new Claim(ClaimTypes.Name, employee.DisplayName),
-                new Claim(ClaimTypes.Role, employee.Role.ToString()),
-            ],
-            CookieAuthenticationDefaults.AuthenticationScheme));
+        var principal = new ClaimsPrincipal(
+            new ClaimsIdentity(
+                [
+                    new Claim(ClaimTypes.NameIdentifier, employee.Id.ToString()),
+                    new Claim(ClaimTypes.Name, employee.DisplayName),
+                    new Claim(ClaimTypes.Role, employee.Role.ToString()),
+                ],
+                CookieAuthenticationDefaults.AuthenticationScheme
+            )
+        );
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
 
         return Ok(ToResponse(employee.Id, employee.DisplayName, employee.Role.ToString()));

@@ -14,7 +14,8 @@ public class EmployeeConfigurationTests
         var connectionString = $"Data Source=employees-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
         await using var keeper = new SqliteConnection(connectionString);
         await keeper.OpenAsync();
-        await using (var setup = CreateContext(connectionString)) await setup.Database.EnsureCreatedAsync();
+        await using (var setup = CreateContext(connectionString))
+            await setup.Database.EnsureCreatedAsync();
 
         await using (var first = CreateContext(connectionString))
         {
@@ -34,7 +35,8 @@ public class EmployeeConfigurationTests
         var connectionString = $"Data Source=employees-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
         await using var keeper = new SqliteConnection(connectionString);
         await keeper.OpenAsync();
-        await using (var setup = CreateContext(connectionString)) await setup.Database.EnsureCreatedAsync();
+        await using (var setup = CreateContext(connectionString))
+            await setup.Database.EnsureCreatedAsync();
 
         await using (var first = CreateContext(connectionString))
         {
@@ -47,20 +49,24 @@ public class EmployeeConfigurationTests
         var secondRepository = new EmployeeRepository(second);
         secondRepository.Add(NewEmployee("JSmith"));
 
-        await Assert.ThrowsAsync<UniqueConstraintViolationException>(
-            () => secondRepository.SaveChangesAsync(CancellationToken.None));
+        await Assert.ThrowsAsync<UniqueConstraintViolationException>(() =>
+            secondRepository.SaveChangesAsync(CancellationToken.None)
+        );
     }
 
     private static LootSinglesDbContext CreateContext(string connectionString) =>
-        new(new DbContextOptionsBuilder<LootSinglesDbContext>().UseSqlite(connectionString).Options);
+        new(
+            new DbContextOptionsBuilder<LootSinglesDbContext>().UseSqlite(connectionString).Options
+        );
 
-    private static Employee NewEmployee(string username) => new()
-    {
-        Username = username,
-        NormalizedUsername = username.ToUpperInvariant(),
-        DisplayName = username,
-        PinHash = "hash",
-        Role = EmployeeRole.Picker,
-        CreatedAt = DateTimeOffset.UtcNow,
-    };
+    private static Employee NewEmployee(string username) =>
+        new()
+        {
+            Username = username,
+            NormalizedUsername = username.ToUpperInvariant(),
+            DisplayName = username,
+            PinHash = "hash",
+            Role = EmployeeRole.Picker,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
 }

@@ -53,7 +53,8 @@ public class OrderLineExtractionTests
         "#7",
         "M",
         "Near Mint",
-        "Foil")]
+        "Foil"
+    )]
     [InlineData(
         "Magic - The Hobbit: My Precious (Showcase) (Surge Foil) - #271 - R - Near Mint Foil",
         "The Hobbit",
@@ -61,7 +62,8 @@ public class OrderLineExtractionTests
         "#271",
         "R",
         "Near Mint",
-        "Foil, (Showcase), (Surge Foil)")]
+        "Foil, (Showcase), (Surge Foil)"
+    )]
     [InlineData(
         "Lorcana TCG - The First Chapter: John Silver - Alien Pirate - #82/204 - Legendary - Near Mint",
         "The First Chapter",
@@ -69,7 +71,8 @@ public class OrderLineExtractionTests
         "#82/204",
         "Legendary",
         "Near Mint",
-        null)]
+        null
+    )]
     public void Extract_RepresentativeFixtureFormats_ExtractsStructuredFields(
         string description,
         string expectedSet,
@@ -77,13 +80,12 @@ public class OrderLineExtractionTests
         string expectedCollectorNumber,
         string expectedRarity,
         string expectedCondition,
-        string? expectedVariant)
+        string? expectedVariant
+    )
     {
-        var result = OrderLineExtractor.Extract(new RawProductLine
-        {
-            QuantityText = "1",
-            RawDescription = description,
-        });
+        var result = OrderLineExtractor.Extract(
+            new RawProductLine { QuantityText = "1", RawDescription = description }
+        );
 
         Assert.True(result.IsValid);
         var orderLine = result.OrderLine!;

@@ -40,5 +40,5 @@ public enum FailureType
     /// already-validated order (FR-016) — not one of FR-006's minimum-set codes, but required so
     /// the failure is represented as data rather than an exception that would block sibling
     /// orders in the same batch. See data-model.md.</summary>
-    PersistenceFailure
+    PersistenceFailure,
 }

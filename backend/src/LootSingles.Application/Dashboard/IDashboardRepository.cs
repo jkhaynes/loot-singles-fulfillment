@@ -8,5 +8,7 @@ namespace LootSingles.Application.Dashboard;
 /// </summary>
 public interface IDashboardRepository
 {
-    Task<IReadOnlyList<OrderSummary>> GetReadyOrderSummariesAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<OrderSummary>> GetReadyOrderSummariesAsync(
+        CancellationToken cancellationToken
+    );
 }

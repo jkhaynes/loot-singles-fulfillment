@@ -1,5 +1,5 @@
-using LootSingles.Infrastructure.Import;
 using LootSingles.Application.Import;
+using LootSingles.Infrastructure.Import;
 
 namespace LootSingles.UnitTests.Import;
 
@@ -22,23 +22,28 @@ public class PdfPigPackingSlipParserTests
             AppContext.BaseDirectory,
             "Fixtures",
             "PackingSlips",
-            "valid-multi-order-batch.pdf");
+            "valid-multi-order-batch.pdf"
+        );
         using var pdf = File.OpenRead(fixturePath);
         var parser = new PdfPigPackingSlipParser();
 
         var result = await ParseToCompletionAsync(parser, pdf);
 
         Assert.Equal(13, result.OrderBlocks.Count);
-        Assert.All(result.OrderBlocks, block =>
-        {
-            Assert.False(string.IsNullOrWhiteSpace(block.OrderIdentifier));
-            Assert.NotEmpty(block.ProductLines);
-        });
+        Assert.All(
+            result.OrderBlocks,
+            block =>
+            {
+                Assert.False(string.IsNullOrWhiteSpace(block.OrderIdentifier));
+                Assert.NotEmpty(block.ProductLines);
+            }
+        );
         Assert.True(result.SummaryPageFound);
         Assert.Equal(13, result.SummaryOrderIdentifiers.Count);
         Assert.Equal(
             result.OrderBlocks.Select(block => block.OrderIdentifier).Order(),
-            result.SummaryOrderIdentifiers.Order());
+            result.SummaryOrderIdentifiers.Order()
+        );
     }
 
     [Fact]
@@ -48,7 +53,8 @@ public class PdfPigPackingSlipParserTests
             AppContext.BaseDirectory,
             "Fixtures",
             "PackingSlips",
-            "duplicate-product-line-same-order.pdf");
+            "duplicate-product-line-same-order.pdf"
+        );
         using var pdf = File.OpenRead(fixturePath);
         var parser = new PdfPigPackingSlipParser();
 
@@ -64,7 +70,8 @@ public class PdfPigPackingSlipParserTests
 
     private static async Task<ParsedPackingSlip> ParseToCompletionAsync(
         IPackingSlipParser parser,
-        Stream source)
+        Stream source
+    )
     {
         ParsedPackingSlip? result = null;
         await foreach (var update in parser.ParseAsync(source))

@@ -13,7 +13,8 @@ public class ImportAttemptConfiguration : IEntityTypeConfiguration<ImportAttempt
 {
     public void Configure(EntityTypeBuilder<ImportAttempt> builder)
     {
-        builder.HasMany(attempt => attempt.ImportOrderResults)
+        builder
+            .HasMany(attempt => attempt.ImportOrderResults)
             .WithOne()
             .HasForeignKey(result => result.ImportAttemptId)
             .IsRequired();

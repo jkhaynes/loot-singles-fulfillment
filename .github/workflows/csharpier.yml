@@ -1,0 +1,48 @@
+name: Formatting
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  csharpier:
+    name: Check C# formatting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore local tools
+        run: dotnet tool restore
+
+      - name: Check backend formatting
+        run: dotnet csharpier check backend
+
+  prettier:
+    name: Check frontend formatting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Check frontend formatting
+        run: npm --prefix frontend run format:check

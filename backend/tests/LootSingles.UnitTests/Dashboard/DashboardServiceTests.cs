@@ -18,11 +18,19 @@ public class DashboardServiceTests
 
     private sealed class FakeDashboardRepository(IReadOnlyList<Order> orders) : IDashboardRepository
     {
-        public Task<IReadOnlyList<OrderSummary>> GetReadyOrderSummariesAsync(CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<OrderSummary>>(orders
-                .Where(order => order.Status == OrderStatus.Ready)
-                .Select(order => new OrderSummary(
-                    order.Id, order.TcgplayerOrderId, order.OrderLines.Count, order.OrderLines.Sum(line => line.Quantity)))
-                .ToList());
+        public Task<IReadOnlyList<OrderSummary>> GetReadyOrderSummariesAsync(
+            CancellationToken cancellationToken
+        ) =>
+            Task.FromResult<IReadOnlyList<OrderSummary>>(
+                orders
+                    .Where(order => order.Status == OrderStatus.Ready)
+                    .Select(order => new OrderSummary(
+                        order.Id,
+                        order.TcgplayerOrderId,
+                        order.OrderLines.Count,
+                        order.OrderLines.Sum(line => line.Quantity)
+                    ))
+                    .ToList()
+            );
     }
 }
