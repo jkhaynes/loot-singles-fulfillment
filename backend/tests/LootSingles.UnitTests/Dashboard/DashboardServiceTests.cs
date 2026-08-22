@@ -6,29 +6,6 @@ namespace LootSingles.UnitTests.Dashboard;
 public class DashboardServiceTests
 {
     [Fact]
-    public async Task GetReadyOrderSummariesAsync_ComputesProductCountAndTotalQuantityFromOrderLines()
-    {
-        var order = new Order
-        {
-            Id = 1,
-            TcgplayerOrderId = "F0000001-ABC001-00001",
-            Status = OrderStatus.Ready,
-            ImportedAt = DateTimeOffset.UtcNow,
-            OrderLines = [NewLine(quantity: 2), NewLine(quantity: 3)],
-        };
-        var repository = new FakeDashboardRepository([order]);
-        var service = new DashboardService(repository);
-
-        var summaries = await service.GetReadyOrderSummariesAsync(CancellationToken.None);
-
-        var summary = Assert.Single(summaries);
-        Assert.Equal(order.Id, summary.OrderId);
-        Assert.Equal(order.TcgplayerOrderId, summary.TcgplayerOrderId);
-        Assert.Equal(2, summary.ProductCount);
-        Assert.Equal(5, summary.TotalQuantity);
-    }
-
-    [Fact]
     public async Task GetReadyOrderSummariesAsync_ExcludesNonReadyOrders()
     {
         var readyOrder = new Order

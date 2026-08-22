@@ -132,6 +132,16 @@
   color: var(--color-text-muted);
 }
 
+.dashboard-panel__error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  font-size: var(--font-size-body-small);
+}
+
 .dashboard-order-table-wrapper {
   overflow-x: auto;
 }
@@ -160,4 +170,9 @@
 
 .dashboard-order-table tr:last-child td {
   border-bottom: none;
+}
+
+.dashboard-order-table td[data-emphasis='high'] {
+  font-weight: 700;
+  color: var(--color-warning);
 }

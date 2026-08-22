@@ -32,6 +32,46 @@ describe('DashboardPage', () => {
     expect(screen.getByText('1')).toBeInTheDocument() // Ready stat tile count
   })
 
+  it('visually emphasizes an order row whose total quantity is greater than one', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({
+      ready: {
+        count: 1,
+        orders: [{ orderId: 42, tcgplayerOrderId: 'F0000001-ABC001-00001', productCount: 2, totalQuantity: 5 }],
+      },
+    })
+
+    render(<DashboardPage employee={employee} onLogout={vi.fn()} />)
+
+    const row = await screen.findByRole('row', { name: /F0000001-ABC001-00001/ })
+    const [, , quantityCell] = within(row).getAllByRole('cell')
+    expect(quantityCell).toHaveAttribute('data-emphasis', 'high')
+  })
+
+  it('does not emphasize an order row whose total quantity is exactly one', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({
+      ready: {
+        count: 1,
+        orders: [{ orderId: 43, tcgplayerOrderId: 'F0000002-ABC002-00002', productCount: 1, totalQuantity: 1 }],
+      },
+    })
+
+    render(<DashboardPage employee={employee} onLogout={vi.fn()} />)
+
+    const row = await screen.findByRole('row', { name: /F0000002-ABC002-00002/ })
+    const [, , quantityCell] = within(row).getAllByRole('cell')
+    expect(quantityCell).not.toHaveAttribute('data-emphasis', 'high')
+  })
+
+  it('shows a distinct error message, not the empty-state message, when the dashboard fails to load', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockRejectedValue(new Error('Failed to load dashboard (status 500)'))
+
+    render(<DashboardPage employee={employee} onLogout={vi.fn()} />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/couldn.?t load/i)
+    expect(screen.queryByText(/no orders ready to pick/i)).not.toBeInTheDocument()
+    expect(screen.getByText('Ready to Pick').nextElementSibling).toHaveTextContent('—')
+  })
+
   it('shows an empty-state message when there are no Ready orders', async () => {
     vi.mocked(dashboardApi.getDashboard).mockResolvedValue({ ready: { count: 0, orders: [] } })
 

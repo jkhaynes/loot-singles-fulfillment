@@ -19,6 +19,7 @@ function greetingForHour(hour: number): string {
 export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
   const [data, setData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -27,6 +28,11 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
       .then((result) => {
         if (!cancelled) {
           setData(result)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setHasError(true)
         }
       })
       .finally(() => {
@@ -64,7 +70,7 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
           </span>
           <div>
             <p className="dashboard-stat__label">Ready to Pick</p>
-            <p className="dashboard-stat__value">{isLoading ? '…' : readyCount}</p>
+            <p className="dashboard-stat__value">{isLoading ? '…' : hasError ? '—' : readyCount}</p>
           </div>
         </article>
 
@@ -103,6 +109,10 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
         <h2 className="dashboard-panel__title">Available Orders</h2>
         {isLoading ? (
           <p className="dashboard-panel__empty">Loading…</p>
+        ) : hasError ? (
+          <p role="alert" className="dashboard-panel__error">
+            Couldn't load orders. Try refreshing the page.
+          </p>
         ) : readyCount > 0 ? (
           <div className="dashboard-order-table-wrapper">
             <table className="dashboard-order-table">
@@ -118,7 +128,7 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
                   <tr key={order.orderId}>
                     <td>{order.tcgplayerOrderId}</td>
                     <td>{order.productCount}</td>
-                    <td>{order.totalQuantity}</td>
+                    <td data-emphasis={order.totalQuantity > 1 ? 'high' : undefined}>{order.totalQuantity}</td>
                   </tr>
                 ))}
               </tbody>

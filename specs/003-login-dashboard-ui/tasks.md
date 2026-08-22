@@ -104,6 +104,25 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 ---
 
+## Phase 5: Code and Design Review Follow-ups
+
+**Purpose**: Resolve the findings from the `/code-design-review` pass run after Phase 4. T028/T029 are Must Fix (block `/speckit-converge`); T030–T032 are Advisory (do not block, but are being addressed now per Product Owner/Developer preference).
+
+### Must Fix
+
+> **NOTE: Write T028 FIRST, ensure it FAILS before implementing T029** (constitution Principle IV)
+
+- [X] T028 [P] Test: `DashboardPage` renders a distinct load-failure message (not the same copy used for a genuine zero-Ready-orders empty state) when `getDashboard()` rejects, in `frontend/tests/dashboard/DashboardPage.test.tsx` — must fail (no error handling exists yet) — confirmed failing (unhandled rejection) before T029
+- [X] T029 Catch `getDashboard()` rejection in `frontend/src/features/dashboard/DashboardPage.tsx`'s load effect, track a load-error state distinct from `data`/`isLoading`, and render the distinct failure message instead of falling through to `data?.ready.count ?? 0` (depends on: T028; T028 must fail first) — code-design-review finding: an API failure (401, 500, network error) was previously indistinguishable from a legitimate empty Ready section, violating constitution Principle V/XI and undermining FR-004/SC-003's accuracy guarantee. Stat tile shows `—` and the panel shows a distinct red `role="alert"` message instead of the empty-state copy.
+
+### Advisory
+
+- [X] T030 [P] Remove `backend/tests/LootSingles.UnitTests/Dashboard/DashboardServiceTests.cs`'s `GetReadyOrderSummariesAsync_ComputesProductCountAndTotalQuantityFromOrderLines` test — `DashboardService` has no computation logic of its own (pure delegation to `IDashboardRepository`), so this test only exercises `FakeDashboardRepository`'s hand-copied projection formula, never production code; the real computation is already verified by `DashboardControllerTests.GetDashboard_ReadyOrdersExist_ReturnsCorrectSummaries` (integration test against real EF Core/SQLite), so it serves no real purpose and is misleading about what safety net exists
+- [X] T031 [P] Test: the Dashboard's Available Orders table applies a visually distinguishing treatment to an order row's Quantity cell when `totalQuantity > 1`, in `frontend/tests/dashboard/DashboardPage.test.tsx` — must fail (no such treatment exists yet) — confirmed failing before T032
+- [X] T032 Add the quantity-greater-than-one visual treatment (e.g., bold weight) to the Quantity column in `frontend/src/features/dashboard/DashboardPage.tsx`/`DashboardPage.css` (depends on: T031; T031 must fail first) — code-design-review finding: CLAUDE.md's product-specific safety rule ("quantity greater than one... must receive strong visual emphasis wherever it is displayed") is not reflected in the Dashboard's order-total Quantity column, which is styled identically regardless of value; the current styling still satisfies spec.md's own narrower Edge Case bar (legible, not truncated, not de-emphasized), so this is a consistency improvement, not a blocking defect. Implemented as bold weight + `--color-warning` (amber, matching the locked-account error's cautionary tone) on the Quantity cell via a `data-emphasis="high"` attribute.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -112,6 +131,7 @@ Web application per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 - **User Story 1 (Phase 2)**: Depends on Setup only (T001, T004). Fully independent of User Story 2 — no shared files, no shared backend surface.
 - **User Story 2 (Phase 3)**: Depends on Setup only (T004). Fully independent of User Story 1 — touches only new backend files and a new frontend feature folder, plus `App.tsx`'s authenticated branch (which User Story 1 never touches).
 - **Polish (Phase 4)**: Depends on both user stories being complete.
+- **Code and Design Review Follow-ups (Phase 5)**: Depends on Phase 4 (the `/code-design-review` pass that produced these findings ran after Phase 4 completed). T028/T029 (Must Fix) and T030–T032 (Advisory) each touch different files/tests and are independent of each other.
 
 ### Within Each User Story
 
