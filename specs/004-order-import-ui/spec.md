@@ -13,6 +13,9 @@
 ### Session 2026-08-21
 
 - Q: When a packing slip's summary/index page lists a different set of order IDs than what was actually parsed from the document (a "summary mismatch"), should the employee see this as a distinct, batch-level warning — separate from the per-order success/failure list? → A: Yes — show a distinct, batch-level warning message (separate from the per-order list) whenever a summary mismatch is detected, since it's a genuine data-integrity signal the underlying Order Import feature already computes (its FR-013) and dropping it silently would hide a real problem rather than surface it.
+- Q: When an import becomes Interrupted, should the UI keep the last received progress and per-order results visible while showing that the overall outcome is uncertain? → A: Keep the last snapshot with a prominent Interrupted warning and safe-retry action; label the snapshot incomplete and potentially stale.
+- Q: What maximum PDF upload size should the system accept before rejecting the request? → A: 25 MB maximum.
+- Q: When the server sends a terminal Failed update after some orders were processed, should the UI retain those partial results? → A: Keep partial results with a Failed label, explain that completed orders remain imported, and offer a safe retry.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -56,7 +59,10 @@ An authenticated employee wants to confirm whether a particular order has alread
 ### Edge Cases
 
 - What happens when an employee submits a file that isn't a PDF at all (e.g., an image or spreadsheet)? The system rejects it with a clear message before or during processing, and no orders are reported as imported (Acceptance Scenario US1-4).
+- What happens when an employee submits a PDF larger than 25 MB? The system rejects it before import processing with a clear size-limit message, and no orders are reported as imported.
 - What happens when the employee navigates away from the import screen before an in-progress upload finishes? This feature does not need to preserve or resume that in-progress result — the employee can re-check via the browse view (User Story 2) or re-submit if unsure.
+- What happens when the HTTP connection ends before the employee receives a terminal Completed or Failed update? The UI enters an Interrupted state, says the connection was lost and the overall outcome is uncertain, preserves the last received counters and per-order results as explicitly incomplete and potentially stale context, and offers a safe retry. Already-committed per-order transactions remain; retrying cannot create duplicate orders and imports any valid orders that were not committed before cancellation.
+- What happens when the server reports a terminal Failed update after processing some orders? The UI keeps the partial counters and per-order results visible, labels the batch Failed, explains that completed orders remain imported, and offers a safe retry; it does not present the partial batch as Completed.
 - What happens when two employees upload the same packing slip at nearly the same time? The existing Order Import feature's race-safe duplicate guarantee applies unchanged; whichever request's order is persisted first succeeds, and the other reports that order as an already-imported duplicate (per Acceptance Scenario US1-3), never a hard failure.
 - What happens when an order's status is something other than "Ready" (e.g., a status introduced by a future order-claiming/picking feature)? The browse view reflects whatever status the order actually has — it never fabricates or defaults a status.
 - What happens when the browse view has a very large number of orders over time? The layout must remain usable rather than becoming unresponsive or unreadable (see Assumptions for scale expectations).
@@ -79,6 +85,12 @@ An authenticated employee wants to confirm whether a particular order has alread
 - **FR-011**: Both the import screen and the browse view MUST be fully usable on a mobile phone-sized viewport and a desktop-sized viewport, as a single responsive experience.
 - **FR-012**: Neither the import screen nor the browse view MUST display any customer shipping information (name, mailing address, or contact details) — consistent with the Order Import feature's existing data-minimization guarantee that this data is never persisted in the first place.
 - **FR-013**: When the Order Import feature's summary/index cross-check detects a mismatch between the packing slip's listed order identifiers and what was actually parsed, the system MUST show the employee a distinct, batch-level warning about the mismatch, separate from the per-order success/failure results — this signal MUST NOT be silently dropped or folded into another message (`/speckit-clarify` 2026-08-21).
+- **FR-014**: Import progress updates exposed to the employee MUST use an explicit InProgress, Completed, or Failed status. InProgress updates MUST be emitted only when another order finishes processing, not for parser-internal page, line, or field activity.
+- **FR-015**: The system MUST cancel remaining import processing when its HTTP request is aborted while preserving every already-completed per-order transaction; an active order MUST NOT leave partially persisted order data.
+- **FR-016**: Re-uploading the same packing slip after interruption MUST be safe and MUST NOT create duplicate orders; already-committed orders MUST remain unique and valid orders not previously committed MAY import on retry.
+- **FR-017**: If the client connection ends before a terminal Completed or Failed update arrives, the UI MUST enter an Interrupted state, explain that the connection was lost and the outcome may be partial, retain the last received snapshot only as visibly incomplete and potentially stale context, and allow the employee to retry safely.
+- **FR-018**: The system MUST reject an uploaded PDF larger than 25 MB before import processing begins and MUST show a clear message identifying the 25 MB limit.
+- **FR-019**: When a terminal Failed update follows one or more processed orders, the UI MUST retain the partial counters and per-order results, visibly label the batch Failed, explain that completed orders remain imported, and offer a safe retry without presenting the batch as Completed.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -96,6 +108,8 @@ An authenticated employee wants to confirm whether a particular order has alread
 - **SC-005**: 100% of import screen and browse view renders on both a representative mobile viewport and a representative desktop viewport show no horizontal scrolling, overlapping content, or illegible text.
 - **SC-006**: 0 instances of customer shipping information appearing anywhere in the import screen or browse view.
 - **SC-007**: 100% of imports where the packing slip's summary/index page disagrees with its actually-parsed orders show the employee a distinct mismatch warning — 0 instances of this signal being silently absorbed into another message or omitted.
+- **SC-008**: In automated interruption-and-retry scenarios, every source order identifier is persisted at most once, no Order has a partial Order Line graph, and every valid order not committed before interruption can be imported by retrying the same PDF.
+- **SC-009**: 100% of uploads larger than 25 MB are rejected before import processing and produce no newly imported orders.
 
 ## Assumptions
 
@@ -106,4 +120,4 @@ An authenticated employee wants to confirm whether a particular order has alread
 - The browse view is a flat, unfiltered, unpaginated list for V1, consistent with this project's existing precedent (e.g., the Dashboard's unpaginated Ready section) — sorting, filtering, and search are not required now and may be revisited if order volume at Loot's actual scale makes an unfiltered list impractical.
 - The browse view's status column currently only ever shows "Ready," since that is the only order status that exists today (per the Login/Dashboard UI feature's data model) — this is expected and correct, not a defect; other statuses will appear automatically once future order-claiming/picking features introduce them, with no change needed to this feature.
 - No formal accessibility standard applies to this feature, consistent with the Login/Dashboard UI feature's precedent — visual polish follows the existing design language on an ad hoc basis.
-- File size/type limits for the upload control follow ordinary web-application defaults sufficient for a PDF packing slip of up to roughly 200 orders; no specific limit is mandated by this specification.
+- The maximum accepted upload size is 25 MB; the limit applies to the server regardless of any client-side validation.
