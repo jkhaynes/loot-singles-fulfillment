@@ -1,9 +1,13 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using LootSingles.Api.Controllers;
 using LootSingles.Application.Auth;
 using LootSingles.Application.Dashboard;
+using LootSingles.Application.Import;
 using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Auth;
+using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.Sqlite;
@@ -18,7 +22,12 @@ builder.Services.AddSingleton(connection);
 builder.Services.AddDbContext<LootSinglesDbContext>(options => options.UseSqlite(connection));
 
 builder.Services.AddControllers()
-    .AddApplicationPart(typeof(AuthController).Assembly);
+    .AddApplicationPart(typeof(AuthController).Assembly)
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+    });
 builder.Services.AddScoped<IPinHasher, Pbkdf2PinHasher>();
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddSingleton(new LockoutOptions());
@@ -27,6 +36,12 @@ builder.Services.AddScoped<EmployeeManagementService>();
 builder.Services.AddScoped<EmployeeSessionCookieEvents>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<IImportPersistence>(provider =>
+    provider.GetRequiredService<LootSinglesDbContext>());
+builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
+builder.Services.AddScoped<IPackingSlipImportService, PackingSlipImportService>();
+// IOrderRepository/OrderRepository and OrdersService are registered by Phase 4 (US2) T027 once
+// those Application/Infrastructure types exist (specs/004-order-import-ui/tasks.md T022-T025).
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {

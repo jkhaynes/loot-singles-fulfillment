@@ -1,3 +1,4 @@
+import { Route, Routes } from 'react-router-dom'
 import { LoginPage } from './features/auth/LoginPage'
 import { useAuth } from './features/auth/AuthContext'
 import { DashboardPage } from './features/dashboard/DashboardPage'
@@ -14,7 +15,11 @@ function App() {
     return <LoginPage onLoginSuccess={login} />
   }
 
-  return <DashboardPage employee={employee} onLogout={logout} />
+  return (
+    <Routes>
+      <Route path="/" element={<DashboardPage employee={employee} onLogout={logout} />} />
+    </Routes>
+  )
 }
 
 export default App

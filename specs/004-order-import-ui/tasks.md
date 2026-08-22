@@ -37,9 +37,9 @@ No project-initialization tasks are required. This feature extends the existing 
 
 **⚠️ CRITICAL**: No user story implementation task may begin until this phase is complete.
 
-- [ ] T001 [P] Configure camelCase JSON serialization in `backend/src/LootSingles.Api/Program.cs` (`PropertyNamingPolicy.CamelCase` plus a `JsonStringEnumConverter(JsonNamingPolicy.CamelCase)`), matching the contracts' lower-camel field names, `status` values, and `FailureType` codes (e.g. `unreadablePdf`, `missingOrderIdentifier`). Both `OrdersController`'s `Ok(...)` result and `ImportsController`'s manually-written NDJSON lines must reuse these same options.
-- [ ] T002 [P] Wrap the app in `react-router-dom`'s `BrowserRouter` in `frontend/src/main.tsx` and introduce a `<Routes>` shell in `frontend/src/App.tsx` with the existing `DashboardPage` mounted at `/`, preserving the current login-gated (`employee ? ... : <LoginPage>`) behavior unchanged. Later story tasks add the `/import` and `/orders` routes once those pages exist.
-- [ ] T003 [P] Register the Import and Orders services in `backend/tests/LootSingles.E2EHost/Program.cs` (`IPackingSlipParser`/`PdfPigPackingSlipParser`, `IPackingSlipImportService`/`PackingSlipImportService`, `IImportPersistence`, `IOrderRepository`/`OrderRepository`, `OrdersService`), mirroring `backend/src/LootSingles.Api/Program.cs`, so Playwright can exercise `POST /api/imports` and `GET /api/orders` against the E2E host.
+- [X] T001 [P] Configure camelCase JSON serialization in `backend/src/LootSingles.Api/Program.cs` (`PropertyNamingPolicy.CamelCase` plus a `JsonStringEnumConverter(JsonNamingPolicy.CamelCase)`), matching the contracts' lower-camel field names, `status` values, and `FailureType` codes (e.g. `unreadablePdf`, `missingOrderIdentifier`). Both `OrdersController`'s `Ok(...)` result and `ImportsController`'s manually-written NDJSON lines must reuse these same options.
+- [X] T002 [P] Wrap the app in `react-router-dom`'s `BrowserRouter` in `frontend/src/main.tsx` and introduce a `<Routes>` shell in `frontend/src/App.tsx` with the existing `DashboardPage` mounted at `/`, preserving the current login-gated (`employee ? ... : <LoginPage>`) behavior unchanged. Later story tasks add the `/import` and `/orders` routes once those pages exist.
+- [X] T003 [P] Register the Import services (`IPackingSlipParser`/`PdfPigPackingSlipParser`, `IPackingSlipImportService`/`PackingSlipImportService`, `IImportPersistence`) and the same camelCase `AddJsonOptions` configuration as T001 in `backend/tests/LootSingles.E2EHost/Program.cs`, mirroring `backend/src/LootSingles.Api/Program.cs`, so Playwright can exercise `POST /api/imports` against the E2E host. `IOrderRepository`/`OrderRepository`/`OrdersService` do not exist yet at this point in the plan (they're created by T022–T025) — their E2EHost registration is added later, by T027.
 
 **Checkpoint**: Foundation ready — user story implementation can now begin.
 
@@ -99,10 +99,10 @@ No project-initialization tasks are required. This feature extends the existing 
 - [ ] T024 [P] [US2] Create `backend/src/LootSingles.Application/Orders/OrdersService.cs` delegating to `IOrderRepository.GetAllAsync` (depends on T023). Makes T019 pass.
 - [ ] T025 [P] [US2] Implement `backend/src/LootSingles.Infrastructure/Persistence/OrderRepository.cs`: `AsNoTracking()` query projecting only id/identifier/status/import time (no `OrderLines` load), materializing before sorting by `ImportedAt` descending then `TcgplayerOrderId` ascending (same SQLite-`DateTimeOffset` pattern as `DashboardRepository.GetReadyOrderSummariesAsync`) (depends on T023).
 - [ ] T026 [US2] Implement `backend/src/LootSingles.Api/Controllers/OrdersController.cs`: `[Authorize]` `GET /api/orders` mapping `OrdersService`'s list items to response records matching contracts/orders-api.md (depends on T024). Makes T020 pass.
-- [ ] T027 [US2] Register `IOrderRepository`/`OrderRepository` and `OrdersService` in `backend/src/LootSingles.Api/Program.cs` (depends on T025, T026).
+- [ ] T027 [US2] Register `IOrderRepository`/`OrderRepository` and `OrdersService` in `backend/src/LootSingles.Api/Program.cs` **and** in `backend/tests/LootSingles.E2EHost/Program.cs` (completing T003's deferred registration now that these types exist), so both the real API and the Playwright E2E host expose `GET /api/orders` (depends on T025, T026).
 - [ ] T028 [P] [US2] Implement `frontend/src/features/orders/ordersApi.ts`: `getOrders(): Promise<OrderListItem[]>` fetching `GET /api/orders` with credentials, matching `dashboardApi.ts`'s pattern.
 - [ ] T029 [US2] Implement `frontend/src/features/orders/{OrdersPage.tsx,OrdersPage.css}`: stacked-card layout on narrow viewports and a denser grid/table layout on wide viewports (no horizontal scroll, FR-011), each order's actual stored status shown verbatim (never fabricated/defaulted, FR-009), a clear empty-state message, loading/error states, no customer/shipping data (FR-012), and navigation links to the Dashboard and the Import screen. Mount `<Route path="/orders" element={<OrdersPage />} />` in `frontend/src/App.tsx` (depends on T002, T021, T028). Makes T021 pass.
-- [ ] T030 [US2] Extend `frontend/e2e/order-import.spec.ts`: after importing an order, open the Browse Orders view and confirm it appears (FR-010) alongside any pre-seeded order with identifier/status/import time and no customer/shipping data, at both a desktop and a mobile viewport with no horizontal overflow (depends on T029, T018, T003).
+- [ ] T030 [US2] Extend `frontend/e2e/order-import.spec.ts`: after importing an order, open the Browse Orders view and confirm it appears (FR-010) alongside any pre-seeded order with identifier/status/import time and no customer/shipping data, at both a desktop and a mobile viewport with no horizontal overflow (depends on T029, T018, T027).
 
 **Checkpoint**: User Stories 1 AND 2 both work independently — an employee can import orders and separately confirm what has been imported.
 
@@ -135,10 +135,10 @@ No project-initialization tasks are required. This feature extends the existing 
 ### Within User Story 2
 
 - Tests (T019–T021) MUST be written and confirmed failing before implementation (T022–T030) begins.
-- T022 → T023 → {T024, T025} (in parallel) → T026 → T027.
+- T022 → T023 → {T024, T025} (in parallel) → T026 → T027 (T027 also completes T003's deferred E2EHost Orders registration).
 - T028 is independent of the backend chain.
 - T029 depends on T021, T028, and T002.
-- T030 depends on T029, T018, and T003.
+- T030 depends on T029, T018, and T027.
 
 ### Parallel Opportunities
 

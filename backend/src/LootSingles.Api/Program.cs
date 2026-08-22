@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using LootSingles.Application.Auth;
 using LootSingles.Application.Dashboard;
 using LootSingles.Application.Import;
@@ -10,7 +12,16 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+// The Order Import UI feature (004) relies on this camelCase property/enum casing for both
+// OrdersController's model-bound responses and ImportsController's manually-written NDJSON lines
+// (which reuse these same JsonSerializerOptions via IOptions<JsonOptions>), so the wire format
+// matches contracts/import-api.md and contracts/orders-api.md (e.g. "unreadablePdf", "ready").
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+    });
 builder.Services.AddDbContext<LootSinglesDbContext>(options => options.UseSqlServer(
     builder.Configuration.GetConnectionString("LootSingles")
         ?? throw new InvalidOperationException("Connection string 'LootSingles' is required.")));
