@@ -1,38 +1,32 @@
-import { test, expect } from "@playwright/test";
-import path from "node:path";
-test.describe.configure({ mode: "serial" });
+import { test, expect } from '@playwright/test'
+import path from 'node:path'
+test.describe.configure({ mode: 'serial' })
 for (const viewport of [
   { width: 1280, height: 800 },
   { width: 390, height: 844 },
 ]) {
-  test(`imports a mixed packing slip at ${viewport.width}px`, async ({
-    page,
-  }) => {
-    await page.setViewportSize(viewport);
-    await page.goto("/");
-    await page.getByLabel(/username/i).fill("e2emanager");
-    await page.getByLabel(/pin/i).fill("1234");
-    await page.getByRole("button", { name: /log in/i }).click();
-    await expect(page.getByRole("heading", { name: /E2E/i })).toBeVisible();
-    await page.goto("/import");
+  test(`imports a mixed packing slip at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport)
+    await page.goto('/')
+    await page.getByLabel(/username/i).fill('e2emanager')
+    await page.getByLabel(/pin/i).fill('1234')
+    await page.getByRole('button', { name: /log in/i }).click()
+    await expect(page.getByRole('heading', { name: /E2E/i })).toBeVisible()
+    await page.goto('/import')
     await page
       .getByLabel(/packing slip/i)
       .setInputFiles(
         path.resolve(
-          "../backend/tests/LootSingles.Fixtures/PackingSlips/partial-batch-one-bad-order.pdf",
+          '../backend/tests/LootSingles.Fixtures/PackingSlips/partial-batch-one-bad-order.pdf',
         ),
-      );
-    await page.getByRole("button", { name: /import orders/i }).click();
-    await expect(page.getByText(/3 of 3/)).toBeVisible();
-    await expect(
-      page.locator('[data-outcome="rejected"]').first(),
-    ).toBeVisible();
+      )
+    await page.getByRole('button', { name: /import orders/i }).click()
+    await expect(page.getByText(/3 of 3/)).toBeVisible()
+    await expect(page.locator('[data-outcome="rejected"]').first()).toBeVisible()
     expect(
       await page.evaluate(
-        () =>
-          document.documentElement.scrollWidth <=
-          document.documentElement.clientWidth,
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
       ),
-    ).toBe(true);
-  });
+    ).toBe(true)
+  })
 }

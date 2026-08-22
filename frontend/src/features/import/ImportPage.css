@@ -84,10 +84,10 @@
   border-radius: var(--radius-small);
   overflow-wrap: anywhere;
 }
-.import-order-list li[data-outcome="rejected"] {
+.import-order-list li[data-outcome='rejected'] {
   border-left: 4px solid var(--color-danger);
 }
-.import-order-list li[data-outcome="succeeded"] {
+.import-order-list li[data-outcome='succeeded'] {
   border-left: 4px solid var(--color-success);
 }
 @media (max-width: 600px) {

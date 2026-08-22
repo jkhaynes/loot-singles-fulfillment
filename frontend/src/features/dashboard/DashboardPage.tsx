@@ -80,7 +80,9 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
           </span>
           <div>
             <p className="dashboard-stat__label">In Progress</p>
-            <p className="dashboard-stat__value dashboard-stat__value--unavailable">Not yet available</p>
+            <p className="dashboard-stat__value dashboard-stat__value--unavailable">
+              Not yet available
+            </p>
           </div>
         </article>
 
@@ -90,7 +92,9 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
           </span>
           <div>
             <p className="dashboard-stat__label">Needs Attention</p>
-            <p className="dashboard-stat__value dashboard-stat__value--unavailable">Not yet available</p>
+            <p className="dashboard-stat__value dashboard-stat__value--unavailable">
+              Not yet available
+            </p>
           </div>
         </article>
 
@@ -100,7 +104,9 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
           </span>
           <div>
             <p className="dashboard-stat__label">Picked</p>
-            <p className="dashboard-stat__value dashboard-stat__value--unavailable">Not yet available</p>
+            <p className="dashboard-stat__value dashboard-stat__value--unavailable">
+              Not yet available
+            </p>
           </div>
         </article>
       </div>
@@ -128,7 +134,9 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
                   <tr key={order.orderId}>
                     <td>{order.tcgplayerOrderId}</td>
                     <td>{order.productCount}</td>
-                    <td data-emphasis={order.totalQuantity > 1 ? 'high' : undefined}>{order.totalQuantity}</td>
+                    <td data-emphasis={order.totalQuantity > 1 ? 'high' : undefined}>
+                      {order.totalQuantity}
+                    </td>
                   </tr>
                 ))}
               </tbody>

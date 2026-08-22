@@ -72,6 +72,18 @@ Verify formatting without changing files:
 dotnet csharpier check backend
 ```
 
+Format frontend TypeScript, CSS, JSON, and Markdown with Prettier:
+
+```powershell
+npm --prefix frontend run format
+```
+
+Verify frontend formatting without changing files:
+
+```powershell
+npm --prefix frontend run format:check
+```
+
 ## TCGplayer Integration
 
 The current V1 working approach is defensive parsing of TCGplayer packing-slip PDFs, since they are the only inspected export that preserves the `Order → Product Lines → Quantity` relationship V1 needs. TCGplayer order data is authoritative; the architecture isolates this parsing behind an import boundary so it can be replaced by a future supported TCGplayer API or integration without redesigning the picker workflow.

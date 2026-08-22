@@ -45,7 +45,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setEmployee(null)
   }
 
-  return <AuthContext.Provider value={{ employee, isLoading, login, logout }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ employee, isLoading, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth(): AuthContextValue {

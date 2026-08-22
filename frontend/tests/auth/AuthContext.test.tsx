@@ -29,7 +29,11 @@ describe('AuthContext', () => {
   it('restores the authenticated session on load', async () => {
     vi.mocked(authApi.me).mockResolvedValue({ employeeId: 1, displayName: 'Jamie', role: 'Picker' })
 
-    render(<AuthProvider><SessionStatus /></AuthProvider>)
+    render(
+      <AuthProvider>
+        <SessionStatus />
+      </AuthProvider>,
+    )
 
     expect(await screen.findByText('Signed in as Jamie')).toBeInTheDocument()
   })
@@ -38,7 +42,11 @@ describe('AuthContext', () => {
     vi.mocked(authApi.me).mockResolvedValue({ employeeId: 1, displayName: 'Jamie', role: 'Picker' })
     vi.mocked(authApi.logout).mockResolvedValue()
     const user = userEvent.setup()
-    render(<AuthProvider><SessionStatus /></AuthProvider>)
+    render(
+      <AuthProvider>
+        <SessionStatus />
+      </AuthProvider>,
+    )
     await screen.findByText('Signed in as Jamie')
 
     await user.click(screen.getByRole('button', { name: 'Log out' }))

@@ -20,7 +20,14 @@ describe('DashboardPage', () => {
     vi.mocked(dashboardApi.getDashboard).mockResolvedValue({
       ready: {
         count: 1,
-        orders: [{ orderId: 42, tcgplayerOrderId: 'F0000001-ABC001-00001', productCount: 2, totalQuantity: 5 }],
+        orders: [
+          {
+            orderId: 42,
+            tcgplayerOrderId: 'F0000001-ABC001-00001',
+            productCount: 2,
+            totalQuantity: 5,
+          },
+        ],
       },
     })
 
@@ -36,7 +43,14 @@ describe('DashboardPage', () => {
     vi.mocked(dashboardApi.getDashboard).mockResolvedValue({
       ready: {
         count: 1,
-        orders: [{ orderId: 42, tcgplayerOrderId: 'F0000001-ABC001-00001', productCount: 2, totalQuantity: 5 }],
+        orders: [
+          {
+            orderId: 42,
+            tcgplayerOrderId: 'F0000001-ABC001-00001',
+            productCount: 2,
+            totalQuantity: 5,
+          },
+        ],
       },
     })
 
@@ -51,7 +65,14 @@ describe('DashboardPage', () => {
     vi.mocked(dashboardApi.getDashboard).mockResolvedValue({
       ready: {
         count: 1,
-        orders: [{ orderId: 43, tcgplayerOrderId: 'F0000002-ABC002-00002', productCount: 1, totalQuantity: 1 }],
+        orders: [
+          {
+            orderId: 43,
+            tcgplayerOrderId: 'F0000002-ABC002-00002',
+            productCount: 1,
+            totalQuantity: 1,
+          },
+        ],
       },
     })
 
@@ -63,7 +84,9 @@ describe('DashboardPage', () => {
   })
 
   it('shows a distinct error message, not the empty-state message, when the dashboard fails to load', async () => {
-    vi.mocked(dashboardApi.getDashboard).mockRejectedValue(new Error('Failed to load dashboard (status 500)'))
+    vi.mocked(dashboardApi.getDashboard).mockRejectedValue(
+      new Error('Failed to load dashboard (status 500)'),
+    )
 
     render(<DashboardPage employee={employee} onLogout={vi.fn()} />)
 

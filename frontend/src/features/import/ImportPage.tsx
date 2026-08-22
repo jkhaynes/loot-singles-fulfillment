@@ -1,34 +1,29 @@
-import { useState } from "react";
-import type { FormEvent } from "react";
-import { Link } from "react-router-dom";
-import { importPackingSlip } from "./importApi";
-import type { ImportSnapshot } from "./importApi";
-import "./ImportPage.css";
+import { useState } from 'react'
+import type { FormEvent } from 'react'
+import { Link } from 'react-router-dom'
+import { importPackingSlip } from './importApi'
+import type { ImportSnapshot } from './importApi'
+import './ImportPage.css'
 export function ImportPage() {
-  const [file, setFile] = useState<File | null>(null);
-  const [snapshot, setSnapshot] = useState<ImportSnapshot | null>(null);
-  const [error, setError] = useState("");
-  const [running, setRunning] = useState(false);
+  const [file, setFile] = useState<File | null>(null)
+  const [snapshot, setSnapshot] = useState<ImportSnapshot | null>(null)
+  const [error, setError] = useState('')
+  const [running, setRunning] = useState(false)
   async function submit(event?: FormEvent) {
-    event?.preventDefault();
-    if (!file) return;
-    setError("");
-    setRunning(true);
-    setSnapshot(null);
+    event?.preventDefault()
+    if (!file) return
+    setError('')
+    setRunning(true)
+    setSnapshot(null)
     try {
-      for await (const next of importPackingSlip(file)) setSnapshot(next);
+      for await (const next of importPackingSlip(file)) setSnapshot(next)
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "The import could not be started.",
-      );
+      setError(caught instanceof Error ? caught.message : 'The import could not be started.')
     } finally {
-      setRunning(false);
+      setRunning(false)
     }
   }
-  const retry =
-    snapshot?.status === "failed" || snapshot?.status === "interrupted";
+  const retry = snapshot?.status === 'failed' || snapshot?.status === 'interrupted'
   return (
     <main className="import-page">
       <nav className="import-nav">
@@ -46,9 +41,7 @@ export function ImportPage() {
             accept="application/pdf,.pdf"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
-          <button disabled={!file || running}>
-            {running ? "Importing…" : "Import orders"}
-          </button>
+          <button disabled={!file || running}>{running ? 'Importing…' : 'Import orders'}</button>
         </form>
         {error && (
           <p role="alert" className="import-alert import-alert--error">
@@ -58,47 +51,40 @@ export function ImportPage() {
         {snapshot && (
           <div className="import-results" aria-live="polite">
             <p className="import-progress">
-              {snapshot.ordersProcessed} of {snapshot.ordersDetected} orders
-              processed
+              {snapshot.ordersProcessed} of {snapshot.ordersDetected} orders processed
             </p>
-            {snapshot.attemptFailureCode === "summaryMismatch" && (
+            {snapshot.attemptFailureCode === 'summaryMismatch' && (
               <p role="alert" className="import-alert import-alert--warning">
                 Summary mismatch: {snapshot.attemptFailureMessage}
               </p>
             )}
-            {snapshot.attemptFailureCode === "unreadablePdf" && (
+            {snapshot.attemptFailureCode === 'unreadablePdf' && (
               <p role="alert" className="import-alert import-alert--error">
-                This PDF could not be read as a packing slip.{" "}
-                {snapshot.attemptFailureMessage}
+                This PDF could not be read as a packing slip. {snapshot.attemptFailureMessage}
               </p>
             )}
-            {snapshot.status === "failed" && (
+            {snapshot.status === 'failed' && (
               <p role="alert" className="import-alert import-alert--error">
-                Import failed. {snapshot.operationFailureMessage} Completed
-                orders remain imported.
+                Import failed. {snapshot.operationFailureMessage} Completed orders remain imported.
               </p>
             )}
-            {snapshot.status === "interrupted" && (
+            {snapshot.status === 'interrupted' && (
               <p role="alert" className="import-alert import-alert--warning">
-                Connection lost. These results are incomplete and potentially
-                stale; some orders may already have imported.
+                Connection lost. These results are incomplete and potentially stale; some orders may
+                already have imported.
               </p>
             )}
             <ul className="import-order-list">
               {snapshot.results.map((result, index) => (
                 <li
-                  key={`${result.sourceOrderIdentifier ?? "unknown"}-${index}`}
+                  key={`${result.sourceOrderIdentifier ?? 'unknown'}-${index}`}
                   data-outcome={result.outcome}
                 >
-                  <strong>
-                    {result.sourceOrderIdentifier ?? "Unknown order"}
-                  </strong>
+                  <strong>{result.sourceOrderIdentifier ?? 'Unknown order'}</strong>
                   <span>
-                    {result.outcome === "succeeded"
-                      ? "Imported successfully"
-                      : (result.failureMessage ??
-                        result.failureCode ??
-                        "Rejected")}
+                    {result.outcome === 'succeeded'
+                      ? 'Imported successfully'
+                      : (result.failureMessage ?? result.failureCode ?? 'Rejected')}
                   </span>
                 </li>
               ))}
@@ -112,5 +98,5 @@ export function ImportPage() {
         )}
       </section>
     </main>
-  );
+  )
 }
