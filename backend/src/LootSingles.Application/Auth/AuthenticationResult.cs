@@ -21,9 +21,11 @@ public sealed record AuthenticationResult(AuthenticationOutcome Outcome, Employe
     public static AuthenticationResult Success(Employee employee) =>
         new(AuthenticationOutcome.Success, employee);
 
-    public static readonly AuthenticationResult InvalidCredentials =
-        new(AuthenticationOutcome.InvalidCredentials);
+    public static readonly AuthenticationResult InvalidCredentials = new(
+        AuthenticationOutcome.InvalidCredentials
+    );
 
-    public static readonly AuthenticationResult AccountLocked =
-        new(AuthenticationOutcome.AccountLocked);
+    public static readonly AuthenticationResult AccountLocked = new(
+        AuthenticationOutcome.AccountLocked
+    );
 }

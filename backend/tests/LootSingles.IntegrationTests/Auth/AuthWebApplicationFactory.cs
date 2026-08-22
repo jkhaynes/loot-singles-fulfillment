@@ -1,7 +1,7 @@
 using LootSingles.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,12 +35,15 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>
         {
             services.RemoveAll<DbContextOptions<LootSinglesDbContext>>();
             services.RemoveAll<Microsoft.EntityFrameworkCore.Infrastructure.IDbContextOptionsConfiguration<LootSinglesDbContext>>();
-            services.AddDbContext<LootSinglesDbContext>(options => options.UseSqlite(_connectionString));
+            services.AddDbContext<LootSinglesDbContext>(options =>
+                options.UseSqlite(_connectionString)
+            );
             if (_timeProvider is not null)
             {
                 services.PostConfigure<CookieAuthenticationOptions>(
                     CookieAuthenticationDefaults.AuthenticationScheme,
-                    options => options.TimeProvider = _timeProvider);
+                    options => options.TimeProvider = _timeProvider
+                );
             }
         });
     }
@@ -73,7 +76,9 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>
     /// Secure-flagged auth cookies (Program.cs: <c>CookieSecurePolicy.Always</c>) are actually sent.
     /// </summary>
     public HttpClient CreateAuthenticatedClient() =>
-        CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
+        CreateClient(
+            new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") }
+        );
 
     protected override void Dispose(bool disposing)
     {

@@ -12,17 +12,21 @@ public enum EmployeeManagementOutcome
 
 public sealed record EmployeeManagementResult(
     EmployeeManagementOutcome Outcome,
-    Employee? Employee = null)
+    Employee? Employee = null
+)
 {
     public static EmployeeManagementResult Success(Employee employee) =>
         new(EmployeeManagementOutcome.Success, employee);
 
-    public static readonly EmployeeManagementResult NotFound =
-        new(EmployeeManagementOutcome.NotFound);
+    public static readonly EmployeeManagementResult NotFound = new(
+        EmployeeManagementOutcome.NotFound
+    );
 
-    public static readonly EmployeeManagementResult UsernameTaken =
-        new(EmployeeManagementOutcome.UsernameTaken);
+    public static readonly EmployeeManagementResult UsernameTaken = new(
+        EmployeeManagementOutcome.UsernameTaken
+    );
 
-    public static readonly EmployeeManagementResult InvalidRequest =
-        new(EmployeeManagementOutcome.InvalidRequest);
+    public static readonly EmployeeManagementResult InvalidRequest = new(
+        EmployeeManagementOutcome.InvalidRequest
+    );
 }

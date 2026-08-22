@@ -14,7 +14,14 @@ public class EmployeeManagementServiceTests
         repository.Employees.Add(NewEmployee(1, "jsmith", "hash"));
         var service = new EmployeeManagementService(repository, new Pbkdf2PinHasher());
 
-        var result = await service.CreateAsync(9, "JSmith", "Jamie", "1234", EmployeeRole.Picker, default);
+        var result = await service.CreateAsync(
+            9,
+            "JSmith",
+            "Jamie",
+            "1234",
+            EmployeeRole.Picker,
+            default
+        );
 
         Assert.Equal(EmployeeManagementOutcome.UsernameTaken, result.Outcome);
         Assert.Single(repository.Employees);
@@ -28,12 +35,21 @@ public class EmployeeManagementServiceTests
     [InlineData("jsmith", "123")]
     [InlineData("jsmith", "")]
     public async Task CreateAsync_InvalidUsernameOrPin_ReturnsInvalidRequestWithoutPersisting(
-        string username, string initialPin)
+        string username,
+        string initialPin
+    )
     {
         var repository = new FakeEmployeeRepository();
         var service = new EmployeeManagementService(repository, new Pbkdf2PinHasher());
 
-        var result = await service.CreateAsync(9, username, "Jamie", initialPin, EmployeeRole.Picker, default);
+        var result = await service.CreateAsync(
+            9,
+            username,
+            "Jamie",
+            initialPin,
+            EmployeeRole.Picker,
+            default
+        );
 
         Assert.Equal(EmployeeManagementOutcome.InvalidRequest, result.Outcome);
         Assert.Empty(repository.Employees);
@@ -46,7 +62,14 @@ public class EmployeeManagementServiceTests
         var repository = new FakeEmployeeRepository { ThrowDuplicateUsernameOnNextSave = true };
         var service = new EmployeeManagementService(repository, new Pbkdf2PinHasher());
 
-        var result = await service.CreateAsync(9, "jsmith", "Jamie", "1234", EmployeeRole.Picker, default);
+        var result = await service.CreateAsync(
+            9,
+            "jsmith",
+            "Jamie",
+            "1234",
+            EmployeeRole.Picker,
+            default
+        );
 
         Assert.Equal(EmployeeManagementOutcome.UsernameTaken, result.Outcome);
     }
@@ -58,7 +81,14 @@ public class EmployeeManagementServiceTests
         var hasher = new Pbkdf2PinHasher();
         var service = new EmployeeManagementService(repository, hasher);
 
-        var result = await service.CreateAsync(9, "jsmith", "Jamie", "1234", EmployeeRole.Picker, default);
+        var result = await service.CreateAsync(
+            9,
+            "jsmith",
+            "Jamie",
+            "1234",
+            EmployeeRole.Picker,
+            default
+        );
 
         Assert.Equal(EmployeeManagementOutcome.Success, result.Outcome);
         Assert.NotNull(result.Employee);
@@ -77,15 +107,22 @@ public class EmployeeManagementServiceTests
         repository.Employees.Add(employee);
         var service = new EmployeeManagementService(repository, new Pbkdf2PinHasher());
 
-        Assert.Equal(EmployeeManagementOutcome.Success, (await service.DeactivateAsync(9, 1, default)).Outcome);
+        Assert.Equal(
+            EmployeeManagementOutcome.Success,
+            (await service.DeactivateAsync(9, 1, default)).Outcome
+        );
         Assert.False(employee.IsActive);
-        Assert.Equal(EmployeeManagementOutcome.Success, (await service.ReactivateAsync(9, 1, default)).Outcome);
+        Assert.Equal(
+            EmployeeManagementOutcome.Success,
+            (await service.ReactivateAsync(9, 1, default)).Outcome
+        );
         Assert.True(employee.IsActive);
         Assert.False(employee.IsLocked);
         Assert.Equal(0, employee.FailedAttemptCount);
         Assert.Equal(
             [EmployeeAuditActionType.Deactivated, EmployeeAuditActionType.Reactivated],
-            repository.AuditEvents.Select(item => item.ActionType));
+            repository.AuditEvents.Select(item => item.ActionType)
+        );
     }
 
     [Fact]
@@ -112,7 +149,9 @@ public class EmployeeManagementServiceTests
     [InlineData("12a4")]
     [InlineData("123")]
     [InlineData("")]
-    public async Task ResetPinAsync_InvalidPin_ReturnsInvalidRequestWithoutChangingHash(string newPin)
+    public async Task ResetPinAsync_InvalidPin_ReturnsInvalidRequestWithoutChangingHash(
+        string newPin
+    )
     {
         var repository = new FakeEmployeeRepository();
         var hasher = new Pbkdf2PinHasher();
@@ -158,19 +197,24 @@ public class EmployeeManagementServiceTests
         Assert.Empty(repository.AuditEvents);
     }
 
-    private static Employee NewEmployee(int id, string username, string hash) => new()
-    {
-        Id = id,
-        Username = username,
-        NormalizedUsername = username.ToUpperInvariant(),
-        DisplayName = username,
-        PinHash = hash,
-        Role = EmployeeRole.Picker,
-        CreatedAt = DateTimeOffset.UtcNow,
-    };
+    private static Employee NewEmployee(int id, string username, string hash) =>
+        new()
+        {
+            Id = id,
+            Username = username,
+            NormalizedUsername = username.ToUpperInvariant(),
+            DisplayName = username,
+            PinHash = hash,
+            Role = EmployeeRole.Picker,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
 
     private static void AssertAudit(
-        FakeEmployeeRepository repository, EmployeeAuditActionType action, int actorId, int targetId)
+        FakeEmployeeRepository repository,
+        EmployeeAuditActionType action,
+        int actorId,
+        int targetId
+    )
     {
         var auditEvent = Assert.Single(repository.AuditEvents);
         Assert.Equal(action, auditEvent.ActionType);
@@ -184,32 +228,48 @@ public class EmployeeManagementServiceTests
         public List<EmployeeAuditEvent> AuditEvents { get; } = [];
         public bool ThrowDuplicateUsernameOnNextSave { get; set; }
 
-        public Task<Employee?> GetByNormalizedUsernameAsync(string normalizedUsername, CancellationToken token) =>
-            Task.FromResult(Employees.SingleOrDefault(item => item.NormalizedUsername == normalizedUsername));
+        public Task<Employee?> GetByNormalizedUsernameAsync(
+            string normalizedUsername,
+            CancellationToken token
+        ) =>
+            Task.FromResult(
+                Employees.SingleOrDefault(item => item.NormalizedUsername == normalizedUsername)
+            );
+
         public Task<Employee?> GetByIdAsync(int id, CancellationToken token) =>
             Task.FromResult(Employees.SingleOrDefault(item => item.Id == id));
+
         public Task<bool> ExistsAsync(int id, CancellationToken token) =>
             Task.FromResult(Employees.Any(item => item.Id == id));
+
         public void Add(Employee employee)
         {
             employee.Id = Employees.Count + 1;
             Employees.Add(employee);
         }
+
         public Task<IReadOnlyList<Employee>> ListAsync(CancellationToken token) =>
             Task.FromResult<IReadOnlyList<Employee>>(Employees);
+
         public void AddAuditEvent(EmployeeAuditEvent auditEvent)
         {
             AuditEvents.Add(auditEvent);
         }
-        public Task<IReadOnlyList<EmployeeAuditEvent>> GetAuditEventsAsync(int employeeId, CancellationToken token) =>
-            Task.FromResult<IReadOnlyList<EmployeeAuditEvent>>(AuditEvents);
+
+        public Task<IReadOnlyList<EmployeeAuditEvent>> GetAuditEventsAsync(
+            int employeeId,
+            CancellationToken token
+        ) => Task.FromResult<IReadOnlyList<EmployeeAuditEvent>>(AuditEvents);
+
         public Task SaveChangesAsync(CancellationToken token)
         {
             if (ThrowDuplicateUsernameOnNextSave)
             {
                 ThrowDuplicateUsernameOnNextSave = false;
                 throw new UniqueConstraintViolationException(
-                    "Username is already in use.", new InvalidOperationException("simulated unique-index violation"));
+                    "Username is already in use.",
+                    new InvalidOperationException("simulated unique-index violation")
+                );
             }
 
             return Task.CompletedTask;

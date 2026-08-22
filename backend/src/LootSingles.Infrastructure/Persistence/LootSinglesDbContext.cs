@@ -1,7 +1,7 @@
-using Microsoft.EntityFrameworkCore;
-using LootSingles.Domain.Orders;
-using LootSingles.Domain.Employees;
 using LootSingles.Application.Import;
+using LootSingles.Domain.Employees;
+using LootSingles.Domain.Orders;
+using Microsoft.EntityFrameworkCore;
 
 namespace LootSingles.Infrastructure.Persistence;
 
@@ -19,7 +19,8 @@ public class LootSinglesDbContext : DbContext
     /// Initializes a new instance of the <see cref="LootSinglesDbContext"/> class.
     /// </summary>
     /// <param name="options">The options to be used by the DbContext.</param>
-    public LootSinglesDbContext(DbContextOptions<LootSinglesDbContext> options) : base(options) { }
+    public LootSinglesDbContext(DbContextOptions<LootSinglesDbContext> options)
+        : base(options) { }
 
     /// <summary>
     /// DbSet for Order entities.

@@ -11,8 +11,7 @@ public class EmployeeAuditEventConfiguration : IEntityTypeConfiguration<Employee
 {
     public void Configure(EntityTypeBuilder<EmployeeAuditEvent> builder)
     {
-        builder.Property(auditEvent => auditEvent.ActionType)
-            .HasConversion<string>();
+        builder.Property(auditEvent => auditEvent.ActionType).HasConversion<string>();
 
         builder.HasIndex(auditEvent => auditEvent.ActorEmployeeId);
         builder.HasIndex(auditEvent => auditEvent.TargetEmployeeId);

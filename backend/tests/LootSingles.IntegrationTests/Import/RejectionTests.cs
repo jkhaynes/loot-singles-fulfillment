@@ -15,11 +15,14 @@ public class RejectionTests
     [InlineData("missing-condition.pdf", FailureType.MissingCondition)]
     public async Task ImportAsync_MalformedOrder_RejectsWithoutPersistingOrder(
         string fixture,
-        FailureType expectedFailure)
+        FailureType expectedFailure
+    )
     {
         await using var context = ImportTestSupport.CreateInMemoryContext();
         var final = await ImportTestSupport.ImportFixtureAsync(
-            ImportTestSupport.CreateService(context), fixture);
+            ImportTestSupport.CreateService(context),
+            fixture
+        );
 
         Assert.Empty(await context.Orders.ToListAsync());
         var result = Assert.Single(final.ImportAttempt.ImportOrderResults);
@@ -34,7 +37,9 @@ public class RejectionTests
     {
         await using var context = ImportTestSupport.CreateInMemoryContext();
         var final = await ImportTestSupport.ImportFixtureAsync(
-            ImportTestSupport.CreateService(context), "corrupted-file.pdf");
+            ImportTestSupport.CreateService(context),
+            "corrupted-file.pdf"
+        );
 
         Assert.Equal(FailureType.UnreadablePdf, final.ImportAttempt.AttemptFailureCode);
         Assert.False(string.IsNullOrWhiteSpace(final.ImportAttempt.AttemptFailureMessage));
@@ -47,11 +52,16 @@ public class RejectionTests
     {
         await using var context = ImportTestSupport.CreateInMemoryContext();
         var final = await ImportTestSupport.ImportFixtureAsync(
-            ImportTestSupport.CreateService(context), "not-a-packing-slip.pdf");
+            ImportTestSupport.CreateService(context),
+            "not-a-packing-slip.pdf"
+        );
 
         Assert.Equal(FailureType.UnreadablePdf, final.ImportAttempt.AttemptFailureCode);
-        Assert.Contains("recognizable order", final.ImportAttempt.AttemptFailureMessage,
-            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "recognizable order",
+            final.ImportAttempt.AttemptFailureMessage,
+            StringComparison.OrdinalIgnoreCase
+        );
         Assert.Empty(final.ImportAttempt.ImportOrderResults);
         Assert.Empty(await context.Orders.ToListAsync());
     }
@@ -61,7 +71,9 @@ public class RejectionTests
     {
         await using var context = ImportTestSupport.CreateInMemoryContext();
         var final = await ImportTestSupport.ImportFixtureAsync(
-            ImportTestSupport.CreateService(context), "summary-mismatch.pdf");
+            ImportTestSupport.CreateService(context),
+            "summary-mismatch.pdf"
+        );
 
         Assert.Equal(FailureType.SummaryMismatch, final.ImportAttempt.AttemptFailureCode);
         Assert.Contains("SUM-ACTUAL-IDX", final.ImportAttempt.AttemptFailureMessage);

@@ -1,5 +1,5 @@
-using System.Text.RegularExpressions;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using LootSingles.Application.Import;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
@@ -10,7 +10,8 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
 {
     public async IAsyncEnumerable<PackingSlipParseUpdate> ParseAsync(
         Stream packingSlipPdf,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(packingSlipPdf);
 
@@ -24,10 +25,7 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
             yield return new PackingSlipParseUpdate(state.OrderBlocks.Count, false, null);
         }
 
-        yield return new PackingSlipParseUpdate(
-            state.OrderBlocks.Count,
-            true,
-            state.ToResult());
+        yield return new PackingSlipParseUpdate(state.OrderBlocks.Count, true, state.ToResult());
     }
 
     private static void ProcessPage(Page page, ParseState state)
@@ -38,11 +36,13 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
 
         if (tableHeader is not null)
         {
-            state.OrderBlocks.Add(new RawOrderBlock
-            {
-                OrderIdentifier = ExtractOrderIdentifier(lines),
-                ProductLines = ExtractProductLines(words, lines, tableHeader),
-            });
+            state.OrderBlocks.Add(
+                new RawOrderBlock
+                {
+                    OrderIdentifier = ExtractOrderIdentifier(lines),
+                    ProductLines = ExtractProductLines(words, lines, tableHeader),
+                }
+            );
             return;
         }
 
@@ -71,11 +71,13 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
             return null;
         }
 
-        var numberLabelIndex = anchorLine.Words.FindIndex(
-            word => word.Text.Equals("Number:", StringComparison.OrdinalIgnoreCase));
+        var numberLabelIndex = anchorLine.Words.FindIndex(word =>
+            word.Text.Equals("Number:", StringComparison.OrdinalIgnoreCase)
+        );
         var identifier = string.Join(
             " ",
-            anchorLine.Words.Skip(numberLabelIndex + 1).Select(word => word.Text));
+            anchorLine.Words.Skip(numberLabelIndex + 1).Select(word => word.Text)
+        );
 
         return string.IsNullOrWhiteSpace(identifier) ? null : identifier;
     }
@@ -83,18 +85,24 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
     private static IReadOnlyList<RawProductLine> ExtractProductLines(
         IReadOnlyList<Word> words,
         IReadOnlyList<TextLine> lines,
-        TextLine tableHeader)
+        TextLine tableHeader
+    )
     {
         var quantityHeader = tableHeader.Words.Single(word => Normalize(word.Text) == "quantity");
-        var descriptionHeader = tableHeader.Words.Single(word => Normalize(word.Text) == "description");
+        var descriptionHeader = tableHeader.Words.Single(word =>
+            Normalize(word.Text) == "description"
+        );
         var priceHeader = tableHeader.Words.First(word => Normalize(word.Text) == "price");
 
         var totalLine = lines
             .Where(line => line.Bottom < tableHeader.Bottom)
             .Where(line => line.Words.Count <= 4)
-            .Where(line => line.Words.Any(word =>
-                Normalize(word.Text) == "total"
-                && Math.Abs(word.BoundingBox.Left - descriptionHeader.BoundingBox.Left) < 8))
+            .Where(line =>
+                line.Words.Any(word =>
+                    Normalize(word.Text) == "total"
+                    && Math.Abs(word.BoundingBox.Left - descriptionHeader.BoundingBox.Left) < 8
+                )
+            )
             .OrderByDescending(line => line.Bottom)
             .FirstOrDefault();
 
@@ -115,12 +123,15 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
         for (var index = 0; index < quantityWords.Count; index++)
         {
             var quantity = quantityWords[index];
-            var upperBound = index == 0
-                ? descriptionHeader.BoundingBox.Bottom - 2
-                : (quantityWords[index - 1].BoundingBox.Bottom + quantity.BoundingBox.Bottom) / 2;
-            var lowerNeighbor = index + 1 < quantityWords.Count
-                ? quantityWords[index + 1].BoundingBox.Bottom
-                : totalLine.Bottom;
+            var upperBound =
+                index == 0
+                    ? descriptionHeader.BoundingBox.Bottom - 2
+                    : (quantityWords[index - 1].BoundingBox.Bottom + quantity.BoundingBox.Bottom)
+                        / 2;
+            var lowerNeighbor =
+                index + 1 < quantityWords.Count
+                    ? quantityWords[index + 1].BoundingBox.Bottom
+                    : totalLine.Bottom;
             var lowerBound = (quantity.BoundingBox.Bottom + lowerNeighbor) / 2;
 
             var descriptionWords = words
@@ -131,39 +142,50 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
                 .Where(word => !CurrencyAmountPattern().IsMatch(word.Text))
                 .ToList();
 
-            productLines.Add(new RawProductLine
-            {
-                QuantityText = quantity.Text,
-                RawDescription = JoinInReadingOrder(descriptionWords),
-            });
+            productLines.Add(
+                new RawProductLine
+                {
+                    QuantityText = quantity.Text,
+                    RawDescription = JoinInReadingOrder(descriptionWords),
+                }
+            );
         }
 
         return productLines;
     }
 
-    private static TextLine? FindTableHeader(IEnumerable<TextLine> lines) => lines.SingleOrDefault(
-        line => line.Words.Any(word => Normalize(word.Text) == "quantity")
+    private static TextLine? FindTableHeader(IEnumerable<TextLine> lines) =>
+        lines.SingleOrDefault(line =>
+            line.Words.Any(word => Normalize(word.Text) == "quantity")
             && line.Words.Any(word => Normalize(word.Text) == "description")
-            && line.Words.Count(word => Normalize(word.Text) == "price") >= 2);
+            && line.Words.Count(word => Normalize(word.Text) == "price") >= 2
+        );
 
-    private static List<TextLine> GroupIntoLines(IEnumerable<Word> words) => words
-        .GroupBy(word => Math.Round(word.BoundingBox.Bottom / 3) * 3)
-        .Select(group => new TextLine(
-            group.Key,
-            group.OrderBy(word => word.BoundingBox.Left).ToList()))
-        .OrderByDescending(line => line.Bottom)
-        .ToList();
+    private static List<TextLine> GroupIntoLines(IEnumerable<Word> words) =>
+        words
+            .GroupBy(word => Math.Round(word.BoundingBox.Bottom / 3) * 3)
+            .Select(group => new TextLine(
+                group.Key,
+                group.OrderBy(word => word.BoundingBox.Left).ToList()
+            ))
+            .OrderByDescending(line => line.Bottom)
+            .ToList();
 
-    private static string JoinInReadingOrder(IEnumerable<Word> words) => string.Join(
-        " ",
-        GroupIntoLines(words).SelectMany(line => line.Words).Select(word => word.Text));
+    private static string JoinInReadingOrder(IEnumerable<Word> words) =>
+        string.Join(
+            " ",
+            GroupIntoLines(words).SelectMany(line => line.Words).Select(word => word.Text)
+        );
 
-    private static bool ContainsSequence(IReadOnlyList<Word> words, string first, string second) => words
-        .Zip(
-            words.Skip(1),
-            (left, right) => left.Text.Equals(first, StringComparison.OrdinalIgnoreCase)
-                && right.Text.Equals(second, StringComparison.OrdinalIgnoreCase))
-        .Any(matches => matches);
+    private static bool ContainsSequence(IReadOnlyList<Word> words, string first, string second) =>
+        words
+            .Zip(
+                words.Skip(1),
+                (left, right) =>
+                    left.Text.Equals(first, StringComparison.OrdinalIgnoreCase)
+                    && right.Text.Equals(second, StringComparison.OrdinalIgnoreCase)
+            )
+            .Any(matches => matches);
 
     private static string Normalize(string text) => text.Trim().TrimEnd(':').ToLowerInvariant();
 
@@ -183,11 +205,12 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
 
         public List<string> SummaryOrderIdentifiers { get; } = [];
 
-        public ParsedPackingSlip ToResult() => new()
-        {
-            OrderBlocks = OrderBlocks,
-            SummaryPageFound = SummaryPageFound,
-            SummaryOrderIdentifiers = SummaryOrderIdentifiers,
-        };
+        public ParsedPackingSlip ToResult() =>
+            new()
+            {
+                OrderBlocks = OrderBlocks,
+                SummaryPageFound = SummaryPageFound,
+                SummaryOrderIdentifiers = SummaryOrderIdentifiers,
+            };
     }
 }

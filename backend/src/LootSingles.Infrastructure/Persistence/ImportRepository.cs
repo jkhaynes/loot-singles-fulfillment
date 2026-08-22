@@ -18,12 +18,19 @@ public sealed class ImportRepository(LootSinglesDbContext context) : IImportPers
 
     public void DiscardOrder(Order order)
     {
-        foreach (var line in order.OrderLines.ToList()) context.Entry(line).State = EntityState.Detached;
+        foreach (var line in order.OrderLines.ToList())
+            context.Entry(line).State = EntityState.Detached;
         context.Entry(order).State = EntityState.Detached;
     }
 
-    public Task<bool> OrderExistsAsync(string tcgplayerOrderId, CancellationToken cancellationToken) =>
-        context.Orders.AnyAsync(order => order.TcgplayerOrderId == tcgplayerOrderId, cancellationToken);
+    public Task<bool> OrderExistsAsync(
+        string tcgplayerOrderId,
+        CancellationToken cancellationToken
+    ) =>
+        context.Orders.AnyAsync(
+            order => order.TcgplayerOrderId == tcgplayerOrderId,
+            cancellationToken
+        );
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken)
     {
@@ -31,13 +38,20 @@ public sealed class ImportRepository(LootSinglesDbContext context) : IImportPers
         {
             await context.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException exception) when (DuplicateKeyDetector.IsDuplicateKeyViolation(exception))
+        catch (DbUpdateException exception)
+            when (DuplicateKeyDetector.IsDuplicateKeyViolation(exception))
         {
-            throw new UniqueConstraintViolationException("The order identifier already exists.", exception);
+            throw new UniqueConstraintViolationException(
+                "The order identifier already exists.",
+                exception
+            );
         }
         catch (DbUpdateException exception)
         {
-            throw new OrderPersistenceException("The order could not be persisted atomically.", exception);
+            throw new OrderPersistenceException(
+                "The order could not be persisted atomically.",
+                exception
+            );
         }
     }
 }

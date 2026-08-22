@@ -6,11 +6,13 @@ namespace LootSingles.Application.Import;
 
 public sealed class PackingSlipImportService(
     IPackingSlipParser parser,
-    IImportPersistence persistence) : IPackingSlipImportService
+    IImportPersistence persistence
+) : IPackingSlipImportService
 {
     public async IAsyncEnumerable<ImportProgressUpdate> ImportAsync(
         Stream packingSlipPdf,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(packingSlipPdf);
         var attempt = new ImportAttempt { StartedAt = DateTimeOffset.UtcNow };
@@ -18,7 +20,8 @@ public sealed class PackingSlipImportService(
 
         ParsedPackingSlip? parsed = null;
         string? unreadableMessage = null;
-        await using var parseEnumerator = parser.ParseAsync(packingSlipPdf, cancellationToken)
+        await using var parseEnumerator = parser
+            .ParseAsync(packingSlipPdf, cancellationToken)
             .GetAsyncEnumerator(cancellationToken);
         while (true)
         {
@@ -34,7 +37,8 @@ public sealed class PackingSlipImportService(
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                unreadableMessage = $"The supplied file could not be read as a packing-slip PDF: {exception.Message}";
+                unreadableMessage =
+                    $"The supplied file could not be read as a packing-slip PDF: {exception.Message}";
                 break;
             }
 
@@ -102,8 +106,11 @@ public sealed class PackingSlipImportService(
             }
             else if (await persistence.OrderExistsAsync(block.OrderIdentifier!, cancellationToken))
             {
-                Reject(result, FailureType.DuplicateOrder,
-                    $"Order '{block.OrderIdentifier}' was already imported and was left unchanged.");
+                Reject(
+                    result,
+                    FailureType.DuplicateOrder,
+                    $"Order '{block.OrderIdentifier}' was already imported and was left unchanged."
+                );
                 failed++;
             }
             else
@@ -120,60 +127,100 @@ public sealed class PackingSlipImportService(
                 catch (UniqueConstraintViolationException)
                 {
                     persistence.DiscardOrder(order);
-                    Reject(result, FailureType.DuplicateOrder,
-                        $"Order '{block.OrderIdentifier}' was already imported by a concurrent operation.");
+                    Reject(
+                        result,
+                        FailureType.DuplicateOrder,
+                        $"Order '{block.OrderIdentifier}' was already imported by a concurrent operation."
+                    );
                     failed++;
                 }
                 catch (OrderPersistenceException)
                 {
                     persistence.DiscardOrder(order);
-                    Reject(result, FailureType.PersistenceFailure,
-                        $"Order '{block.OrderIdentifier}' could not be saved; no order or product lines were retained. Retry the import or contact support if the problem continues.");
+                    Reject(
+                        result,
+                        FailureType.PersistenceFailure,
+                        $"Order '{block.OrderIdentifier}' could not be saved; no order or product lines were retained. Retry the import or contact support if the problem continues."
+                    );
                     failed++;
                 }
             }
 
             processed++;
             await persistence.SaveChangesAsync(cancellationToken);
-            yield return Update(parsed.OrderBlocks.Count, processed, succeeded, failed, false, attempt);
+            yield return Update(
+                parsed.OrderBlocks.Count,
+                processed,
+                succeeded,
+                failed,
+                false,
+                attempt
+            );
         }
 
         await CompleteAttemptAsync(attempt, cancellationToken);
         yield return Update(parsed.OrderBlocks.Count, processed, succeeded, failed, true, attempt);
     }
 
-    private async Task CompleteAttemptAsync(ImportAttempt attempt, CancellationToken cancellationToken)
+    private async Task CompleteAttemptAsync(
+        ImportAttempt attempt,
+        CancellationToken cancellationToken
+    )
     {
         attempt.CompletedAt = DateTimeOffset.UtcNow;
         await persistence.SaveChangesAsync(cancellationToken);
     }
 
-    private static (List<OrderLineValidationResult> LineResults, (FailureType Type, string Message)? Failure) ValidateBlock(
-        RawOrderBlock block)
+    private static (
+        List<OrderLineValidationResult> LineResults,
+        (FailureType Type, string Message)? Failure
+    ) ValidateBlock(RawOrderBlock block)
     {
         var lineResults = new List<OrderLineValidationResult>();
         if (string.IsNullOrWhiteSpace(block.OrderIdentifier))
-            return (lineResults, (FailureType.MissingOrderIdentifier, "An order page is missing its order identifier."));
+            return (
+                lineResults,
+                (
+                    FailureType.MissingOrderIdentifier,
+                    "An order page is missing its order identifier."
+                )
+            );
         if (block.ProductLines.Count == 0)
-            return (lineResults, (FailureType.NoProductLines, $"Order '{block.OrderIdentifier}' contains no product lines."));
+            return (
+                lineResults,
+                (
+                    FailureType.NoProductLines,
+                    $"Order '{block.OrderIdentifier}' contains no product lines."
+                )
+            );
 
         foreach (var line in block.ProductLines)
         {
             var validation = OrderLineValidator.Validate(line);
             lineResults.Add(validation);
             if (!validation.IsValid)
-                return (lineResults, (validation.FailureType!.Value, $"Order '{block.OrderIdentifier}': {validation.FailureMessage}"));
+                return (
+                    lineResults,
+                    (
+                        validation.FailureType!.Value,
+                        $"Order '{block.OrderIdentifier}': {validation.FailureMessage}"
+                    )
+                );
         }
         return (lineResults, null);
     }
 
-    private static Order CreateOrder(RawOrderBlock block, List<OrderLineValidationResult> lineResults) => new()
-    {
-        TcgplayerOrderId = block.OrderIdentifier!,
-        Status = OrderStatus.Ready,
-        ImportedAt = DateTimeOffset.UtcNow,
-        OrderLines = lineResults.Select(result => result.OrderLine!).ToList(),
-    };
+    private static Order CreateOrder(
+        RawOrderBlock block,
+        List<OrderLineValidationResult> lineResults
+    ) =>
+        new()
+        {
+            TcgplayerOrderId = block.OrderIdentifier!,
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow,
+            OrderLines = lineResults.Select(result => result.OrderLine!).ToList(),
+        };
 
     private static void Reject(ImportOrderResult result, FailureType type, string message)
     {
@@ -186,20 +233,29 @@ public sealed class PackingSlipImportService(
     private static bool HasSummaryMismatch(ParsedPackingSlip parsed, out string? message)
     {
         message = null;
-        if (!parsed.SummaryPageFound) return false;
+        if (!parsed.SummaryPageFound)
+            return false;
 
-        var parsedIds = parsed.OrderBlocks.Select(block => block.OrderIdentifier)
+        var parsedIds = parsed
+            .OrderBlocks.Select(block => block.OrderIdentifier)
             .Where(identifier => !string.IsNullOrWhiteSpace(identifier))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var summaryIds = parsed.SummaryOrderIdentifiers.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (parsedIds.SetEquals(summaryIds)) return false;
+        if (parsedIds.SetEquals(summaryIds))
+            return false;
 
-        message = $"Packing-slip summary mismatch. Parsed orders: [{string.Join(", ", parsedIds)}]; "
+        message =
+            $"Packing-slip summary mismatch. Parsed orders: [{string.Join(", ", parsedIds)}]; "
             + $"summary orders: [{string.Join(", ", summaryIds)}].";
         return true;
     }
 
     private static ImportProgressUpdate Update(
-        int detected, int processed, int succeeded, int failed, bool complete, ImportAttempt attempt) =>
-        new(detected, processed, succeeded, failed, complete, attempt);
+        int detected,
+        int processed,
+        int succeeded,
+        int failed,
+        bool complete,
+        ImportAttempt attempt
+    ) => new(detected, processed, succeeded, failed, complete, attempt);
 }

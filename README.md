@@ -52,6 +52,26 @@ The project is currently in product definition and technical discovery. Applicat
 - React Testing Library
 - Playwright
 
+## Development Setup
+
+Restore the repository-local .NET tools after cloning:
+
+```powershell
+dotnet tool restore
+```
+
+Format all backend C# code with CSharpier:
+
+```powershell
+dotnet csharpier format backend
+```
+
+Verify formatting without changing files:
+
+```powershell
+dotnet csharpier check backend
+```
+
 ## TCGplayer Integration
 
 The current V1 working approach is defensive parsing of TCGplayer packing-slip PDFs, since they are the only inspected export that preserves the `Order → Product Lines → Quantity` relationship V1 needs. TCGplayer order data is authoritative; the architecture isolates this parsing behind an import boundary so it can be replaced by a future supported TCGplayer API or integration without redesigning the picker workflow.

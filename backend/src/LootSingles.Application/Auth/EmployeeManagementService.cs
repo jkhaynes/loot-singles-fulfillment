@@ -14,7 +14,8 @@ public sealed class EmployeeManagementService(IEmployeeRepository repository, IP
         string displayName,
         string initialPin,
         EmployeeRole role,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         if (string.IsNullOrWhiteSpace(username) || !PinFormat.IsValid(initialPin))
         {
@@ -22,7 +23,10 @@ public sealed class EmployeeManagementService(IEmployeeRepository repository, IP
         }
 
         var normalizedUsername = username.ToUpperInvariant();
-        if (await repository.GetByNormalizedUsernameAsync(normalizedUsername, cancellationToken) is not null)
+        if (
+            await repository.GetByNormalizedUsernameAsync(normalizedUsername, cancellationToken)
+            is not null
+        )
         {
             return EmployeeManagementResult.UsernameTaken;
         }
@@ -51,46 +55,83 @@ public sealed class EmployeeManagementService(IEmployeeRepository repository, IP
         }
 
         await AddAuditEventAsync(
-            actorEmployeeId, employee.Id, EmployeeAuditActionType.AccountCreated, cancellationToken);
+            actorEmployeeId,
+            employee.Id,
+            EmployeeAuditActionType.AccountCreated,
+            cancellationToken
+        );
 
         return EmployeeManagementResult.Success(employee);
     }
 
     public Task<EmployeeManagementResult> DeactivateAsync(
-        int actorEmployeeId, int targetEmployeeId, CancellationToken cancellationToken) =>
-        ChangeAsync(actorEmployeeId, targetEmployeeId, EmployeeAuditActionType.Deactivated,
-            employee => employee.IsActive = false, cancellationToken);
+        int actorEmployeeId,
+        int targetEmployeeId,
+        CancellationToken cancellationToken
+    ) =>
+        ChangeAsync(
+            actorEmployeeId,
+            targetEmployeeId,
+            EmployeeAuditActionType.Deactivated,
+            employee => employee.IsActive = false,
+            cancellationToken
+        );
 
     public Task<EmployeeManagementResult> ReactivateAsync(
-        int actorEmployeeId, int targetEmployeeId, CancellationToken cancellationToken) =>
-        ChangeAsync(actorEmployeeId, targetEmployeeId, EmployeeAuditActionType.Reactivated,
+        int actorEmployeeId,
+        int targetEmployeeId,
+        CancellationToken cancellationToken
+    ) =>
+        ChangeAsync(
+            actorEmployeeId,
+            targetEmployeeId,
+            EmployeeAuditActionType.Reactivated,
             employee =>
             {
                 employee.IsActive = true;
                 employee.IsLocked = false;
                 employee.FailedAttemptCount = 0;
-            }, cancellationToken);
+            },
+            cancellationToken
+        );
 
     public Task<EmployeeManagementResult> ResetPinAsync(
-        int actorEmployeeId, int targetEmployeeId, string newPin, CancellationToken cancellationToken)
+        int actorEmployeeId,
+        int targetEmployeeId,
+        string newPin,
+        CancellationToken cancellationToken
+    )
     {
         if (!PinFormat.IsValid(newPin))
         {
             return Task.FromResult(EmployeeManagementResult.InvalidRequest);
         }
 
-        return ChangeAsync(actorEmployeeId, targetEmployeeId, EmployeeAuditActionType.PinReset,
-            employee => employee.PinHash = pinHasher.Hash(newPin), cancellationToken);
+        return ChangeAsync(
+            actorEmployeeId,
+            targetEmployeeId,
+            EmployeeAuditActionType.PinReset,
+            employee => employee.PinHash = pinHasher.Hash(newPin),
+            cancellationToken
+        );
     }
 
     public Task<EmployeeManagementResult> UnlockAsync(
-        int actorEmployeeId, int targetEmployeeId, CancellationToken cancellationToken) =>
-        ChangeAsync(actorEmployeeId, targetEmployeeId, EmployeeAuditActionType.Unlocked,
+        int actorEmployeeId,
+        int targetEmployeeId,
+        CancellationToken cancellationToken
+    ) =>
+        ChangeAsync(
+            actorEmployeeId,
+            targetEmployeeId,
+            EmployeeAuditActionType.Unlocked,
             employee =>
             {
                 employee.IsLocked = false;
                 employee.FailedAttemptCount = 0;
-            }, cancellationToken);
+            },
+            cancellationToken
+        );
 
     public Task<IReadOnlyList<Employee>> ListAsync(CancellationToken cancellationToken) =>
         repository.ListAsync(cancellationToken);
@@ -102,15 +143,17 @@ public sealed class EmployeeManagementService(IEmployeeRepository repository, IP
         repository.ExistsAsync(employeeId, cancellationToken);
 
     public Task<IReadOnlyList<EmployeeAuditEvent>> GetAuditEventsAsync(
-        int employeeId, CancellationToken cancellationToken) =>
-        repository.GetAuditEventsAsync(employeeId, cancellationToken);
+        int employeeId,
+        CancellationToken cancellationToken
+    ) => repository.GetAuditEventsAsync(employeeId, cancellationToken);
 
     private async Task<EmployeeManagementResult> ChangeAsync(
         int actorEmployeeId,
         int targetEmployeeId,
         EmployeeAuditActionType actionType,
         Action<Employee> apply,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var employee = await repository.GetByIdAsync(targetEmployeeId, cancellationToken);
         if (employee is null)
@@ -127,7 +170,8 @@ public sealed class EmployeeManagementService(IEmployeeRepository repository, IP
         int actorEmployeeId,
         int targetEmployeeId,
         EmployeeAuditActionType actionType,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         repository.AddAuditEvent(
             new EmployeeAuditEvent
@@ -136,7 +180,8 @@ public sealed class EmployeeManagementService(IEmployeeRepository repository, IP
                 TargetEmployeeId = targetEmployeeId,
                 ActionType = actionType,
                 OccurredAt = DateTimeOffset.UtcNow,
-            });
+            }
+        );
         await repository.SaveChangesAsync(cancellationToken);
     }
 }

@@ -12,7 +12,6 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 {
     public void Configure(EntityTypeBuilder<Order> builder)
     {
-        builder.HasIndex(order => order.TcgplayerOrderId)
-            .IsUnique();
+        builder.HasIndex(order => order.TcgplayerOrderId).IsUnique();
     }
 }

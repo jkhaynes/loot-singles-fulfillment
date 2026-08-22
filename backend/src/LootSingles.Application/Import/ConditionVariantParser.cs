@@ -17,7 +17,8 @@ public static class ConditionVariantParser
 
         var condition = KnownConditions.FirstOrDefault(value =>
             source.Equals(value, StringComparison.OrdinalIgnoreCase)
-            || source.StartsWith($"{value} ", StringComparison.OrdinalIgnoreCase));
+            || source.StartsWith($"{value} ", StringComparison.OrdinalIgnoreCase)
+        );
 
         if (condition is null)
         {
@@ -27,7 +28,8 @@ public static class ConditionVariantParser
         var suffix = source[condition.Length..].Trim();
         return new ConditionVariant(
             condition,
-            CombineVariants(string.IsNullOrEmpty(suffix) ? null : suffix, parentheticalMarker));
+            CombineVariants(string.IsNullOrEmpty(suffix) ? null : suffix, parentheticalMarker)
+        );
     }
 
     private static string? CombineVariants(params string?[] values)

@@ -19,13 +19,21 @@ public sealed class DashboardController(DashboardService dashboardService) : Con
     {
         var readyOrders = await dashboardService.GetReadyOrderSummariesAsync(cancellationToken);
 
-        return Ok(new DashboardResponse(
-            new ReadySectionResponse(
-                readyOrders.Count,
-                readyOrders
-                    .Select(order => new OrderSummaryResponse(
-                        order.OrderId, order.TcgplayerOrderId, order.ProductCount, order.TotalQuantity))
-                    .ToList())));
+        return Ok(
+            new DashboardResponse(
+                new ReadySectionResponse(
+                    readyOrders.Count,
+                    readyOrders
+                        .Select(order => new OrderSummaryResponse(
+                            order.OrderId,
+                            order.TcgplayerOrderId,
+                            order.ProductCount,
+                            order.TotalQuantity
+                        ))
+                        .ToList()
+                )
+            )
+        );
     }
 }
 
@@ -33,4 +41,9 @@ public sealed record DashboardResponse(ReadySectionResponse Ready);
 
 public sealed record ReadySectionResponse(int Count, IReadOnlyList<OrderSummaryResponse> Orders);
 
-public sealed record OrderSummaryResponse(int OrderId, string TcgplayerOrderId, int ProductCount, int TotalQuantity);
+public sealed record OrderSummaryResponse(
+    int OrderId,
+    string TcgplayerOrderId,
+    int ProductCount,
+    int TotalQuantity
+);

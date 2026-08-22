@@ -15,7 +15,8 @@ public class LootSinglesDbContextFactory : IDesignTimeDbContextFactory<LootSingl
     {
         var optionsBuilder = new DbContextOptionsBuilder<LootSinglesDbContext>();
         optionsBuilder.UseSqlServer(
-            @"Server=(localdb)\MSSQLLocalDB;Database=LootSinglesFulfillment.Dev;Trusted_Connection=True;MultipleActiveResultSets=true");
+            @"Server=(localdb)\MSSQLLocalDB;Database=LootSinglesFulfillment.Dev;Trusted_Connection=True;MultipleActiveResultSets=true"
+        );
 
         return new LootSinglesDbContext(optionsBuilder.Options);
     }

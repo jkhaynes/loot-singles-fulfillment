@@ -7,6 +7,7 @@ namespace LootSingles.Application.Dashboard;
 /// </summary>
 public sealed class DashboardService(IDashboardRepository repository)
 {
-    public Task<IReadOnlyList<OrderSummary>> GetReadyOrderSummariesAsync(CancellationToken cancellationToken) =>
-        repository.GetReadyOrderSummariesAsync(cancellationToken);
+    public Task<IReadOnlyList<OrderSummary>> GetReadyOrderSummariesAsync(
+        CancellationToken cancellationToken
+    ) => repository.GetReadyOrderSummariesAsync(cancellationToken);
 }

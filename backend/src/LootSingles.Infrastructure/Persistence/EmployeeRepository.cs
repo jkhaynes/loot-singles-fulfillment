@@ -10,8 +10,14 @@ namespace LootSingles.Infrastructure.Persistence;
 /// </summary>
 public class EmployeeRepository(LootSinglesDbContext context) : IEmployeeRepository
 {
-    public Task<Employee?> GetByNormalizedUsernameAsync(string normalizedUsername, CancellationToken cancellationToken) =>
-        context.Employees.SingleOrDefaultAsync(employee => employee.NormalizedUsername == normalizedUsername, cancellationToken);
+    public Task<Employee?> GetByNormalizedUsernameAsync(
+        string normalizedUsername,
+        CancellationToken cancellationToken
+    ) =>
+        context.Employees.SingleOrDefaultAsync(
+            employee => employee.NormalizedUsername == normalizedUsername,
+            cancellationToken
+        );
 
     public Task<Employee?> GetByIdAsync(int id, CancellationToken cancellationToken) =>
         context.Employees.SingleOrDefaultAsync(employee => employee.Id == id, cancellationToken);
@@ -22,16 +28,25 @@ public class EmployeeRepository(LootSinglesDbContext context) : IEmployeeReposit
     public void Add(Employee employee) => context.Employees.Add(employee);
 
     public async Task<IReadOnlyList<Employee>> ListAsync(CancellationToken cancellationToken) =>
-        await context.Employees.AsNoTracking().OrderBy(employee => employee.Username).ToListAsync(cancellationToken);
+        await context
+            .Employees.AsNoTracking()
+            .OrderBy(employee => employee.Username)
+            .ToListAsync(cancellationToken);
 
     public void AddAuditEvent(EmployeeAuditEvent auditEvent) =>
         context.EmployeeAuditEvents.Add(auditEvent);
 
-    public async Task<IReadOnlyList<EmployeeAuditEvent>> GetAuditEventsAsync(int employeeId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<EmployeeAuditEvent>> GetAuditEventsAsync(
+        int employeeId,
+        CancellationToken cancellationToken
+    )
     {
-        var auditEvents = await context.EmployeeAuditEvents
-            .AsNoTracking()
-            .Where(auditEvent => auditEvent.ActorEmployeeId == employeeId || auditEvent.TargetEmployeeId == employeeId)
+        var auditEvents = await context
+            .EmployeeAuditEvents.AsNoTracking()
+            .Where(auditEvent =>
+                auditEvent.ActorEmployeeId == employeeId
+                || auditEvent.TargetEmployeeId == employeeId
+            )
             .ToListAsync(cancellationToken);
 
         // SQLite cannot translate DateTimeOffset ordering; this bounded per-employee audit set is
@@ -45,7 +60,8 @@ public class EmployeeRepository(LootSinglesDbContext context) : IEmployeeReposit
         {
             await context.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException exception) when (DuplicateKeyDetector.IsDuplicateKeyViolation(exception))
+        catch (DbUpdateException exception)
+            when (DuplicateKeyDetector.IsDuplicateKeyViolation(exception))
         {
             throw new UniqueConstraintViolationException("Username is already in use.", exception);
         }

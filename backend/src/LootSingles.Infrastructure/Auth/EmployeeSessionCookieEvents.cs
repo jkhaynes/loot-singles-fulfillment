@@ -23,7 +23,9 @@ public class EmployeeSessionCookieEvents : CookieAuthenticationEvents
         return Task.CompletedTask;
     }
 
-    public override Task RedirectToAccessDenied(RedirectContext<CookieAuthenticationOptions> context)
+    public override Task RedirectToAccessDenied(
+        RedirectContext<CookieAuthenticationOptions> context
+    )
     {
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         return Task.CompletedTask;
@@ -38,8 +40,12 @@ public class EmployeeSessionCookieEvents : CookieAuthenticationEvents
             return;
         }
 
-        var repository = context.HttpContext.RequestServices.GetRequiredService<IEmployeeRepository>();
-        var employee = await repository.GetByIdAsync(employeeId, context.HttpContext.RequestAborted);
+        var repository =
+            context.HttpContext.RequestServices.GetRequiredService<IEmployeeRepository>();
+        var employee = await repository.GetByIdAsync(
+            employeeId,
+            context.HttpContext.RequestAborted
+        );
 
         if (employee is null || !employee.IsActive)
         {

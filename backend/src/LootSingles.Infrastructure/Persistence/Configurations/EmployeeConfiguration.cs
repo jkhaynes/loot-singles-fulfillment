@@ -12,10 +12,8 @@ public class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
 {
     public void Configure(EntityTypeBuilder<Employee> builder)
     {
-        builder.Property(employee => employee.Role)
-            .HasConversion<string>();
+        builder.Property(employee => employee.Role).HasConversion<string>();
 
-        builder.HasIndex(employee => employee.NormalizedUsername)
-            .IsUnique();
+        builder.HasIndex(employee => employee.NormalizedUsername).IsUnique();
     }
 }

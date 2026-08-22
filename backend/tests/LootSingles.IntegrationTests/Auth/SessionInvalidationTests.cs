@@ -25,16 +25,34 @@ public class SessionInvalidationTests
         await SeedEmployeeAsync(factory, "sessionmanager", "1234", EmployeeRole.ManagerAdmin);
 
         using var targetClient = factory.CreateAuthenticatedClient();
-        Assert.Equal(HttpStatusCode.OK, (await targetClient.PostAsJsonAsync(
-            "/api/auth/login", new LoginRequest("sessiontarget", "1234"))).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (
+                await targetClient.PostAsJsonAsync(
+                    "/api/auth/login",
+                    new LoginRequest("sessiontarget", "1234")
+                )
+            ).StatusCode
+        );
         Assert.Equal(HttpStatusCode.OK, (await targetClient.GetAsync("/api/auth/me")).StatusCode);
 
         using var managerClient = factory.CreateAuthenticatedClient();
-        Assert.Equal(HttpStatusCode.OK, (await managerClient.PostAsJsonAsync(
-            "/api/auth/login", new LoginRequest("sessionmanager", "1234"))).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (
+                await managerClient.PostAsJsonAsync(
+                    "/api/auth/login",
+                    new LoginRequest("sessionmanager", "1234")
+                )
+            ).StatusCode
+        );
 
-        Assert.Equal(HttpStatusCode.NoContent,
-            (await managerClient.PostAsync($"/api/employees/{target.Id}/deactivate", null)).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            (
+                await managerClient.PostAsync($"/api/employees/{target.Id}/deactivate", null)
+            ).StatusCode
+        );
 
         var response = await targetClient.GetAsync("/api/auth/me");
 
@@ -42,7 +60,11 @@ public class SessionInvalidationTests
     }
 
     private static async Task<Employee> SeedEmployeeAsync(
-        AuthWebApplicationFactory factory, string username, string pin, EmployeeRole role)
+        AuthWebApplicationFactory factory,
+        string username,
+        string pin,
+        EmployeeRole role
+    )
     {
         var hasher = new Pbkdf2PinHasher();
         var employee = new Employee
@@ -71,7 +93,8 @@ public class SessionInvalidationTests
         await using var keeper = new SqliteConnection(connectionString);
         await keeper.OpenAsync();
         await using var context = new LootSinglesDbContext(
-            new DbContextOptionsBuilder<LootSinglesDbContext>().UseSqlite(connectionString).Options);
+            new DbContextOptionsBuilder<LootSinglesDbContext>().UseSqlite(connectionString).Options
+        );
         await context.Database.EnsureCreatedAsync();
 
         var employee = NewEmployee(isActive: false);
@@ -90,7 +113,8 @@ public class SessionInvalidationTests
         await using var keeper = new SqliteConnection(connectionString);
         await keeper.OpenAsync();
         await using var context = new LootSinglesDbContext(
-            new DbContextOptionsBuilder<LootSinglesDbContext>().UseSqlite(connectionString).Options);
+            new DbContextOptionsBuilder<LootSinglesDbContext>().UseSqlite(connectionString).Options
+        );
         await context.Database.EnsureCreatedAsync();
 
         var employee = NewEmployee(isActive: true);
@@ -102,33 +126,53 @@ public class SessionInvalidationTests
         Assert.NotNull(result.Principal);
     }
 
-    private static async Task<CookieValidatePrincipalContext> ValidateAsync(LootSinglesDbContext context, int employeeId)
+    private static async Task<CookieValidatePrincipalContext> ValidateAsync(
+        LootSinglesDbContext context,
+        int employeeId
+    )
     {
         var services = new ServiceCollection();
         services.AddScoped<IEmployeeRepository>(_ => new EmployeeRepository(context));
-        var httpContext = new DefaultHttpContext { RequestServices = services.BuildServiceProvider() };
+        var httpContext = new DefaultHttpContext
+        {
+            RequestServices = services.BuildServiceProvider(),
+        };
 
-        var principal = new ClaimsPrincipal(new ClaimsIdentity(
-            [new Claim(ClaimTypes.NameIdentifier, employeeId.ToString())],
-            CookieAuthenticationDefaults.AuthenticationScheme));
-        var ticket = new AuthenticationTicket(principal, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(
+            new ClaimsIdentity(
+                [new Claim(ClaimTypes.NameIdentifier, employeeId.ToString())],
+                CookieAuthenticationDefaults.AuthenticationScheme
+            )
+        );
+        var ticket = new AuthenticationTicket(
+            principal,
+            CookieAuthenticationDefaults.AuthenticationScheme
+        );
         var scheme = new AuthenticationScheme(
-            CookieAuthenticationDefaults.AuthenticationScheme, null, typeof(CookieAuthenticationHandler));
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            null,
+            typeof(CookieAuthenticationHandler)
+        );
         var validateContext = new CookieValidatePrincipalContext(
-            httpContext, scheme, new CookieAuthenticationOptions(), ticket);
+            httpContext,
+            scheme,
+            new CookieAuthenticationOptions(),
+            ticket
+        );
 
         await new EmployeeSessionCookieEvents().ValidatePrincipal(validateContext);
         return validateContext;
     }
 
-    private static Employee NewEmployee(bool isActive) => new()
-    {
-        Username = "jsmith",
-        NormalizedUsername = "JSMITH",
-        DisplayName = "Jamie Smith",
-        PinHash = "hash",
-        Role = EmployeeRole.Picker,
-        IsActive = isActive,
-        CreatedAt = DateTimeOffset.UtcNow,
-    };
+    private static Employee NewEmployee(bool isActive) =>
+        new()
+        {
+            Username = "jsmith",
+            NormalizedUsername = "JSMITH",
+            DisplayName = "Jamie Smith",
+            PinHash = "hash",
+            Role = EmployeeRole.Picker,
+            IsActive = isActive,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
 }

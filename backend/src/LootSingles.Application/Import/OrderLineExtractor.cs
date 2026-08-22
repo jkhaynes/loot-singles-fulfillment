@@ -14,18 +14,21 @@ public static partial class OrderLineExtractor
         {
             return OrderLineValidationResult.Invalid(
                 FailureType.MissingProductName,
-                $"Product description has an unexpected format: '{source.RawDescription}'.");
+                $"Product description has an unexpected format: '{source.RawDescription}'."
+            );
         }
 
         var collectorIndex = Array.FindIndex(
             segments,
             2,
-            segment => CollectorNumberPattern().IsMatch(segment));
+            segment => CollectorNumberPattern().IsMatch(segment)
+        );
         if (collectorIndex < 0)
         {
             return OrderLineValidationResult.Invalid(
                 FailureType.MissingCollectorNumber,
-                $"Product description has no collector number: '{source.RawDescription}'.");
+                $"Product description has no collector number: '{source.RawDescription}'."
+            );
         }
 
         var setAndProduct = string.Join(" - ", segments.Skip(1).Take(collectorIndex - 1));
@@ -34,16 +37,19 @@ public static partial class OrderLineExtractor
         {
             return OrderLineValidationResult.Invalid(
                 FailureType.MissingProductName,
-                $"Product description has no set/product separator: '{source.RawDescription}'.");
+                $"Product description has no set/product separator: '{source.RawDescription}'."
+            );
         }
 
         var productName = setAndProduct[(separator + 1)..].Trim();
-        var markers = ParentheticalMarkerPattern().Matches(productName)
+        var markers = ParentheticalMarkerPattern()
+            .Matches(productName)
             .Select(match => match.Value)
             .ToArray();
         var conditionAndVariant = ConditionVariantParser.Parse(
             segments[^1],
-            markers.Length == 0 ? null : string.Join(", ", markers));
+            markers.Length == 0 ? null : string.Join(", ", markers)
+        );
 
         var orderLine = new OrderLine
         {
@@ -52,9 +58,13 @@ public static partial class OrderLineExtractor
             Set = setAndProduct[..separator].Trim(),
             ProductName = productName,
             CollectorNumber = segments[collectorIndex],
-            Rarity = collectorIndex < segments.Length - 2
-                ? string.Join(" - ", segments.Skip(collectorIndex + 1).Take(segments.Length - collectorIndex - 2))
-                : null,
+            Rarity =
+                collectorIndex < segments.Length - 2
+                    ? string.Join(
+                        " - ",
+                        segments.Skip(collectorIndex + 1).Take(segments.Length - collectorIndex - 2)
+                    )
+                    : null,
             Condition = conditionAndVariant.Condition ?? string.Empty,
             Variant = conditionAndVariant.Variant,
             Quantity = int.Parse(source.QuantityText),

@@ -54,7 +54,10 @@ public class DashboardControllerTests
         Assert.Equal(5, order.TotalQuantity);
     }
 
-    private static async Task<HttpClient> LoginAsAsync(AuthWebApplicationFactory factory, EmployeeRole role)
+    private static async Task<HttpClient> LoginAsAsync(
+        AuthWebApplicationFactory factory,
+        EmployeeRole role
+    )
     {
         var hasher = new Pbkdf2PinHasher();
         var employee = new Employee
@@ -73,38 +76,55 @@ public class DashboardControllerTests
         });
 
         var client = factory.CreateAuthenticatedClient();
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("dashboarduser", "1234"));
+        var loginResponse = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest("dashboarduser", "1234")
+        );
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
         return client;
     }
 
-    private static async Task SeedReadyOrderAsync(AuthWebApplicationFactory factory, string tcgplayerOrderId, int[] quantities)
+    private static async Task SeedReadyOrderAsync(
+        AuthWebApplicationFactory factory,
+        string tcgplayerOrderId,
+        int[] quantities
+    )
     {
         await factory.SeedAsync(context =>
         {
-            context.Orders.Add(new Order
-            {
-                TcgplayerOrderId = tcgplayerOrderId,
-                Status = OrderStatus.Ready,
-                ImportedAt = DateTimeOffset.UtcNow,
-                OrderLines = quantities.Select(NewLine).ToList(),
-            });
+            context.Orders.Add(
+                new Order
+                {
+                    TcgplayerOrderId = tcgplayerOrderId,
+                    Status = OrderStatus.Ready,
+                    ImportedAt = DateTimeOffset.UtcNow,
+                    OrderLines = quantities.Select(NewLine).ToList(),
+                }
+            );
             return Task.CompletedTask;
         });
     }
 
-    private static OrderLine NewLine(int quantity) => new()
-    {
-        RawDescription = "Pikachu - Base Set - #58/102 - Common - Near Mint",
-        ProductLine = "Pokemon",
-        ProductName = "Pikachu",
-        Set = "Base Set",
-        CollectorNumber = "#58/102",
-        Condition = "Near Mint",
-        Quantity = quantity,
-    };
+    private static OrderLine NewLine(int quantity) =>
+        new()
+        {
+            RawDescription = "Pikachu - Base Set - #58/102 - Common - Near Mint",
+            ProductLine = "Pokemon",
+            ProductName = "Pikachu",
+            Set = "Base Set",
+            CollectorNumber = "#58/102",
+            Condition = "Near Mint",
+            Quantity = quantity,
+        };
 
     private sealed record DashboardResponse(ReadySectionResponse Ready);
+
     private sealed record ReadySectionResponse(int Count, List<OrderSummaryResponse> Orders);
-    private sealed record OrderSummaryResponse(int OrderId, string TcgplayerOrderId, int ProductCount, int TotalQuantity);
+
+    private sealed record OrderSummaryResponse(
+        int OrderId,
+        string TcgplayerOrderId,
+        int ProductCount,
+        int TotalQuantity
+    );
 }

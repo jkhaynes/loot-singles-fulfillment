@@ -21,12 +21,15 @@ await connection.OpenAsync();
 builder.Services.AddSingleton(connection);
 builder.Services.AddDbContext<LootSinglesDbContext>(options => options.UseSqlite(connection));
 
-builder.Services.AddControllers()
+builder
+    .Services.AddControllers()
     .AddApplicationPart(typeof(AuthController).Assembly)
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+        options.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)
+        );
     });
 builder.Services.AddScoped<IPinHasher, Pbkdf2PinHasher>();
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
@@ -39,9 +42,11 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IImportPersistence, ImportRepository>();
 builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
 builder.Services.AddScoped<IPackingSlipImportService, PackingSlipImportService>();
+
 // IOrderRepository/OrderRepository and OrdersService are registered by Phase 4 (US2) T027 once
 // those Application/Infrastructure types exist (specs/004-order-import-ui/tasks.md T022-T025).
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+builder
+    .Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
         options.Cookie.HttpOnly = true;
@@ -68,33 +73,37 @@ static async Task SeedAsync(IServiceProvider services)
     var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
     var pinHasher = scope.ServiceProvider.GetRequiredService<IPinHasher>();
     await context.Database.EnsureCreatedAsync();
-    context.Employees.Add(new Employee
-    {
-        Username = "e2emanager",
-        NormalizedUsername = "E2EMANAGER",
-        DisplayName = "E2E Manager",
-        PinHash = pinHasher.Hash("1234"),
-        Role = EmployeeRole.ManagerAdmin,
-        CreatedAt = DateTimeOffset.UtcNow,
-    });
-    context.Orders.Add(new Order
-    {
-        TcgplayerOrderId = "E2E-ORDER-00001",
-        Status = OrderStatus.Ready,
-        ImportedAt = DateTimeOffset.UtcNow,
-        OrderLines =
-        [
-            new OrderLine
-            {
-                RawDescription = "Pikachu - Base Set - #58/102 - Common - Near Mint",
-                ProductLine = "Pokemon",
-                ProductName = "Pikachu",
-                Set = "Base Set",
-                CollectorNumber = "#58/102",
-                Condition = "Near Mint",
-                Quantity = 2,
-            },
-        ],
-    });
+    context.Employees.Add(
+        new Employee
+        {
+            Username = "e2emanager",
+            NormalizedUsername = "E2EMANAGER",
+            DisplayName = "E2E Manager",
+            PinHash = pinHasher.Hash("1234"),
+            Role = EmployeeRole.ManagerAdmin,
+            CreatedAt = DateTimeOffset.UtcNow,
+        }
+    );
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00001",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow,
+            OrderLines =
+            [
+                new OrderLine
+                {
+                    RawDescription = "Pikachu - Base Set - #58/102 - Common - Near Mint",
+                    ProductLine = "Pokemon",
+                    ProductName = "Pikachu",
+                    Set = "Base Set",
+                    CollectorNumber = "#58/102",
+                    Condition = "Near Mint",
+                    Quantity = 2,
+                },
+            ],
+        }
+    );
     await context.SaveChangesAsync();
 }
