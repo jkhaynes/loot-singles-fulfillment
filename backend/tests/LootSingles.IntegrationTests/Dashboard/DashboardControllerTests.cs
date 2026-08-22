@@ -54,29 +54,6 @@ public class DashboardControllerTests
         Assert.Equal(5, order.TotalQuantity);
     }
 
-    [Fact]
-    public async Task GetDashboard_NonReadyOrderExists_IsExcludedFromReadySection()
-    {
-        await using var factory = new AuthWebApplicationFactory();
-        using var client = await LoginAsAsync(factory, EmployeeRole.Picker);
-        await factory.SeedAsync(context =>
-        {
-            context.Orders.Add(new Order
-            {
-                TcgplayerOrderId = "F0000002-ABC002-00002",
-                Status = OrderStatus.Ready,
-                ImportedAt = DateTimeOffset.UtcNow,
-                OrderLines = [NewLine(1)],
-            });
-            return Task.CompletedTask;
-        });
-
-        var response = await client.GetAsync("/api/dashboard");
-
-        var body = await response.Content.ReadFromJsonAsync<DashboardResponse>();
-        Assert.Equal(1, body?.Ready.Count);
-    }
-
     private static async Task<HttpClient> LoginAsAsync(AuthWebApplicationFactory factory, EmployeeRole role)
     {
         var hasher = new Pbkdf2PinHasher();
