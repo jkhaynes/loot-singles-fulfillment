@@ -13,7 +13,7 @@ internal static class ImportTestSupport
             .Options);
 
     public static PackingSlipImportService CreateService(LootSinglesDbContext context) =>
-        new(new PdfPigPackingSlipParser(), context);
+        new(new PdfPigPackingSlipParser(), new ImportRepository(context));
 
     public static FileStream OpenFixture(string name) => File.OpenRead(Path.Combine(
         AppContext.BaseDirectory, "Fixtures", "PackingSlips", name));

@@ -1,4 +1,5 @@
 using LootSingles.Application.Import;
+using LootSingles.Infrastructure.Persistence;
 
 namespace LootSingles.IntegrationTests.Import;
 
@@ -38,7 +39,7 @@ public class ProgressReportingTests
         const int orderCount = 200;
         var parser = new SyntheticProgressiveParser(orderCount);
         await using var context = ImportTestSupport.CreateInMemoryContext();
-        var service = new PackingSlipImportService(parser, context);
+        var service = new PackingSlipImportService(parser, new ImportRepository(context));
         await using var source = new MemoryStream([0]);
         await using var updates = service.ImportAsync(source).GetAsyncEnumerator();
 

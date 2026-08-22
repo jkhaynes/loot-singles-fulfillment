@@ -36,8 +36,7 @@ builder.Services.AddScoped<EmployeeManagementService>();
 builder.Services.AddScoped<EmployeeSessionCookieEvents>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<DashboardService>();
-builder.Services.AddScoped<IImportPersistence>(provider =>
-    provider.GetRequiredService<LootSinglesDbContext>());
+builder.Services.AddScoped<IImportPersistence, ImportRepository>();
 builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
 builder.Services.AddScoped<IPackingSlipImportService, PackingSlipImportService>();
 // IOrderRepository/OrderRepository and OrdersService are registered by Phase 4 (US2) T027 once

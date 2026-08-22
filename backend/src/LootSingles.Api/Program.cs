@@ -25,8 +25,7 @@ builder.Services.AddControllers()
 builder.Services.AddDbContext<LootSinglesDbContext>(options => options.UseSqlServer(
     builder.Configuration.GetConnectionString("LootSingles")
         ?? throw new InvalidOperationException("Connection string 'LootSingles' is required.")));
-builder.Services.AddScoped<IImportPersistence>(provider =>
-    provider.GetRequiredService<LootSinglesDbContext>());
+builder.Services.AddScoped<IImportPersistence, ImportRepository>();
 builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
 builder.Services.AddScoped<IPackingSlipImportService, PackingSlipImportService>();
 

@@ -72,20 +72,22 @@ public class DuplicateOrderTests
 
     private sealed class CoordinatedPersistence(LootSinglesDbContext inner, Barrier barrier) : IImportPersistence
     {
-        public void AddImportAttempt(ImportAttempt attempt) => inner.AddImportAttempt(attempt);
+        private readonly ImportRepository _repository = new(inner);
 
-        public void AddOrder(LootSingles.Domain.Orders.Order order) => inner.AddOrder(order);
+        public void AddImportAttempt(ImportAttempt attempt) => _repository.AddImportAttempt(attempt);
 
-        public void DiscardOrder(LootSingles.Domain.Orders.Order order) => inner.DiscardOrder(order);
+        public void AddOrder(LootSingles.Domain.Orders.Order order) => _repository.AddOrder(order);
+
+        public void DiscardOrder(LootSingles.Domain.Orders.Order order) => _repository.DiscardOrder(order);
 
         public async Task<bool> OrderExistsAsync(string id, CancellationToken cancellationToken)
         {
-            var exists = await inner.OrderExistsAsync(id, cancellationToken);
+            var exists = await _repository.OrderExistsAsync(id, cancellationToken);
             await Task.Run(() => barrier.SignalAndWait(cancellationToken), cancellationToken);
             return exists;
         }
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) =>
-            ((IImportPersistence)inner).SaveChangesAsync(cancellationToken);
+            _repository.SaveChangesAsync(cancellationToken);
     }
 }

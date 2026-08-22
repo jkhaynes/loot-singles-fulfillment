@@ -2,15 +2,18 @@ using Microsoft.EntityFrameworkCore;
 using LootSingles.Domain.Orders;
 using LootSingles.Domain.Employees;
 using LootSingles.Application.Import;
-using LootSingles.Application.Persistence;
 
 namespace LootSingles.Infrastructure.Persistence;
 
 /// <summary>
 /// EF Core DbContext for the Loot Singles fulfillment application.
 /// Provides access to all domain entities and coordinates entity type configurations.
+/// Persistence logic specific to a feature (e.g. import attempt/order mutation and duplicate-key
+/// translation) belongs in a dedicated repository over this context (see
+/// <see cref="ImportRepository"/>, <see cref="EmployeeRepository"/>, <see cref="DashboardRepository"/>),
+/// not on the DbContext itself.
 /// </summary>
-public class LootSinglesDbContext : DbContext, IImportPersistence
+public class LootSinglesDbContext : DbContext
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="LootSinglesDbContext"/> class.
@@ -47,35 +50,6 @@ public class LootSinglesDbContext : DbContext, IImportPersistence
     /// DbSet for EmployeeAuditEvent entities.
     /// </summary>
     public DbSet<EmployeeAuditEvent> EmployeeAuditEvents => Set<EmployeeAuditEvent>();
-
-    public void AddImportAttempt(ImportAttempt attempt) => ImportAttempts.Add(attempt);
-
-    public void AddOrder(Order order) => Orders.Add(order);
-
-    public void DiscardOrder(Order order)
-    {
-        foreach (var line in order.OrderLines.ToList()) Entry(line).State = EntityState.Detached;
-        Entry(order).State = EntityState.Detached;
-    }
-
-    public Task<bool> OrderExistsAsync(string tcgplayerOrderId, CancellationToken cancellationToken) =>
-        Orders.AnyAsync(order => order.TcgplayerOrderId == tcgplayerOrderId, cancellationToken);
-
-    async Task IImportPersistence.SaveChangesAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            await SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException exception) when (DuplicateKeyDetector.IsDuplicateKeyViolation(exception))
-        {
-            throw new UniqueConstraintViolationException("The order identifier already exists.", exception);
-        }
-        catch (DbUpdateException exception)
-        {
-            throw new OrderPersistenceException("The order could not be persisted atomically.", exception);
-        }
-    }
 
     /// <summary>
     /// Configures the model using the Fluent API.

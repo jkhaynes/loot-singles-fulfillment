@@ -21,7 +21,7 @@ public class AtomicPersistenceTests
             .Options;
         await using var context = new LootSinglesDbContext(options);
         await context.Database.EnsureCreatedAsync();
-        var service = new PackingSlipImportService(new PdfPigPackingSlipParser(), context);
+        var service = new PackingSlipImportService(new PdfPigPackingSlipParser(), new ImportRepository(context));
 
         var final = await ImportTestSupport.ImportFixtureAsync(
             service, "duplicate-product-line-same-order.pdf");
@@ -45,7 +45,7 @@ public class AtomicPersistenceTests
             .Options;
         await using var context = new LootSinglesDbContext(options);
         await context.Database.EnsureCreatedAsync();
-        var service = new PackingSlipImportService(new PdfPigPackingSlipParser(), context);
+        var service = new PackingSlipImportService(new PdfPigPackingSlipParser(), new ImportRepository(context));
 
         var final = await ImportTestSupport.ImportFixtureAsync(
             service, "duplicate-product-line-same-order.pdf");
@@ -66,7 +66,7 @@ public class AtomicPersistenceTests
             .Options;
         await using var context = new LootSinglesDbContext(options);
         await context.Database.EnsureCreatedAsync();
-        var service = new PackingSlipImportService(new PdfPigPackingSlipParser(), context);
+        var service = new PackingSlipImportService(new PdfPigPackingSlipParser(), new ImportRepository(context));
 
         var final = await ImportTestSupport.ImportFixtureAsync(service, "valid-multi-order-batch.pdf");
 

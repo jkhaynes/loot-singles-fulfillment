@@ -47,7 +47,7 @@ public class ValidImportTests
             .Options;
         await using var dbContext = new LootSinglesDbContext(options);
         var parser = new PdfPigPackingSlipParser();
-        IPackingSlipImportService service = new PackingSlipImportService(parser, dbContext);
+        IPackingSlipImportService service = new PackingSlipImportService(parser, new ImportRepository(dbContext));
         var fixtureNames = new[]
         {
             "valid-multi-order-batch.pdf",
