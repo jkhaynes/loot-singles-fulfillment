@@ -9,6 +9,14 @@ namespace LootSingles.Application.Auth;
 /// </summary>
 public interface IEmployeeRepository
 {
+    /// <summary>
+    /// Atomically inserts <paramref name="employee"/> only if the employee store is currently empty,
+    /// serialized cross-process so exactly one caller can win a concurrent race. Returns
+    /// <see langword="true"/> if the employee was inserted, or <see langword="false"/> if the store
+    /// already contained at least one employee (no modification is made in that case).
+    /// </summary>
+    Task<bool> TryAddFirstEmployeeAsync(Employee employee, CancellationToken cancellationToken);
+
     Task<Employee?> GetByNormalizedUsernameAsync(
         string normalizedUsername,
         CancellationToken cancellationToken

@@ -2,7 +2,6 @@ using System.Data.Common;
 using LootSingles.Application.Import;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -14,14 +13,9 @@ public class AtomicPersistenceTests
     [Fact]
     public async Task ImportAsync_LineInsertFails_RollsBackEntireOrderAndRecordsRejection()
     {
-        await using var connection = new SqliteConnection("Data Source=:memory:");
-        await connection.OpenAsync();
-        var options = new DbContextOptionsBuilder<LootSinglesDbContext>()
-            .UseSqlite(connection)
-            .AddInterceptors(new FailOrderLineInsertInterceptor())
-            .Options;
-        await using var context = new LootSinglesDbContext(options);
-        await context.Database.EnsureCreatedAsync();
+        await using var context = ImportTestSupport.CreateDatabaseContext(
+            new FailOrderLineInsertInterceptor()
+        );
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new ImportRepository(context),
@@ -44,14 +38,9 @@ public class AtomicPersistenceTests
     [Fact]
     public async Task ImportAsync_NonDuplicateFailureWhoseMessageSaysUnique_ReportsPersistenceFailure()
     {
-        await using var connection = new SqliteConnection("Data Source=:memory:");
-        await connection.OpenAsync();
-        var options = new DbContextOptionsBuilder<LootSinglesDbContext>()
-            .UseSqlite(connection)
-            .AddInterceptors(new MisleadingUniqueMessageInterceptor())
-            .Options;
-        await using var context = new LootSinglesDbContext(options);
-        await context.Database.EnsureCreatedAsync();
+        await using var context = ImportTestSupport.CreateDatabaseContext(
+            new MisleadingUniqueMessageInterceptor()
+        );
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new ImportRepository(context),
@@ -71,14 +60,9 @@ public class AtomicPersistenceTests
     [Fact]
     public async Task ImportAsync_PersistenceFailureOnOneOrder_StillPersistsSiblingOrdersInSameBatch()
     {
-        await using var connection = new SqliteConnection("Data Source=:memory:");
-        await connection.OpenAsync();
-        var options = new DbContextOptionsBuilder<LootSinglesDbContext>()
-            .UseSqlite(connection)
-            .AddInterceptors(new FailSpecificOrderLineInsertInterceptor("Orim's Chant"))
-            .Options;
-        await using var context = new LootSinglesDbContext(options);
-        await context.Database.EnsureCreatedAsync();
+        await using var context = ImportTestSupport.CreateDatabaseContext(
+            new FailSpecificOrderLineInsertInterceptor("Orim's Chant")
+        );
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new ImportRepository(context),
@@ -116,7 +100,8 @@ public class AtomicPersistenceTests
         )
         {
             if (
-                command.CommandText.Contains("INSERT INTO \"OrderLines\"", StringComparison.Ordinal)
+                eventData.CommandSource == CommandSource.SaveChanges
+                && command.CommandText.Contains("[OrderLines]", StringComparison.Ordinal)
             )
             {
                 throw new DbUpdateException("Injected order-line persistence failure.");
@@ -136,7 +121,8 @@ public class AtomicPersistenceTests
         )
         {
             if (
-                command.CommandText.Contains("INSERT INTO \"OrderLines\"", StringComparison.Ordinal)
+                eventData.CommandSource == CommandSource.SaveChanges
+                && command.CommandText.Contains("[OrderLines]", StringComparison.Ordinal)
             )
             {
                 throw new DbUpdateException(
@@ -159,7 +145,8 @@ public class AtomicPersistenceTests
         )
         {
             if (
-                command.CommandText.Contains("INSERT INTO \"OrderLines\"", StringComparison.Ordinal)
+                eventData.CommandSource == CommandSource.SaveChanges
+                && command.CommandText.Contains("[OrderLines]", StringComparison.Ordinal)
                 && command
                     .Parameters.Cast<DbParameter>()
                     .Any(parameter =>

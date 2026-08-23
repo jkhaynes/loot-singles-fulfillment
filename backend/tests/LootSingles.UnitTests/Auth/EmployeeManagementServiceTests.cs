@@ -228,6 +228,17 @@ public class EmployeeManagementServiceTests
         public List<EmployeeAuditEvent> AuditEvents { get; } = [];
         public bool ThrowDuplicateUsernameOnNextSave { get; set; }
 
+        public Task<bool> TryAddFirstEmployeeAsync(Employee employee, CancellationToken token)
+        {
+            if (Employees.Count != 0)
+            {
+                return Task.FromResult(false);
+            }
+
+            Employees.Add(employee);
+            return Task.FromResult(true);
+        }
+
         public Task<Employee?> GetByNormalizedUsernameAsync(
             string normalizedUsername,
             CancellationToken token

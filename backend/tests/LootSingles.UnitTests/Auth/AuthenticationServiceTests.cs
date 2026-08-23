@@ -219,6 +219,20 @@ public class AuthenticationServiceTests
 
         public List<EmployeeAuditEvent> AuditEvents { get; } = [];
 
+        public Task<bool> TryAddFirstEmployeeAsync(
+            Employee employee,
+            CancellationToken cancellationToken
+        )
+        {
+            if (Employees.Count != 0)
+            {
+                return Task.FromResult(false);
+            }
+
+            Employees.Add(employee);
+            return Task.FromResult(true);
+        }
+
         public Task<Employee?> GetByNormalizedUsernameAsync(
             string normalizedUsername,
             CancellationToken cancellationToken

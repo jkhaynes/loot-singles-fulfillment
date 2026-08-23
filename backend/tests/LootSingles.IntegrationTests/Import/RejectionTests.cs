@@ -18,7 +18,7 @@ public class RejectionTests
         FailureType expectedFailure
     )
     {
-        await using var context = ImportTestSupport.CreateInMemoryContext();
+        await using var context = ImportTestSupport.CreateDatabaseContext();
         var final = await ImportTestSupport.ImportFixtureAsync(
             ImportTestSupport.CreateService(context),
             fixture
@@ -35,7 +35,7 @@ public class RejectionTests
     [Fact]
     public async Task ImportAsync_CorruptedFile_RecordsUnreadablePdfWithoutOrderResults()
     {
-        await using var context = ImportTestSupport.CreateInMemoryContext();
+        await using var context = ImportTestSupport.CreateDatabaseContext();
         var final = await ImportTestSupport.ImportFixtureAsync(
             ImportTestSupport.CreateService(context),
             "corrupted-file.pdf"
@@ -50,7 +50,7 @@ public class RejectionTests
     [Fact]
     public async Task ImportAsync_ReadableNonPackingSlip_RecordsUnreadablePdfWithoutOrderResults()
     {
-        await using var context = ImportTestSupport.CreateInMemoryContext();
+        await using var context = ImportTestSupport.CreateDatabaseContext();
         var final = await ImportTestSupport.ImportFixtureAsync(
             ImportTestSupport.CreateService(context),
             "not-a-packing-slip.pdf"
@@ -69,7 +69,7 @@ public class RejectionTests
     [Fact]
     public async Task ImportAsync_SummaryMismatch_WarnsAndProcessesValidOrders()
     {
-        await using var context = ImportTestSupport.CreateInMemoryContext();
+        await using var context = ImportTestSupport.CreateDatabaseContext();
         var final = await ImportTestSupport.ImportFixtureAsync(
             ImportTestSupport.CreateService(context),
             "summary-mismatch.pdf"

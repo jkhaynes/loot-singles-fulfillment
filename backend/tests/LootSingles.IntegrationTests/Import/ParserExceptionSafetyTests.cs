@@ -20,7 +20,7 @@ public sealed class ParserExceptionSafetyTests
     [Fact]
     public async Task ParserExceptionPersistsSafeMessageAndLogsOnlySafeClassification()
     {
-        await using var context = ImportTestSupport.CreateInMemoryContext();
+        await using var context = ImportTestSupport.CreateDatabaseContext();
         var logger = new CapturingLogger<PackingSlipImportService>();
         var service = new PackingSlipImportService(
             new ThrowingParser(),

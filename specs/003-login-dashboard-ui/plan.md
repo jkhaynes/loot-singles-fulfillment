@@ -14,7 +14,7 @@ Give the already-functional login screen (from Employee Authentication) real vis
 
 **Primary Dependencies**: ASP.NET Core Web API + EF Core (backend, unchanged); React, Vite, `react-router-dom` (already an installed but unused frontend dependency — this feature still does not wire up client-side routing, see research.md §4), Vitest + React Testing Library, Playwright (frontend, unchanged)
 
-**Storage**: Same SQL Server (prod) / SQLite (integration tests) via EF Core as features 001/002 — no schema change; the Dashboard's Ready section is a read-only projection over the existing `Orders`/`OrderLines` tables
+**Storage**: Same SQL Server (prod) / SQLite (integration tests, superseded by 005-sql-server-migration — integration tests now use isolated SQL Server) via EF Core as features 001/002 — no schema change; the Dashboard's Ready section is a read-only projection over the existing `Orders`/`OrderLines` tables
 
 **Testing**: xUnit (backend unit/integration), Vitest + React Testing Library (frontend unit/component), Playwright (critical flow: login → Dashboard)
 

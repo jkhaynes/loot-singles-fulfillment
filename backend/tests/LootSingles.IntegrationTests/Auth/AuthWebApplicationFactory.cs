@@ -1,8 +1,8 @@
 using LootSingles.Infrastructure.Persistence;
+using LootSingles.IntegrationTests.Infrastructure;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -11,32 +11,31 @@ using Microsoft.Extensions.Options;
 namespace LootSingles.IntegrationTests.Auth;
 
 /// <summary>
-/// Hosts LootSingles.Api in-process against an isolated in-memory SQLite database (one per
-/// instance), so controller tests exercise the real HTTP pipeline (routing, cookie auth
-/// middleware, model binding) without depending on a real SQL Server instance.
+/// Hosts LootSingles.Api in-process against an isolated migrated SQL Server database lease.
 /// </summary>
 public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>
 {
-    private readonly SqliteConnection _keepAliveConnection;
-    private readonly string _connectionString;
+    private readonly SqlServerDatabaseLease _databaseLease;
     private readonly TimeProvider? _timeProvider;
 
     public AuthWebApplicationFactory(TimeProvider? timeProvider = null)
     {
         _timeProvider = timeProvider;
-        _connectionString = $"Data Source=auth-api-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
-        _keepAliveConnection = new SqliteConnection(_connectionString);
-        _keepAliveConnection.Open();
+        _databaseLease = SqlServerContainerFixture
+            .CreateSharedDatabaseLeaseAsync()
+            .GetAwaiter()
+            .GetResult();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseSetting("ConnectionStrings:LootSingles", _databaseLease.ConnectionString);
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<LootSinglesDbContext>>();
             services.RemoveAll<Microsoft.EntityFrameworkCore.Infrastructure.IDbContextOptionsConfiguration<LootSinglesDbContext>>();
             services.AddDbContext<LootSinglesDbContext>(options =>
-                options.UseSqlite(_connectionString)
+                options.UseSqlServer(_databaseLease.ConnectionString)
             );
             if (_timeProvider is not null)
             {
@@ -49,13 +48,13 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>
     }
 
     /// <summary>
-    /// Creates the schema on the isolated database (idempotent; safe to call with no seeding too).
+    /// Ensures the already-migrated lease can be resolved by the application host.
     /// </summary>
     public async Task EnsureDatabaseCreatedAsync()
     {
         using var scope = Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.CanConnectAsync();
     }
 
     /// <summary>
@@ -66,7 +65,6 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>
     {
         using var scope = Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
-        await context.Database.EnsureCreatedAsync();
         await seed(context);
         await context.SaveChangesAsync();
     }
@@ -85,7 +83,7 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>
         base.Dispose(disposing);
         if (disposing)
         {
-            _keepAliveConnection.Dispose();
+            _databaseLease.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
 }

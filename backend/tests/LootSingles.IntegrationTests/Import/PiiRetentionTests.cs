@@ -19,7 +19,7 @@ public class PiiRetentionTests
     [Fact]
     public async Task ImportAsync_DoesNotPersistSourceCustomerPiiInOrdersOrLines()
     {
-        await using var context = ImportTestSupport.CreateInMemoryContext();
+        await using var context = ImportTestSupport.CreateDatabaseContext();
         var service = ImportTestSupport.CreateService(context);
 
         await ImportTestSupport.ImportFixtureAsync(service, "valid-multi-order-batch.pdf");
@@ -43,7 +43,7 @@ public class PiiRetentionTests
         var sourceHash = Convert.ToHexString(SHA256.HashData(sourceBytes));
         var matchesBefore = FindFilesWithHash(Path.GetTempPath(), sourceBytes.Length, sourceHash);
 
-        await using var context = ImportTestSupport.CreateInMemoryContext();
+        await using var context = ImportTestSupport.CreateDatabaseContext();
         var service = ImportTestSupport.CreateService(context);
         await using var source = new MemoryStream(sourceBytes, writable: false);
         await foreach (var _ in service.ImportAsync(source)) { }

@@ -1,7 +1,7 @@
 using LootSingles.Application.Import;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
-using Microsoft.Data.Sqlite;
+using LootSingles.IntegrationTests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -12,7 +12,7 @@ public class DuplicateOrderTests
     [Fact]
     public async Task ImportAsync_SameFixtureTwice_RejectsDuplicatesWithoutChangingOriginalOrders()
     {
-        await using var context = ImportTestSupport.CreateInMemoryContext();
+        await using var context = ImportTestSupport.CreateDatabaseContext();
         var service = ImportTestSupport.CreateService(context);
         await ImportTestSupport.ImportFixtureAsync(service, "valid-multi-order-batch.pdf");
         var originalLines = await context
@@ -60,16 +60,10 @@ public class DuplicateOrderTests
     [Fact]
     public async Task ImportAsync_ConcurrentSameOrder_DatabaseConstraintRejectsRaceLoser()
     {
-        var databaseName = $"race-{Guid.NewGuid():N}";
-        var connectionString = $"Data Source={databaseName};Mode=Memory;Cache=Shared";
-        await using var keeper = new SqliteConnection(connectionString);
-        await keeper.OpenAsync();
-        await using (var setup = CreateSqliteContext(connectionString))
-            await setup.Database.EnsureCreatedAsync();
-
+        await using var lease = await SqlServerContainerFixture.CreateSharedDatabaseLeaseAsync();
         var barrier = new Barrier(2);
-        await using var firstContext = CreateSqliteContext(connectionString);
-        await using var secondContext = CreateSqliteContext(connectionString);
+        await using var firstContext = lease.CreateDbContext();
+        await using var secondContext = lease.CreateDbContext();
         var firstService = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new CoordinatedPersistence(firstContext, barrier),
@@ -92,20 +86,12 @@ public class DuplicateOrderTests
             )
         );
 
-        await using var verification = CreateSqliteContext(connectionString);
+        await using var verification = lease.CreateDbContext();
         Assert.Equal(1, await verification.Orders.CountAsync());
         var allResults = results.SelectMany(result => result.ImportAttempt.ImportOrderResults);
         Assert.Single(allResults, result => result.Outcome == ImportOutcome.Succeeded);
         var loser = Assert.Single(allResults, result => result.Outcome == ImportOutcome.Rejected);
         Assert.Equal(FailureType.DuplicateOrder, loser.FailureCode);
-    }
-
-    private static LootSinglesDbContext CreateSqliteContext(string connectionString)
-    {
-        var builder = new DbContextOptionsBuilder<LootSinglesDbContext>().UseSqlite(
-            connectionString
-        );
-        return new LootSinglesDbContext(builder.Options);
     }
 
     private sealed class CoordinatedPersistence(LootSinglesDbContext inner, Barrier barrier)

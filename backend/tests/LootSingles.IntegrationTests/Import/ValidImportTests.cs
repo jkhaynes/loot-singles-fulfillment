@@ -43,10 +43,7 @@ public class ValidImportTests
     [Fact]
     public async Task ImportAsync_ValidAndDuplicateLineFixtures_PersistsEveryOrderAndSourceRow()
     {
-        var options = new DbContextOptionsBuilder<LootSinglesDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        await using var dbContext = new LootSinglesDbContext(options);
+        await using var dbContext = ImportTestSupport.CreateDatabaseContext();
         var parser = new PdfPigPackingSlipParser();
         IPackingSlipImportService service = new PackingSlipImportService(
             parser,

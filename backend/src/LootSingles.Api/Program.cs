@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using LootSingles.Api;
 using LootSingles.Api.Controllers;
 using LootSingles.Application.Auth;
 using LootSingles.Application.Dashboard;
@@ -31,11 +32,15 @@ builder
 builder.Services.Configure<FormOptions>(options =>
     options.MultipartBodyLengthLimit = ImportsController.MaximumFileBytes + 1_048_576
 );
+var databaseConnectionString = builder.Configuration.GetConnectionString("LootSingles");
+if (string.IsNullOrWhiteSpace(databaseConnectionString))
+{
+    throw new InvalidOperationException(
+        "Configuration key 'ConnectionStrings:LootSingles' is required."
+    );
+}
 builder.Services.AddDbContext<LootSinglesDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("LootSingles")
-            ?? throw new InvalidOperationException("Connection string 'LootSingles' is required.")
-    )
+    options.UseSqlServer(databaseConnectionString)
 );
 builder.Services.AddScoped<IImportPersistence, ImportRepository>();
 builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
@@ -53,6 +58,8 @@ if (lockoutOptions.FailedAttemptThreshold < 1)
 builder.Services.AddSingleton(lockoutOptions);
 builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddScoped<EmployeeManagementService>();
+builder.Services.AddScoped<BootstrapAdminService>();
+builder.Services.AddScoped<BootstrapAdminCommand>();
 builder.Services.AddScoped<EmployeeSessionCookieEvents>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<DashboardService>();
@@ -72,6 +79,14 @@ builder
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+if (args.Length == 1 && string.Equals(args[0], "bootstrap-admin", StringComparison.Ordinal))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var command = scope.ServiceProvider.GetRequiredService<BootstrapAdminCommand>();
+    Environment.ExitCode = await command.ExecuteAsync(Console.Out, CancellationToken.None);
+    return;
+}
 
 // Configure the HTTP request pipeline.
 app.UseHttpsRedirection();

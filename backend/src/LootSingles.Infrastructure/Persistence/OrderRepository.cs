@@ -7,8 +7,10 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
 {
     public async Task<IReadOnlyList<OrderListItem>> GetAllAsync(CancellationToken cancellationToken)
     {
-        var orders = await context
+        return await context
             .Orders.AsNoTracking()
+            .OrderByDescending(order => order.ImportedAt)
+            .ThenBy(order => order.TcgplayerOrderId)
             .Select(order => new OrderListItem(
                 order.Id,
                 order.TcgplayerOrderId,
@@ -16,12 +18,5 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                 order.ImportedAt
             ))
             .ToListAsync(cancellationToken);
-
-        // SQLite cannot translate DateTimeOffset ordering. Sort after projecting and
-        // materializing so integration SQLite and production SQL Server behave identically.
-        return orders
-            .OrderByDescending(order => order.ImportedAt)
-            .ThenBy(order => order.TcgplayerOrderId, StringComparer.Ordinal)
-            .ToList();
     }
 }

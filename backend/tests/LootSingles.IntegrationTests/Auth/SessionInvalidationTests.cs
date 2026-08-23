@@ -6,10 +6,10 @@ using LootSingles.Application.Auth;
 using LootSingles.Domain.Employees;
 using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Persistence;
+using LootSingles.IntegrationTests.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -89,13 +89,8 @@ public class SessionInvalidationTests
     [Fact]
     public async Task ValidatePrincipal_EmployeeDeactivatedSinceIssuance_RejectsThePrincipal()
     {
-        var connectionString = $"Data Source=session-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
-        await using var keeper = new SqliteConnection(connectionString);
-        await keeper.OpenAsync();
-        await using var context = new LootSinglesDbContext(
-            new DbContextOptionsBuilder<LootSinglesDbContext>().UseSqlite(connectionString).Options
-        );
-        await context.Database.EnsureCreatedAsync();
+        await using var lease = await SqlServerContainerFixture.CreateSharedDatabaseLeaseAsync();
+        await using var context = lease.CreateDbContext();
 
         var employee = NewEmployee(isActive: false);
         context.Employees.Add(employee);
@@ -109,13 +104,8 @@ public class SessionInvalidationTests
     [Fact]
     public async Task ValidatePrincipal_EmployeeStillActive_AcceptsThePrincipal()
     {
-        var connectionString = $"Data Source=session-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
-        await using var keeper = new SqliteConnection(connectionString);
-        await keeper.OpenAsync();
-        await using var context = new LootSinglesDbContext(
-            new DbContextOptionsBuilder<LootSinglesDbContext>().UseSqlite(connectionString).Options
-        );
-        await context.Database.EnsureCreatedAsync();
+        await using var lease = await SqlServerContainerFixture.CreateSharedDatabaseLeaseAsync();
+        await using var context = lease.CreateDbContext();
 
         var employee = NewEmployee(isActive: true);
         context.Employees.Add(employee);
