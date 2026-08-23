@@ -61,7 +61,7 @@
 
 ### Tests for User Story 2
 
-- [ ] T014 [US2] Add a test asserting a fully successful multi-order import (e.g., `valid-multi-order-batch.pdf`) produces exactly one `Information`-level log entry, asserting the structured state contains a non-zero `ImportId` and the detected/succeeded counts, and that no `Warning`/`Error` entry is produced, in `backend/tests/LootSingles.IntegrationTests/Import/ImportLoggingTests.cs`. This test is expected to pass immediately once Phase 2 (T009–T011) lands, since `LogCompletion`'s Information branch is implemented as part of that same helper — it exists to give User Story 2 its own independent acceptance verification, not to drive additional production code
+- [X] T014 [US2] Add a test asserting a fully successful multi-order import (e.g., `valid-multi-order-batch.pdf`) produces exactly one `Information`-level log entry, asserting the structured state contains a non-zero `ImportId` and the detected/succeeded counts, and that no `Warning`/`Error` entry is produced, in `backend/tests/LootSingles.IntegrationTests/Import/ImportLoggingTests.cs`. This test is expected to pass immediately once Phase 2 (T009–T011) lands, since `LogCompletion`'s Information branch is implemented as part of that same helper — it exists to give User Story 2 its own independent acceptance verification, not to drive additional production code
 
 **Checkpoint**: Both the failure-diagnosis (US1) and steady-state-confirmation (US2) log behaviors are covered by passing tests.
 

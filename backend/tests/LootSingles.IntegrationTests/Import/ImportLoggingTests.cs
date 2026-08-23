@@ -86,6 +86,30 @@ public class ImportLoggingTests
     }
 
     [Fact]
+    public async Task ImportAsync_FullySuccessfulImport_ProducesInformationCompletionLogOnly()
+    {
+        await using var context = ImportTestSupport.CreateDatabaseContext();
+        var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var service = new PackingSlipImportService(
+            new PdfPigPackingSlipParser(),
+            new ImportRepository(context),
+            logger
+        );
+
+        var final = await ImportTestSupport.ImportFixtureAsync(
+            service,
+            "valid-multi-order-batch.pdf"
+        );
+
+        Assert.NotEqual(0, final.ImportAttempt.Id);
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Information, entry.Level);
+        Assert.Equal(final.ImportAttempt.Id, entry.GetState<int>("ImportId"));
+        Assert.Equal(13, entry.GetState<int>("OrdersDetected"));
+        Assert.Equal(13, entry.GetState<int>("OrdersSucceeded"));
+    }
+
+    [Fact]
     public async Task ImportAsync_CancelledMidBatch_ProducesNoWarningOrErrorLogEntry()
     {
         await using var context = ImportTestSupport.CreateDatabaseContext();
