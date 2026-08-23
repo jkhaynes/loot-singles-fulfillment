@@ -1,21 +1,19 @@
 <!--
 Sync Impact Report
-Version change: 3.2.0 → 3.3.0
-MINOR — strengthened Principle XIII's duplication-consolidation guidance from a SHOULD to a MUST,
-with an explicit trigger and required action, and cross-referenced it from Principle III so the
-required consolidation is not mistaken for the unrelated refactoring that principle forbids
-bundling into a feature. No Core Principle (I-XIII) was removed or redefined in a way that
-weakens governance.
+Version change: 3.3.0 → 3.4.0
+MINOR — extended Principle XI (Reliability During Fulfillment) with a durable production-logging
+standard: important events/failures must be evaluated for whether they warrant logging, and where
+warranted, logged via ASP.NET Core's `ILogger<T>` directly (structured, console/stdout only), with
+no third-party/paid logging platform, no custom logging abstraction, no PII/secrets in logs, and
+proportional (not per-step) log volume. This is a material expansion of existing guidance within an
+existing principle, not a new numbered principle or section, and does not remove or weaken any
+existing governance.
 
 Modified principles:
-  III. Small, Reviewable Changes — added a cross-reference clarifying that consolidating a
-    newly-recognized duplicate concept per Principle XIII is in-scope for the current change, not
-    unrelated refactoring, provided it is captured as a task for traceability.
-  XIII. Simplicity and Proportional Abstraction — the duplication-consolidation guidance was
-    strengthened from SHOULD to MUST: once a second concrete use case shows an existing type,
-    helper, or abstraction already solves the same problem a change is about to duplicate, the
-    design MUST consolidate into a shared implementation as part of that same change, not as a
-    new one-off duplicate and not deferred to a future task.
+  XI. Reliability During Fulfillment — added a paragraph requiring production logging to be
+    evaluated for important events/failures and, where warranted, implemented via `ILogger<T>`
+    directly with console/stdout-only output, no paid/third-party logging platform, no custom
+    logging abstraction, no PII/secret content, and proportional volume.
 
 Added sections:
   None.
@@ -24,14 +22,14 @@ Removed sections:
   None.
 
 Rationale:
-During code-design-review follow-up work on feature 002-employee-authentication, a fix introduced
-a new `DuplicateUsernameException` that duplicated the exact purpose of the already-existing
-`OrderPersistenceException` from feature 001 (both translate a provider-specific database
-unique-constraint exception into a typed Application-layer exception, per Principle XII's rule
-against Application/Domain code depending on EF Core types directly). The Developer's correction —
-don't recreate an object the codebase already has; once there is more than one use case, refactor
-it as part of the current work — is now a durable, checkable constitution rule rather than a
-one-off note, so it is enforced consistently across future features and reviews.
+Feature 006-production-logging added basic `ILogger<T>` console logging for order import, decided
+via its own Spec Kit clarification/planning. The Developer asked that this become a standing
+practice future features are evaluated against, not a one-off decision — so the same constraint the
+feature settled on (built-in `ILogger<T>` only, console/stdout only, no paid platform, no custom
+abstraction, no PII/secrets, proportional volume) is now a durable, checkable constitution rule that
+`/speckit-plan`'s Architecture and Changeability Review and `/code-design-review` check on every
+future feature, consistent with Principle XI's existing "failure modes MUST be explicit and
+observable" requirement.
 
 Follow-up TODOs: None.
 -->
@@ -171,6 +169,8 @@ Low and predictable infrastructure cost is preferred, but cost optimization MUST
 Reliability during active fulfillment work takes priority over marginal cost savings.
 
 Failure modes that affect fulfillment MUST be explicit and observable. The application MUST NOT report an operation as successful when required persistence, validation, concurrency enforcement, or authoritative processing has failed.
+
+When implementing or materially changing application behavior, the design MUST evaluate whether important events and failures warrant production logging. Where warranted, they MUST be logged through ASP.NET Core's built-in `ILogger<T>` (constructor-injected per class, structured logging) writing to console/stdout only; no third-party or paid logging platform (for example Serilog, Application Insights, Log Analytics, Seq, or Datadog) and no custom logging abstraction (for example an `ILoggingService`) MAY be introduced. Logs MUST NOT contain customer PII, raw imported-document content, passwords, PINs, tokens, connection strings, or other secrets, and MUST stay proportional to meaningful attempt- and outcome-level events rather than every parsing step, loop iteration, or method call.
 
 ### XII. Maintainable and Extensible Design
 
@@ -422,4 +422,4 @@ Safety-related principles, including Sections V, VI, and VII, MUST NOT be weaken
 
 Changes to maintainability or simplicity principles MUST preserve the balance between reasonable extensibility and avoiding speculative over-engineering.
 
-**Version**: 3.3.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-21
+**Version**: 3.4.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-23
