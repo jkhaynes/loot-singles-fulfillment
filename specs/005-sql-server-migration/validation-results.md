@@ -98,3 +98,119 @@ T042 external gate: **PENDING — NOT EXECUTED**. No Azure resource was provisio
 - Secret-safe review: the concurrency and hardened process tests assert (and re-verified by inspection)
   that the initial PIN, PIN hash, and connection string never appear in captured process/command
   output; no PIN, hash, or connection string was written to this file or any tracked file.
+
+## Phase 6 zero-SQLite audit (FR-002/SC-001)
+
+- Ran the quickstart.md removal-audit search repository-wide. Zero matches in any `.cs`, `.csproj`,
+  `.json`, or other source/config file — no active SQLite package reference, API usage, connection
+  branch, or tracked `.db` artifact remains anywhere in `backend/` or `frontend/`.
+- Sixteen textual matches remained, all in documentation, and were individually classified:
+  - Six were stale current-guidance statements in earlier features' spec artifacts describing SQLite
+    as the present integration-test/E2E provider or explaining a SQLite-driven workaround as if still
+    active: `specs/001-tcgplayer-order-import/tasks.md` (T054), `specs/003-login-dashboard-ui/plan.md`,
+    `specs/003-login-dashboard-ui/data-model.md`, `specs/003-login-dashboard-ui/tasks.md` (T016, T030),
+    `specs/003-login-dashboard-ui/validation-results.md`, and `specs/004-order-import-ui/tasks.md`
+    (T026). Each was rewritten to state SQLite as the historical, at-the-time provider and name
+    005-sql-server-migration as the feature that superseded it (restoring SQL-translated ordering
+    where the original workaround affected behavior), without altering what the original completed
+    task actually did.
+  - Nine were this feature's own removal-decision records (`specs/005-sql-server-migration/spec.md`,
+    `plan.md`, `research.md`, `tasks.md`, `validation-results.md`, `quickstart.md`, and
+    `contracts/database-environments.md`), which FR-002 explicitly permits for documenting the
+    removal, preventing reintroduction, and defining this audit — left unchanged.
+  - One was a false positive: `.gitignore`'s `Thumbs.db` (Windows OS artifact ignore pattern,
+    unrelated to any database provider) and its identical mention inside the vendored Spec Kit
+    `speckit-implement` skill files (`.claude/skills/...`, `.agents/skills/...`) — not project
+    architecture guidance, left unchanged.
+- README.md and `contracts/database-environments.md` (T055) were reviewed against current behavior;
+  both already accurately describe the SQL Server-only environment matrix, configuration contract,
+  and bootstrap flow from earlier Phase 5 work, so no further edit was needed.
+- Result: zero active SQLite usage remains; every remaining textual mention is confined to this
+  feature's removal history/audit definitions or unrelated OS-artifact ignore patterns, satisfying
+  SC-001.
+
+## Phase 6 full regression evidence
+
+Commands run from the repository root:
+
+```powershell
+dotnet build backend/LootSingles.sln
+dotnet test backend/tests/LootSingles.UnitTests/LootSingles.UnitTests.csproj
+dotnet test backend/tests/LootSingles.IntegrationTests/LootSingles.IntegrationTests.csproj
+dotnet csharpier check backend
+npm --prefix frontend test -- --run
+npm --prefix frontend run build
+npm --prefix frontend run lint
+npm --prefix frontend run format:check
+npm --prefix frontend run test:e2e
+```
+
+Results:
+
+- Backend solution build: 0 warnings, 0 errors.
+- Backend unit suite: 74 passed, 0 failed.
+- Backend SQL Server integration suite: 92 passed, 0 failed (disposable Testcontainers SQL Server;
+  no Azure contact).
+- CSharpier: 128 files checked, all already formatted.
+- Frontend unit/component suite (Vitest): 6 test files, 37 tests passed, 0 failed.
+- Frontend production build (`tsc -b && vite build`): succeeded.
+- Frontend lint (oxlint): 0 errors; one pre-existing `react(only-export-components)` warning in
+  `frontend/src/features/auth/AuthContext.tsx`, unrelated to this feature (this feature made no
+  frontend changes).
+- Frontend format check (Prettier): all matched files already conform.
+- Playwright E2E (against the SQL Server-backed `LootSingles.E2EHost`): 7 passed, 0 failed
+  (login, wrong-PIN, order-import guard/cancellation, mobile-viewport responsiveness, mixed
+  packing-slip import at two viewports).
+
+## Phase 6 FR-014 security review
+
+- Re-ran the CI tracked-secret regression pattern
+  (`(Password|Pwd|User ID|AccountKey|SharedAccessSignature)\s*=`) against all tracked `*.json`,
+  `*.md`, `*.yml`, `*.yaml`, and `*.cs` files: zero matches.
+- Searched all tracked files for connection-string shapes (`Server=`, `Data Source=`,
+  `Initial Catalog=`, `*.database.windows.net`): every match is a synthetic test literal
+  (`Server=configuration-test.invalid`, `Server=unused`, or an assertion that a real value is
+  absent from command output) in `DatabaseConfigurationTests.cs`, `OrderConfigurationTests.cs`, and
+  `BootstrapAdminCommandTests.cs` — no real server name, credential, or usable connection string is
+  committed anywhere in the repository.
+- Reviewed `backend/src/LootSingles.Api/appsettings.json` (the only tracked `appsettings*.json`):
+  contains no `ConnectionStrings` section and no secret.
+- Advisory, not a repository finding: this development machine has a local, git-ignored
+  `backend/src/LootSingles.Api/appsettings.Development.json` (matched by `.gitignore` line 22, never
+  tracked) containing a passwordless `(localdb)\MSSQLLocalDB` connection string. It commits nothing
+  and contains no credential, so it does not violate FR-014, but because ASP.NET Core loads
+  `appsettings.{Environment}.json` before Secret Manager, it would supply a working connection string
+  locally on this machine even when `ConnectionStrings:LootSingles` is unset in Secret Manager,
+  masking the "missing configuration fails startup" behavior only in that local scenario. No code or
+  repository change is required; flagged for the developer's awareness only.
+- No container logs, CI output, or fixture files contain a PIN, PIN hash, or credential; the
+  bootstrap process tests (T044, T052) and the tracked-secret CI step provide ongoing regression
+  coverage.
+
+## Phase 6 constitution Architecture and Changeability Review (post-implementation)
+
+Re-evaluated every significant component against the plan's original architecture table and the
+constitution's ten review points, including the components added after planning to finish US3
+(`BootstrapAdminService`, `BootstrapAdminCommand`, `EmployeeRepository.TryAddFirstEmployeeAsync`):
+
+- **API registration / design-time factory / migrations / test fixture / database lease /
+  WebApplicationFactory / E2E host / repositories / Azure dev configuration**: implementation matches
+  the plan's boundaries and dependency directions with no drift; SQL Server specifics remain confined
+  to Infrastructure and test infrastructure, Domain/Application stay provider-free, and no
+  `IDatabaseProvider`, SQLite fallback, or reusable-container state was introduced.
+- **`BootstrapAdminService`** (Application): single responsibility (validate, build the candidate
+  employee, delegate the atomic first-employee race), depends only on `IEmployeeRepository`/
+  `IPinHasher` abstractions, returns a typed `BootstrapAdminOutcome` rather than exposing exception
+  text, and is unit-testable with a fake repository — no infrastructure dependency leaked into
+  Application.
+- **`BootstrapAdminCommand`** (Api): depends directly on `LootSinglesDbContext` for `MigrateAsync`,
+  consistent with the already-established pattern of `Program.cs` composing Infrastructure directly
+  at the Api/composition-root boundary; the broad catch that emits only a sanitized message is a
+  deliberate, documented boundary enforcing FR-014, not an accidental swallow.
+- **`EmployeeRepository.TryAddFirstEmployeeAsync`**: confines the SQL Server-specific
+  `sp_getapplock` mechanism to Infrastructure behind the existing repository abstraction; reuses the
+  existing `SaveChangesAsync`/`DuplicateKeyDetector` duplicate-translation path rather than
+  duplicating that catch logic (Principle XIII's duplication-consolidation rule), and is verified by
+  a real two-process SQL Server concurrency test (T050) because the guarantee cannot be meaningfully
+  faked at the unit level.
+- **No Must Fix findings.** No new task is required. Convergence verification may proceed.

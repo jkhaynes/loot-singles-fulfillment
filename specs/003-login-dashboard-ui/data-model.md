@@ -33,7 +33,7 @@ Orders
   -- then ordered by ImportedAt and mapped to OrderSummary after materialization
 ```
 
-No pagination (matches the existing unpaginated `GET /api/employees` precedent at this project's scale, plan.md Scale/Scope). No ordering requirement is specified by the spec; a stable, deterministic order (oldest-ready-first, by `ImportedAt`) is a reasonable implementation default, not a functional requirement. The ordering is applied after materialization rather than via a SQL `ORDER BY`, because SQLite (used in integration tests) cannot translate ordering on `DateTimeOffset` — the same constraint already documented for `EmployeeRepository.GetAuditEventsAsync` in feature 002.
+No pagination (matches the existing unpaginated `GET /api/employees` precedent at this project's scale, plan.md Scale/Scope). No ordering requirement is specified by the spec; a stable, deterministic order (oldest-ready-first, by `ImportedAt`) is a reasonable implementation default, not a functional requirement. At the time this feature was implemented, the ordering was applied after materialization rather than via a SQL `ORDER BY`, because SQLite (used in integration tests) could not translate ordering on `DateTimeOffset` — the same constraint documented for `EmployeeRepository.GetAuditEventsAsync` in feature 002. 005-sql-server-migration removed SQLite from integration tests and restored a SQL-translated `OrderBy`/`ThenBy` in `DashboardRepository.GetReadyOrderSummariesAsync` before materialization, since SQL Server has no such translation limitation.
 
 ## In Progress / Needs Attention / Picked
 

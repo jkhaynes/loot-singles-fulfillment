@@ -1,7 +1,7 @@
 # Validation Results: Login Page and Dashboard UI Design
 
 **Date**: 2026-08-21
-**Performed against**: `frontend` dev server (`npm run dev`, `http://localhost:5173`) proxying to `backend/tests/LootSingles.E2EHost` (the same seeded SQLite in-memory host used by the Playwright suite), driven via live browser interaction. This substitutes for a full SQL Server/LocalDB dev instance — the seeded data (one `e2emanager` / ManagerAdmin employee, one Ready order `E2E-ORDER-00001` with one product line, quantity 2) is equivalent to quickstart.md's prerequisites.
+**Performed against**: `frontend` dev server (`npm run dev`, `http://localhost:5173`) proxying to `backend/tests/LootSingles.E2EHost` (at the time, the same seeded SQLite in-memory host used by the Playwright suite; 005-sql-server-migration later moved the E2E host to a disposable migrated SQL Server database), driven via live browser interaction. This substituted for a full SQL Server/LocalDB dev instance — the seeded data (one `e2emanager` / ManagerAdmin employee, one Ready order `E2E-ORDER-00001` with one product line, quantity 2) is equivalent to quickstart.md's prerequisites.
 
 Each scenario below references quickstart.md's numbering.
 

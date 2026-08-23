@@ -134,12 +134,12 @@
 
 **Purpose**: Remove stale compatibility guidance and prove repository-wide completion.
 
-- [ ] T054 [P] Rewrite stale SQLite architecture/workaround references without changing completed-task meaning in `specs/001-tcgplayer-order-import/tasks.md`, `specs/003-login-dashboard-ui/plan.md`, `specs/003-login-dashboard-ui/data-model.md`, `specs/003-login-dashboard-ui/tasks.md`, `specs/003-login-dashboard-ui/validation-results.md`, and `specs/004-order-import-ui/tasks.md`
-- [ ] T055 [P] Update current database/test instructions and environment matrix in `README.md` and `specs/005-sql-server-migration/contracts/database-environments.md`
-- [ ] T056 Run the repository-wide FR-002/SC-001 search from `specs/005-sql-server-migration/quickstart.md`, classify every match, remove all active SQLite package/API/configuration/branch/workaround/test-host/fixture/`.db`/current-guidance matches, and record that any remainder is confined to this feature's removal history or audit definitions in `specs/005-sql-server-migration/validation-results.md`
-- [ ] T057 Run backend build, unit tests, SQL Server integration tests, CSharpier, frontend tests/build/lint/Prettier, and Playwright; record commands/counts/results in `specs/005-sql-server-migration/validation-results.md`
-- [ ] T058 Review container logs, CI output, docs, fixtures, and tracked configuration for credentials/connection strings and record the FR-014 security review in `specs/005-sql-server-migration/validation-results.md`
-- [ ] T059 Perform the constitution Architecture and Changeability Review against the implemented boundaries, capture any Must Fix findings as new tasks in `specs/005-sql-server-migration/tasks.md`, and do not proceed to convergence until resolved
+- [X] T054 [P] Rewrite stale SQLite architecture/workaround references without changing completed-task meaning in `specs/001-tcgplayer-order-import/tasks.md`, `specs/003-login-dashboard-ui/plan.md`, `specs/003-login-dashboard-ui/data-model.md`, `specs/003-login-dashboard-ui/tasks.md`, `specs/003-login-dashboard-ui/validation-results.md`, and `specs/004-order-import-ui/tasks.md`
+- [X] T055 [P] Update current database/test instructions and environment matrix in `README.md` and `specs/005-sql-server-migration/contracts/database-environments.md`
+- [X] T056 Run the repository-wide FR-002/SC-001 search from `specs/005-sql-server-migration/quickstart.md`, classify every match, remove all active SQLite package/API/configuration/branch/workaround/test-host/fixture/`.db`/current-guidance matches, and record that any remainder is confined to this feature's removal history or audit definitions in `specs/005-sql-server-migration/validation-results.md`
+- [X] T057 Run backend build, unit tests, SQL Server integration tests, CSharpier, frontend tests/build/lint/Prettier, and Playwright; record commands/counts/results in `specs/005-sql-server-migration/validation-results.md`
+- [X] T058 Review container logs, CI output, docs, fixtures, and tracked configuration for credentials/connection strings and record the FR-014 security review in `specs/005-sql-server-migration/validation-results.md`
+- [X] T059 Perform the constitution Architecture and Changeability Review against the implemented boundaries, capture any Must Fix findings as new tasks in `specs/005-sql-server-migration/tasks.md`, and do not proceed to convergence until resolved
 
 ---
 
