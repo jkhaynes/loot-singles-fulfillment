@@ -44,22 +44,22 @@
 
 ### Tests for User Story 1
 
-- [ ] T008 [P] [US1] Add failing clean-database migration-history and current-model validation tests, including applied migration order, in `backend/tests/LootSingles.IntegrationTests/Persistence/MigrationTests.cs`
-- [ ] T009 [P] [US1] Add failing SQL Server schema behavior tests for unique indexes, foreign keys, cascade behavior, and behaviorally relevant indexes in `backend/tests/LootSingles.IntegrationTests/Persistence/SqlServerSchemaTests.cs`
-- [ ] T010 [P] [US1] Add failing transaction rollback and multi-entity atomicity tests using a SQL Server lease in `backend/tests/LootSingles.IntegrationTests/Persistence/SqlServerTransactionTests.cs`
-- [ ] T011 [P] [US1] Add failing concurrent duplicate-order and normalized-username tests that assert stable application-level outcomes under SQL Server error 2601/2627 behavior in `backend/tests/LootSingles.IntegrationTests/Persistence/SqlServerConcurrencyTests.cs`
-- [ ] T012 [P] [US1] Add failing SQL Server translation/order tests for `OrderRepository`, `DashboardRepository`, and `EmployeeRepository`, including `DateTimeOffset` values and deterministic tie-breakers, in `backend/tests/LootSingles.IntegrationTests/Persistence/SqlServerQueryTranslationTests.cs`
-- [ ] T013 [US1] Run T008–T012 before production edits and record each expected Red failure reason in `specs/005-sql-server-migration/validation-results.md`
+- [X] T008 [P] [US1] Add failing clean-database migration-history and current-model validation tests, including applied migration order, in `backend/tests/LootSingles.IntegrationTests/Persistence/MigrationTests.cs`
+- [X] T009 [P] [US1] Add failing SQL Server schema behavior tests for unique indexes, foreign keys, cascade behavior, and behaviorally relevant indexes in `backend/tests/LootSingles.IntegrationTests/Persistence/SqlServerSchemaTests.cs`
+- [X] T010 [P] [US1] Add failing transaction rollback and multi-entity atomicity tests using a SQL Server lease in `backend/tests/LootSingles.IntegrationTests/Persistence/SqlServerTransactionTests.cs`
+- [X] T011 [P] [US1] Add failing concurrent duplicate-order and normalized-username tests that assert stable application-level outcomes under SQL Server error 2601/2627 behavior in `backend/tests/LootSingles.IntegrationTests/Persistence/SqlServerConcurrencyTests.cs`
+- [X] T012 [P] [US1] Add failing SQL Server translation/order tests for `OrderRepository`, `DashboardRepository`, and `EmployeeRepository`, including `DateTimeOffset` values and deterministic tie-breakers, in `backend/tests/LootSingles.IntegrationTests/Persistence/SqlServerQueryTranslationTests.cs`
+- [X] T013 [US1] Run T008–T012 before production edits and record each expected Red failure reason in `specs/005-sql-server-migration/validation-results.md`
 
 ### Implementation for User Story 1
 
-- [ ] T014 [P] [US1] Replace client-side order-list sorting with SQL-translated ordering before projection/materialization in `backend/src/LootSingles.Infrastructure/Persistence/OrderRepository.cs` to pass the order portion of T012
-- [ ] T015 [P] [US1] Replace client-side Ready-dashboard sorting with SQL-translated deterministic ordering before projection/materialization in `backend/src/LootSingles.Infrastructure/Persistence/DashboardRepository.cs` to pass the dashboard portion of T012
-- [ ] T016 [P] [US1] Replace client-side audit sorting with SQL-translated deterministic ordering before materialization in `backend/src/LootSingles.Infrastructure/Persistence/EmployeeRepository.cs` to pass the audit portion of T012
-- [ ] T017 [US1] Remove SQLite reflection/branches and retain typed SQL Server 2601/2627 duplicate detection in `backend/src/LootSingles.Infrastructure/Persistence/DuplicateKeyDetector.cs` to pass T011
-- [ ] T018 [US1] Correct the existing SQL Server migrations/model snapshot only if T008–T010 prove a mismatch, adding a forward migration under `backend/src/LootSingles.Infrastructure/Persistence/Migrations/` rather than rebasing history
-- [ ] T019 [US1] Remove SQLite compatibility wording from the application-level persistence exception contract in `backend/src/LootSingles.Application/Persistence/UniqueConstraintViolationException.cs`
-- [ ] T020 [US1] Run T008–T012 and the affected repository/import/authentication tests against SQL Server and append Green evidence to `specs/005-sql-server-migration/validation-results.md`
+- [X] T014 [P] [US1] Replace client-side order-list sorting with SQL-translated ordering before projection/materialization in `backend/src/LootSingles.Infrastructure/Persistence/OrderRepository.cs` to pass the order portion of T012
+- [X] T015 [P] [US1] Replace client-side Ready-dashboard sorting with SQL-translated deterministic ordering before projection/materialization in `backend/src/LootSingles.Infrastructure/Persistence/DashboardRepository.cs` to pass the dashboard portion of T012
+- [X] T016 [P] [US1] Replace client-side audit sorting with SQL-translated deterministic ordering before materialization in `backend/src/LootSingles.Infrastructure/Persistence/EmployeeRepository.cs` to pass the audit portion of T012
+- [X] T017 [US1] Remove SQLite reflection/branches and retain typed SQL Server 2601/2627 duplicate detection in `backend/src/LootSingles.Infrastructure/Persistence/DuplicateKeyDetector.cs` to pass T011
+- [X] T018 [US1] Correct the existing SQL Server migrations/model snapshot only if T008–T010 prove a mismatch, adding a forward migration under `backend/src/LootSingles.Infrastructure/Persistence/Migrations/` rather than rebasing history
+- [X] T019 [US1] Remove SQLite compatibility wording from the application-level persistence exception contract in `backend/src/LootSingles.Application/Persistence/UniqueConstraintViolationException.cs`
+- [X] T020 [US1] Run T008–T012 and the affected repository/import/authentication tests against SQL Server and append Green evidence to `specs/005-sql-server-migration/validation-results.md`
 
 **Checkpoint**: The application persistence implementation is SQL Server-specific, migrations create the expected schema, and production queries no longer materialize for SQLite compatibility.
 

@@ -15,24 +15,17 @@ public sealed class DashboardRepository(LootSinglesDbContext context) : IDashboa
         CancellationToken cancellationToken
     )
     {
-        var readyOrders = await context
+        return await context
             .Orders.AsNoTracking()
             .Where(order => order.Status == OrderStatus.Ready)
-            .Select(order => new
-            {
-                order.ImportedAt,
-                Summary = new OrderSummary(
-                    order.Id,
-                    order.TcgplayerOrderId,
-                    order.OrderLines.Count,
-                    order.OrderLines.Sum(line => line.Quantity)
-                ),
-            })
+            .OrderBy(order => order.ImportedAt)
+            .ThenBy(order => order.TcgplayerOrderId)
+            .Select(order => new OrderSummary(
+                order.Id,
+                order.TcgplayerOrderId,
+                order.OrderLines.Count,
+                order.OrderLines.Sum(line => line.Quantity)
+            ))
             .ToListAsync(cancellationToken);
-
-        // SQLite cannot translate DateTimeOffset ordering; this bounded Ready-order set is
-        // ordered after materialization so production SQL Server and integration SQLite agree
-        // (same pattern as EmployeeRepository.GetAuditEventsAsync).
-        return readyOrders.OrderBy(row => row.ImportedAt).Select(row => row.Summary).ToList();
     }
 }

@@ -24,6 +24,8 @@ public sealed class SqlServerDatabaseLease : IAsyncDisposable
 
     public string DatabaseName { get; }
 
+    internal string ConnectionString => _databaseConnectionString;
+
     internal static async Task<SqlServerDatabaseLease> CreateAsync(
         string containerConnectionString,
         CancellationToken cancellationToken

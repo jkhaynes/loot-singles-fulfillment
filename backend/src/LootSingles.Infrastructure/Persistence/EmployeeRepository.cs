@@ -41,17 +41,15 @@ public class EmployeeRepository(LootSinglesDbContext context) : IEmployeeReposit
         CancellationToken cancellationToken
     )
     {
-        var auditEvents = await context
+        return await context
             .EmployeeAuditEvents.AsNoTracking()
             .Where(auditEvent =>
                 auditEvent.ActorEmployeeId == employeeId
                 || auditEvent.TargetEmployeeId == employeeId
             )
+            .OrderByDescending(auditEvent => auditEvent.OccurredAt)
+            .ThenByDescending(auditEvent => auditEvent.Id)
             .ToListAsync(cancellationToken);
-
-        // SQLite cannot translate DateTimeOffset ordering; this bounded per-employee audit set is
-        // ordered after materialization so production SQL Server and integration SQLite agree.
-        return auditEvents.OrderByDescending(auditEvent => auditEvent.OccurredAt).ToList();
     }
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken)
