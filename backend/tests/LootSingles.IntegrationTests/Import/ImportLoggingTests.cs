@@ -11,6 +11,12 @@ namespace LootSingles.IntegrationTests.Import;
 
 public class ImportLoggingTests
 {
+    // Raw card-name text from valid-multi-order-batch.pdf; never a safe identifier, must never leak.
+    private const string ProductMarker = "Orim's Chant";
+
+    // Raw card-name text from duplicate-product-line-same-order.pdf; never a safe identifier, must never leak.
+    private const string DuplicateFixtureProductMarker = "Genesect ex";
+
     [Fact]
     public async Task ImportAsync_UnreadableFile_ProducesWarningWithImportIdAndFailureType()
     {
@@ -58,6 +64,7 @@ public class ImportLoggingTests
         Assert.Equal(0, entry.GetState<int>("OrdersSucceeded"));
         Assert.Equal(13, entry.GetState<int>("OrdersFailed"));
         Assert.Equal(13, entry.GetState<int>("DuplicateOrderCount"));
+        AssertNoLeakedContent(entry, ProductMarker);
     }
 
     [Fact]
@@ -83,6 +90,7 @@ public class ImportLoggingTests
         Assert.Equal(final.ImportAttempt.Id, entry.GetState<int>("ImportId"));
         Assert.Equal("DUPLICATE-LINE-FIXTURE", entry.GetState<string>("OrderId"));
         Assert.Equal(FailureType.PersistenceFailure, entry.GetState<FailureType>("FailureType"));
+        AssertNoLeakedContent(entry, DuplicateFixtureProductMarker);
     }
 
     [Fact]
@@ -107,6 +115,7 @@ public class ImportLoggingTests
         Assert.Equal(final.ImportAttempt.Id, entry.GetState<int>("ImportId"));
         Assert.Equal(13, entry.GetState<int>("OrdersDetected"));
         Assert.Equal(13, entry.GetState<int>("OrdersSucceeded"));
+        AssertNoLeakedContent(entry, ProductMarker);
     }
 
     [Fact]
@@ -132,6 +141,15 @@ public class ImportLoggingTests
         Assert.DoesNotContain(
             logger.Entries,
             entry => entry.Level is LogLevel.Warning or LogLevel.Error
+        );
+    }
+
+    private static void AssertNoLeakedContent(ImportTestSupport.LogEntry entry, string marker)
+    {
+        Assert.DoesNotContain(marker, entry.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            entry.State,
+            pair => pair.Value is string text && text.Contains(marker, StringComparison.Ordinal)
         );
     }
 

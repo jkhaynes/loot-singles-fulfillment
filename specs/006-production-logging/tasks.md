@@ -75,7 +75,7 @@
 
 ### Tests for User Story 3
 
-- [ ] T015 [US3] Extend the T004–T007 and T014 tests in `backend/tests/LootSingles.IntegrationTests/Import/ImportLoggingTests.cs` with a shared, distinctive fixture-content marker (a product/customer-like string that would appear in raw packing-slip text but never in a safe identifier) and assert it never appears in any captured log entry's message or structured values, alongside the existing PIN/connection-string safety coverage already provided by `DatabaseConfigurationTests`/`BootstrapAdminCommandTests` for unrelated log paths
+- [X] T015 [US3] Extend the T004–T007 and T014 tests in `backend/tests/LootSingles.IntegrationTests/Import/ImportLoggingTests.cs` with a shared, distinctive fixture-content marker (a product/customer-like string that would appear in raw packing-slip text but never in a safe identifier) and assert it never appears in any captured log entry's message or structured values, alongside the existing PIN/connection-string safety coverage already provided by `DatabaseConfigurationTests`/`BootstrapAdminCommandTests` for unrelated log paths
 
 **Checkpoint**: All three user stories are implemented and independently verified.
 
