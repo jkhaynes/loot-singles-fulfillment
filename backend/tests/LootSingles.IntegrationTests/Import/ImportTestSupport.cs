@@ -105,6 +105,9 @@ internal static class ImportTestSupport
         IReadOnlyList<KeyValuePair<string, object>> State
     );
 
+    public static T GetState<T>(this LogEntry entry, string key) =>
+        (T)entry.State.Single(pair => pair.Key == key).Value;
+
     private sealed class FakeImportPersistence : IImportPersistence
     {
         private readonly HashSet<string> _persistedOrderIds = new(StringComparer.Ordinal);

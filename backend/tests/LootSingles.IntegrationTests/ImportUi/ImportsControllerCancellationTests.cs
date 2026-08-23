@@ -135,7 +135,7 @@ public sealed class ImportsControllerCancellationTests
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public bool ShouldPauseBeforeSave() =>
-            Interlocked.Increment(ref _saveCount) == 3
+            Interlocked.Increment(ref _saveCount) == 4
             && Interlocked.Exchange(ref _pauseClaimed, 1) == 0;
     }
 

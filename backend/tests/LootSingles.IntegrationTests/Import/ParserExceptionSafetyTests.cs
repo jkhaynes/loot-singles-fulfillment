@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace LootSingles.IntegrationTests.Import;
 
@@ -43,7 +44,9 @@ public sealed class ParserExceptionSafetyTests
         Assert.DoesNotContain(Secret, persisted.AttemptFailureMessage);
 
         var entry = Assert.Single(logger.Entries);
-        Assert.Contains(nameof(InvalidDataException), entry.Message);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Equal(final.ImportAttempt.Id, entry.GetState<int>("ImportId"));
+        Assert.Equal(FailureType.UnreadablePdf, entry.GetState<FailureType>("AttemptFailureType"));
         Assert.DoesNotContain(Secret, entry.Message);
         Assert.Null(entry.Exception);
     }
