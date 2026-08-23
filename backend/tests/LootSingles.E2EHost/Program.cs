@@ -12,16 +12,19 @@ using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Testcontainers.MsSql;
+
+const string SqlServerImage = "mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-22.04";
+await using var container = new MsSqlBuilder(SqlServerImage).Build();
+await container.StartAsync();
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls("http://127.0.0.1:5098");
 
-var connection = new SqliteConnection("Data Source=:memory:");
-await connection.OpenAsync();
-builder.Services.AddSingleton(connection);
-builder.Services.AddDbContext<LootSinglesDbContext>(options => options.UseSqlite(connection));
+builder.Services.AddDbContext<LootSinglesDbContext>(options =>
+    options.UseSqlServer(container.GetConnectionString())
+);
 
 builder
     .Services.AddControllers()
@@ -64,7 +67,22 @@ var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapGet("/health", () => Results.Ok());
+app.MapGet(
+    "/health",
+    async (LootSinglesDbContext context) =>
+        Results.Ok(
+            new
+            {
+                DatabaseProvider = context.Database.ProviderName,
+                Seeded = await context.Employees.AnyAsync(employee =>
+                    employee.NormalizedUsername == "E2EMANAGER"
+                )
+                    && await context.Orders.AnyAsync(order =>
+                        order.TcgplayerOrderId == "E2E-ORDER-00001"
+                    ),
+            }
+        )
+);
 
 await SeedAsync(app.Services);
 await app.RunAsync();
@@ -74,7 +92,7 @@ static async Task SeedAsync(IServiceProvider services)
     await using var scope = services.CreateAsyncScope();
     var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
     var pinHasher = scope.ServiceProvider.GetRequiredService<IPinHasher>();
-    await context.Database.EnsureCreatedAsync();
+    await context.Database.MigrateAsync();
     context.Employees.Add(
         new Employee
         {

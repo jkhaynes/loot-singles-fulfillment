@@ -28,14 +28,16 @@ public sealed class SqlServerDatabaseLease : IAsyncDisposable
 
     internal static async Task<SqlServerDatabaseLease> CreateAsync(
         string containerConnectionString,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        string? databaseName = null,
+        Func<CancellationToken, Task>? afterDatabaseCreated = null
     )
     {
         var masterConnectionString = new SqlConnectionStringBuilder(containerConnectionString)
         {
             InitialCatalog = "master",
         }.ConnectionString;
-        var databaseName = $"loot_singles_test_{Guid.NewGuid():N}";
+        databaseName ??= $"loot_singles_test_{Guid.NewGuid():N}";
         var lease = new SqlServerDatabaseLease(masterConnectionString, databaseName);
 
         try
@@ -44,13 +46,29 @@ public sealed class SqlServerDatabaseLease : IAsyncDisposable
                 $"CREATE DATABASE [{databaseName}]",
                 cancellationToken
             );
+            if (afterDatabaseCreated is not null)
+            {
+                await afterDatabaseCreated(cancellationToken);
+            }
             await using var context = lease.CreateUntrackedDbContext();
             await context.Database.MigrateAsync(cancellationToken);
             return lease;
         }
-        catch
+        catch (Exception creationException)
         {
-            await lease.DisposeAsync();
+            try
+            {
+                await lease.DisposeAsync();
+            }
+            catch (Exception cleanupException)
+            {
+                throw new AggregateException(
+                    "SQL Server test database creation and cleanup both failed.",
+                    creationException,
+                    cleanupException
+                );
+            }
+
             throw;
         }
     }

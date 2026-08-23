@@ -64,4 +64,24 @@ public sealed class SqlServerDatabaseFixtureTests(SqlServerContainerFixture fixt
 
         Assert.False(await fixture.DatabaseExistsAsync(databaseName));
     }
+
+    [Fact]
+    public async Task Failed_initialization_cleans_up_and_does_not_poison_later_leases()
+    {
+        var databaseName = $"loot_singles_test_{Guid.NewGuid():N}";
+
+        await Assert.ThrowsAsync<InjectedLeaseFailureException>(() =>
+            fixture.CreateDatabaseLeaseAsync(
+                databaseName,
+                _ => throw new InjectedLeaseFailureException()
+            )
+        );
+
+        Assert.False(await fixture.DatabaseExistsAsync(databaseName));
+        await using var later = await fixture.CreateDatabaseLeaseAsync();
+        await using var context = later.CreateDbContext();
+        Assert.False(await context.Orders.AnyAsync());
+    }
+
+    private sealed class InjectedLeaseFailureException : Exception { }
 }

@@ -8,7 +8,7 @@ public class PartialImportTests
     [Fact]
     public async Task ImportAsync_OneBadOrder_PersistsValidSiblingsAndRejectsOnlyBadOrder()
     {
-        await using var context = ImportTestSupport.CreateInMemoryContext();
+        await using var context = ImportTestSupport.CreateDatabaseContext();
         var final = await ImportTestSupport.ImportFixtureAsync(
             ImportTestSupport.CreateService(context),
             "partial-batch-one-bad-order.pdf"

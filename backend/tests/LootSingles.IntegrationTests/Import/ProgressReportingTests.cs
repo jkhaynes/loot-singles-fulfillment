@@ -1,6 +1,4 @@
 using LootSingles.Application.Import;
-using LootSingles.Infrastructure.Persistence;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LootSingles.IntegrationTests.Import;
 
@@ -9,8 +7,7 @@ public class ProgressReportingTests
     [Fact]
     public async Task ImportAsync_ReportsMonotonicProgressAndACompleteFinalUpdate()
     {
-        await using var context = ImportTestSupport.CreateInMemoryContext();
-        var service = ImportTestSupport.CreateService(context);
+        var service = ImportTestSupport.CreateDatabaseFreeService();
         await using var fixture = ImportTestSupport.OpenFixture("valid-multi-order-batch.pdf");
         var updates = new List<ImportProgressUpdate>();
 
@@ -39,12 +36,7 @@ public class ProgressReportingTests
     {
         const int orderCount = 200;
         var parser = new SyntheticProgressiveParser(orderCount);
-        await using var context = ImportTestSupport.CreateInMemoryContext();
-        var service = new PackingSlipImportService(
-            parser,
-            new ImportRepository(context),
-            NullLogger<PackingSlipImportService>.Instance
-        );
+        var service = ImportTestSupport.CreateDatabaseFreeService(parser);
         await using var source = new MemoryStream([0]);
         await using var updates = service.ImportAsync(source).GetAsyncEnumerator();
 

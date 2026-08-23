@@ -19,8 +19,6 @@ internal static class ImportUiTestSupport
         using (var scope = factory.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
-            await context.Database.EnsureCreatedAsync();
-
             context.Employees.Add(
                 new Employee
                 {

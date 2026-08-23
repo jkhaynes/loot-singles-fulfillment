@@ -73,24 +73,24 @@
 
 ### Tests for User Story 2
 
-- [ ] T021 [P] [US2] Extend T003 with a failing cancellation/failure cleanup test that proves a later lease can recreate/use storage without observing abandoned state in `backend/tests/LootSingles.IntegrationTests/Infrastructure/SqlServerDatabaseFixtureTests.cs`
-- [ ] T022 [P] [US2] Add a failing HTTP factory isolation test proving two independently live API factories cannot observe each other's employees/orders in `backend/tests/LootSingles.IntegrationTests/Auth/AuthWebApplicationFactoryTests.cs`
-- [ ] T023 [P] [US2] Add a failing Playwright-host health/seed persistence test against SQL Server lifecycle in `backend/tests/LootSingles.IntegrationTests/Infrastructure/E2EHostDatabaseTests.cs`
+- [X] T021 [P] [US2] Extend T003 with a failing cancellation/failure cleanup test that proves a later lease can recreate/use storage without observing abandoned state in `backend/tests/LootSingles.IntegrationTests/Infrastructure/SqlServerDatabaseFixtureTests.cs`
+- [X] T022 [P] [US2] Add a failing HTTP factory isolation test proving two independently live API factories cannot observe each other's employees/orders in `backend/tests/LootSingles.IntegrationTests/Auth/AuthWebApplicationFactoryTests.cs`
+- [X] T023 [P] [US2] Add a failing Playwright-host health/seed persistence test against SQL Server lifecycle in `backend/tests/LootSingles.IntegrationTests/Infrastructure/E2EHostDatabaseTests.cs`
 
 ### Implementation for User Story 2
 
-- [ ] T024 [US2] Harden lease cleanup for cancellation/failure and make cleanup errors observable in `backend/tests/LootSingles.IntegrationTests/Infrastructure/SqlServerDatabaseLease.cs` to pass T021
-- [ ] T025 [US2] Replace the shared in-memory SQLite connection and `EnsureCreatedAsync` with an injected migrated SQL Server lease in `backend/tests/LootSingles.IntegrationTests/Auth/AuthWebApplicationFactory.cs` to pass T022
-- [ ] T026 [US2] Replace direct SQLite contexts/`EnsureCreatedAsync` with the shared SQL Server lease in `backend/tests/LootSingles.IntegrationTests/Auth/EmployeeConfigurationTests.cs`
-- [ ] T027 [US2] Replace direct SQLite contexts/`EnsureCreatedAsync` with the shared SQL Server lease in `backend/tests/LootSingles.IntegrationTests/Auth/SessionInvalidationTests.cs`
-- [ ] T028 [US2] Replace EF InMemory creation with database-free fakes for pure parsing/orchestration tests and SQL Server leases for persistence assertions in `backend/tests/LootSingles.IntegrationTests/Import/ImportTestSupport.cs` and its callers under `backend/tests/LootSingles.IntegrationTests/Import/`
-- [ ] T029 [US2] Convert direct SQLite atomicity and concurrency setups to migrated SQL Server leases in `backend/tests/LootSingles.IntegrationTests/Import/AtomicPersistenceTests.cs` and `backend/tests/LootSingles.IntegrationTests/Import/DuplicateOrderTests.cs`
-- [ ] T030 [US2] Replace `EnsureCreatedAsync` test-host seeding with migrated lease seeding in `backend/tests/LootSingles.IntegrationTests/ImportUi/ImportUiTestSupport.cs`
-- [ ] T031 [US2] Move the EF InMemory model-configuration test to SQL Server schema/model validation or a database-free metadata test in `backend/tests/LootSingles.IntegrationTests/Persistence/OrderConfigurationTests.cs`
-- [ ] T032 [US2] Replace E2E-host in-memory SQLite registration and schema creation with a disposable migrated SQL Server database lifecycle in `backend/tests/LootSingles.E2EHost/Program.cs` and `backend/tests/LootSingles.E2EHost/LootSingles.E2EHost.csproj` to pass T023
-- [ ] T033 [US2] Remove `Microsoft.EntityFrameworkCore.Sqlite`, `Microsoft.EntityFrameworkCore.InMemory`, SQLite audit suppression, and direct SQLite usings after all conversions compile in `backend/tests/LootSingles.IntegrationTests/LootSingles.IntegrationTests.csproj` and `backend/tests/LootSingles.E2EHost/LootSingles.E2EHost.csproj`
-- [ ] T034 [US2] Add Docker-capable backend build/unit/integration validation with Testcontainers-owned lifecycle and no Azure secrets in `.github/workflows/backend.yml`
-- [ ] T035 [US2] Run two independent integration scopes concurrently, the complete integration suite, and Playwright; append isolation/cleanup Green evidence to `specs/005-sql-server-migration/validation-results.md`
+- [X] T024 [US2] Harden lease cleanup for cancellation/failure and make cleanup errors observable in `backend/tests/LootSingles.IntegrationTests/Infrastructure/SqlServerDatabaseLease.cs` to pass T021
+- [X] T025 [US2] Replace the shared in-memory SQLite connection and `EnsureCreatedAsync` with an injected migrated SQL Server lease in `backend/tests/LootSingles.IntegrationTests/Auth/AuthWebApplicationFactory.cs` to pass T022
+- [X] T026 [US2] Replace direct SQLite contexts/`EnsureCreatedAsync` with the shared SQL Server lease in `backend/tests/LootSingles.IntegrationTests/Auth/EmployeeConfigurationTests.cs`
+- [X] T027 [US2] Replace direct SQLite contexts/`EnsureCreatedAsync` with the shared SQL Server lease in `backend/tests/LootSingles.IntegrationTests/Auth/SessionInvalidationTests.cs`
+- [X] T028 [US2] Replace EF InMemory creation with database-free fakes for pure parsing/orchestration tests and SQL Server leases for persistence assertions in `backend/tests/LootSingles.IntegrationTests/Import/ImportTestSupport.cs` and its callers under `backend/tests/LootSingles.IntegrationTests/Import/`
+- [X] T029 [US2] Convert direct SQLite atomicity and concurrency setups to migrated SQL Server leases in `backend/tests/LootSingles.IntegrationTests/Import/AtomicPersistenceTests.cs` and `backend/tests/LootSingles.IntegrationTests/Import/DuplicateOrderTests.cs`
+- [X] T030 [US2] Replace `EnsureCreatedAsync` test-host seeding with migrated lease seeding in `backend/tests/LootSingles.IntegrationTests/ImportUi/ImportUiTestSupport.cs`
+- [X] T031 [US2] Move the EF InMemory model-configuration test to SQL Server schema/model validation or a database-free metadata test in `backend/tests/LootSingles.IntegrationTests/Persistence/OrderConfigurationTests.cs`
+- [X] T032 [US2] Replace E2E-host in-memory SQLite registration and schema creation with a disposable migrated SQL Server database lifecycle in `backend/tests/LootSingles.E2EHost/Program.cs` and `backend/tests/LootSingles.E2EHost/LootSingles.E2EHost.csproj` to pass T023
+- [X] T033 [US2] Remove `Microsoft.EntityFrameworkCore.Sqlite`, `Microsoft.EntityFrameworkCore.InMemory`, SQLite audit suppression, and direct SQLite usings after all conversions compile in `backend/tests/LootSingles.IntegrationTests/LootSingles.IntegrationTests.csproj` and `backend/tests/LootSingles.E2EHost/LootSingles.E2EHost.csproj`
+- [X] T034 [US2] Add Docker-capable backend build/unit/integration validation with Testcontainers-owned lifecycle and no Azure secrets in `.github/workflows/backend.yml`
+- [X] T035 [US2] Run two independent integration scopes concurrently, the complete integration suite, and Playwright; append isolation/cleanup Green evidence to `specs/005-sql-server-migration/validation-results.md`
 
 **Checkpoint**: All database-backed automation uses isolated SQL Server and all pure unit behavior is database-free.
 

@@ -1,7 +1,7 @@
 using LootSingles.Application.Persistence;
 using LootSingles.Domain.Employees;
 using LootSingles.Infrastructure.Persistence;
-using Microsoft.Data.Sqlite;
+using LootSingles.IntegrationTests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace LootSingles.IntegrationTests.Auth;
@@ -11,19 +11,14 @@ public class EmployeeConfigurationTests
     [Fact]
     public async Task AddAsync_CaseInsensitiveDuplicateUsername_ViolatesUniqueConstraint()
     {
-        var connectionString = $"Data Source=employees-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
-        await using var keeper = new SqliteConnection(connectionString);
-        await keeper.OpenAsync();
-        await using (var setup = CreateContext(connectionString))
-            await setup.Database.EnsureCreatedAsync();
-
-        await using (var first = CreateContext(connectionString))
+        await using var lease = await SqlServerContainerFixture.CreateSharedDatabaseLeaseAsync();
+        await using (var first = lease.CreateDbContext())
         {
             first.Employees.Add(NewEmployee("jsmith"));
             await first.SaveChangesAsync();
         }
 
-        await using var second = CreateContext(connectionString);
+        await using var second = lease.CreateDbContext();
         second.Employees.Add(NewEmployee("JSmith"));
 
         await Assert.ThrowsAsync<DbUpdateException>(() => second.SaveChangesAsync());
@@ -32,20 +27,15 @@ public class EmployeeConfigurationTests
     [Fact]
     public async Task EmployeeRepositorySaveChangesAsync_CaseInsensitiveDuplicateUsername_ThrowsUniqueConstraintViolationException()
     {
-        var connectionString = $"Data Source=employees-{Guid.NewGuid():N};Mode=Memory;Cache=Shared";
-        await using var keeper = new SqliteConnection(connectionString);
-        await keeper.OpenAsync();
-        await using (var setup = CreateContext(connectionString))
-            await setup.Database.EnsureCreatedAsync();
-
-        await using (var first = CreateContext(connectionString))
+        await using var lease = await SqlServerContainerFixture.CreateSharedDatabaseLeaseAsync();
+        await using (var first = lease.CreateDbContext())
         {
             var firstRepository = new EmployeeRepository(first);
             firstRepository.Add(NewEmployee("jsmith"));
             await firstRepository.SaveChangesAsync(CancellationToken.None);
         }
 
-        await using var second = CreateContext(connectionString);
+        await using var second = lease.CreateDbContext();
         var secondRepository = new EmployeeRepository(second);
         secondRepository.Add(NewEmployee("JSmith"));
 
@@ -53,11 +43,6 @@ public class EmployeeConfigurationTests
             secondRepository.SaveChangesAsync(CancellationToken.None)
         );
     }
-
-    private static LootSinglesDbContext CreateContext(string connectionString) =>
-        new(
-            new DbContextOptionsBuilder<LootSinglesDbContext>().UseSqlite(connectionString).Options
-        );
 
     private static Employee NewEmployee(string username) =>
         new()

@@ -25,3 +25,16 @@ The migration/model, schema/index, transaction/atomicity, and concurrent SQL Ser
 - CSharpier was applied to all changed C# files and rechecked after formatting.
 
 The integration project still temporarily references SQLite for tests scheduled for conversion in Phase 4 (T025-T033); the package audit warning therefore remains expected until that phase.
+
+## Phase 4 SQL Server isolation evidence
+
+- Red contract run: T021 initially failed to compile because the lease had no post-create failure seam; the HTTP isolation test observed SQLite rather than SQL Server; the E2E health endpoint did not expose the migrated-provider/seed contract.
+- Two independently live HTTP factories created and seeded separate migrated SQL Server databases concurrently. Employee and order records remained mutually invisible; 1 isolation test passed.
+- Cleanup failure injection proved the partially created database was dropped and a later migrated lease remained usable.
+- Complete integration suite: 82 passed, 0 failed, including HTTP, authentication, dashboard, imports, schema, concurrency, transaction, cleanup, and E2E-host health coverage.
+- Database-free backend unit suite: 68 passed, 0 failed.
+- Playwright against the disposable migrated SQL Server E2E host: 7 passed, 0 failed.
+- Backend solution build completed with 0 warnings and 0 errors after removing the SQLite and EF InMemory packages.
+- CSharpier formatted the converted backend test files.
+
+No Azure configuration or credentials were used. Container and database connection details were not written to validation output.
