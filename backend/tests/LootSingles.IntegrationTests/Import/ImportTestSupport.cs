@@ -5,6 +5,7 @@ using LootSingles.Infrastructure.Persistence;
 using LootSingles.IntegrationTests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LootSingles.IntegrationTests.Import;
@@ -70,6 +71,39 @@ internal static class ImportTestSupport
             await lease.DisposeAsync();
         }
     }
+
+    internal sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<LogEntry> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter
+        ) =>
+            Entries.Add(
+                new LogEntry(
+                    logLevel,
+                    formatter(state, exception),
+                    exception,
+                    (state as IReadOnlyList<KeyValuePair<string, object>>) ?? []
+                )
+            );
+    }
+
+    internal sealed record LogEntry(
+        LogLevel Level,
+        string Message,
+        Exception? Exception,
+        IReadOnlyList<KeyValuePair<string, object>> State
+    );
 
     private sealed class FakeImportPersistence : IImportPersistence
     {

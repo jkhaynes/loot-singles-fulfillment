@@ -19,9 +19,9 @@
 
 **⚠️ CRITICAL**: This is a non-behavioral refactor (same assertions, same pass/fail outcome as today) — it does not require a Red phase, but the full existing suite must stay green throughout.
 
-- [ ] T001 Promote the private `CapturingLogger<T>`/`LogEntry` nested in `backend/tests/LootSingles.IntegrationTests/Import/ParserExceptionSafetyTests.cs` into a shared `internal` type in `backend/tests/LootSingles.IntegrationTests/Import/ImportTestSupport.cs`, extending it to also record `LogLevel` and the structured `state` key/value pairs (not just the formatted message and exception), per research.md §6
-- [ ] T002 Update `backend/tests/LootSingles.IntegrationTests/Import/ParserExceptionSafetyTests.cs` to use the shared `ImportTestSupport.CapturingLogger<T>` instead of its own nested copy, keeping its existing assertions and passing behavior unchanged
-- [ ] T003 Run the full backend test suite and confirm it is unchanged and green (no behavior change from T001–T002)
+- [X] T001 Promote the private `CapturingLogger<T>`/`LogEntry` nested in `backend/tests/LootSingles.IntegrationTests/Import/ParserExceptionSafetyTests.cs` into a shared `internal` type in `backend/tests/LootSingles.IntegrationTests/Import/ImportTestSupport.cs`, extending it to also record `LogLevel` and the structured `state` key/value pairs (not just the formatted message and exception), per research.md §6
+- [X] T002 Update `backend/tests/LootSingles.IntegrationTests/Import/ParserExceptionSafetyTests.cs` to use the shared `ImportTestSupport.CapturingLogger<T>` instead of its own nested copy, keeping its existing assertions and passing behavior unchanged
+- [X] T003 Run the full backend test suite and confirm it is unchanged and green (no behavior change from T001–T002)
 
 **Checkpoint**: A shared, level-and-structure-aware capturing logger exists for every subsequent test task to reuse.
 

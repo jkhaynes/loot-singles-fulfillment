@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Logging;
 
 namespace LootSingles.IntegrationTests.Import;
 
@@ -21,7 +20,7 @@ public sealed class ParserExceptionSafetyTests
     public async Task ParserExceptionPersistsSafeMessageAndLogsOnlySafeClassification()
     {
         await using var context = ImportTestSupport.CreateDatabaseContext();
-        var logger = new CapturingLogger<PackingSlipImportService>();
+        var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
         var service = new PackingSlipImportService(
             new ThrowingParser(),
             new ImportRepository(context),
@@ -90,24 +89,4 @@ public sealed class ParserExceptionSafetyTests
 #pragma warning restore CS0162
         }
     }
-
-    private sealed class CapturingLogger<T> : ILogger<T>
-    {
-        public List<LogEntry> Entries { get; } = [];
-
-        public IDisposable? BeginScope<TState>(TState state)
-            where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(
-            LogLevel logLevel,
-            EventId eventId,
-            TState state,
-            Exception? exception,
-            Func<TState, Exception?, string> formatter
-        ) => Entries.Add(new LogEntry(formatter(state, exception), exception));
-    }
-
-    private sealed record LogEntry(string Message, Exception? Exception);
 }
