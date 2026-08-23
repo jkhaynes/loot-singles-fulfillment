@@ -29,6 +29,7 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseSetting("ConnectionStrings:LootSingles", _databaseLease.ConnectionString);
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<LootSinglesDbContext>>();

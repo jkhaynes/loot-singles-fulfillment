@@ -59,13 +59,20 @@ Expected: no active dependency, configuration, compatibility branch, test path, 
 
 After separate approval:
 
-1. Confirm current free-offer enrollment and **Auto-pause the database until next month**.
-2. Confirm default-deny networking with only the authorized client IP or scoped private/VNet path.
-3. Prefer Entra/passwordless access. Supply `ConnectionStrings:LootSingles` through Secret Manager locally or approved hosted configuration/managed identity; do not edit tracked settings with a secret.
-4. Apply migrations using the externally supplied configuration.
-5. Start the normal API/frontend and test login, employee administration, dashboard, PDF import, and order browsing.
-6. Remove temporary firewall access and disconnect query tools afterward.
+1. Reverify offer eligibility in the intended subscription/region. As of 2026-08-22 the documented monthly allowance is 100,000 serverless vCore seconds, 32 GB data, and 32 GB backup per eligible database. Confirm **Auto-pause the database until next month** and that continued paid usage is disabled.
+2. Monitor the portal's free-amount remaining/consumed metrics. Treat allowance exhaustion and month-long auto-pause as expected development unavailability.
+3. Confirm default-deny networking with only the authorized current client IP or scoped private/VNet path; broad Azure-services access is not a default. Confirm outbound TCP 1433.
+4. Prefer developer Entra identity locally and managed identity when hosted. Supply `ConnectionStrings:LootSingles` through Secret Manager locally or approved hosted configuration; do not edit tracked settings with a secret.
+5. Apply migrations using the externally supplied configuration.
+6. If the employee table is empty, temporarily set `BootstrapAdmin:Username`,
+   `BootstrapAdmin:DisplayName`, and `BootstrapAdmin:Pin` with Secret Manager, run
+   `dotnet run --project backend/src/LootSingles.Api -- bootstrap-admin`, and immediately remove all
+   three bootstrap values. Expect a successful first creation or a safe refusal when any employee
+   already exists; the command never starts the web host.
+7. Start the normal API/frontend and test login, authenticated employee administration, dashboard,
+   PDF import, and order browsing.
+8. Remove temporary firewall access and disconnect query tools afterward.
 
 Paused allowance, firewall denial, or invalid identity must fail clearly without fallback.
 
-References: [Azure SQL free offer](https://learn.microsoft.com/en-us/azure/azure-sql/database/free-offer?view=azuresql), [network controls](https://learn.microsoft.com/en-us/azure/azure-sql/database/network-access-controls-overview?view=azuresql), [development secrets](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets?view=aspnetcore-10.0).
+References: [Azure SQL free offer](https://learn.microsoft.com/en-us/azure/azure-sql/database/free-offer?view=azuresql), [free-offer FAQ](https://learn.microsoft.com/en-us/azure/azure-sql/database/free-offer-faq?view=azuresql), [network controls](https://learn.microsoft.com/en-us/azure/azure-sql/database/network-access-controls-overview?view=azuresql), [Microsoft Entra authentication](https://learn.microsoft.com/en-us/azure/azure-sql/database/authentication-aad-overview?view=azuresql), [development secrets](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets?view=aspnetcore-10.0).

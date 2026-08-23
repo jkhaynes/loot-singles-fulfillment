@@ -104,16 +104,27 @@
 
 ### Tests for User Story 3
 
-- [ ] T036 [P] [US3] Add failing configuration tests for a missing `ConnectionStrings:LootSingles` value and SQL Server-only registration in `backend/tests/LootSingles.IntegrationTests/Configuration/DatabaseConfigurationTests.cs`
-- [ ] T037 [P] [US3] Add a tracked-secret regression check covering settings/examples/documentation paths in `.github/workflows/backend.yml`
+- [X] T036 [P] [US3] Add failing configuration tests for a missing `ConnectionStrings:LootSingles` value and SQL Server-only registration in `backend/tests/LootSingles.IntegrationTests/Configuration/DatabaseConfigurationTests.cs`
+- [X] T037 [P] [US3] Add a tracked-secret regression check covering settings/examples/documentation paths in `.github/workflows/backend.yml`
 
 ### Implementation for User Story 3
 
-- [ ] T038 [US3] Make the runtime SQL Server registration and explicit missing-configuration failure satisfy T036 without adding fallback logic in `backend/src/LootSingles.Api/Program.cs`
-- [ ] T039 [US3] Replace the hard-coded design-time LocalDB assumption with externally supplied SQL Server configuration and a non-secret failure message in `backend/src/LootSingles.Infrastructure/Persistence/LootSinglesDbContextFactory.cs`
-- [ ] T040 [US3] Enable local Secret Manager metadata without storing values in `backend/src/LootSingles.Api/LootSingles.Api.csproj` and document `ConnectionStrings:LootSingles` setup in `README.md`
-- [ ] T041 [US3] Document the non-provisioning `loot-singles-dev` plan, current free limits, pause-on-exhaustion control, monitoring, default-deny firewall, port 1433, Entra/managed identity preference, and expected unavailable states in `README.md` and `specs/005-sql-server-migration/quickstart.md`
-- [ ] T042 [US3] After separately approved Azure provisioning only, execute the `loot-singles-dev` migration/smoke test and record evidence without secrets in `specs/005-sql-server-migration/validation-results.md`; otherwise mark this explicit external approval gate as pending without provisioning
+- [X] T038 [US3] Make the runtime SQL Server registration and explicit missing-configuration failure satisfy T036 without adding fallback logic in `backend/src/LootSingles.Api/Program.cs`
+- [X] T039 [US3] Replace the hard-coded design-time LocalDB assumption with externally supplied SQL Server configuration and a non-secret failure message in `backend/src/LootSingles.Infrastructure/Persistence/LootSinglesDbContextFactory.cs`
+- [X] T040 [US3] Enable local Secret Manager metadata without storing values in `backend/src/LootSingles.Api/LootSingles.Api.csproj` and document `ConnectionStrings:LootSingles` setup in `README.md`
+- [X] T041 [US3] Document the non-provisioning `loot-singles-dev` plan, current free limits, pause-on-exhaustion control, monitoring, default-deny firewall, port 1433, Entra/managed identity preference, and expected unavailable states in `README.md` and `specs/005-sql-server-migration/quickstart.md`
+- [X] T042 [US3] After separately approved Azure provisioning only, execute the `loot-singles-dev` migration/smoke test and record evidence without secrets in `specs/005-sql-server-migration/validation-results.md`; otherwise mark this explicit external approval gate as pending without provisioning
+- [X] T043 [P] [US3] Add failing unit tests for bootstrap input validation, refusal when any employee already exists, and creation of exactly one active/unlocked `ManagerAdmin` whose PIN verifies through `IPinHasher` in `backend/tests/LootSingles.UnitTests/Auth/BootstrapAdminServiceTests.cs`
+- [X] T044 [P] [US3] Add failing SQL Server integration tests proving the bootstrap command applies pending migrations, persists the first manager on an empty database, refuses a repeat or non-empty-database invocation without modification, and emits no PIN, hash, or connection string in `backend/tests/LootSingles.IntegrationTests/Configuration/BootstrapAdminCommandTests.cs`
+- [X] T045 [US3] Implement the application-layer first-manager invariant, normalization, PIN validation/hashing, explicit success/refusal outcomes, and cancellation in `backend/src/LootSingles.Application/Auth/BootstrapAdminService.cs` to pass T043 without reusing the actor-required employee-management audit path
+- [X] T046 [US3] Implement the one-shot `bootstrap-admin` command handler with externally supplied `BootstrapAdmin:Username`, `BootstrapAdmin:DisplayName`, and `BootstrapAdmin:Pin`, pending-migration application, safe diagnostics, and nonzero failure exit codes in `backend/src/LootSingles.Api/BootstrapAdminCommand.cs` to pass T044
+- [X] T047 [US3] Dispatch an exact `bootstrap-admin` argument before normal web hosting, create and dispose a scoped command handler, terminate after execution, and preserve unchanged startup behavior for all other invocations in `backend/src/LootSingles.Api/Program.cs`
+- [X] T048 [US3] Document Secret Manager/environment-variable setup, command execution, expected first-run and refusal outcomes, credential cleanup, and subsequent manager-driven employee creation in `README.md` and `specs/005-sql-server-migration/quickstart.md`
+- [X] T049 [US3] Run the bootstrap unit/integration tests plus a temporary-secret manual smoke test, verify the initial PIN and connection string never appear in tracked files or command output, remove the temporary bootstrap secrets, and record non-secret evidence in `specs/005-sql-server-migration/validation-results.md`
+- [X] T050 [US3] Add a failing SQL Server concurrency test that launches two bootstrap attempts with different valid usernames against the same empty database and asserts exactly one success, one `EmployeesAlreadyExist` refusal, and one persisted employee in `backend/tests/LootSingles.IntegrationTests/Configuration/BootstrapAdminCommandTests.cs`
+- [X] T051 [US3] Replace the non-atomic `AnyAsync` plus `Add`/`SaveChangesAsync` bootstrap sequence with one typed `TryAddFirstEmployeeAsync` persistence operation in `backend/src/LootSingles.Application/Auth/IEmployeeRepository.cs` and `backend/src/LootSingles.Application/Auth/BootstrapAdminService.cs`, implementing it in `backend/src/LootSingles.Infrastructure/Persistence/EmployeeRepository.cs` with a SQL Server transaction-owned exclusive `sp_getapplock`, the empty-store check, insert, and commit as one cross-process serialized unit to pass T050; update repository fakes in `backend/tests/LootSingles.UnitTests/Auth/BootstrapAdminServiceTests.cs`, `backend/tests/LootSingles.UnitTests/Auth/AuthenticationServiceTests.cs`, and `backend/tests/LootSingles.UnitTests/Auth/EmployeeManagementServiceTests.cs`
+- [X] T052 [US3] Harden the child-process bootstrap smoke test by draining stdout/stderr concurrently, applying a bounded cancellation token to `WaitForExitAsync`, killing the entire process tree on timeout, and surfacing a clear timeout failure in `backend/tests/LootSingles.IntegrationTests/Configuration/BootstrapAdminCommandTests.cs`
+- [X] T053 [US3] Run the focused bootstrap unit/concurrency/process tests, full backend build and test suites, CSharpier, and secret-safe output review; append remediation evidence to `specs/005-sql-server-migration/validation-results.md`
 
 **Checkpoint**: Development configuration is SQL Server-only, secret-safe, cost-safe by design, and ready for separately approved Azure provisioning.
 
@@ -123,12 +134,12 @@
 
 **Purpose**: Remove stale compatibility guidance and prove repository-wide completion.
 
-- [ ] T043 [P] Rewrite stale SQLite architecture/workaround references without changing completed-task meaning in `specs/001-tcgplayer-order-import/tasks.md`, `specs/003-login-dashboard-ui/plan.md`, `specs/003-login-dashboard-ui/data-model.md`, `specs/003-login-dashboard-ui/tasks.md`, `specs/003-login-dashboard-ui/validation-results.md`, and `specs/004-order-import-ui/tasks.md`
-- [ ] T044 [P] Update current database/test instructions and environment matrix in `README.md` and `specs/005-sql-server-migration/contracts/database-environments.md`
-- [ ] T045 Run the repository-wide FR-002/SC-001 search from `specs/005-sql-server-migration/quickstart.md`, classify every match, remove all active SQLite package/API/configuration/branch/workaround/test-host/fixture/`.db`/current-guidance matches, and record that any remainder is confined to this feature's removal history or audit definitions in `specs/005-sql-server-migration/validation-results.md`
-- [ ] T046 Run backend build, unit tests, SQL Server integration tests, CSharpier, frontend tests/build/lint/Prettier, and Playwright; record commands/counts/results in `specs/005-sql-server-migration/validation-results.md`
-- [ ] T047 Review container logs, CI output, docs, fixtures, and tracked configuration for credentials/connection strings and record the FR-014 security review in `specs/005-sql-server-migration/validation-results.md`
-- [ ] T048 Perform the constitution Architecture and Changeability Review against the implemented boundaries, capture any Must Fix findings as new tasks in `specs/005-sql-server-migration/tasks.md`, and do not proceed to convergence until resolved
+- [ ] T054 [P] Rewrite stale SQLite architecture/workaround references without changing completed-task meaning in `specs/001-tcgplayer-order-import/tasks.md`, `specs/003-login-dashboard-ui/plan.md`, `specs/003-login-dashboard-ui/data-model.md`, `specs/003-login-dashboard-ui/tasks.md`, `specs/003-login-dashboard-ui/validation-results.md`, and `specs/004-order-import-ui/tasks.md`
+- [ ] T055 [P] Update current database/test instructions and environment matrix in `README.md` and `specs/005-sql-server-migration/contracts/database-environments.md`
+- [ ] T056 Run the repository-wide FR-002/SC-001 search from `specs/005-sql-server-migration/quickstart.md`, classify every match, remove all active SQLite package/API/configuration/branch/workaround/test-host/fixture/`.db`/current-guidance matches, and record that any remainder is confined to this feature's removal history or audit definitions in `specs/005-sql-server-migration/validation-results.md`
+- [ ] T057 Run backend build, unit tests, SQL Server integration tests, CSharpier, frontend tests/build/lint/Prettier, and Playwright; record commands/counts/results in `specs/005-sql-server-migration/validation-results.md`
+- [ ] T058 Review container logs, CI output, docs, fixtures, and tracked configuration for credentials/connection strings and record the FR-014 security review in `specs/005-sql-server-migration/validation-results.md`
+- [ ] T059 Perform the constitution Architecture and Changeability Review against the implemented boundaries, capture any Must Fix findings as new tasks in `specs/005-sql-server-migration/tasks.md`, and do not proceed to convergence until resolved
 
 ---
 
@@ -153,6 +164,8 @@
 - T008–T013 → T014–T019 → T020
 - T021–T023 → T024–T034 → T035
 - T036–T037 → T038–T041; T042 only after external approval
+- T043–T044 → T045–T047 → T048–T049
+- T050 → T051 → T052 → T053
 - Package removals T033 occur only after all affected code compiles against SQL Server.
 
 ### Parallel opportunities
@@ -163,7 +176,8 @@
 - T021–T023 target separate infrastructure behaviors.
 - T026–T031 can be divided by test area after T025 establishes the factory pattern.
 - US3 documentation/configuration can proceed beside later US2 conversions after Phase 2.
-- T043 and T044 touch separate documentation sets.
+- T043 and T044 are separate Red test suites and can be authored in parallel.
+- T054 and T055 touch separate documentation sets.
 
 ## Parallel Example: User Story 1
 

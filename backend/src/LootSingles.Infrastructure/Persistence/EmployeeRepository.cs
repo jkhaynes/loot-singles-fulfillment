@@ -10,6 +10,48 @@ namespace LootSingles.Infrastructure.Persistence;
 /// </summary>
 public class EmployeeRepository(LootSinglesDbContext context) : IEmployeeRepository
 {
+    /// <summary>
+    /// Resource name for the SQL Server application lock (<c>sp_getapplock</c>) that serializes
+    /// first-employee bootstrap across processes. Held only for the duration of the owning
+    /// transaction, so it is released automatically on commit or rollback.
+    /// </summary>
+    private const string BootstrapLockResource = "LootSingles.Employees.Bootstrap";
+
+    public async Task<bool> TryAddFirstEmployeeAsync(
+        Employee employee,
+        CancellationToken cancellationToken
+    )
+    {
+        await using var transaction = await context.Database.BeginTransactionAsync(
+            cancellationToken
+        );
+
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $@"
+DECLARE @lockResult int;
+EXEC @lockResult = sp_getapplock
+    @Resource = {BootstrapLockResource},
+    @LockMode = 'Exclusive',
+    @LockOwner = 'Transaction',
+    @LockTimeout = 30000;
+IF @lockResult < 0
+BEGIN
+    THROW 51000, 'Could not acquire the exclusive employee-bootstrap lock.', 1;
+END",
+            cancellationToken
+        );
+
+        if (await context.Employees.AsNoTracking().AnyAsync(cancellationToken))
+        {
+            return false;
+        }
+
+        context.Employees.Add(employee);
+        await SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return true;
+    }
+
     public Task<Employee?> GetByNormalizedUsernameAsync(
         string normalizedUsername,
         CancellationToken cancellationToken

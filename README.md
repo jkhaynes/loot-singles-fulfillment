@@ -54,6 +54,78 @@ The project is currently in product definition and technical discovery. Applicat
 
 ## Development Setup
 
+### Database configuration
+
+Normal manual and hosted development uses an externally managed Azure SQL database named
+`loot-singles-dev`. The application has no local database or alternate-provider fallback. Automated
+tests use disposable SQL Server containers and never use this development database.
+
+Set the required configuration in ASP.NET Core Secret Manager; replace the placeholder at the
+prompt and never place the resulting value in a tracked file:
+
+```powershell
+dotnet user-secrets set "ConnectionStrings:LootSingles" "<authorized Azure SQL connection string>" --project backend/src/LootSingles.Api
+```
+
+Prefer Microsoft Entra authentication for developers and managed identity for hosted workloads so
+the connection contains no password. The same key may be supplied by approved hosted configuration
+or as environment variable `ConnectionStrings__LootSingles`. Missing, blank, unauthorized,
+firewall-blocked, paused, or otherwise unreachable configuration fails explicitly; startup never
+falls back to another database.
+
+Use the configured value with EF Core tooling:
+
+```powershell
+dotnet ef database update --project backend/src/LootSingles.Infrastructure --startup-project backend/src/LootSingles.Api
+```
+
+### Bootstrap the first Manager/Admin
+
+An empty database has no default credentials. Configure the first manager through temporary Secret
+Manager values, run the one-shot command, and then remove the PIN secret:
+
+```powershell
+dotnet user-secrets set "BootstrapAdmin:Username" "manager" --project backend/src/LootSingles.Api
+dotnet user-secrets set "BootstrapAdmin:DisplayName" "Fulfillment Manager" --project backend/src/LootSingles.Api
+dotnet user-secrets set "BootstrapAdmin:Pin" "<4-digit PIN>" --project backend/src/LootSingles.Api
+
+dotnet run --project backend/src/LootSingles.Api -- bootstrap-admin
+
+dotnet user-secrets remove "BootstrapAdmin:Username" --project backend/src/LootSingles.Api
+dotnet user-secrets remove "BootstrapAdmin:DisplayName" --project backend/src/LootSingles.Api
+dotnet user-secrets remove "BootstrapAdmin:Pin" --project backend/src/LootSingles.Api
+```
+
+The command applies pending migrations and creates one active `ManagerAdmin` only when the employee
+table is empty. It exits without starting the web server. If any employee already exists, it refuses
+without modifying the database; use an authenticated Manager/Admin account and the employee-management
+API for all later accounts. Hosted automation may supply the same temporary values as
+`BootstrapAdmin__Username`, `BootstrapAdmin__DisplayName`, and `BootstrapAdmin__Pin`, then must remove
+them after a successful bootstrap. Never use a shared or well-known PIN.
+
+### Cost-safe Azure SQL development plan
+
+Provisioning is deliberately outside this repository and requires separate approval. Before any
+approved provisioning, reverify offer availability in the target subscription and region. As of
+2026-08-22, Microsoft's Azure SQL Database free offer documents a monthly allowance per eligible
+database of 100,000 serverless vCore seconds, 32 GB of data storage, and 32 GB of backup storage.
+Select **Auto-pause the database until next month** when the free limit is reached; do not select
+continued paid usage. Monitor the portal's free-amount remaining/consumed metrics. Exhausting the
+allowance makes the database unavailable until the next calendar month and is an expected
+development state, not a reason to enable billing.
+
+Keep networking default-deny. If public access is separately approved, allow only the developer's
+current IP and remove it after use. Do not broadly enable access from Azure services. Prefer a
+private endpoint or scoped virtual-network path for hosted access. Clients require outbound TCP
+1433. Configure a Microsoft Entra administrator and grant only the required database permissions;
+prefer developer Entra identity locally and managed identity when hosted.
+
+References: [Azure SQL free offer](https://learn.microsoft.com/en-us/azure/azure-sql/database/free-offer?view=azuresql),
+[free-offer FAQ](https://learn.microsoft.com/en-us/azure/azure-sql/database/free-offer-faq?view=azuresql),
+[network controls](https://learn.microsoft.com/en-us/azure/azure-sql/database/network-access-controls-overview?view=azuresql),
+[Microsoft Entra authentication](https://learn.microsoft.com/en-us/azure/azure-sql/database/authentication-aad-overview?view=azuresql),
+and [Secret Manager](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets?view=aspnetcore-10.0).
+
 Restore the repository-local .NET tools after cloning:
 
 ```powershell

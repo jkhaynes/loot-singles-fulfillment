@@ -23,6 +23,14 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+      - name: Reject tracked secrets
+        shell: bash
+        run: |
+          credential_pattern='(Pass''word|Pwd|User ID|AccountKey|SharedAccessSignature)[[:space:]]*='
+          if git grep -n -I -E "$credential_pattern" -- '*.json' '*.md' '*.yml' '*.yaml' '*.cs'; then
+            echo "Tracked configuration or documentation contains a credential-bearing assignment."
+            exit 1
+          fi
       - name: Build backend
         run: dotnet build backend/LootSingles.sln
       - name: Run database-free unit tests
