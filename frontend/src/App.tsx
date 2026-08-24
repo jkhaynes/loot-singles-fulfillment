@@ -4,6 +4,7 @@ import { useAuth } from './features/auth/AuthContext'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import './App.css'
 import { ImportPage } from './features/import/ImportPage'
+import { OrderDetailPage } from './features/orders/OrderDetailPage'
 import { OrdersPage } from './features/orders/OrdersPage'
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
       <Route path="/" element={<DashboardPage employee={employee} onLogout={logout} />} />
       <Route path="/import" element={<ImportPage />} />
       <Route path="/orders" element={<OrdersPage />} />
+      <Route path="/orders/:orderId" element={<OrderDetailPage />} />
     </Routes>
   )
 }

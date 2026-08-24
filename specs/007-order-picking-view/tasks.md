@@ -44,18 +44,18 @@
 
 ### Tests for User Story 1
 
-- [ ] T010 [P] [US1] Add `getOrderDetail(orderId)` and `OrderDetail`/`OrderLineDetail` types to `frontend/src/features/orders/ordersApi.ts`, mirroring `getOrders`'s shape: `GET /api/orders/{orderId}`, throwing a distinct `OrderNotFoundError` on a `404` response and a generic `Error` on any other non-ok response
-- [ ] T011 [P] [US1] Add a failing test file `frontend/tests/orders/OrderDetailPage.test.tsx`: renders the order's `tcgplayerOrderId` and, for every line, `productName`/`set`/`condition`/`quantity`; a line with `variant: null` renders without a variant field (no blank/broken placeholder for it), following the `MemoryRouter` + `vi.mock('.../ordersApi')` pattern already used in `frontend/tests/orders/OrdersPage.test.tsx`
-- [ ] T012 [P] [US1] Add a failing test case to `frontend/tests/orders/OrderDetailPage.test.tsx`: a line with `quantity` greater than 1 renders with both the existing `data-emphasis="high"` styling hook and a non-color "×N" text marker (e.g., "×4"), while a `quantity: 1` line has neither, per FR-003
-- [ ] T013 [P] [US1] Add a failing test case to `frontend/tests/orders/OrderDetailPage.test.tsx`: when `getOrderDetail` rejects with `OrderNotFoundError`, the page shows a distinct "order not found" message (not the generic load-error message), per FR-008
-- [ ] T014 [US1] Run T011–T013 and confirm they fail for the expected reason (`OrderDetailPage` does not exist yet)
+- [X] T010 [P] [US1] Add `getOrderDetail(orderId)` and `OrderDetail`/`OrderLineDetail` types to `frontend/src/features/orders/ordersApi.ts`, mirroring `getOrders`'s shape: `GET /api/orders/{orderId}`, throwing a distinct `OrderNotFoundError` on a `404` response and a generic `Error` on any other non-ok response
+- [X] T011 [P] [US1] Add a failing test file `frontend/tests/orders/OrderDetailPage.test.tsx`: renders the order's `tcgplayerOrderId` and, for every line, `productName`/`set`/`condition`/`quantity`; a line with `variant: null` renders without a variant field (no blank/broken placeholder for it), following the `MemoryRouter` + `vi.mock('.../ordersApi')` pattern already used in `frontend/tests/orders/OrdersPage.test.tsx`
+- [X] T012 [P] [US1] Add a failing test case to `frontend/tests/orders/OrderDetailPage.test.tsx`: a line with `quantity` greater than 1 renders with both the existing `data-emphasis="high"` styling hook and a non-color "×N" text marker (e.g., "×4"), while a `quantity: 1` line has neither, per FR-003
+- [X] T013 [P] [US1] Add a failing test case to `frontend/tests/orders/OrderDetailPage.test.tsx`: when `getOrderDetail` rejects with `OrderNotFoundError`, the page shows a distinct "order not found" message (not the generic load-error message), per FR-008
+- [X] T014 [US1] Run T011–T013 and confirm they fail for the expected reason (`OrderDetailPage` does not exist yet)
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Create `frontend/src/features/orders/OrderDetailPage.tsx`: read `orderId` via `useParams`, fetch with `getOrderDetail` on mount (same loading/error local-state convention as `OrdersPage.tsx`), render the order identifier and each line's fields, apply `data-emphasis="high"` plus a "×N" marker when `quantity > 1`, omit the variant field when `null`, and show a distinct not-found state when the fetch rejects with `OrderNotFoundError` versus a generic error state otherwise, to make T011–T013 pass
-- [ ] T016 [US1] Create `frontend/src/features/orders/OrderDetailPage.css` for the page's layout (desktop-first pass; mobile responsiveness is finished in Phase 5/US4)
-- [ ] T017 [US1] Add the `/orders/:orderId` route rendering `OrderDetailPage` to `frontend/src/App.tsx`
-- [ ] T018 [US1] Run T011–T013, confirm they pass, and run the full frontend test suite to confirm no regression
+- [X] T015 [US1] Create `frontend/src/features/orders/OrderDetailPage.tsx`: read `orderId` via `useParams`, fetch with `getOrderDetail` on mount (same loading/error local-state convention as `OrdersPage.tsx`), render the order identifier and each line's fields, apply `data-emphasis="high"` plus a "×N" marker when `quantity > 1`, omit the variant field when `null`, and show a distinct not-found state when the fetch rejects with `OrderNotFoundError` versus a generic error state otherwise, to make T011–T013 pass
+- [X] T016 [US1] Create `frontend/src/features/orders/OrderDetailPage.css` for the page's layout (desktop-first pass; mobile responsiveness is finished in Phase 5/US4)
+- [X] T017 [US1] Add the `/orders/:orderId` route rendering `OrderDetailPage` to `frontend/src/App.tsx`
+- [X] T018 [US1] Run T011–T013, confirm they pass, and run the full frontend test suite to confirm no regression
 
 **Checkpoint**: Navigating directly to `/orders/:orderId` for a real order shows its full picking detail with correct quantity emphasis; navigating to an invalid id shows a clear not-found state.
 

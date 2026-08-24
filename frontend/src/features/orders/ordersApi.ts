@@ -5,6 +5,27 @@ export interface OrderListItem {
   importedAt: string
 }
 
+export interface OrderLineDetail {
+  productName: string
+  set: string
+  variant: string | null
+  condition: string
+  quantity: number
+}
+
+export interface OrderDetail {
+  orderId: number
+  tcgplayerOrderId: string
+  lines: OrderLineDetail[]
+}
+
+export class OrderNotFoundError extends Error {
+  constructor() {
+    super('Order not found')
+    this.name = 'OrderNotFoundError'
+  }
+}
+
 export async function getOrders(): Promise<OrderListItem[]> {
   const response = await fetch('/api/orders', { credentials: 'include' })
 
@@ -13,4 +34,18 @@ export async function getOrders(): Promise<OrderListItem[]> {
   }
 
   return (await response.json()) as OrderListItem[]
+}
+
+export async function getOrderDetail(orderId: number): Promise<OrderDetail> {
+  const response = await fetch(`/api/orders/${orderId}`, { credentials: 'include' })
+
+  if (response.status === 404) {
+    throw new OrderNotFoundError()
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to load order (status ${response.status})`)
+  }
+
+  return (await response.json()) as OrderDetail
 }
