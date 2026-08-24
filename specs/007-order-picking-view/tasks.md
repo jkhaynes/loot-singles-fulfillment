@@ -19,18 +19,18 @@
 
 ### Tests
 
-- [ ] T001 [P] Add failing tests to `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs`: `GetById_ReturnsFullOrderDetail` (seed an order with two lines, one with a variant and one with `Variant = null`; assert `200 OK`, the response's `orderId`/`tcgplayerOrderId`, and each line's `productName`/`set`/`condition`/`quantity`, asserting the null-variant line's JSON `variant` property is explicitly `null`, not omitted) and `GetById_ForNonExistentOrder_Returns404WithOrderNotFoundError` (assert `404 Not Found` with body `{"error":"order_not_found"}`), following the existing `LoginAsync`/`NewOrder` helper pattern already in that file
-- [ ] T002 Add a failing test to the same file: `GetByIdWithoutSessionReturns401`, mirroring the existing `GetWithoutSessionReturns401` test
-- [ ] T003 Run T001–T002 and confirm they fail for the expected reason (no `GET /api/orders/{orderId}` route exists yet)
+- [X] T001 [P] Add failing tests to `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs`: `GetById_ReturnsFullOrderDetail` (seed an order with two lines, one with a variant and one with `Variant = null`; assert `200 OK`, the response's `orderId`/`tcgplayerOrderId`, and each line's `productName`/`set`/`condition`/`quantity`, asserting the null-variant line's JSON `variant` property is explicitly `null`, not omitted) and `GetById_ForNonExistentOrder_Returns404WithOrderNotFoundError` (assert `404 Not Found` with body `{"error":"order_not_found"}`), following the existing `LoginAsync`/`NewOrder` helper pattern already in that file
+- [X] T002 Add a failing test to the same file: `GetByIdWithoutSessionReturns401`, mirroring the existing `GetWithoutSessionReturns401` test
+- [X] T003 Run T001–T002 and confirm they fail for the expected reason (no `GET /api/orders/{orderId}` route exists yet)
 
 ### Implementation
 
-- [ ] T004 [P] Add `OrderDetail` and a nested order-line-detail record to `backend/src/LootSingles.Application/Orders/OrderDetail.cs` (new file), per data-model.md: `OrderDetail(int OrderId, string TcgplayerOrderId, IReadOnlyList<OrderLineDetail> Lines)` and `OrderLineDetail(string ProductName, string Set, string? Variant, string Condition, int Quantity)`
-- [ ] T005 Add `Task<OrderDetail?> GetByIdAsync(int orderId, CancellationToken cancellationToken)` to `backend/src/LootSingles.Application/Orders/IOrderRepository.cs`
-- [ ] T006 Implement `GetByIdAsync` in `backend/src/LootSingles.Infrastructure/Persistence/OrderRepository.cs`: `AsNoTracking()` query on `Order` including `OrderLines`, projecting to `OrderDetail`/`OrderLineDetail` (mirroring the existing `GetAllAsync` projection style), returning `null` when no order matches
-- [ ] T007 Add `Task<OrderDetail?> GetByIdAsync(int orderId, CancellationToken cancellationToken)` to `backend/src/LootSingles.Application/Orders/OrdersService.cs`, delegating to `IOrderRepository.GetByIdAsync`
-- [ ] T008 Add a `GET("{orderId:int}")` action to `backend/src/LootSingles.Api/Controllers/OrdersController.cs` calling `OrdersService.GetByIdAsync`, returning `200 OK` with an `OrderDetailResponse`/`OrderLineDetailResponse` shape matching contracts/order-detail-api.md when found, or `404 Not Found` with `{ error = "order_not_found" }` when `null`, to make T001–T002 pass
-- [ ] T009 Run T001–T002, confirm they pass, and run the full backend test suite to confirm no regression
+- [X] T004 [P] Add `OrderDetail` and a nested order-line-detail record to `backend/src/LootSingles.Application/Orders/OrderDetail.cs` (new file), per data-model.md: `OrderDetail(int OrderId, string TcgplayerOrderId, IReadOnlyList<OrderLineDetail> Lines)` and `OrderLineDetail(string ProductName, string Set, string? Variant, string Condition, int Quantity)`
+- [X] T005 Add `Task<OrderDetail?> GetByIdAsync(int orderId, CancellationToken cancellationToken)` to `backend/src/LootSingles.Application/Orders/IOrderRepository.cs`
+- [X] T006 Implement `GetByIdAsync` in `backend/src/LootSingles.Infrastructure/Persistence/OrderRepository.cs`: `AsNoTracking()` query on `Order` including `OrderLines`, projecting to `OrderDetail`/`OrderLineDetail` (mirroring the existing `GetAllAsync` projection style), returning `null` when no order matches
+- [X] T007 Add `Task<OrderDetail?> GetByIdAsync(int orderId, CancellationToken cancellationToken)` to `backend/src/LootSingles.Application/Orders/OrdersService.cs`, delegating to `IOrderRepository.GetByIdAsync`
+- [X] T008 Add a `GET("{orderId:int}")` action to `backend/src/LootSingles.Api/Controllers/OrdersController.cs` calling `OrdersService.GetByIdAsync`, returning `200 OK` with an `OrderDetailResponse`/`OrderLineDetailResponse` shape matching contracts/order-detail-api.md when found, or `404 Not Found` with `{ error = "order_not_found" }` when `null`, to make T001–T002 pass
+- [X] T009 Run T001–T002, confirm they pass, and run the full backend test suite to confirm no regression
 
 **Checkpoint**: `GET /api/orders/{orderId}` exists, is authenticated, and returns full order detail or a typed 404 — every user story below can now build on it.
 
