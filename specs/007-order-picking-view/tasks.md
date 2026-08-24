@@ -91,7 +91,7 @@
 
 ### Tests for User Story 3
 
-- [ ] T025 [US3] Add a test case to `frontend/tests/orders/OrderDetailPage.test.tsx` asserting every rendered product line contains the same neutral placeholder element (a stable, queryable marker such as a fixed `aria-label`), and that no line ever renders an `<img>` element with a `src` attribute. This is expected to pass immediately once T015 lands, since the placeholder is part of that same line-rendering implementation — it exists to give User Story 3 its own independent acceptance verification, not to drive additional production code.
+- [X] T025 [US3] Add a test case to `frontend/tests/orders/OrderDetailPage.test.tsx` asserting every rendered product line contains the same neutral placeholder element (a stable, queryable marker such as a fixed `aria-label`), and that no line ever renders an `<img>` element with a `src` attribute. This is expected to pass immediately once T015 lands, since the placeholder is part of that same line-rendering implementation — it exists to give User Story 3 its own independent acceptance verification, not to drive additional production code.
 
 **Checkpoint**: The placeholder-never-a-guess safety property is independently verified.
 

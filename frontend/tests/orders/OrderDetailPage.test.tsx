@@ -101,4 +101,38 @@ describe('OrderDetailPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/order not found/i)
     expect(screen.queryByText(/couldn.?t load order/i)).not.toBeInTheDocument()
   })
+
+  it('uses the same neutral placeholder for every line and never renders a sourced image', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      lines: [
+        {
+          productName: 'Genesect ex',
+          set: 'SV: Black Bolt',
+          variant: 'Holofoil',
+          condition: 'Near Mint',
+          quantity: 1,
+        },
+        {
+          productName: 'Pikachu',
+          set: 'Base Set',
+          variant: null,
+          condition: 'Lightly Played',
+          quantity: 1,
+        },
+      ],
+    })
+
+    const { container } = renderPage()
+
+    const lines = await screen.findAllByRole('article')
+    expect(lines).toHaveLength(2)
+    for (const line of lines) {
+      const placeholder = within(line).getByLabelText('Card image unavailable')
+      expect(placeholder).toHaveTextContent('No image')
+    }
+    expect(screen.getAllByLabelText('Card image unavailable')).toHaveLength(2)
+    expect(container.querySelectorAll('img[src]')).toHaveLength(0)
+  })
 })
