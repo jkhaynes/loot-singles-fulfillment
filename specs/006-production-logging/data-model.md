@@ -16,6 +16,9 @@ Emitted exactly once per import attempt (research.md §4), after `ImportAttempt.
 | `OrdersFailed` | count of `ImportOrderResult` with `Outcome == Rejected` | Yes |
 | `AttemptFailureType` | `attempt.AttemptFailureCode` (`UnreadablePdf`, `SummaryMismatch`, or absent) | Only when set |
 | Failure-type breakdown | count of failed orders grouped by their own `FailureType`, one named argument per type present (e.g., `DuplicateOrderCount`, `MissingProductNameCount`) | Only for the types actually present in that attempt |
+| Failure-type order identifiers | for each failure type present, the affected orders' `SourceOrderIdentifier` values (comma-joined), one named argument per type (e.g., `DuplicateOrderIds`, `MissingProductNameIds`); no cap on how many are listed. `MissingOrderIdentifier`'s own group uses the literal placeholder `(missing)` instead of an empty identifier. | Only for the types actually present in that attempt |
+
+The free-text message MUST also label each failure-type group by name (e.g., `DuplicateOrder: 13 [F0000010-ABC010-00010,...]`), not just embed the bare count/identifier values — the default console formatter only ever prints the formatted message text, never the named structured arguments separately, so an unlabeled value pair (e.g. `13 F0000010-...`) is unreadable on its own and fails SC-005's "console output alone" requirement.
 
 **Level**: `Information` when `AttemptFailureType` is absent and `OrdersFailed == 0`; otherwise `Warning`.
 

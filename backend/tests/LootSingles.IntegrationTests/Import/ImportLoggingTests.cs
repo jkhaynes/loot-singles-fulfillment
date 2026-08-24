@@ -3,8 +3,10 @@ using System.Runtime.CompilerServices;
 using LootSingles.Application.Import;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
+using LootSingles.IntegrationTests.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace LootSingles.IntegrationTests.Import;
@@ -64,7 +66,39 @@ public class ImportLoggingTests
         Assert.Equal(0, entry.GetState<int>("OrdersSucceeded"));
         Assert.Equal(13, entry.GetState<int>("OrdersFailed"));
         Assert.Equal(13, entry.GetState<int>("DuplicateOrderCount"));
+        var duplicateOrderIds = entry.GetState<string>("DuplicateOrderIds").Split(',');
+        Assert.Equal(13, duplicateOrderIds.Length);
+        Assert.Contains("F0000010-ABC010-00010", duplicateOrderIds);
+        Assert.Contains("DuplicateOrder: 13 [", entry.Message, StringComparison.Ordinal);
         AssertNoLeakedContent(entry, ProductMarker);
+    }
+
+    [Fact]
+    public async Task ImportAsync_OrderWithMissingIdentifier_ProducesWarningWithMissingIdentifierPlaceholder()
+    {
+        await using var context = ImportTestSupport.CreateDatabaseContext();
+        var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var service = new PackingSlipImportService(
+            new PdfPigPackingSlipParser(),
+            new ImportRepository(context),
+            logger
+        );
+
+        var final = await ImportTestSupport.ImportFixtureAsync(
+            service,
+            "missing-order-identifier.pdf"
+        );
+
+        Assert.NotEqual(0, final.ImportAttempt.Id);
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Equal(1, entry.GetState<int>("MissingOrderIdentifierCount"));
+        Assert.Equal("(missing)", entry.GetState<string>("MissingOrderIdentifierIds"));
+        Assert.Contains(
+            "MissingOrderIdentifier: 1 [(missing)]",
+            entry.Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -144,6 +178,43 @@ public class ImportLoggingTests
         );
     }
 
+    [Fact]
+    public async Task RealDiConfiguredLogger_HasInformationWarningAndErrorEnabled()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        await using var scope = factory.Services.CreateAsyncScope();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<PackingSlipImportService>>();
+
+        Assert.True(logger.IsEnabled(LogLevel.Information));
+        Assert.True(logger.IsEnabled(LogLevel.Warning));
+        Assert.True(logger.IsEnabled(LogLevel.Error));
+    }
+
+    [Fact]
+    public async Task ImportAsync_TwoHundredOrderBatch_ProducesExactlyOneAttemptLevelLogEntry()
+    {
+        await using var context = ImportTestSupport.CreateDatabaseContext();
+        var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var service = new PackingSlipImportService(
+            new SyntheticProgressiveParser(200),
+            new ImportRepository(context),
+            logger
+        );
+
+        ImportProgressUpdate? final = null;
+        await foreach (var update in service.ImportAsync(new MemoryStream([0])))
+        {
+            final = update;
+        }
+
+        Assert.NotNull(final);
+        Assert.NotEqual(0, final.ImportAttempt.Id);
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Information, entry.Level);
+        Assert.Equal(200, entry.GetState<int>("OrdersDetected"));
+        Assert.Equal(200, entry.GetState<int>("OrdersSucceeded"));
+    }
+
     private static void AssertNoLeakedContent(ImportTestSupport.LogEntry entry, string marker)
     {
         Assert.DoesNotContain(marker, entry.Message, StringComparison.Ordinal);
@@ -166,6 +237,48 @@ public class ImportLoggingTests
                 await Task.Yield();
                 yield return new PackingSlipParseUpdate(index, false, null);
             }
+        }
+    }
+
+    private sealed class SyntheticProgressiveParser(int orderCount) : IPackingSlipParser
+    {
+        public async IAsyncEnumerable<PackingSlipParseUpdate> ParseAsync(
+            Stream packingSlipPdf,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default
+        )
+        {
+            var blocks = new List<RawOrderBlock>();
+            for (var index = 1; index <= orderCount; index++)
+            {
+                blocks.Add(
+                    new RawOrderBlock
+                    {
+                        OrderIdentifier = $"SYNTHETIC-LOG-{index:D6}-ORDER",
+                        ProductLines =
+                        [
+                            new RawProductLine
+                            {
+                                QuantityText = "1",
+                                RawDescription =
+                                    "Pokemon - Test Set: Test Card - #1 - Common - Near Mint",
+                            },
+                        ],
+                    }
+                );
+                await Task.Yield();
+                yield return new PackingSlipParseUpdate(index, false, null);
+            }
+
+            yield return new PackingSlipParseUpdate(
+                orderCount,
+                true,
+                new ParsedPackingSlip
+                {
+                    OrderBlocks = blocks,
+                    SummaryPageFound = false,
+                    SummaryOrderIdentifiers = [],
+                }
+            );
         }
     }
 

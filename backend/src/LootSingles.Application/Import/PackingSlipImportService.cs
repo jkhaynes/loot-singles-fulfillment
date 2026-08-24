@@ -229,8 +229,18 @@ public sealed class PackingSlipImportService(
             .OrderBy(group => group.Key);
         foreach (var group in breakdown)
         {
-            template.Append($" {{{group.Key}Count}}");
+            template.Append($" {group.Key}: {{{group.Key}Count}} [{{{group.Key}Ids}}]");
             args.Add(group.Count());
+            args.Add(
+                string.Join(
+                    ",",
+                    group.Select(result =>
+                        string.IsNullOrWhiteSpace(result.SourceOrderIdentifier)
+                            ? "(missing)"
+                            : result.SourceOrderIdentifier
+                    )
+                )
+            );
         }
 
         logger.LogWarning(template.ToString(), args.ToArray());
