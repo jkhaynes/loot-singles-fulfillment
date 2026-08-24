@@ -55,7 +55,7 @@ public sealed class DatabaseConfigurationTests
     public void Backend_workflow_checks_tracked_configuration_and_documentation_for_secrets()
     {
         var workflow = File.ReadAllText(
-            Path.Combine(FindRepositoryRoot(), ".github", "workflows", "backend.yml")
+            Path.Combine(FindRepositoryRoot(), ".github", "workflows", "pr-quality-gate.yml")
         );
 
         Assert.Contains("git grep", workflow, StringComparison.Ordinal);
