@@ -102,6 +102,30 @@ public class ImportLoggingTests
     }
 
     [Fact]
+    public async Task ImportAsync_SummaryMismatchWithNoFailedOrders_ProducesWarningNotInformation()
+    {
+        await using var context = ImportTestSupport.CreateDatabaseContext();
+        var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var service = new PackingSlipImportService(
+            new PdfPigPackingSlipParser(),
+            new ImportRepository(context),
+            logger
+        );
+
+        var final = await ImportTestSupport.ImportFixtureAsync(service, "summary-mismatch.pdf");
+
+        Assert.Equal(FailureType.SummaryMismatch, final.ImportAttempt.AttemptFailureCode);
+        Assert.Equal(0, final.FailedCount);
+        Assert.NotEqual(0, final.ImportAttempt.Id);
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Equal(
+            FailureType.SummaryMismatch,
+            entry.GetState<FailureType>("AttemptFailureType")
+        );
+    }
+
+    [Fact]
     public async Task ImportAsync_OrderPersistenceFailure_ProducesErrorWithImportIdOrderIdAndFailureType()
     {
         await using var context = ImportTestSupport.CreateDatabaseContext(

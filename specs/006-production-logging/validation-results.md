@@ -105,6 +105,24 @@ Fix: `LogCompletion`'s breakdown loop now prepends the failure-type name as a li
 regression: 74 unit passed, 100 SQL Server integration passed, `dotnet csharpier check backend`
 reports all 129 files formatted.
 
+## Phase 7 — /code-design-review remediation (T028/T029)
+
+`/code-design-review` found 2 Must Fix and 3 Advisory findings. Must Fix #2 (the unrelated
+`frontend/vite.config.ts` commit on this branch) was accepted as-is by the Developer and left
+unaddressed by design — no task was created for it. The remaining findings were resolved:
+
+- **T028 (Must Fix #1)**: added `ImportAsync_SummaryMismatchWithNoFailedOrders_ProducesWarningNotInformation`,
+  importing `summary-mismatch.pdf` (one order, no per-order failures) and asserting the completion
+  log is `LogLevel.Warning` with `AttemptFailureType == FailureType.SummaryMismatch`, guarding
+  `LogCompletion`'s branch-2 guard against a future regression to `Information`. Passed immediately
+  against the existing implementation, as expected (no production code change).
+- **T029 (Advisory A3)**: added a comment above `LogCompletion`'s dynamic `StringBuilder` template
+  construction explaining why it isn't a static `ILogger` template (variable-cardinality
+  per-`FailureType` breakdown), so a future maintainer doesn't "simplify" it back.
+
+Full regression: 74 unit passed, 101 SQL Server integration passed (0 failed), `dotnet csharpier
+check backend` reports all 129 files formatted.
+
 ## Phase 5 T022 — constitution Architecture and Changeability Review
 
 Evaluated every component this feature touched against the plan's original architecture table

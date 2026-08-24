@@ -210,6 +210,8 @@ public sealed class PackingSlipImportService(
             return;
         }
 
+        // Built dynamically (not a static ILogger template) because the per-FailureType breakdown
+        // has variable cardinality; do not collapse this back to a static template.
         var template = new StringBuilder(
             "Import attempt {ImportId} completed with failures. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}."
         );

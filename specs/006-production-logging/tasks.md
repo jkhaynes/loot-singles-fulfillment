@@ -110,6 +110,17 @@
 
 ---
 
+## Phase 7: Code and Design Review Remediation
+
+**Purpose**: Resolve the Must Fix findings from `/code-design-review` (Must Fix #2, the unrelated `frontend/vite.config.ts` commit, is accepted as-is per the Developer and does not get a task here).
+
+- [X] T028 [Must Fix] Add a test to `backend/tests/LootSingles.IntegrationTests/Import/ImportLoggingTests.cs` importing `summary-mismatch.pdf` through the `CapturingLogger`, asserting the completion log entry is `LogLevel.Warning` (not `Information`) with `AttemptFailureType == FailureType.SummaryMismatch`, per research.md §4's decision rule ("Warning... when at least one order failed or `AttemptFailureCode` is set... extends its intent to the `SummaryMismatch` attempt-wide condition"). This scenario is expected to pass immediately against the existing `LogCompletion` implementation (no production code change expected) — it exists to guard the branch-2 guard (`failed == 0 && attempt.AttemptFailureCode is null`) against a future regression that would silently downgrade a `SummaryMismatch` attempt to `Information`, not to drive new production code.
+- [X] T029 [Advisory] Add a short comment to `LogCompletion`'s dynamic message-template construction in `backend/src/LootSingles.Application/Import/PackingSlipImportService.cs` explaining why it builds the template/args dynamically (`StringBuilder` + positional `object?[]`) instead of a static `ILogger` message template — the variable-cardinality per-`FailureType` breakdown (data-model.md) cannot be expressed with a compile-time-constant template — so a future maintainer does not "simplify" it back to a static template and silently drop the breakdown.
+
+**Checkpoint**: Must Fix #1 has regression coverage; the non-idiomatic logging pattern is self-documenting for future maintainers.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase dependencies
