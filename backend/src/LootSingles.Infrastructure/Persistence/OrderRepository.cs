@@ -20,10 +20,7 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
             .ToListAsync(cancellationToken);
     }
 
-    public Task<OrderDetail?> GetByIdAsync(
-        int orderId,
-        CancellationToken cancellationToken
-    )
+    public Task<OrderDetail?> GetByIdAsync(int orderId, CancellationToken cancellationToken)
     {
         return context
             .Orders.AsNoTracking()

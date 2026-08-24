@@ -32,9 +32,7 @@ public sealed class OrdersControllerTests
         order.OrderLines.Add(
             NewOrderLine("Genesect ex", "SV: Black Bolt", "Holofoil", "Near Mint", 3)
         );
-        order.OrderLines.Add(
-            NewOrderLine("Pikachu", "Base Set", null, "Lightly Played", 1)
-        );
+        order.OrderLines.Add(NewOrderLine("Pikachu", "Base Set", null, "Lightly Played", 1));
         await factory.SeedAsync(context =>
         {
             context.Orders.Add(order);
@@ -53,22 +51,9 @@ public sealed class OrdersControllerTests
         var lines = document.RootElement.GetProperty("lines").EnumerateArray().ToArray();
         Assert.Collection(
             lines,
-            line => AssertOrderLine(
-                line,
-                "Genesect ex",
-                "SV: Black Bolt",
-                "Holofoil",
-                "Near Mint",
-                3
-            ),
-            line => AssertOrderLine(
-                line,
-                "Pikachu",
-                "Base Set",
-                null,
-                "Lightly Played",
-                1
-            )
+            line =>
+                AssertOrderLine(line, "Genesect ex", "SV: Black Bolt", "Holofoil", "Near Mint", 3),
+            line => AssertOrderLine(line, "Pikachu", "Base Set", null, "Lightly Played", 1)
         );
         Assert.True(lines[1].TryGetProperty("variant", out var variant));
         Assert.Equal(JsonValueKind.Null, variant.ValueKind);

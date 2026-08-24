@@ -36,9 +36,7 @@ public sealed class OrdersServiceTests
             CancellationToken cancellationToken
         ) => Task.FromResult(orders);
 
-        public Task<OrderDetail?> GetByIdAsync(
-            int orderId,
-            CancellationToken cancellationToken
-        ) => Task.FromResult<OrderDetail?>(null);
+        public Task<OrderDetail?> GetByIdAsync(int orderId, CancellationToken cancellationToken) =>
+            Task.FromResult<OrderDetail?>(null);
     }
 }

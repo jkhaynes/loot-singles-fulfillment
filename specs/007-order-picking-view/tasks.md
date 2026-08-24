@@ -122,10 +122,10 @@
 
 **Purpose**: Confirm full regression across both stacks and complete manual validation.
 
-- [ ] T031 [P] Run backend build, full unit suite, full SQL Server integration suite, and CSharpier; confirm all existing tests remain green and record results in `specs/007-order-picking-view/validation-results.md`
-- [ ] T032 [P] Run frontend lint, unit test suite, production build, Prettier check, and the full Playwright suite; confirm all existing tests remain green and record results in `specs/007-order-picking-view/validation-results.md`
-- [ ] T033 Perform the quickstart.md manual validation (run the app locally, exercise every scenario including the colorblind-simulation check for quantity emphasis) and record observations in `specs/007-order-picking-view/validation-results.md`
-- [ ] T034 Perform the constitution Architecture and Changeability Review against the implemented boundaries, capture any Must Fix findings as new tasks in `specs/007-order-picking-view/tasks.md`, and do not proceed to convergence until resolved
+- [X] T031 [P] Run backend build, full unit suite, full SQL Server integration suite, and CSharpier; confirm all existing tests remain green and record results in `specs/007-order-picking-view/validation-results.md`
+- [X] T032 [P] Run frontend lint, unit test suite, production build, Prettier check, and the full Playwright suite; confirm all existing tests remain green and record results in `specs/007-order-picking-view/validation-results.md`
+- [X] T033 Perform the quickstart.md manual validation (run the app locally, exercise every scenario including the colorblind-simulation check for quantity emphasis) and record observations in `specs/007-order-picking-view/validation-results.md`
+- [X] T034 Perform the constitution Architecture and Changeability Review against the implemented boundaries, capture any Must Fix findings as new tasks in `specs/007-order-picking-view/tasks.md`, and do not proceed to convergence until resolved
 
 ---
 

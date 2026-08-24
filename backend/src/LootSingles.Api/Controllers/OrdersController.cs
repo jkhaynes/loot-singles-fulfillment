@@ -28,10 +28,7 @@ public sealed class OrdersController(OrdersService ordersService) : ControllerBa
     }
 
     [HttpGet("{orderId:int}")]
-    public async Task<IActionResult> GetById(
-        int orderId,
-        CancellationToken cancellationToken
-    )
+    public async Task<IActionResult> GetById(int orderId, CancellationToken cancellationToken)
     {
         var order = await ordersService.GetByIdAsync(orderId, cancellationToken);
 
