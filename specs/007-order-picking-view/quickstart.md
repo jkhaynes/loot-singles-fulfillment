@@ -32,8 +32,8 @@ the list is empty).
 3. **Quantity emphasis is not color-only** (FR-003, SC-002): find a line with quantity greater than
    one. Confirm it's visually distinct from quantity-one lines. Then simulate color-blindness (e.g.,
    your browser DevTools' rendering emulation, or a grayscale screenshot) and confirm the same line
-   is still clearly distinguishable — the non-color cue (bold weight + "×N" marker) must still read
-   correctly.
+   is still clearly distinguishable — the non-color cues (bold weight and the badge/pill shape around
+   the quantity value) must still read correctly without relying on the badge's color tint.
 4. **No card image is ever guessed** (US3, FR-004, SC-004): confirm every product line shows the
    same neutral placeholder, with no image ever displayed in its place.
 5. **Read-only** (FR-006): confirm no control on the detail view claims the order, marks it picked,

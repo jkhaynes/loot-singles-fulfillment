@@ -22,11 +22,11 @@
 
 **Finding**: The existing dashboard already has a quantity-emphasis convention — `data-emphasis="high"` on the quantity cell, styled with an orange/bold color treatment in CSS (`DashboardPage.tsx`/`DashboardPage.css`). Per this feature's clarification, color alone is not sufficient: a picker who cannot perceive the color difference must still be able to tell a line apart.
 
-**Decision**: Reuse the existing `data-emphasis="high"` attribute convention on the quantity value for the same styling hook, and add one non-color cue alongside it — a `×N` prefix/marker rendered as text (e.g., "×4") together with a bold weight, so the emphasis reads correctly in grayscale or under color-blindness simulation without relying on an icon asset.
+**Decision**: Reuse the existing `data-emphasis="high"` attribute convention on the quantity value for the same styling hook, and combine it with two non-color cues applied directly to the quantity number itself — bold weight (a `<strong>` element) and a distinct badge/pill shape (padded, rounded background chip, larger font size) — rather than a separate `×N` marker alongside the plain number.
 
-**Rationale**: Extends an existing, already-proven pattern rather than inventing a new one (Principle XIII); a text marker plus weight is the simplest change that satisfies FR-003 without adding an icon/asset dependency.
+**Rationale**: An earlier iteration added a `×N` text marker next to the plain quantity value, but that duplicated the quantity in two visual forms directly under a `Quantity` label that already states it once (e.g., "Quantity: 4" followed by a separate "×4"), which read as redundant rather than clarifying once seen rendered. Applying the non-color cues to the single quantity value instead keeps the number stated once while still combining color with more than one non-color cue (weight and shape), satisfying FR-003's requirement that the emphasis remain distinguishable without color.
 
-**Alternatives considered**: An icon/badge — rejected as unnecessary asset overhead when a text marker achieves the same distinguishability with less to maintain. A numeric-only badge without the "×" — rejected as more ambiguous out of context than a quantity multiplier is used to reading.
+**Alternatives considered**: A `×N` text marker rendered alongside the plain quantity value — the original decision, superseded after implementation review found it visually redundant next to the already-labeled quantity. A single non-color cue (bold weight alone) — rejected as relying on only one cue in addition to color where a second, independent cue (the badge shape) is cheap to keep.
 
 ## 4. Card image placeholder
 

@@ -46,13 +46,13 @@
 
 - [X] T010 [P] [US1] Add `getOrderDetail(orderId)` and `OrderDetail`/`OrderLineDetail` types to `frontend/src/features/orders/ordersApi.ts`, mirroring `getOrders`'s shape: `GET /api/orders/{orderId}`, throwing a distinct `OrderNotFoundError` on a `404` response and a generic `Error` on any other non-ok response
 - [X] T011 [P] [US1] Add a failing test file `frontend/tests/orders/OrderDetailPage.test.tsx`: renders the order's `tcgplayerOrderId` and, for every line, `productName`/`set`/`condition`/`quantity`; a line with `variant: null` renders without a variant field (no blank/broken placeholder for it), following the `MemoryRouter` + `vi.mock('.../ordersApi')` pattern already used in `frontend/tests/orders/OrdersPage.test.tsx`
-- [X] T012 [P] [US1] Add a failing test case to `frontend/tests/orders/OrderDetailPage.test.tsx`: a line with `quantity` greater than 1 renders with both the existing `data-emphasis="high"` styling hook and a non-color "×N" text marker (e.g., "×4"), while a `quantity: 1` line has neither, per FR-003
+- [X] T012 [P] [US1] Add a failing test case to `frontend/tests/orders/OrderDetailPage.test.tsx`: a line with `quantity` greater than 1 renders its quantity value with the `data-emphasis="high"` styling hook (bold weight plus a badge/pill treatment, the quantity stated only once, no duplicated marker), while a `quantity: 1` line has neither, per FR-003
 - [X] T013 [P] [US1] Add a failing test case to `frontend/tests/orders/OrderDetailPage.test.tsx`: when `getOrderDetail` rejects with `OrderNotFoundError`, the page shows a distinct "order not found" message (not the generic load-error message), per FR-008
 - [X] T014 [US1] Run T011–T013 and confirm they fail for the expected reason (`OrderDetailPage` does not exist yet)
 
 ### Implementation for User Story 1
 
-- [X] T015 [US1] Create `frontend/src/features/orders/OrderDetailPage.tsx`: read `orderId` via `useParams`, fetch with `getOrderDetail` on mount (same loading/error local-state convention as `OrdersPage.tsx`), render the order identifier and each line's fields, apply `data-emphasis="high"` plus a "×N" marker when `quantity > 1`, omit the variant field when `null`, and show a distinct not-found state when the fetch rejects with `OrderNotFoundError` versus a generic error state otherwise, to make T011–T013 pass
+- [X] T015 [US1] Create `frontend/src/features/orders/OrderDetailPage.tsx`: read `orderId` via `useParams`, fetch with `getOrderDetail` on mount (same loading/error local-state convention as `OrdersPage.tsx`), render the order identifier and each line's fields, apply `data-emphasis="high"` with a bold-weight, badge/pill visual treatment (quantity stated once, no duplicated "×N" marker) when `quantity > 1`, omit the variant field when `null`, and show a distinct not-found state when the fetch rejects with `OrderNotFoundError` versus a generic error state otherwise, to make T011–T013 pass
 - [X] T016 [US1] Create `frontend/src/features/orders/OrderDetailPage.css` for the page's layout (desktop-first pass; mobile responsiveness is finished in Phase 5/US4)
 - [X] T017 [US1] Add the `/orders/:orderId` route rendering `OrderDetailPage` to `frontend/src/App.tsx`
 - [X] T018 [US1] Run T011–T013, confirm they pass, and run the full frontend test suite to confirm no regression
@@ -126,6 +126,7 @@
 - [X] T032 [P] Run frontend lint, unit test suite, production build, Prettier check, and the full Playwright suite; confirm all existing tests remain green and record results in `specs/007-order-picking-view/validation-results.md`
 - [X] T033 Perform the quickstart.md manual validation (run the app locally, exercise every scenario including the colorblind-simulation check for quantity emphasis) and record observations in `specs/007-order-picking-view/validation-results.md`
 - [X] T034 Perform the constitution Architecture and Changeability Review against the implemented boundaries, capture any Must Fix findings as new tasks in `specs/007-order-picking-view/tasks.md`, and do not proceed to convergence until resolved
+- [X] T035 `/code-design-review` Must Fix: the "×N" marker described in T012/T015, research.md §3, and quickstart.md step 3 was intentionally removed by the quantity-display simplification commit (bold weight + badge/pill treatment retained as the non-color cue instead, to avoid restating the quantity value twice), but those artifacts and `validation-results.md`'s quickstart evidence still described the removed marker. Updated research.md §3, quickstart.md step 3, and T012/T015 to describe the shipped bold+badge treatment, and corrected `validation-results.md` item 3 to match
 
 ---
 

@@ -33,9 +33,14 @@ host, and SQL Server Testcontainer. The seeded Ready order `E2E-ORDER-00001` was
 2. **Full detail — PASS.** The page showed `E2E-ORDER-00001` and its `Pikachu`, `Base Set`,
    `Near Mint`, and quantity `2` line data. Component tests additionally cover variant-present and
    variant-null lines.
-3. **Non-color quantity emphasis — PASS.** Quantity two rendered the persistent `×2` text marker
-   with `data-emphasis="high"` and bold (`700`) weight. The browser applied a grayscale filter and
-   the marker remained visible and bold, independently of its warning color.
+3. **Non-color quantity emphasis — PASS (corrected 2026-08-24 after `/code-design-review` found this
+   item described a marker removed by the quantity-display simplification commit).** Quantity two
+   renders with `data-emphasis="high"`, bold (`700`) weight, and a badge/pill background+shape — the
+   quantity is stated once, with no separate "×N" marker (removed intentionally; see research.md §3).
+   `frontend/tests/orders/OrderDetailPage.test.tsx`'s emphasis test and `frontend/e2e/order-detail.spec.ts`
+   both assert the bold weight and `data-emphasis="high"` attribute directly and re-passed against the
+   current implementation. The badge shape and weight remain independent of the pill's warning-color
+   tint, so the emphasis does not rely on color alone.
 4. **No guessed image — PASS.** The line exposed the neutral `Card image unavailable` placeholder
    and contained no `img[src]`. Component coverage verifies the property for every line.
 5. **Read-only detail — PASS.** No claim, pick, complete, or other state-changing button was
@@ -62,7 +67,12 @@ host, and SQL Server Testcontainer. The seeded Ready order `E2E-ORDER-00001` was
 
 ### Review outcome
 
-No Must Fix or Advisory findings were identified. No remediation tasks were appended to
-`tasks.md`. The implementation remains read-only, contains no customer PII or image reference,
-and adds no production logging because this routine read has no business-meaningful attempt or
-outcome event beyond existing request handling.
+This self-review (T034) identified no Must Fix or Advisory findings. The subsequent
+`/code-design-review` gate found one Must Fix: the quantity-display simplification commit removed
+the "×N" marker described in tasks.md T012/T015, research.md §3, and quickstart.md step 3, and this
+document's item 3 above still described that removed marker as observed. That finding is recorded
+and resolved as T035 in `tasks.md`, with research.md, quickstart.md, tasks.md, and item 3 above all
+corrected to describe the shipped bold+badge quantity-emphasis treatment. The implementation
+remains read-only, contains no customer PII or image reference, and adds no production logging
+because this routine read has no business-meaningful attempt or outcome event beyond existing
+request handling.
