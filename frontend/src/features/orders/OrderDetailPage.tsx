@@ -86,11 +86,10 @@ export function OrderDetailPage() {
                   <div className="order-detail-line__quantity">
                     <dt>Quantity</dt>
                     <dd>
-                      <span>{line.quantity}</span>
-                      {line.quantity > 1 && (
-                        <strong data-emphasis="high" aria-label={`Pick ${line.quantity}`}>
-                          ×{line.quantity}
-                        </strong>
+                      {line.quantity > 1 ? (
+                        <strong data-emphasis="high">{line.quantity}</strong>
+                      ) : (
+                        <span>{line.quantity}</span>
                       )}
                     </dd>
                   </div>

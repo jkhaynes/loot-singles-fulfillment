@@ -60,7 +60,7 @@ describe('OrderDetailPage', () => {
     expect(within(pikachu).queryByText(/variant/i)).not.toBeInTheDocument()
   })
 
-  it('emphasizes multi-quantity lines with color styling and a text marker', async () => {
+  it('emphasizes a multi-quantity line without repeating its quantity', async () => {
     vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
       orderId: 42,
       tcgplayerOrderId: 'ORDER-DETAIL-42',
@@ -85,8 +85,9 @@ describe('OrderDetailPage', () => {
     renderPage()
 
     const genesect = await screen.findByRole('article', { name: /Genesect ex/i })
-    const emphasizedQuantity = within(genesect).getByText('×4')
+    const emphasizedQuantity = within(genesect).getByText('4')
     expect(emphasizedQuantity).toHaveAttribute('data-emphasis', 'high')
+    expect(within(genesect).getAllByText('4')).toHaveLength(1)
 
     const pikachu = screen.getByRole('article', { name: /Pikachu/i })
     expect(within(pikachu).getByText('1')).not.toHaveAttribute('data-emphasis')
