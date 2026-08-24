@@ -71,7 +71,9 @@ export function OrdersPage() {
             >
               <div>
                 <span className="order-list-item__label">Order</span>
-                <strong>{order.tcgplayerOrderId}</strong>
+                <Link className="order-list-item__link" to={`/orders/${order.orderId}`}>
+                  <strong>{order.tcgplayerOrderId}</strong>
+                </Link>
               </div>
               <div>
                 <span className="order-list-item__label">Status</span>

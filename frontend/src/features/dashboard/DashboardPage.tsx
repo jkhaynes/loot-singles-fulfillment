@@ -141,7 +141,11 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
               <tbody>
                 {data!.ready.orders.map((order) => (
                   <tr key={order.orderId}>
-                    <td>{order.tcgplayerOrderId}</td>
+                    <td>
+                      <Link className="dashboard-order-table__link" to={`/orders/${order.orderId}`}>
+                        {order.tcgplayerOrderId}
+                      </Link>
+                    </td>
                     <td>{order.productCount}</td>
                     <td data-emphasis={order.totalQuantity > 1 ? 'high' : undefined}>
                       {order.totalQuantity}

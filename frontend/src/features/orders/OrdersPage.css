@@ -115,6 +115,18 @@
   font-weight: 700;
 }
 
+.order-list-item__link {
+  color: var(--color-text-primary);
+  text-decoration-color: var(--color-brand-primary);
+  text-underline-offset: 0.2em;
+}
+
+.order-list-item__link:focus-visible {
+  border-radius: var(--radius-small);
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}
+
 .order-list-item time {
   color: var(--color-text-secondary);
 }

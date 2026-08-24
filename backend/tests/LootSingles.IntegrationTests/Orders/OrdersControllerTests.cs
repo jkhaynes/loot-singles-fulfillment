@@ -12,6 +12,68 @@ namespace LootSingles.IntegrationTests.Orders;
 public sealed class OrdersControllerTests
 {
     [Fact]
+    public async Task GetByIdWithoutSessionReturns401()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        await factory.EnsureDatabaseCreatedAsync();
+        using var client = factory.CreateAuthenticatedClient();
+
+        var response = await client.GetAsync("/api/orders/1");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetByIdReturnsFullOrderDetail()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = NewOrder("DETAIL-ORDER", DateTimeOffset.Parse("2026-08-24T15:00:00Z"));
+        order.OrderLines.Add(
+            NewOrderLine("Genesect ex", "SV: Black Bolt", "Holofoil", "Near Mint", 3)
+        );
+        order.OrderLines.Add(NewOrderLine("Pikachu", "Base Set", null, "Lightly Played", 1));
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.Add(order);
+            return Task.CompletedTask;
+        });
+
+        var response = await client.GetAsync($"/api/orders/{order.Id}");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(order.Id, document.RootElement.GetProperty("orderId").GetInt32());
+        Assert.Equal(
+            "DETAIL-ORDER",
+            document.RootElement.GetProperty("tcgplayerOrderId").GetString()
+        );
+        var lines = document.RootElement.GetProperty("lines").EnumerateArray().ToArray();
+        Assert.Collection(
+            lines,
+            line =>
+                AssertOrderLine(line, "Genesect ex", "SV: Black Bolt", "Holofoil", "Near Mint", 3),
+            line => AssertOrderLine(line, "Pikachu", "Base Set", null, "Lightly Played", 1)
+        );
+        Assert.True(lines[1].TryGetProperty("variant", out var variant));
+        Assert.Equal(JsonValueKind.Null, variant.ValueKind);
+    }
+
+    [Fact]
+    public async Task GetByIdForNonExistentOrderReturns404WithOrderNotFoundError()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+
+        var response = await client.GetAsync("/api/orders/2147483647");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("order_not_found", document.RootElement.GetProperty("error").GetString());
+        Assert.Single(document.RootElement.EnumerateObject());
+    }
+
+    [Fact]
     public async Task GetWithoutSessionReturns401()
     {
         await using var factory = new AuthWebApplicationFactory();
@@ -117,6 +179,41 @@ public sealed class OrdersControllerTests
             Status = OrderStatus.Ready,
             ImportedAt = importedAt,
         };
+
+    private static OrderLine NewOrderLine(
+        string productName,
+        string set,
+        string? variant,
+        string condition,
+        int quantity
+    ) =>
+        new()
+        {
+            RawDescription = productName,
+            ProductLine = "Pokemon",
+            ProductName = productName,
+            Set = set,
+            CollectorNumber = "#001",
+            Condition = condition,
+            Variant = variant,
+            Quantity = quantity,
+        };
+
+    private static void AssertOrderLine(
+        JsonElement line,
+        string productName,
+        string set,
+        string? variant,
+        string condition,
+        int quantity
+    )
+    {
+        Assert.Equal(productName, line.GetProperty("productName").GetString());
+        Assert.Equal(set, line.GetProperty("set").GetString());
+        Assert.Equal(variant, line.GetProperty("variant").GetString());
+        Assert.Equal(condition, line.GetProperty("condition").GetString());
+        Assert.Equal(quantity, line.GetProperty("quantity").GetInt32());
+    }
 
     private sealed record OrderResponse(
         int OrderId,

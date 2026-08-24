@@ -9,7 +9,7 @@ export default defineConfig({
       // Target HTTPS directly: the backend's UseHttpsRedirection() 307-redirects plain HTTP
       // requests, which the proxy won't follow. secure:false trusts the local dev certificate.
       '/api': {
-        target: 'https://localhost:7166',
+        target: process.env.VITE_API_TARGET ?? 'https://localhost:7166',
         changeOrigin: true,
         secure: false,
       },
