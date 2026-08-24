@@ -105,14 +105,14 @@
 
 ### Tests for User Story 4
 
-- [ ] T026 [US4] Add a failing Playwright test to a new `frontend/e2e/order-detail.spec.ts`: log in, open an order from the dashboard's Available Orders list, confirm the detail view shows the order identifier and at least one line's fields, at the default (desktop) viewport
-- [ ] T027 [US4] Add a failing Playwright test to `frontend/e2e/responsive.spec.ts` (reusing that file's existing `test.use({ viewport: ..., isMobile: true, hasTouch: true })` mobile-viewport pattern): open an order's detail view and confirm `document.documentElement.scrollWidth` does not exceed `clientWidth` (no horizontal scroll), per FR-007/SC-005
-- [ ] T028 [US4] Run T026–T027 and confirm T026 passes (given Phase 2–3 are already implemented) while T027 fails for the expected reason (layout not yet verified at mobile width)
+- [X] T026 [US4] Add a failing Playwright test to a new `frontend/e2e/order-detail.spec.ts`: log in, open an order from the dashboard's Available Orders list, confirm the detail view shows the order identifier and at least one line's fields, at the default (desktop) viewport
+- [X] T027 [US4] Add a failing Playwright test to `frontend/e2e/responsive.spec.ts` (reusing that file's existing `test.use({ viewport: ..., isMobile: true, hasTouch: true })` mobile-viewport pattern): open an order's detail view and confirm `document.documentElement.scrollWidth` does not exceed `clientWidth` (no horizontal scroll), per FR-007/SC-005
+- [X] T028 [US4] Run T026–T027 and confirm T026 passes (given Phase 2–3 are already implemented) while T027 fails for the expected reason (layout not yet verified at mobile width)
 
 ### Implementation for User Story 4
 
-- [ ] T029 [US4] Adjust `frontend/src/features/orders/OrderDetailPage.css` as needed so the layout has no horizontal overflow at a common mobile-phone width, to make T027 pass
-- [ ] T030 [US4] Run T026–T027, confirm both pass, and run the full Playwright suite to confirm no regression
+- [X] T029 [US4] Adjust `frontend/src/features/orders/OrderDetailPage.css` as needed so the layout has no horizontal overflow at a common mobile-phone width, to make T027 pass
+- [X] T030 [US4] Run T026–T027, confirm both pass, and run the full Playwright suite to confirm no regression
 
 **Checkpoint**: All four user stories are implemented and independently verified; the detail view is usable at both desktop and mobile-phone widths.
 

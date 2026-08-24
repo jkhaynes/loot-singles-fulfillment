@@ -145,3 +145,32 @@
   color: var(--color-warning);
   font-size: var(--font-size-body-large);
 }
+
+@media (max-width: 600px) {
+  .order-detail-page {
+    padding: var(--space-3);
+  }
+
+  .order-detail-navigation,
+  .order-detail-navigation a {
+    width: 100%;
+  }
+
+  .order-detail-lines,
+  .order-detail-line {
+    padding: var(--space-3);
+  }
+
+  .order-detail-line {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .order-detail-line__placeholder {
+    min-height: 10rem;
+  }
+
+  .order-detail-line__attributes {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+}
