@@ -121,6 +121,13 @@
 
 ---
 
+## Phase 8: Convergence
+
+- [X] T030 Add a test importing `partial-batch-one-bad-order.pdf` through the `CapturingLogger`, asserting the Warning completion log's structured state has both `OrdersSucceeded` and `OrdersFailed` greater than zero in the same attempt (a genuine mixed-outcome batch, per US1's literal acceptance scenario) plus its failure-type breakdown, in `backend/tests/LootSingles.IntegrationTests/Import/ImportLoggingTests.cs` per US1/AC1 (partial)
+- [X] T031 Decide whether `frontend/vite.config.ts`'s HTTPS dev-proxy fix (commit ee0d3e2) remains on this feature's branch or moves to its own branch/PR, since it traces to no task in this feature's spec/plan/tasks (already reviewed and knowingly accepted by the Developer via `/code-design-review`) per plan.md: this feature touches backend only (unrequested)
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase dependencies

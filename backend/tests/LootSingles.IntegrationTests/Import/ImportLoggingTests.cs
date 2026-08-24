@@ -126,6 +126,39 @@ public class ImportLoggingTests
     }
 
     [Fact]
+    public async Task ImportAsync_MixedSucceededAndFailedOrders_ProducesWarningWithBothNonZeroCounts()
+    {
+        await using var context = ImportTestSupport.CreateDatabaseContext();
+        var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var service = new PackingSlipImportService(
+            new PdfPigPackingSlipParser(),
+            new ImportRepository(context),
+            logger
+        );
+
+        var final = await ImportTestSupport.ImportFixtureAsync(
+            service,
+            "partial-batch-one-bad-order.pdf"
+        );
+
+        Assert.Equal(2, final.SucceededCount);
+        Assert.Equal(1, final.FailedCount);
+        Assert.NotEqual(0, final.ImportAttempt.Id);
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Equal(3, entry.GetState<int>("OrdersDetected"));
+        Assert.Equal(2, entry.GetState<int>("OrdersSucceeded"));
+        Assert.Equal(1, entry.GetState<int>("OrdersFailed"));
+        Assert.Equal(1, entry.GetState<int>("MissingOrderIdentifierCount"));
+        Assert.Equal("(missing)", entry.GetState<string>("MissingOrderIdentifierIds"));
+        Assert.Contains(
+            "MissingOrderIdentifier: 1 [(missing)]",
+            entry.Message,
+            StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
     public async Task ImportAsync_OrderPersistenceFailure_ProducesErrorWithImportIdOrderIdAndFailureType()
     {
         await using var context = ImportTestSupport.CreateDatabaseContext(

@@ -123,6 +123,27 @@ unaddressed by design — no task was created for it. The remaining findings wer
 Full regression: 74 unit passed, 101 SQL Server integration passed (0 failed), `dotnet csharpier
 check backend` reports all 129 files formatted.
 
+## Phase 8 — convergence remediation (T030/T031)
+
+`/speckit-converge` found 2 gaps against the full spec/plan/tasks inventory:
+
+- **T030 (partial, HIGH — US1/AC1)**: no test verified the Warning completion log's structured
+  state with both `OrdersSucceeded > 0` and `OrdersFailed > 0` in the same attempt (a genuine
+  mixed-outcome batch, per US1's literal acceptance scenario). Added
+  `ImportAsync_MixedSucceededAndFailedOrders_ProducesWarningWithBothNonZeroCounts`, importing
+  `partial-batch-one-bad-order.pdf` (3 orders: 2 succeed, 1 fails with `MissingOrderIdentifier`,
+  per the existing `PartialImportTests` fixture behavior) through the `CapturingLogger`, asserting
+  `OrdersDetected=3`, `OrdersSucceeded=2`, `OrdersFailed=1`, the `MissingOrderIdentifierCount`/`Ids`
+  breakdown, and the labeled message text. Passed immediately — confirms this was a coverage gap,
+  not an implementation defect.
+- **T031 (unrequested, LOW)**: `frontend/vite.config.ts`'s HTTPS dev-proxy fix (commit `ee0d3e2`)
+  traces to no task in this feature's spec/plan/tasks. Resolution: **kept on this branch**, per the
+  Developer's explicit decision during `/code-design-review` ("I'm ok with this for this
+  situation") — no further action taken.
+
+Full regression: 74 unit passed, 102 SQL Server integration passed (0 failed), `dotnet csharpier
+check backend` reports all 129 files formatted.
+
 ## Phase 5 T022 — constitution Architecture and Changeability Review
 
 Evaluated every component this feature touched against the plan's original architecture table
