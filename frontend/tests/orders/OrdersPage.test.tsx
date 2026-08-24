@@ -45,6 +45,31 @@ describe('OrdersPage', () => {
     expect(within(secondOrder).getByText('picked')).toBeInTheDocument()
   })
 
+  it('links each order to its detail route', async () => {
+    vi.mocked(ordersApi.getOrders).mockResolvedValue([
+      {
+        orderId: 17,
+        tcgplayerOrderId: 'ORDER-100',
+        status: 'ready',
+        importedAt: '2026-08-22T15:00:00Z',
+      },
+      {
+        orderId: 29,
+        tcgplayerOrderId: 'ORDER-200',
+        status: 'ready',
+        importedAt: '2026-08-21T14:30:00Z',
+      },
+    ])
+
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: 'ORDER-100' })).toHaveAttribute(
+      'href',
+      '/orders/17',
+    )
+    expect(screen.getByRole('link', { name: 'ORDER-200' })).toHaveAttribute('href', '/orders/29')
+  })
+
   it('shows a clear empty state', async () => {
     vi.mocked(ordersApi.getOrders).mockResolvedValue([])
 

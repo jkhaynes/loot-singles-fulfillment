@@ -69,15 +69,15 @@
 
 ### Tests for User Story 2
 
-- [ ] T019 [P] [US2] Add a failing test case to `frontend/tests/orders/OrdersPage.test.tsx`: each rendered order row links to `/orders/{orderId}` for that specific order
-- [ ] T020 [P] [US2] Add a failing test case to `frontend/tests/dashboard/DashboardPage.test.tsx`: each rendered order row in the Available Orders table links to `/orders/{orderId}` for that specific order
-- [ ] T021 [US2] Run T019–T020 and confirm they fail for the expected reason (rows are not currently links)
+- [X] T019 [P] [US2] Add a failing test case to `frontend/tests/orders/OrdersPage.test.tsx`: each rendered order row links to `/orders/{orderId}` for that specific order
+- [X] T020 [P] [US2] Add a failing test case to `frontend/tests/dashboard/DashboardPage.test.tsx`: each rendered order row in the Available Orders table links to `/orders/{orderId}` for that specific order
+- [X] T021 [US2] Run T019–T020 and confirm they fail for the expected reason (rows are not currently links)
 
 ### Implementation for User Story 2
 
-- [ ] T022 [P] [US2] In `frontend/src/features/orders/OrdersPage.tsx`, wrap each order row (or its identifying content) in a `Link` to `/orders/{order.orderId}`, to make T019 pass
-- [ ] T023 [P] [US2] In `frontend/src/features/dashboard/DashboardPage.tsx`, wrap each Available Orders table row (or its identifying cell) in a `Link` to `/orders/{order.orderId}`, to make T020 pass
-- [ ] T024 [US2] Run T019–T020, confirm they pass, and run the full frontend test suite to confirm no regression
+- [X] T022 [P] [US2] In `frontend/src/features/orders/OrdersPage.tsx`, wrap each order row (or its identifying content) in a `Link` to `/orders/{order.orderId}`, to make T019 pass
+- [X] T023 [P] [US2] In `frontend/src/features/dashboard/DashboardPage.tsx`, wrap each Available Orders table row (or its identifying cell) in a `Link` to `/orders/{order.orderId}`, to make T020 pass
+- [X] T024 [US2] Run T019–T020, confirm they pass, and run the full frontend test suite to confirm no regression
 
 **Checkpoint**: Both existing order-listing views open directly into the correct order's detail view.
 

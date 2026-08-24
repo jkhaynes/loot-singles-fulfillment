@@ -48,6 +48,39 @@ describe('DashboardPage', () => {
     expect(screen.getByText('1')).toBeInTheDocument() // Ready stat tile count
   })
 
+  it('links each available order to its detail route', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({
+      ready: {
+        count: 2,
+        orders: [
+          {
+            orderId: 42,
+            tcgplayerOrderId: 'F0000001-ABC001-00001',
+            productCount: 2,
+            totalQuantity: 5,
+          },
+          {
+            orderId: 77,
+            tcgplayerOrderId: 'F0000002-ABC002-00002',
+            productCount: 1,
+            totalQuantity: 1,
+          },
+        ],
+      },
+    })
+
+    renderDashboard()
+
+    expect(await screen.findByRole('link', { name: 'F0000001-ABC001-00001' })).toHaveAttribute(
+      'href',
+      '/orders/42',
+    )
+    expect(screen.getByRole('link', { name: 'F0000002-ABC002-00002' })).toHaveAttribute(
+      'href',
+      '/orders/77',
+    )
+  })
+
   it('visually emphasizes an order row whose total quantity is greater than one', async () => {
     vi.mocked(dashboardApi.getDashboard).mockResolvedValue({
       ready: {

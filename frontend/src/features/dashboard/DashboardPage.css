@@ -221,6 +221,19 @@
   color: var(--color-warning);
 }
 
+.dashboard-order-table__link {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  text-decoration-color: var(--color-brand-primary);
+  text-underline-offset: 0.2em;
+}
+
+.dashboard-order-table__link:focus-visible {
+  border-radius: var(--radius-small);
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}
+
 @media (max-width: 600px) {
   .dashboard-header__actions {
     width: 100%;
