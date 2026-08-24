@@ -6,9 +6,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
+      // Target HTTPS directly: the backend's UseHttpsRedirection() 307-redirects plain HTTP
+      // requests, which the proxy won't follow. secure:false trusts the local dev certificate.
       '/api': {
-        target: 'http://localhost:5098',
+        target: 'https://localhost:7166',
         changeOrigin: true,
+        secure: false,
       },
     },
   },

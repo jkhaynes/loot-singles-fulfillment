@@ -105,6 +105,7 @@ A feature is not complete merely because code runs, or because production code e
 - Card image ambiguity fails safely (no image, not a guess)
 - Parser changes are validated against representative fixtures
 - Playwright validation is performed for critical user flows
+- New or materially changed application behavior has been evaluated for whether it warrants production logging (per the constitution's Observability standard); important events and failures are logged via `ILogger<T>` with safe, non-PII structured fields where warranted — logging is not added reflexively for behavior that doesn't need it
 - Documentation is updated where required
 - Code review is complete
 - `/code-design-review` has been run against the implementation with zero remaining Must Fix findings (Advisory findings do not block) — required before `/speckit-converge`

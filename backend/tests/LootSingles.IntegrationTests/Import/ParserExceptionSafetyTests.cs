@@ -21,7 +21,7 @@ public sealed class ParserExceptionSafetyTests
     public async Task ParserExceptionPersistsSafeMessageAndLogsOnlySafeClassification()
     {
         await using var context = ImportTestSupport.CreateDatabaseContext();
-        var logger = new CapturingLogger<PackingSlipImportService>();
+        var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
         var service = new PackingSlipImportService(
             new ThrowingParser(),
             new ImportRepository(context),
@@ -44,7 +44,9 @@ public sealed class ParserExceptionSafetyTests
         Assert.DoesNotContain(Secret, persisted.AttemptFailureMessage);
 
         var entry = Assert.Single(logger.Entries);
-        Assert.Contains(nameof(InvalidDataException), entry.Message);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Equal(final.ImportAttempt.Id, entry.GetState<int>("ImportId"));
+        Assert.Equal(FailureType.UnreadablePdf, entry.GetState<FailureType>("AttemptFailureType"));
         Assert.DoesNotContain(Secret, entry.Message);
         Assert.Null(entry.Exception);
     }
@@ -90,24 +92,4 @@ public sealed class ParserExceptionSafetyTests
 #pragma warning restore CS0162
         }
     }
-
-    private sealed class CapturingLogger<T> : ILogger<T>
-    {
-        public List<LogEntry> Entries { get; } = [];
-
-        public IDisposable? BeginScope<TState>(TState state)
-            where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(
-            LogLevel logLevel,
-            EventId eventId,
-            TState state,
-            Exception? exception,
-            Func<TState, Exception?, string> formatter
-        ) => Entries.Add(new LogEntry(formatter(state, exception), exception));
-    }
-
-    private sealed record LogEntry(string Message, Exception? Exception);
 }
