@@ -30,9 +30,19 @@ public sealed class OrdersControllerTests
         using var client = await LoginAsync(factory);
         var order = NewOrder("DETAIL-ORDER", DateTimeOffset.Parse("2026-08-24T15:00:00Z"));
         order.OrderLines.Add(
-            NewOrderLine("Genesect ex", "SV: Black Bolt", "Holofoil", "Near Mint", 3)
+            NewOrderLine(
+                "Genesect ex",
+                "SV: Black Bolt",
+                "Holofoil",
+                "Near Mint",
+                3,
+                collectorNumber: "#067/086",
+                rarity: "Double Rare"
+            )
         );
-        order.OrderLines.Add(NewOrderLine("Pikachu", "Base Set", null, "Lightly Played", 1));
+        order.OrderLines.Add(
+            NewOrderLine("Pikachu", "Base Set", null, "Lightly Played", 1, rarity: null)
+        );
         await factory.SeedAsync(context =>
         {
             context.Orders.Add(order);
@@ -48,15 +58,39 @@ public sealed class OrdersControllerTests
             "DETAIL-ORDER",
             document.RootElement.GetProperty("tcgplayerOrderId").GetString()
         );
+        Assert.Equal("ready", document.RootElement.GetProperty("status").GetString());
         var lines = document.RootElement.GetProperty("lines").EnumerateArray().ToArray();
         Assert.Collection(
             lines,
             line =>
-                AssertOrderLine(line, "Genesect ex", "SV: Black Bolt", "Holofoil", "Near Mint", 3),
-            line => AssertOrderLine(line, "Pikachu", "Base Set", null, "Lightly Played", 1)
+                AssertOrderLine(
+                    line,
+                    "Genesect ex",
+                    "SV: Black Bolt",
+                    "Holofoil",
+                    "Near Mint",
+                    3,
+                    "Pokemon",
+                    "#067/086",
+                    "Double Rare"
+                ),
+            line =>
+                AssertOrderLine(
+                    line,
+                    "Pikachu",
+                    "Base Set",
+                    null,
+                    "Lightly Played",
+                    1,
+                    "Pokemon",
+                    "#001",
+                    null
+                )
         );
         Assert.True(lines[1].TryGetProperty("variant", out var variant));
         Assert.Equal(JsonValueKind.Null, variant.ValueKind);
+        Assert.True(lines[1].TryGetProperty("rarity", out var rarity));
+        Assert.Equal(JsonValueKind.Null, rarity.ValueKind);
     }
 
     [Fact]
@@ -185,7 +219,9 @@ public sealed class OrdersControllerTests
         string set,
         string? variant,
         string condition,
-        int quantity
+        int quantity,
+        string collectorNumber = "#001",
+        string? rarity = null
     ) =>
         new()
         {
@@ -193,7 +229,8 @@ public sealed class OrdersControllerTests
             ProductLine = "Pokemon",
             ProductName = productName,
             Set = set,
-            CollectorNumber = "#001",
+            CollectorNumber = collectorNumber,
+            Rarity = rarity,
             Condition = condition,
             Variant = variant,
             Quantity = quantity,
@@ -205,12 +242,18 @@ public sealed class OrdersControllerTests
         string set,
         string? variant,
         string condition,
-        int quantity
+        int quantity,
+        string productLine,
+        string collectorNumber,
+        string? rarity
     )
     {
         Assert.Equal(productName, line.GetProperty("productName").GetString());
         Assert.Equal(set, line.GetProperty("set").GetString());
         Assert.Equal(variant, line.GetProperty("variant").GetString());
+        Assert.Equal(productLine, line.GetProperty("productLine").GetString());
+        Assert.Equal(collectorNumber, line.GetProperty("collectorNumber").GetString());
+        Assert.Equal(rarity, line.GetProperty("rarity").GetString());
         Assert.Equal(condition, line.GetProperty("condition").GetString());
         Assert.Equal(quantity, line.GetProperty("quantity").GetInt32());
     }

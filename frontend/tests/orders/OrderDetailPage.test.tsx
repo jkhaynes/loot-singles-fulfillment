@@ -26,17 +26,24 @@ describe('OrderDetailPage', () => {
     vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
       orderId: 42,
       tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'ready',
       lines: [
         {
           productName: 'Genesect ex',
+          productLine: 'Pokemon',
           set: 'SV: Black Bolt',
+          collectorNumber: '#067/086',
+          rarity: 'Double Rare',
           variant: 'Holofoil',
           condition: 'Near Mint',
           quantity: 3,
         },
         {
           productName: 'Pikachu',
+          productLine: 'Pokemon',
           set: 'Base Set',
+          collectorNumber: '#025/102',
+          rarity: null,
           variant: null,
           condition: 'Lightly Played',
           quantity: 1,
@@ -48,33 +55,46 @@ describe('OrderDetailPage', () => {
 
     expect(await screen.findByRole('heading', { name: /ORDER-DETAIL-42/i })).toBeInTheDocument()
     const genesect = screen.getByRole('article', { name: /Genesect ex/i })
+    expect(within(genesect).getByText('Pokemon')).toBeInTheDocument()
     expect(within(genesect).getByText('SV: Black Bolt')).toBeInTheDocument()
+    expect(within(genesect).getByText('#067/086')).toBeInTheDocument()
+    expect(within(genesect).getByText('Double Rare')).toBeInTheDocument()
     expect(within(genesect).getByText('Holofoil')).toBeInTheDocument()
     expect(within(genesect).getByText('Near Mint')).toBeInTheDocument()
     expect(within(genesect).getByText('3')).toBeInTheDocument()
 
     const pikachu = screen.getByRole('article', { name: /Pikachu/i })
+    expect(within(pikachu).getByText('Pokemon')).toBeInTheDocument()
     expect(within(pikachu).getByText('Base Set')).toBeInTheDocument()
+    expect(within(pikachu).getByText('#025/102')).toBeInTheDocument()
     expect(within(pikachu).getByText('Lightly Played')).toBeInTheDocument()
     expect(within(pikachu).getByText('1')).toBeInTheDocument()
     expect(within(pikachu).queryByText(/variant/i)).not.toBeInTheDocument()
+    expect(within(pikachu).queryByText(/rarity/i)).not.toBeInTheDocument()
   })
 
   it('emphasizes a multi-quantity line without repeating its quantity', async () => {
     vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
       orderId: 42,
       tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'ready',
       lines: [
         {
           productName: 'Genesect ex',
+          productLine: 'Pokemon',
           set: 'SV: Black Bolt',
+          collectorNumber: '#067/086',
+          rarity: 'Double Rare',
           variant: 'Holofoil',
           condition: 'Near Mint',
           quantity: 4,
         },
         {
           productName: 'Pikachu',
+          productLine: 'Pokemon',
           set: 'Base Set',
+          collectorNumber: '#025/102',
+          rarity: null,
           variant: null,
           condition: 'Near Mint',
           quantity: 1,
@@ -94,6 +114,34 @@ describe('OrderDetailPage', () => {
     expect(within(pikachu).queryByText('×1')).not.toBeInTheDocument()
   })
 
+  it('renders the order status alongside its identifier', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'ready',
+      lines: [
+        {
+          productName: 'Pikachu',
+          productLine: 'Pokemon',
+          set: 'Base Set',
+          collectorNumber: '#025/102',
+          rarity: null,
+          variant: null,
+          condition: 'Lightly Played',
+          quantity: 1,
+        },
+      ],
+    })
+
+    renderPage()
+
+    const heading = await screen.findByRole('heading', { name: /ORDER-DETAIL-42/i })
+    const header = heading.closest('header')
+    expect(header).not.toBeNull()
+    expect(within(header as HTMLElement).getByText('ready')).toBeInTheDocument()
+    expect(screen.getByLabelText('Order status: ready')).toBeInTheDocument()
+  })
+
   it('shows a distinct not-found state', async () => {
     vi.mocked(ordersApi.getOrderDetail).mockRejectedValue(new ordersApi.OrderNotFoundError())
 
@@ -107,17 +155,24 @@ describe('OrderDetailPage', () => {
     vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
       orderId: 42,
       tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'ready',
       lines: [
         {
           productName: 'Genesect ex',
+          productLine: 'Pokemon',
           set: 'SV: Black Bolt',
+          collectorNumber: '#067/086',
+          rarity: 'Double Rare',
           variant: 'Holofoil',
           condition: 'Near Mint',
           quantity: 1,
         },
         {
           productName: 'Pikachu',
+          productLine: 'Pokemon',
           set: 'Base Set',
+          collectorNumber: '#025/102',
+          rarity: null,
           variant: null,
           condition: 'Lightly Played',
           quantity: 1,

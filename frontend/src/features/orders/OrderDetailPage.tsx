@@ -38,6 +38,11 @@ export function OrderDetailPage() {
         <div>
           <p className="order-detail-header__eyebrow">Order picking detail</p>
           <h1>{order ? `Order ${order.tcgplayerOrderId}` : 'Order detail'}</h1>
+          {order && (
+            <p className="order-detail-header__status" aria-label={`Order status: ${order.status}`}>
+              {order.status}
+            </p>
+          )}
         </div>
         <nav className="order-detail-navigation" aria-label="Order detail navigation">
           <Link to="/orders">Browse Orders</Link>
@@ -70,9 +75,23 @@ export function OrderDetailPage() {
                 <h2>{line.productName}</h2>
                 <dl className="order-detail-line__attributes">
                   <div>
+                    <dt>Product Line</dt>
+                    <dd>{line.productLine}</dd>
+                  </div>
+                  <div>
                     <dt>Set</dt>
                     <dd>{line.set}</dd>
                   </div>
+                  <div>
+                    <dt>Collector Number</dt>
+                    <dd>{line.collectorNumber}</dd>
+                  </div>
+                  {line.rarity !== null && (
+                    <div>
+                      <dt>Rarity</dt>
+                      <dd>{line.rarity}</dd>
+                    </div>
+                  )}
                   {line.variant !== null && (
                     <div>
                       <dt>Variant</dt>

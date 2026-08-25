@@ -7,7 +7,10 @@ export interface OrderListItem {
 
 export interface OrderLineDetail {
   productName: string
+  productLine: string
   set: string
+  collectorNumber: string
+  rarity: string | null
   variant: string | null
   condition: string
   quantity: number
@@ -16,6 +19,7 @@ export interface OrderLineDetail {
 export interface OrderDetail {
   orderId: number
   tcgplayerOrderId: string
+  status: string
   lines: OrderLineDetail[]
 }
 
