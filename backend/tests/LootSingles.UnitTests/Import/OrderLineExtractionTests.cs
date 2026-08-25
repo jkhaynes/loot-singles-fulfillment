@@ -96,4 +96,19 @@ public class OrderLineExtractionTests
         Assert.Equal(expectedCondition, orderLine.Condition);
         Assert.Equal(expectedVariant, orderLine.Variant);
     }
+
+    [Fact]
+    public void Extract_NoColonSingleSegmentBeforeCollectorNumber_IsStillRejected()
+    {
+        var source = new RawProductLine
+        {
+            QuantityText = "1",
+            RawDescription = "SomeGame - AmbiguousSegment - #12 - Common - Near Mint",
+        };
+
+        var result = OrderLineExtractor.Extract(source);
+
+        Assert.False(result.IsValid);
+        Assert.Equal(FailureType.MissingProductName, result.FailureType);
+    }
 }
