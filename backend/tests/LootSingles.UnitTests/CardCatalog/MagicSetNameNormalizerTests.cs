@@ -30,12 +30,17 @@ public sealed class MagicSetNameNormalizerTests
         Assert.Equal([rawSetText, expectedReversed], candidates);
     }
 
-    [Fact]
-    public void NormalizeCandidates_UniversesBeyondPrefix_AlsoOffersTheSuffixAlone()
+    [Theory]
+    [InlineData("Universes Beyond: Fallout", "Fallout")]
+    [InlineData("March of the Machine: Multiverse Legends", "Multiverse Legends")]
+    public void NormalizeCandidates_KnownDroppedPrefix_AlsoOffersTheSuffixAlone(
+        string rawSetText,
+        string expectedSuffix
+    )
     {
-        var candidates = MagicSetNameNormalizer.NormalizeCandidates("Universes Beyond: Fallout");
+        var candidates = MagicSetNameNormalizer.NormalizeCandidates(rawSetText);
 
-        Assert.Equal(["Universes Beyond: Fallout", "Fallout"], candidates);
+        Assert.Equal([rawSetText, expectedSuffix], candidates);
     }
 
     [Fact]

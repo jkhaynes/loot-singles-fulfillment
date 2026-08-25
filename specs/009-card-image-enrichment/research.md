@@ -78,7 +78,7 @@ fixtures (`ValidImportTests.cs`) against Scryfall's live `/sets` data:
 |---|---|
 | `"The Hobbit"`, `"Commander Legends"`, `"Tarkir: Dragonstorm"`, `"Duskmourn: House of Horror"`, `"Modern Horizons 3"` | Direct match, no transformation needed — the majority case. Many real Magic set names already contain a colon (e.g. `"Tarkir: Dragonstorm"`), so a colon alone is not a signal that stripping is needed, unlike Pokémon's short-abbreviation-prefix pattern. |
 | `"Commander: FINAL FANTASY"` → `"Final Fantasy Commander"` (`fic`); `"Commander: Marvel Super Heroes"` → `"Marvel Super Heroes Commander"` (`msc`) | TCGplayer's `"Commander: <Set>"` product-line prefix is reversed and de-colonized on Scryfall's side: `"<Set> Commander"`. Confirmed with two independent real examples. |
-| `"Universes Beyond: Fallout"` → `"Fallout"` (`pip`) | TCGplayer's `"Universes Beyond: <Set>"` prefix is a marketing/crossover-line label with no Scryfall equivalent at all — the real set name is just the suffix, prefix dropped entirely. |
+| `"Universes Beyond: Fallout"` → `"Fallout"` (`pip`); `"March of the Machine: Multiverse Legends"` → `"Multiverse Legends"` (`mul`) | TCGplayer prepends a marketing/crossover product-line label with no Scryfall equivalent at all — the real set name is just the suffix, prefix dropped entirely. Confirmed with two independent real examples across two different product lines. |
 | `"The Hobbit: Eternal-Legal"` → `"The Hobbit Eternal"` (`hoc`, a genuinely distinct real set from `"The Hobbit"`/`hob`) | TCGplayer's `": Eternal-Legal"` suffix maps to a real, separate Scryfall set named `"<Set> Eternal"` — not a pseudo-category to ignore, an actual different print product. |
 
 **Decision**: `MagicSetNameNormalizer.NormalizeCandidates(rawSetText)` (new,
@@ -86,12 +86,33 @@ fixtures (`ValidImportTests.cs`) against Scryfall's live `/sets` data:
 shape) returns an ordered list of candidates to try against `ScryfallSetCatalog`'s live-fetched
 dictionary, stopping at the first that matches: (1) the raw text unchanged (covers the majority
 direct-match case); (2) if the text starts with `"Commander: "`, the reversed, de-colonized form
-(`"{suffix} Commander"`); (3) if the text starts with `"Universes Beyond: "`, the suffix alone with
-the prefix dropped; (4) if the text ends with `": Eternal-Legal"`, the prefix with `" Eternal"`
-appended instead. Every candidate is only ever used if it exactly matches a real entry already
-present in Scryfall's own fetched set-name dictionary — exactly like `PokemonSeriesPrefixNormalizer`'s
-design — so a set-naming pattern not yet evidenced here simply fails to match and falls back to
-the placeholder (Principle V), never risking a wrong image.
+(`"{suffix} Commander"`); (3) if the text starts with a known dropped-prefix (`"Universes Beyond: "`,
+`"March of the Machine: "` — a curated list, extended as further real prefixes are confirmed), the
+suffix alone with the prefix dropped; (4) if the text ends with `": Eternal-Legal"`, the prefix
+with `" Eternal"` appended instead. Every candidate is only ever used if it exactly matches a real
+entry already present in Scryfall's own fetched set-name dictionary — exactly like
+`PokemonSeriesPrefixNormalizer`'s design — so a set-naming pattern not yet evidenced here simply
+fails to match and falls back to the placeholder (Principle V), never risking a wrong image.
+
+The dropped-prefix list is deliberately curated rather than a generic "drop everything before the
+first colon" rule: that would risk a false match for a prefix already handled differently — e.g.
+generically stripping `"Commander: FINAL FANTASY"`'s colon would produce `"FINAL FANTASY"`, which
+would wrongly match the real but unrelated set `"Final Fantasy"` (`fin`) instead of the correct
+`"Final Fantasy Commander"` (`fic`) the Commander-specific reversal rule already produces
+correctly. Keeping this an explicit, evidence-only list avoids that collision risk entirely.
+
+**Update (2026-08-25 — real-order defect report, `Ayara, First of Locthwain` not resolving)**: A
+user manually testing a real imported order (`F8433182-571240-3C6C6`) reported this card's image
+missing. Root cause confirmed live: `Set = "March of the Machine: Multiverse Legends"` needed the
+same dropped-prefix treatment already implemented for `"Universes Beyond: "`, but for a different,
+not-yet-evidenced prefix — the design's own safe-failure behavior (Principle V) meant this simply
+fell back to the placeholder rather than a wrong image, exactly as intended, while still being a
+real, fixable gap. Fixed by generalizing `UniversesBeyondPrefix` from a single constant into the
+`DroppedPrefixes` curated list above and adding `"March of the Machine: "` to it, confirmed
+resolves the exact card (`mul/13`, name verified) both in a unit test and live in the running app
+against this real order — several other Magic lines in the same order (`Woodland Cemetery`,
+`Hinterland Harbor`, `Foggy Bottom Swamp`) were already resolving correctly, confirming this was a
+narrow gap, not a systemic failure.
 
 **Rationale**: Same reasoning as the Pokémon precedent (§4's colon-to-space/promo-naming
 corrections): reuse an already-proven, safe candidate-list pattern rather than inventing a new
