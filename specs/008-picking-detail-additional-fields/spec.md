@@ -52,7 +52,7 @@ As a picker, I need to see the order's status directly on its detail view, so I 
 
 - **FR-001**: For every product line in the order, the detail view MUST display the product line/game (e.g., "Pokemon", "Magic").
 - **FR-002**: For every product line in the order, the detail view MUST display the collector number exactly as imported (e.g., "#067/086").
-- **FR-003**: For every product line in the order, the detail view MUST display the rarity when present in the imported data (e.g., "Double Rare"); when rarity is absent, the detail view MUST render that line without a blank or broken rarity field, rather than omitting it.
+- **FR-003**: For every product line in the order, the detail view MUST display the rarity when present in the imported data (e.g., "Double Rare"); when rarity is absent, the detail view MUST render that line without that field, rather than showing a blank or broken rarity placeholder for it.
 - **FR-004**: The detail view MUST display the order's status alongside its existing TCGplayer order identifier.
 - **FR-005**: Displaying these additional fields MUST NOT introduce any action that claims the order, marks it picked, or otherwise changes its status or data — the detail view remains fully read-only, continuing feature 007's FR-006.
 - **FR-006**: The detail view MUST continue to render correctly and remain fully usable, with all added fields visible and legible, at both a common desktop viewport width and a common mobile-phone viewport width, continuing feature 007's FR-007.

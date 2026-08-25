@@ -139,6 +139,7 @@ describe('OrderDetailPage', () => {
     const header = heading.closest('header')
     expect(header).not.toBeNull()
     expect(within(header as HTMLElement).getByText('ready')).toBeInTheDocument()
+    expect(screen.getByLabelText('Order status: ready')).toBeInTheDocument()
   })
 
   it('shows a distinct not-found state', async () => {

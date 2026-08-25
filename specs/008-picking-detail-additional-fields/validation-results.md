@@ -72,7 +72,13 @@ plus the automated Playwright/component coverage that independently re-verifies 
 
 ### Review outcome
 
-No Must Fix or Advisory findings were identified. No remediation tasks were appended to
-`tasks.md`. The implementation remains read-only, exposes no customer PII (all four added fields
-are product/order metadata), and adds no production logging — consistent with research.md §5 and
-the precedent established by features 006/007 for this class of routine, no-side-effect read.
+This self-review (T024) identified no Must Fix or Advisory findings. The subsequent
+`/code-design-review` gate found one Must Fix (FR-003's inverted clause order in `spec.md`,
+contradicting its own Edge Cases section, data-model.md, SC-003, and feature 007's FR-009
+precedent — a spec-wording defect, not a code defect) and one Advisory (the order status
+rendered with no accessible label). Both are recorded and resolved as T025 and T026 in
+`tasks.md`: FR-003's wording was corrected to match the rest of the document, and the status
+element gained an `aria-label`, backed by a Red→Green test. The implementation remains
+read-only, exposes no customer PII (all four added fields are product/order metadata), and adds
+no production logging — consistent with research.md §5 and the precedent established by
+features 006/007 for this class of routine, no-side-effect read.
