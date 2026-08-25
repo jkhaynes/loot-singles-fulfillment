@@ -37,6 +37,7 @@ describe('OrderDetailPage', () => {
           variant: 'Holofoil',
           condition: 'Near Mint',
           quantity: 3,
+          imageUrl: null,
         },
         {
           productName: 'Pikachu',
@@ -47,6 +48,7 @@ describe('OrderDetailPage', () => {
           variant: null,
           condition: 'Lightly Played',
           quantity: 1,
+          imageUrl: null,
         },
       ],
     })
@@ -88,6 +90,7 @@ describe('OrderDetailPage', () => {
           variant: 'Holofoil',
           condition: 'Near Mint',
           quantity: 4,
+          imageUrl: null,
         },
         {
           productName: 'Pikachu',
@@ -98,6 +101,7 @@ describe('OrderDetailPage', () => {
           variant: null,
           condition: 'Near Mint',
           quantity: 1,
+          imageUrl: null,
         },
       ],
     })
@@ -129,6 +133,7 @@ describe('OrderDetailPage', () => {
           variant: null,
           condition: 'Lightly Played',
           quantity: 1,
+          imageUrl: null,
         },
       ],
     })
@@ -166,6 +171,7 @@ describe('OrderDetailPage', () => {
           variant: 'Holofoil',
           condition: 'Near Mint',
           quantity: 1,
+          imageUrl: null,
         },
         {
           productName: 'Pikachu',
@@ -176,6 +182,7 @@ describe('OrderDetailPage', () => {
           variant: null,
           condition: 'Lightly Played',
           quantity: 1,
+          imageUrl: null,
         },
       ],
     })
@@ -190,5 +197,48 @@ describe('OrderDetailPage', () => {
     }
     expect(screen.getAllByLabelText('Card image unavailable')).toHaveLength(2)
     expect(container.querySelectorAll('img[src]')).toHaveLength(0)
+  })
+
+  it('renders a real image when imageUrl is present, and the placeholder when it is null', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'ready',
+      lines: [
+        {
+          productName: 'Genesect ex',
+          productLine: 'Pokemon',
+          set: 'SV: Black Bolt',
+          collectorNumber: '#067/086',
+          rarity: 'Double Rare',
+          variant: 'Holofoil',
+          condition: 'Near Mint',
+          quantity: 1,
+          imageUrl: 'https://example.com/genesect-ex.png',
+        },
+        {
+          productName: 'Pikachu',
+          productLine: 'Pokemon',
+          set: 'Base Set',
+          collectorNumber: '#025/102',
+          rarity: null,
+          variant: null,
+          condition: 'Lightly Played',
+          quantity: 1,
+          imageUrl: null,
+        },
+      ],
+    })
+
+    renderPage()
+
+    const genesect = await screen.findByRole('article', { name: /Genesect ex/i })
+    const image = within(genesect).getByRole('img', { name: /Genesect ex/i })
+    expect(image).toHaveAttribute('src', 'https://example.com/genesect-ex.png')
+    expect(within(genesect).queryByLabelText('Card image unavailable')).not.toBeInTheDocument()
+
+    const pikachu = screen.getByRole('article', { name: /Pikachu/i })
+    expect(within(pikachu).getByLabelText('Card image unavailable')).toBeInTheDocument()
+    expect(within(pikachu).queryByRole('img')).not.toBeInTheDocument()
   })
 })

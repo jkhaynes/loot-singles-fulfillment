@@ -22,40 +22,40 @@ Every user story below adds one real provider on top of this; none of them touch
 
 ### Tests
 
-- [ ] T001 [P] Add failing unit tests to `backend/tests/LootSingles.UnitTests/CardCatalog/CardImageEnrichmentServiceTests.cs`: given a `ProductLine` with no registered provider, `TryGetImageUrlAsync` returns `null` without invoking any provider; given a registered provider whose `ProductLine` matches (case-insensitively), delegates to it and returns its result; given a registered provider that throws, returns `null` rather than propagating (each case using a small inline fake `ICardCatalogProvider`)
-- [ ] T002 Run T001 and confirm it fails for the expected reason (`CardImageEnrichmentService`/`ICardCatalogProvider`/`CardIdentity` don't exist yet)
+- [X] T001 [P] Add failing unit tests to `backend/tests/LootSingles.UnitTests/CardCatalog/CardImageEnrichmentServiceTests.cs`: given a `ProductLine` with no registered provider, `TryGetImageUrlAsync` returns `null` without invoking any provider; given a registered provider whose `ProductLine` matches (case-insensitively), delegates to it and returns its result; given a registered provider that throws, returns `null` rather than propagating (each case using a small inline fake `ICardCatalogProvider`)
+- [X] T002 Run T001 and confirm it fails for the expected reason (`CardImageEnrichmentService`/`ICardCatalogProvider`/`CardIdentity` don't exist yet)
 
 ### Implementation — dispatch mechanism
 
-- [ ] T003 [P] Add `CardIdentity` record to `backend/src/LootSingles.Application/CardCatalog/CardIdentity.cs` per data-model.md: `ProductName`, `Set`, `CollectorNumber`, `Variant`
-- [ ] T004 [P] Add `ICardCatalogProvider` interface to `backend/src/LootSingles.Application/CardCatalog/ICardCatalogProvider.cs` per data-model.md: `string ProductLine { get; }`, `Task<string?> TryMatchImageUrlAsync(CardIdentity identity, CancellationToken cancellationToken)`
-- [ ] T005 Implement `CardImageEnrichmentService` in `backend/src/LootSingles.Application/CardCatalog/CardImageEnrichmentService.cs`: constructor-injects `IEnumerable<ICardCatalogProvider>` and `ILogger<CardImageEnrichmentService>`; `TryGetImageUrlAsync(string productLine, CardIdentity identity, CancellationToken)` finds the provider whose `ProductLine` matches case-insensitively and delegates, catching any exception from the provider call, logging one `LogWarning` (no PII, per research.md §10) and returning `null`; returns `null` immediately with no provider call when no provider matches, to make T001 pass
-- [ ] T006 Run T001, confirm it passes, and run the full backend unit test suite to confirm no regression
+- [X] T003 [P] Add `CardIdentity` record to `backend/src/LootSingles.Application/CardCatalog/CardIdentity.cs` per data-model.md: `ProductName`, `Set`, `CollectorNumber`, `Variant`
+- [X] T004 [P] Add `ICardCatalogProvider` interface to `backend/src/LootSingles.Application/CardCatalog/ICardCatalogProvider.cs` per data-model.md: `string ProductLine { get; }`, `Task<string?> TryMatchImageUrlAsync(CardIdentity identity, CancellationToken cancellationToken)`
+- [X] T005 Implement `CardImageEnrichmentService` in `backend/src/LootSingles.Application/CardCatalog/CardImageEnrichmentService.cs`: constructor-injects `IEnumerable<ICardCatalogProvider>` and `ILogger<CardImageEnrichmentService>`; `TryGetImageUrlAsync(string productLine, CardIdentity identity, CancellationToken)` finds the provider whose `ProductLine` matches case-insensitively and delegates, catching any exception from the provider call, logging one `LogWarning` (no PII, per research.md §10) and returning `null`; returns `null` immediately with no provider call when no provider matches, to make T001 pass
+- [X] T006 Run T001, confirm it passes, and run the full backend unit test suite to confirm no regression
 
 ### Tests — response wiring
 
-- [ ] T007 [P] Extend `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs`: register a fake `ICardCatalogProvider` for `"Pokemon"` returning a known image URL via `WebApplicationFactory.ConfigureWebHost`/`ConfigureServices` (mirroring `ImportsControllerFailureTests`' override pattern), seed a Pokémon line, and assert the response's `imageUrl` matches; seed a second line for a game with no registered provider and assert its `imageUrl` is explicitly `null`
-- [ ] T008 Run T007 and confirm it fails for the expected reason (no `imageUrl` in the response yet; `OrdersService` doesn't call any enrichment yet)
+- [X] T007 [P] Extend `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs`: register a fake `ICardCatalogProvider` for `"Pokemon"` returning a known image URL via `WebApplicationFactory.ConfigureWebHost`/`ConfigureServices` (mirroring `ImportsControllerFailureTests`' override pattern), seed a Pokémon line, and assert the response's `imageUrl` matches; seed a second line for a game with no registered provider and assert its `imageUrl` is explicitly `null`
+- [X] T008 Run T007 and confirm it fails for the expected reason (no `imageUrl` in the response yet; `OrdersService` doesn't call any enrichment yet)
 
 ### Implementation — response wiring
 
-- [ ] T009 Add `ImageUrl` (`string?`) to `OrderLineDetail` in `backend/src/LootSingles.Application/Orders/OrderDetail.cs` per data-model.md
-- [ ] T010 Update `OrdersService.GetByIdAsync` in `backend/src/LootSingles.Application/Orders/OrdersService.cs` to, after loading `OrderDetail` from the repository, enrich each line's `ImageUrl` concurrently (`Task.WhenAll`) via `CardImageEnrichmentService.TryGetImageUrlAsync`, building a `CardIdentity` from each line's existing fields, per research.md §7 — `GetAllAsync` (list views) is untouched
-- [ ] T011 Add `ImageUrl` (`string?`) to `OrderLineDetailResponse` and wire the `GetById` mapping in `backend/src/LootSingles.Api/Controllers/OrdersController.cs`, matching contracts/order-detail-api.md, to make T007 pass
-- [ ] T012 Register `CardImageEnrichmentService` in `backend/src/LootSingles.Api/Program.cs` — no `ICardCatalogProvider` implementations exist yet; each user story below registers its own
-- [ ] T013 Run T007, confirm it passes, and run the full backend test suite to confirm no regression
+- [X] T009 Add `ImageUrl` (`string?`) to `OrderLineDetail` in `backend/src/LootSingles.Application/Orders/OrderDetail.cs` per data-model.md
+- [X] T010 Update `OrdersService.GetByIdAsync` in `backend/src/LootSingles.Application/Orders/OrdersService.cs` to, after loading `OrderDetail` from the repository, enrich each line's `ImageUrl` concurrently (`Task.WhenAll`) via `CardImageEnrichmentService.TryGetImageUrlAsync`, building a `CardIdentity` from each line's existing fields, per research.md §7 — `GetAllAsync` (list views) is untouched
+- [X] T011 Add `ImageUrl` (`string?`) to `OrderLineDetailResponse` and wire the `GetById` mapping in `backend/src/LootSingles.Api/Controllers/OrdersController.cs`, matching contracts/order-detail-api.md, to make T007 pass
+- [X] T012 Register `CardImageEnrichmentService` in `backend/src/LootSingles.Api/Program.cs` — no `ICardCatalogProvider` implementations exist yet; each user story below registers its own
+- [X] T013 Run T007, confirm it passes, and run the full backend test suite to confirm no regression
 
 ### Tests — frontend rendering
 
-- [ ] T014 [P] Add a failing test case to `frontend/tests/orders/OrderDetailPage.test.tsx`: a line with `imageUrl` set renders an `<img>` with that `src` (and `alt` identifying the card) in place of the neutral placeholder; a line with `imageUrl: null` continues to render the existing placeholder exactly as before
-- [ ] T015 Run T014 and confirm it fails for the expected reason (`OrderDetailPage` doesn't render an `<img>` yet)
+- [X] T014 [P] Add a failing test case to `frontend/tests/orders/OrderDetailPage.test.tsx`: a line with `imageUrl` set renders an `<img>` with that `src` (and `alt` identifying the card) in place of the neutral placeholder; a line with `imageUrl: null` continues to render the existing placeholder exactly as before
+- [X] T015 Run T014 and confirm it fails for the expected reason (`OrderDetailPage` doesn't render an `<img>` yet)
 
 ### Implementation — frontend rendering
 
-- [ ] T016 [P] Extend `OrderLineDetail` in `frontend/src/features/orders/ordersApi.ts`: add `imageUrl: string | null`
-- [ ] T017 Update `frontend/src/features/orders/OrderDetailPage.tsx`: render `<img src={line.imageUrl} alt={line.productName}>` in place of the existing placeholder when `line.imageUrl` is not `null`, leaving the placeholder's own markup/behavior unchanged for every other case, to make T014 pass
-- [ ] T018 Adjust `frontend/src/features/orders/OrderDetailPage.css` as needed so a real card image renders at the same size/position the placeholder already occupies, remaining legible at mobile width
-- [ ] T019 Run T014, confirm it passes, and run the full frontend test suite to confirm no regression
+- [X] T016 [P] Extend `OrderLineDetail` in `frontend/src/features/orders/ordersApi.ts`: add `imageUrl: string | null`
+- [X] T017 Update `frontend/src/features/orders/OrderDetailPage.tsx`: render `<img src={line.imageUrl} alt={line.productName}>` in place of the existing placeholder when `line.imageUrl` is not `null`, leaving the placeholder's own markup/behavior unchanged for every other case, to make T014 pass
+- [X] T018 Adjust `frontend/src/features/orders/OrderDetailPage.css` as needed so a real card image renders at the same size/position the placeholder already occupies, remaining legible at mobile width
+- [X] T019 Run T014, confirm it passes, and run the full frontend test suite to confirm no regression
 
 **Checkpoint**: The enrichment pipeline and UI rendering are fully wired end-to-end, but with zero
 real providers registered — every line still falls back to the placeholder today, exactly as

@@ -14,6 +14,7 @@ export interface OrderLineDetail {
   variant: string | null
   condition: string
   quantity: number
+  imageUrl: string | null
 }
 
 export interface OrderDetail {
