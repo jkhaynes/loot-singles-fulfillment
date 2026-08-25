@@ -55,9 +55,9 @@
 
 **Purpose**: Confirm full regression and complete manual validation.
 
-- [ ] T010 [P] Run backend build, full unit suite, full SQL Server integration suite, and CSharpier; confirm all existing tests remain green and record results in `specs/011-fix-multipage-import/validation-results.md`
-- [ ] T011 Perform the quickstart.md manual validation (import the real sample through the running app, confirm the order's detail view shows all 50 lines, confirm the 13-order batch fixture still imports as 13 separate orders, confirm genuinely malformed pages are still rejected) and record observations in `specs/011-fix-multipage-import/validation-results.md` — performed by the Developer directly
-- [ ] T012 Perform the constitution Architecture and Changeability Review against the implemented fix, capture any Must Fix findings as new tasks in `specs/011-fix-multipage-import/tasks.md`, and do not proceed to convergence until resolved
+- [X] T010 [P] Run backend build, full unit suite, full SQL Server integration suite, and CSharpier; confirm all existing tests remain green and record results in `specs/011-fix-multipage-import/validation-results.md`
+- [X] T011 Perform the quickstart.md manual validation (import the real sample through the running app, confirm the order's detail view shows all 50 lines, confirm the 13-order batch fixture still imports as 13 separate orders, confirm genuinely malformed pages are still rejected) and record observations in `specs/011-fix-multipage-import/validation-results.md` — performed by the Developer directly
+- [X] T012 Perform the constitution Architecture and Changeability Review against the implemented fix, capture any Must Fix findings as new tasks in `specs/011-fix-multipage-import/tasks.md`, and do not proceed to convergence until resolved — zero Must Fix findings; three Advisory findings addressed directly (T010-T012 checkbox tracking, spec.md Edge Case wording precision, strengthened T002 test assertion) rather than deferred, since none required new implementation work
 
 ---
 

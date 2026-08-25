@@ -65,6 +65,10 @@ public class PdfPigPackingSlipParserTests
         Assert.Equal(50, order.ProductLines.Count);
         Assert.Contains("Fomantis", order.ProductLines[0].RawDescription);
         Assert.Equal("6", order.ProductLines[0].QuantityText);
+        // Page 1 has 15 rows, so index 15 is page 2's first row - proves page 2's lines land in
+        // the middle of the merged list, not just that the first/last boundary happens to match.
+        Assert.Contains("Cinderace ex", order.ProductLines[15].RawDescription);
+        Assert.Equal("2", order.ProductLines[15].QuantityText);
         Assert.Contains("Uta", order.ProductLines[^1].RawDescription);
         Assert.Equal("1", order.ProductLines[^1].QuantityText);
     }
