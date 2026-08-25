@@ -7,7 +7,8 @@ namespace LootSingles.Application.Import;
 public class ParsedPackingSlip
 {
     /// <summary>
-    /// One raw block per order page found in the file, in page order.
+    /// One raw block per order found in the file, in the order each order's first page appears.
+    /// A multi-page order's blocks are already merged (see <see cref="RawOrderBlock"/>).
     /// </summary>
     public required IReadOnlyList<RawOrderBlock> OrderBlocks { get; set; }
 

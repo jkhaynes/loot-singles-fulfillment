@@ -47,6 +47,33 @@ public class PdfPigPackingSlipParserTests
     }
 
     [Fact]
+    public async Task Parse_MultiPageOrderFixture_ReturnsOneOrderWithAllLinesInReadingOrder()
+    {
+        var fixturePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "PackingSlips",
+            "multi-page-order-no-total-on-continuation-pages.pdf"
+        );
+        using var pdf = File.OpenRead(fixturePath);
+        var parser = new PdfPigPackingSlipParser();
+
+        var result = await ParseToCompletionAsync(parser, pdf);
+
+        var order = Assert.Single(result.OrderBlocks);
+        Assert.Equal("F8433182-69FC9F-7D725", order.OrderIdentifier);
+        Assert.Equal(50, order.ProductLines.Count);
+        Assert.Contains("Fomantis", order.ProductLines[0].RawDescription);
+        Assert.Equal("6", order.ProductLines[0].QuantityText);
+        // Page 1 has 15 rows, so index 15 is page 2's first row - proves page 2's lines land in
+        // the middle of the merged list, not just that the first/last boundary happens to match.
+        Assert.Contains("Cinderace ex", order.ProductLines[15].RawDescription);
+        Assert.Equal("2", order.ProductLines[15].QuantityText);
+        Assert.Contains("Uta", order.ProductLines[^1].RawDescription);
+        Assert.Equal("1", order.ProductLines[^1].QuantityText);
+    }
+
+    [Fact]
     public async Task Parse_DuplicateProductLineFixture_PreservesBothRowsSeparately()
     {
         var fixturePath = Path.Combine(
