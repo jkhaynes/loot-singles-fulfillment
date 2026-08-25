@@ -68,14 +68,14 @@ depend on this — there is no new endpoint or route, just a wider response on t
 
 ### Tests for User Story 2
 
-- [ ] T014 [P] [US2] Add a failing test case to `frontend/tests/orders/OrderDetailPage.test.tsx`: asserts the order's `status` renders in the page header alongside the TCGplayer identifier
-- [ ] T015 [US2] Run T014 and confirm it fails for the expected reason (`OrderDetailPage` does not render `status` yet)
+- [X] T014 [P] [US2] Add a failing test case to `frontend/tests/orders/OrderDetailPage.test.tsx`: asserts the order's `status` renders in the page header alongside the TCGplayer identifier
+- [X] T015 [US2] Run T014 and confirm it fails for the expected reason (`OrderDetailPage` does not render `status` yet)
 
 ### Implementation for User Story 2
 
-- [ ] T016 [P] [US2] Extend `OrderDetail` in `frontend/src/features/orders/ordersApi.ts`: add `status: string`
-- [ ] T017 [US2] Update `frontend/src/features/orders/OrderDetailPage.tsx` to render `order.status` in the header next to the TCGplayer identifier, to make T014 pass
-- [ ] T018 [US2] Run T014, confirm it passes, and run the full frontend test suite to confirm no regression
+- [X] T016 [P] [US2] Extend `OrderDetail` in `frontend/src/features/orders/ordersApi.ts`: add `status: string`
+- [X] T017 [US2] Update `frontend/src/features/orders/OrderDetailPage.tsx` to render `order.status` in the header next to the TCGplayer identifier, to make T014 pass
+- [X] T018 [US2] Run T014, confirm it passes, and run the full frontend test suite to confirm no regression
 
 **Checkpoint**: Both user stories are complete; the detail view shows product line, collector number, rarity, and status.
 

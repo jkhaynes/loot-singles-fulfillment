@@ -19,6 +19,7 @@ export interface OrderLineDetail {
 export interface OrderDetail {
   orderId: number
   tcgplayerOrderId: string
+  status: string
   lines: OrderLineDetail[]
 }
 

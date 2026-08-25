@@ -26,6 +26,7 @@ describe('OrderDetailPage', () => {
     vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
       orderId: 42,
       tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'ready',
       lines: [
         {
           productName: 'Genesect ex',
@@ -76,6 +77,7 @@ describe('OrderDetailPage', () => {
     vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
       orderId: 42,
       tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'ready',
       lines: [
         {
           productName: 'Genesect ex',
@@ -112,6 +114,33 @@ describe('OrderDetailPage', () => {
     expect(within(pikachu).queryByText('×1')).not.toBeInTheDocument()
   })
 
+  it('renders the order status alongside its identifier', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'ready',
+      lines: [
+        {
+          productName: 'Pikachu',
+          productLine: 'Pokemon',
+          set: 'Base Set',
+          collectorNumber: '#025/102',
+          rarity: null,
+          variant: null,
+          condition: 'Lightly Played',
+          quantity: 1,
+        },
+      ],
+    })
+
+    renderPage()
+
+    const heading = await screen.findByRole('heading', { name: /ORDER-DETAIL-42/i })
+    const header = heading.closest('header')
+    expect(header).not.toBeNull()
+    expect(within(header as HTMLElement).getByText('ready')).toBeInTheDocument()
+  })
+
   it('shows a distinct not-found state', async () => {
     vi.mocked(ordersApi.getOrderDetail).mockRejectedValue(new ordersApi.OrderNotFoundError())
 
@@ -125,6 +154,7 @@ describe('OrderDetailPage', () => {
     vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
       orderId: 42,
       tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'ready',
       lines: [
         {
           productName: 'Genesect ex',
