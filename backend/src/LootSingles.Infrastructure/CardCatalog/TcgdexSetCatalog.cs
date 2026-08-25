@@ -23,10 +23,11 @@ public sealed class TcgdexSetCatalog(
     private Task<IReadOnlyDictionary<string, string>>? _setIdsByNameTask;
     private DateTimeOffset _fetchedAt;
 
-    public Task<IReadOnlyDictionary<string, string>> GetSetIdsByNameAsync(
+    public async Task<IReadOnlyDictionary<string, string>> GetSetIdsByNameAsync(
         CancellationToken cancellationToken
     )
     {
+        Task<IReadOnlyDictionary<string, string>> task;
         lock (_lock)
         {
             var now = timeProvider.GetUtcNow();
@@ -35,9 +36,29 @@ public sealed class TcgdexSetCatalog(
                 _fetchedAt = now;
                 _setIdsByNameTask = FetchSetIdsByNameAsync(cancellationToken);
             }
+
+            task = _setIdsByNameTask;
         }
 
-        return _setIdsByNameTask;
+        try
+        {
+            return await task;
+        }
+        catch
+        {
+            // Don't let a transient failure poison the cache for the rest of CacheDuration - the
+            // next call should attempt a fresh fetch rather than immediately rethrowing this same
+            // cached failure for up to 24 hours.
+            lock (_lock)
+            {
+                if (ReferenceEquals(_setIdsByNameTask, task))
+                {
+                    _setIdsByNameTask = null;
+                }
+            }
+
+            throw;
+        }
     }
 
     private async Task<IReadOnlyDictionary<string, string>> FetchSetIdsByNameAsync(

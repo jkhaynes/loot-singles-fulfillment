@@ -124,6 +124,11 @@ before this feature. Each user story below adds one real provider on top of this
 - [X] T028u [US1] Implement `TcgdexSetCatalog` in `backend/src/LootSingles.Infrastructure/CardCatalog/TcgdexSetCatalog.cs` per research.md §12: singleton-lifetime, Lock-guarded cached-`Task<IReadOnlyDictionary<string,string>>` (reusing the shape already proven in `TcgdexCardCatalogProvider`) with a 24-hour duration tracked via an injected `TimeProvider`, obtaining its `HttpClient` fresh per fetch via `IHttpClientFactory.CreateClient("tcgdex")` rather than holding one long-lived, to make T028t pass
 - [X] T028v [US1] Update `TcgdexCardCatalogProvider` to take `TcgdexSetCatalog` as a constructor dependency and delegate to `GetSetIdsByNameAsync` instead of owning its own sets-list cache/fetch; added a new test proving sharing *across* two separately-constructed `TcgdexCardCatalogProvider` instances backed by the same `TcgdexSetCatalog` (the actual cross-request scenario this fix targets, alongside keeping the original single-instance test); updated `Program.cs` to register a named `"tcgdex"` `HttpClient` and `AddSingleton<TcgdexSetCatalog>()`/`AddSingleton(TimeProvider.System)`; full backend suite (115/115 unit, 106/106 integration) and CSharpier both clean; manually re-verified live — Pecharunt still resolves a real image after the refactor
 
+### Code-Design-Review Remediation: Sticky Failure Cache (2026-08-25)
+
+- [X] T028w [US1] Add a failing unit test to `TcgdexSetCatalogTests.cs` proving a failed sets-list fetch is retried on the very next call, not cached for the full 24-hour duration: a first call whose `HttpMessageHandler` throws leaves the catalog in a state where a second call (still well within the cache window) attempts a fresh fetch rather than rethrowing the same cached exception
+- [X] T028x [US1] Fix `TcgdexSetCatalog.GetSetIdsByNameAsync` so a faulted fetch is not retained as the cached task for the remainder of the cache duration — the next call must attempt a fresh fetch instead of immediately rethrowing a stale failure, to make T028w pass; full backend suite (116/116 unit, 106/106 integration) and CSharpier both clean
+
 **Checkpoint**: A picker opens a Pokémon order and sees the real card image for a confidently
 matched line — User Story 1 (MVP) is independently complete and testable.
 

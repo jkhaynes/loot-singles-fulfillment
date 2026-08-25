@@ -41,6 +41,34 @@ public sealed class TcgdexSetCatalogTests
     }
 
     [Fact]
+    public async Task GetSetIdsByNameAsync_FetchFails_RetriesOnTheNextCallRatherThanCachingTheFailure()
+    {
+        var attempt = 0;
+        var handler = StubHttpMessageHandler.RespondingPerRequest(_ =>
+        {
+            attempt++;
+            return attempt == 1
+                ? throw new HttpRequestException("Simulated transient TCGdex failure.")
+                : new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(SetsListJson),
+                };
+        });
+        var timeProvider = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        var catalog = NewCatalog(handler, timeProvider);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() =>
+            catalog.GetSetIdsByNameAsync(CancellationToken.None)
+        );
+        // Still well within the 24-hour cache duration - a healthy cache would retry anyway.
+        timeProvider.Advance(TimeSpan.FromMinutes(1));
+        var result = await catalog.GetSetIdsByNameAsync(CancellationToken.None);
+
+        Assert.Equal("sv10.5b", result["Black Bolt"]);
+        Assert.Equal(2, handler.Requests.Count);
+    }
+
+    [Fact]
     public async Task GetSetIdsByNameAsync_ReturnsTheDictionaryKeyedBySetName()
     {
         var handler = StubHttpMessageHandler.ReturningJson(SetsListJson);
