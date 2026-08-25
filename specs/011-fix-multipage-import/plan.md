@@ -12,10 +12,18 @@ order page." A real, sanitized 3-page packing slip proves that assumption wrong:
 multi-page order's grand-total row only once, on its final page, so `ExtractProductLines`'s
 requirement of finding a "Total" row to bound the product rows returns zero lines for every
 continuation page, and each page becomes its own (mostly empty) order block even though every page
-shares the same "Order Number:" identifier. The fix adds one post-processing step to the parser:
-after all pages are read, merge any `RawOrderBlock`s that share the same non-null order identifier
-into a single block, concatenating their product lines in page/reading order. Blocks with a missing
-identifier are never merged with anything (each remains its own distinct failure, exactly as today).
+shares the same "Order Number:" identifier. The fix has two cooperating parts, both required
+(the second was discovered necessary at the TDD Red step, once the first alone proved insufficient
+against the real fixture — research.md §1's "Correction"):
+
+1. `ExtractProductLines` falls back to a page's "Order Number:" footer line as the lower bound for
+   scanning product rows when no "Total" row exists on that page, instead of returning no rows at
+   all — so a continuation page's real product lines are actually extracted.
+2. One post-processing step in the parser, after all pages are read, merges any `RawOrderBlock`s
+   that share the same non-null order identifier into a single block, concatenating their product
+   lines in page/reading order. Blocks with a missing identifier are never merged with anything
+   (each remains its own distinct failure, exactly as today).
+
 No other component changes — `PackingSlipImportService`'s per-block loop already does the right
 thing once it receives one block per real order instead of one block per page.
 
@@ -50,9 +58,10 @@ field, no new failure type, no change to `ExtractOrderIdentifier`, `ExtractProdu
 `OrderLineExtractor` (all three already produce the correct data for each individual page — the
 defect is purely in how page-level blocks are assembled into orders afterward)
 
-**Scale/Scope**: One new private helper in `PdfPigPackingSlipParser` (or `ParseState.ToResult()`),
-called once per parse; one new fixture (the provided sanitized 3-page sample); extended unit tests
-in the existing parser test file
+**Scale/Scope**: Three new private helpers in `PdfPigPackingSlipParser` — `ParseState.MergeContinuationPages`
+(called once per parse) and `FindGrandTotalLine`/`FindOrderNumberFooterLine` (called once per page,
+replacing `ExtractProductLines`'s inline total-row search); one new fixture (the provided sanitized
+3-page sample); extended unit tests in the existing parser test file
 
 ## Constitution Check
 
@@ -71,13 +80,14 @@ in the existing parser test file
 | X Single-business scope | No multi-tenant concept introduced. | PASS |
 | XI Observability | Evaluated: `PackingSlipImportService`'s existing per-attempt completion log (detected/succeeded/failed counts, per-failure-type breakdown) already reports accurately once it receives correctly-merged blocks — no new logging is needed; the fix corrects an input to existing observability, it doesn't need new observability of its own. | PASS |
 | XII Maintainable design | The merge triggers on the *shape* of the data (multiple blocks sharing one identifier), not on any per-game or per-PDF-layout special case, so it generalizes to any future packing-slip format without needing new branching (Principle XII: avoid central conditional logic that must be repeatedly modified). | PASS |
-| XIII Simplicity | One grouping pass over already-in-memory data, reusing the existing `RawOrderBlock`/`ParsedPackingSlip` shapes unchanged. No new class, no new failure type, no new configuration. | PASS |
+| XIII Simplicity | One grouping pass over already-in-memory data plus one alternate-lower-bound lookup, both reusing existing helpers (`ContainsSequence`) and shapes (`RawOrderBlock`/`ParsedPackingSlip`, `TextLine`) unchanged. No new class, no new failure type, no new configuration. | PASS |
 
 ### Architecture and Changeability Review
 
 | Component | Responsibility/boundary and dependency direction | Variation, failure, testability, and simplicity |
 |-----------|--------------------------------------------------|-----------------------------------------------|
-| `PdfPigPackingSlipParser.ParseState.ToResult()` (Infrastructure, existing) | Gains one merge step over `OrderBlocks` before producing the final `ParsedPackingSlip` — the exact point that already owns turning per-page scan state into the parser's output shape. Per-page extraction (`ExtractOrderIdentifier`, `ExtractProductLines`, table-header detection) is completely untouched. | The merge is shape-triggered (blocks sharing one non-null identifier), not layout- or game-specific, so it generalizes to any future multi-page packing-slip variant without a new branch. A block with a missing identifier is never merged, preserving today's `MissingOrderIdentifier` failure path exactly. Testable via the existing parser unit-test file with no new test infrastructure. |
+| `PdfPigPackingSlipParser.ParseState.ToResult()` (Infrastructure, existing) | Gains one merge step over `OrderBlocks` before producing the final `ParsedPackingSlip` — the exact point that already owns turning per-page scan state into the parser's output shape. | The merge is shape-triggered (blocks sharing one non-null identifier), not layout- or game-specific, so it generalizes to any future multi-page packing-slip variant without a new branch. A block with a missing identifier is never merged, preserving today's `MissingOrderIdentifier` failure path exactly. Testable via the existing parser unit-test file with no new test infrastructure. |
+| `PdfPigPackingSlipParser.ExtractProductLines` (Infrastructure, existing) | Gains a fallback lower bound (`FindOrderNumberFooterLine`) for when no "Total" row exists on a page, tried only after the original "Total" search (extracted unchanged into `FindGrandTotalLine`) fails — the exact point that already owns bounding a page's product rows. `ExtractOrderIdentifier` and table-header detection are completely untouched; `FindOrderNumberFooterLine` reuses the same `ContainsSequence` check `ExtractOrderIdentifier` already uses. | Also shape-triggered (absence of a "Total" line), not tied to page number or order size, so it applies uniformly to any continuation page regardless of how many pages an order spans. A page with neither a total row nor an "Order Number:" line still returns no rows, preserving today's safe-failure behavior. |
 | `PackingSlipImportService` (Application, unchanged) | Continues to process `parsed.OrderBlocks` one block per real order — this component needs no change once it receives correctly-assembled blocks; its per-block validation, duplicate-detection, and persistence logic already treat each block as one logical order. | Untouched, so its own existing test coverage (duplicate-order handling, validation failures, summary-mismatch detection) continues to prove those behaviors are unaffected. |
 | `PdfPigPackingSlipParserTests.cs` (existing, extended) | Gains the real multi-page case alongside its existing 13-order-batch and duplicate-line-same-order cases, in the same fixture-driven style — not a parallel test suite. | Directly proves FR-001/FR-002 (multi-page merge) and FR-003/FR-006 (existing single-page behavior unaffected) side by side, using only real, representative fixtures. |
 | `backend/tests/LootSingles.Fixtures/PackingSlips/` (existing, extended) | Gains one new fixture file (already added) from the provided sanitized sample, alongside the existing fixtures — same directory, same convention. | Matches the constitution's explicit requirement that parser changes be validated against representative fixtures, using this feature's own real evidence rather than a synthetic guess. |

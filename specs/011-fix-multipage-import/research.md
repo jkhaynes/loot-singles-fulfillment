@@ -17,17 +17,31 @@ Confirmed live against the running application: importing the real sample produc
 one with the "Total" row) succeeded, and pages 1–2's 30+ real product lines were silently absent
 from the resulting order rather than surfaced as any kind of per-line error.
 
-**Decision**: The defect is not in per-page extraction (`ExtractOrderIdentifier`,
-`ExtractProductLines`, table-header detection, or `OrderLineExtractor`) — each of those already
-produces the correct data for the page it's given. The defect is that `RawOrderBlock`/
+**Decision (revised during implementation — see "Correction" below)**: `RawOrderBlock`/
 `ParsedPackingSlip.OrderBlocks` are documented and treated as "one block per page," when a real
 order can legitimately span pages. The fix adds a merge step, once per parse, that treats multiple
 blocks sharing the same non-null order identifier as continuation pages of one logical order and
 concatenates their product lines in page/reading order.
 
+**Correction (found at the T002/T003 TDD Red step, during implementation)**: The merge alone is
+*necessary but not sufficient*. `ExtractProductLines` does not merely fail to find a bound on a
+continuation page and skip a precise trim — it returns `Array.Empty<RawProductLine>()` outright
+when no "Total" row is found, so a continuation page contributes **zero** lines to merge, regardless
+of the merge step's own correctness. Verified directly: after implementing the merge alone, the real
+sample still produced only 10 lines (page 3's own count) instead of the true total, confirming pages
+1–2 were still extracting nothing. `ExtractProductLines` therefore also needed its own fix: when no
+"Total" row exists on a page, fall back to that page's "Order Number:" footer line (the only other
+fixed marker below the product rows on a continuation page, already located elsewhere by
+`ExtractOrderIdentifier` via the same `ContainsSequence(line.Words, "Order", "Number:")` check) as
+the lower bound, instead of returning no rows at all. With both changes in place, the real sample
+produces one order with all 50 of its real product lines (not 44 — this feature's own earlier
+row-count estimate, given before implementation, undercounted pages 1–2 by manual inspection error;
+corrected everywhere in spec.md/tasks.md/quickstart.md once the true count was confirmed by direct
+enumeration of the parser's output against the fixture).
+
 **Alternatives considered**: Changing `ExtractProductLines` to locate the *next* page's boundary
 instead of a "Total" row — rejected as far more invasive (would require passing cross-page context
-into a currently page-scoped method) for no behavioral benefit over merging after the fact, since
+into a currently page-scoped method) for no behavioral benefit over the footer-line fallback, since
 the per-page data extracted today is already correct wherever a table header and rows exist; only
 the "Total" row is genuinely page-scoped and only the last page has one, by design of the source
 document. Merging by order identifier is also simpler to reason about and test in isolation.
@@ -52,6 +66,14 @@ basis to say two such pages belong to the same order.
 occurrence; a later page's product lines are appended (not prepended) to the existing block's list,
 preserving the original page-by-page, top-to-bottom reading order (spec.md FR-002, User Story 1
 Acceptance Scenario 3).
+
+**The footer-line fallback (§1's correction) lives inside `ExtractProductLines` itself**, not in the
+merge step — it's a per-page extraction concern (what bounds this page's own rows), fully
+independent of how blocks are later assembled across pages. `FindGrandTotalLine` (the original
+"Total" row search, extracted unchanged into its own method) is tried first; `FindOrderNumberFooterLine`
+is tried only when no total row is found. Both return the same `TextLine?` shape, so the rest of
+`ExtractProductLines` (the quantity/description word-bounding logic) needed no change beyond
+renaming its local `totalLine` reference to the more accurate `lowerBoundLine`.
 
 **Effect on live progress updates**: `ParseAsync` yields an intermediate `PackingSlipParseUpdate`
 after each page using the raw (unmerged) `state.OrderBlocks.Count`, and only the final, `IsComplete`
