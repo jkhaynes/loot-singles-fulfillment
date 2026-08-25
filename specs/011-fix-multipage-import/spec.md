@@ -16,7 +16,7 @@ As an employee importing a TCGplayer packing slip that spans multiple pages, I n
 
 **Why this priority**: This is the entire purpose of the fix. A multi-page order currently loses most of its product lines silently — no error the importing employee would see as a per-line problem, the lines are just absent — which is a data-integrity defect, not a missing enhancement.
 
-**Independent Test**: Import the real, sanitized 3-page sample packing slip and confirm the resulting order contains all 44 product lines from all 3 pages, in the same top-to-bottom, page-by-page order they appear in the source document, with no rejection.
+**Independent Test**: Import the real, sanitized 3-page sample packing slip and confirm the resulting order contains all 50 product lines from all 3 pages, in the same top-to-bottom, page-by-page order they appear in the source document, with no rejection.
 
 **Acceptance Scenarios**:
 
@@ -68,7 +68,7 @@ As the business owner, I need this fix to leave every already-working import cas
 
 ### Measurable Outcomes
 
-- **SC-001**: The provided real, sanitized 3-page packing-slip sample imports as a single order containing all 44 product lines from the source document, in source reading order.
+- **SC-001**: The provided real, sanitized 3-page packing-slip sample imports as a single order containing all 50 product lines from the source document, in source reading order.
 - **SC-002**: 100% of existing packing-slip import test cases continue to pass with identical results after the fix.
 - **SC-003**: Two genuinely distinct orders present in the same upload continue to import as two separate orders — zero instances of unrelated orders being incorrectly merged as a side effect of this fix.
 

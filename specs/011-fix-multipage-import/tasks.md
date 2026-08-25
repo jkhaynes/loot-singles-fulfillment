@@ -17,18 +17,18 @@
 
 **Goal**: A real multi-page packing slip (grand-total row only on the last page) imports as one order containing every product line from every page, in source reading order.
 
-**Independent Test**: Import the real 3-page sample (or its fixture) and confirm the resulting order contains all 44 product lines, with no per-page rejection.
+**Independent Test**: Import the real 3-page sample (or its fixture) and confirm the resulting order contains all 50 product lines, with no per-page rejection.
 
 ### Tests for User Story 1
 
 - [X] T001 [P] [US1] Add the provided sanitized packing-slip sample as a new fixture file, `backend/tests/LootSingles.Fixtures/PackingSlips/multi-page-order-no-total-on-continuation-pages.pdf` (copy from `C:\Users\jkhay\Downloads\TCGplayer_PackingSlips_20260825_PII_REMOVED.pdf`), per data-model.md and constitution's "validated against representative fixtures" requirement
-- [ ] T002 [US1] Add a failing test to `backend/tests/LootSingles.UnitTests/Import/PdfPigPackingSlipParserTests.cs` (e.g. `Parse_MultiPageOrderFixture_ReturnsOneOrderWithAllLinesInReadingOrder`) that parses the new fixture and asserts: exactly one `RawOrderBlock` is returned, its `OrderIdentifier` is `"F8433182-69FC9F-7D725"`, it has exactly 44 `ProductLines`, and the lines appear in source reading order (e.g. assert the first line's raw description matches the first row of page 1 — the Fomantis line — and the last line matches the last row of page 3 — the last One Piece Starter Deck 5 line, immediately before the grand-total row)
-- [ ] T003 [US1] Run T002 and confirm it fails for the expected reason (today, 3 separate `RawOrderBlock`s are produced for the same order identifier, and only the last page's block has any product lines — nowhere near 44 total)
+- [X] T002 [US1] Add a failing test to `backend/tests/LootSingles.UnitTests/Import/PdfPigPackingSlipParserTests.cs` (`Parse_MultiPageOrderFixture_ReturnsOneOrderWithAllLinesInReadingOrder`) that parses the new fixture and asserts: exactly one `RawOrderBlock` is returned, its `OrderIdentifier` is `"F8433182-69FC9F-7D725"`, it has exactly 50 `ProductLines` (the real fixture's true count, confirmed by direct enumeration — corrected from this feature's earlier "44" estimate in spec.md/plan.md/research.md, which underdid the page-1 and page-2 row counts), and the lines appear in source reading order (asserted via the first line containing "Fomantis" with quantity "6", and the last line containing "Uta" with quantity "1")
+- [X] T003 [US1] Run T002 and confirm it fails for the expected reason (today, 3 separate `RawOrderBlock`s are produced for the same order identifier, and only the last page's block has any product lines — nowhere near 50 total)
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] In `backend/src/LootSingles.Infrastructure/Import/PdfPigPackingSlipParser.cs`, add a merge step to `ParseState.ToResult()` per research.md §2/data-model.md: group `OrderBlocks` by non-null, non-whitespace `OrderIdentifier` (`StringComparer.OrdinalIgnoreCase`), keeping each merged block at the position of its first occurrence and concatenating `ProductLines` in original page order for every later block sharing that identifier; a block with a null/whitespace `OrderIdentifier` is never merged with anything (including other such blocks) and is passed through unchanged. Update the `RawOrderBlock` and `ParsedPackingSlip.OrderBlocks` XML doc comments to describe the corrected "one block per order" invariant (data-model.md) instead of the old "one block per page" wording — to make T002 pass
-- [ ] T005 [US1] Run T002, confirm it passes, and run the full `PdfPigPackingSlipParserTests.cs` suite to confirm no regression
+- [X] T004 [US1] In `backend/src/LootSingles.Infrastructure/Import/PdfPigPackingSlipParser.cs`: (1) add a merge step to `ParseState.ToResult()` per research.md §2/data-model.md — group `OrderBlocks` by non-null, non-whitespace `OrderIdentifier` (`StringComparer.OrdinalIgnoreCase`), keeping each merged block at the position of its first occurrence and concatenating `ProductLines` in original page order for every later block sharing that identifier; a block with a null/whitespace `OrderIdentifier` is never merged with anything (including other such blocks) and is passed through unchanged; (2) **discovered during T002/T003's Red step and required in addition to the merge**: `ExtractProductLines` itself returned zero lines for every page lacking its own "Total" row, so merging alone wasn't sufficient — extracted the existing total-row search into `FindGrandTotalLine` and added a `FindOrderNumberFooterLine` fallback (the "Order Number:" footer line already used by `ExtractOrderIdentifier`, reused via the existing `ContainsSequence` helper) as the lower bound when no total row exists on a page, so a continuation page's real rows are extracted instead of none. Updated the `RawOrderBlock` and `ParsedPackingSlip.OrderBlocks` XML doc comments to describe the corrected "one block per order" invariant (data-model.md) instead of the old "one block per page" wording — to make T002 pass
+- [X] T005 [US1] Run T002, confirm it passes, and run the full `PdfPigPackingSlipParserTests.cs` suite to confirm no regression
 
 **Checkpoint**: The real 3-page sample imports as one complete order — User Story 1 (MVP) is independently complete and testable.
 
@@ -56,7 +56,7 @@
 **Purpose**: Confirm full regression and complete manual validation.
 
 - [ ] T010 [P] Run backend build, full unit suite, full SQL Server integration suite, and CSharpier; confirm all existing tests remain green and record results in `specs/011-fix-multipage-import/validation-results.md`
-- [ ] T011 Perform the quickstart.md manual validation (import the real sample through the running app, confirm the order's detail view shows all 44 lines, confirm the 13-order batch fixture still imports as 13 separate orders, confirm genuinely malformed pages are still rejected) and record observations in `specs/011-fix-multipage-import/validation-results.md` — performed by the Developer directly
+- [ ] T011 Perform the quickstart.md manual validation (import the real sample through the running app, confirm the order's detail view shows all 50 lines, confirm the 13-order batch fixture still imports as 13 separate orders, confirm genuinely malformed pages are still rejected) and record observations in `specs/011-fix-multipage-import/validation-results.md` — performed by the Developer directly
 - [ ] T012 Perform the constitution Architecture and Changeability Review against the implemented fix, capture any Must Fix findings as new tasks in `specs/011-fix-multipage-import/tasks.md`, and do not proceed to convergence until resolved
 
 ---
@@ -85,7 +85,7 @@
 ### MVP first
 
 1. Complete Phase 1 (User Story 1) — multi-page orders import completely.
-2. Stop and validate: the real 3-page sample produces exactly one order with all 44 lines in the correct order.
+2. Stop and validate: the real 3-page sample produces exactly one order with all 50 lines in the correct order.
 
 ### Incremental delivery
 

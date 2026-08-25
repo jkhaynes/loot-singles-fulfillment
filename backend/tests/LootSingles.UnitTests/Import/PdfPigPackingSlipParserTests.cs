@@ -47,6 +47,29 @@ public class PdfPigPackingSlipParserTests
     }
 
     [Fact]
+    public async Task Parse_MultiPageOrderFixture_ReturnsOneOrderWithAllLinesInReadingOrder()
+    {
+        var fixturePath = Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "PackingSlips",
+            "multi-page-order-no-total-on-continuation-pages.pdf"
+        );
+        using var pdf = File.OpenRead(fixturePath);
+        var parser = new PdfPigPackingSlipParser();
+
+        var result = await ParseToCompletionAsync(parser, pdf);
+
+        var order = Assert.Single(result.OrderBlocks);
+        Assert.Equal("F8433182-69FC9F-7D725", order.OrderIdentifier);
+        Assert.Equal(50, order.ProductLines.Count);
+        Assert.Contains("Fomantis", order.ProductLines[0].RawDescription);
+        Assert.Equal("6", order.ProductLines[0].QuantityText);
+        Assert.Contains("Uta", order.ProductLines[^1].RawDescription);
+        Assert.Equal("1", order.ProductLines[^1].QuantityText);
+    }
+
+    [Fact]
     public async Task Parse_DuplicateProductLineFixture_PreservesBothRowsSeparately()
     {
         var fixturePath = Path.Combine(

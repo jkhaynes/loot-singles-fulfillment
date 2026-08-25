@@ -20,7 +20,7 @@ dotnet csharpier check backend
 ```
 
 Expected: `PdfPigPackingSlipParserTests.cs`'s new multi-page case passes, producing exactly one
-`RawOrderBlock` for the sample with all 44 product lines from all 3 pages, in source reading order;
+`RawOrderBlock` for the sample with all 50 product lines from all 3 pages, in source reading order;
 the existing 13-order-batch case (`valid-multi-order-batch.pdf`, 13 single-page orders, each still
 its own block) and the duplicate-product-line case continue to pass unchanged; the full integration
 suite (which exercises the broader import pipeline) remains green.
@@ -31,7 +31,7 @@ suite (which exercises the broader import pipeline) remains green.
    locally (`dotnet run --project backend/src/LootSingles.Api`), log in, and import the fixture PDF
    (or the original sanitized sample) via Import Orders. Confirm the import succeeds as **one**
    order with no `NoProductLines` rejection for any page, and that the order's detail view
-   (features 007/008) shows all 44 lines from the source document.
+   (features 007/008) shows all 50 lines from the source document.
 2. **Existing single-page and multi-order imports are unaffected** (US2, FR-003/FR-006, SC-002):
    import `valid-multi-order-batch.pdf` and confirm all 13 orders still import as 13 separate
    orders with identical results to before this fix.
