@@ -65,13 +65,68 @@ set and collector number." No API key is required for read access.
 parameters including `number` and set-scoped fields). Verify the returned card's name before
 accepting. Use the card's `images.large` URL.
 
-**Open item for implementation**: same set-name-normalization gap as Scryfall (PRD Q29) — the
-Pokémon TCG API's set identifiers/names may not textually match the packing slip's `Set` value
-exactly (e.g. abbreviations or "SV:" prefixes). Confirm the exact query shape (whether set *name*
-is directly queryable, or a set-id lookup step is needed first) against the provider's live API
-documentation during implementation of the Pokémon user story (the first, MVP story, so this gets
-resolved earliest). An optional API key (configuration only, never committed) raises the rate
-limit but is not required for correctness.
+**Update (confirmed during T023 implementation)**: The open item below is resolved. `set.name` is
+**directly queryable as text** in the `q` parameter — no separate set-id lookup step is needed.
+Confirmed shape (base endpoint `https://api.pokemontcg.io/v2/cards`, Lucene-like query syntax):
+
+```
+GET https://api.pokemontcg.io/v2/cards?q=set.name:"Base Set" number:4
+Header (optional): X-Api-Key: <key>
+```
+
+- `q` combines space-separated `field:value` terms (implicit AND); a value containing spaces must
+  be quoted, e.g. `set.name:"Base Set"`.
+- Collector number field is `number` (matches the packing slip's numeric portion of
+  `CollectorNumber`, e.g. `"4"` from `"#4/102"` — the leading `#`, any `/<total>` suffix, **and any
+  leading zeros** must be stripped before querying: confirmed live that the API stores `"67"`, not
+  `"067"`, so `"#067/086"` must normalize to `"67"`, not `"067"`).
+- API key is optional; sent via the `X-Api-Key` request header when present. Unauthenticated
+  requests work but at a lower rate limit.
+- Response is a JSON object with a `data` array (search) or `data` object (get-by-id) of card
+  records; each record has `name`, `set.name`, `number`, and an `images` object with `small` and
+  `large` URL fields (`images.large` is the field this provider uses, per the Decision above).
+
+Source: could not reach `docs.pokemontcg.io` directly (WebFetch returned HTTP 403 on that host for
+both the search-cards reference page and the site root); confirmed instead via web search results
+quoting and citing that same official documentation (search-cards and get-card reference pages,
+and the X-Api-Key auth note), cross-checked across multiple independent search results before
+being treated as confirmed rather than guessed.
+
+**Original open item for implementation** (resolved above): same set-name-normalization gap as
+Scryfall (PRD Q29) — the Pokémon TCG API's set identifiers/names may not textually match the
+packing slip's `Set` value exactly (e.g. abbreviations or "SV:" prefixes). This textual-mismatch
+risk is still real (confirming the query *mechanism* doesn't guarantee every packing-slip `Set`
+string matches a `set.name` value exactly) — a non-matching query legitimately returns zero
+results, which the provider must treat as "no confident match" (`null`), not an error.
+
+**Update (Clarifications, 2026-08-25 — PRD §41 Q29 resolved for this feature)**: Confirmed live
+against a real manually-tested Pokémon order: the imported `Set` text for a "Genesect ex" line was
+`"SV: Black Bolt"`, but the Pokémon TCG API's real `set.name` is `"Black Bolt"` (no prefix) —
+`q=set.name:"SV: Black Bolt" number:67` returns zero results; `q=set.name:"Black Bolt" number:67`
+returns the card. Per the Product Owner's decision, this is resolved via **series-abbreviation
+prefix stripping**, deliberately chosen over a per-set/per-group lookup table so the data only
+needs updating when Pokémon starts an entirely new naming era, not with every new set release (a
+per-group table was considered and rejected for this reason — TCGplayer publishes new groups far
+more often than new series).
+`backend/src/LootSingles.Infrastructure/CardCatalog/Data/pokemon-series-abbreviations.json` is a
+small (~10-entry), Product-Owner-supplied table of known series abbreviations, e.g. `"SV"` →
+`"Scarlet & Violet"`, `"ME"` → `"Mega Evolution"`, `"SWSH"` → `"Sword & Shield"`. Before querying,
+the provider checks whether the raw `Set` text starts with one of these abbreviations immediately
+followed by optional digits and then `": "` (e.g. `"SV: "`, `"SV10: "`, `"ME05: "`); on a match, it
+strips that whole prefix and queries using the remaining text (e.g. `"SV: Black Bolt"` → strip
+`"SV: "` → query `"Black Bolt"`); on no match, it queries the raw `Set` text unchanged, exactly as
+before this update — an unrecognized prefix never blocks the exact-match fallback path, it just
+doesn't benefit from normalization yet (e.g. `"Celebrations: Classic Collection"` or
+`"SM Trainer Kit: ..."`-style products, whose prefix isn't one of the ~10 known series
+abbreviations, fall through unnormalized). A companion, much larger per-group table
+(`tcgplayer_pokemon_groups_and_abbreviations.json`, ~218 entries, one per TCGplayer product group)
+was also supplied and considered, but was rejected in favor of the small abbreviation table
+specifically for this lower-maintenance-burden reason — the Product Owner does not want to update a
+data file with every new set release. The abbreviation table's `name` field (e.g. `"Scarlet &
+Violet"`) is not currently consumed by this feature — only the `abbreviation` key is used, for
+prefix matching — but is intentionally kept in the data file as the input a separate, future
+feature would use to persist and display `Series`/`Set Number` as their own order-line fields,
+which is explicitly out of scope here.
 
 **Rationale**: PRD §31 identifies this as the leading candidate; it exposes structured card/set
 data and image URLs directly.

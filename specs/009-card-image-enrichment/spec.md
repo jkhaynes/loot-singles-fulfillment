@@ -14,6 +14,10 @@
 
 - Q: Should the order detail view display an attribution credit for whichever external provider supplied a card's image, or is no attribution needed since this is an internal, employee-only tool? → A: No attribution needed — this is an internal, non-public tool.
 
+### Session 2026-08-25
+
+- Q: For V1, how should a game's catalog provider handle a packing-slip `Set` value that doesn't exactly, literally match the provider's set name (e.g. TCGplayer's Pokémon `Set` text `"SV: Black Bolt"` vs the Pokémon TCG API's set name `"Black Bolt"`)? This resolves PRD §41 Q29. → A: Before querying, strip a recognized series-abbreviation prefix (e.g. `"SV: "`, `"SV10: "`, `"ME05: "`) from the start of the `Set` text when present, using a small, Product Owner-supplied table of series abbreviations (e.g. `"SV"` → `"Scarlet & Violet"`) that only needs updating when Pokémon starts an entirely new naming era (infrequent — not per new set release, unlike a per-set/per-group table); query using the remaining text after stripping. When no known abbreviation prefix is recognized, query the raw `Set` text unchanged exactly as today. This is internal to the catalog provider only — used solely to build a better provider query — and does not add, persist, or display any new field on the order line. Capturing Series/Set Number as their own persisted, displayed order-line fields (e.g. for a product like `"ME05: Pitch Black"` → series "Mega Evolution", set number "5") is real, useful information but is explicitly out of scope for this feature and deferred to a separate future feature.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - See a Pokémon Card's Real Image When Confidently Matched (Priority: P1)
@@ -97,6 +101,7 @@ As a picker, I need the same confident-match image behavior to also work for Dis
 - **FR-008**: This feature applies only to the order picking detail view; the dashboard's Available Orders list and the Browse Orders view MUST continue to display order information exactly as they do today, without card images.
 - **FR-009**: A temporarily unavailable or failing catalog source MUST NOT prevent the order detail view from loading; the affected product line(s) MUST fall back to the neutral placeholder rather than the view failing or showing an error.
 - **FR-010**: A product line belonging to a game not yet supported by this feature (e.g., One Piece Card Game) MUST continue to display the neutral placeholder exactly as it does today, without a catalog lookup being attempted for it.
+- **FR-011**: Before querying a catalog provider by set, the system MUST normalize the imported `Set` text by stripping a recognized series-abbreviation prefix (e.g. `"SV: "`, `"SV10: "`) from its start when one is present, using a maintainable table of known series abbreviations; when no known prefix is recognized, the raw `Set` text MUST be used unchanged, exactly as today. This normalization is used only to build the provider query and MUST NOT add, persist, or display any new field on the order line (Clarifications, 2026-08-25).
 
 ### Key Entities
 
@@ -123,3 +128,4 @@ As a picker, I need the same confident-match image behavior to also work for Dis
 - This feature reuses the order detail view's existing authentication and authorization; no new access policy is introduced.
 - "Confident" matching follows the PRD's conservative approach (PRD §32): preferring an exact match on set and collector number, verified against the card's name and, where possible, its variant/printing information — never accepting a match based on name similarity alone.
 - No attribution or credit is displayed for whichever external catalog source supplied a card's image (Clarifications, 2026-08-24). This tool is internal and employee-only — images are never shown to customers or the public — so no attribution UI is required, resolving PRD §41 Q32's provider-terms question for this specific concern.
+- Set-name normalization (Clarifications, 2026-08-25) is a catalog-provider-internal prefix-stripping step only, against a small table of known Pokémon series abbreviations supplied by the Product Owner (e.g. `"SV"` → `"Scarlet & Violet"`) — deliberately chosen over a per-set/per-group table so it only needs updating when an entirely new series/era launches, not with every new set release. It resolves PRD §41 Q29 for the purpose of building a correct provider query. Capturing Series and Set Number as their own persisted, displayed order-line fields is a separate, future feature — out of scope here; this feature does not change feature 001's import parsing, add any order-line column, or change what the picking detail view (007/008) displays.

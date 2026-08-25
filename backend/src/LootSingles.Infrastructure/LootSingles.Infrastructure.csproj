@@ -4,6 +4,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <EmbeddedResource Include="CardCatalog\Data\pokemon-series-abbreviations.json" />
+    </ItemGroup>
+
+    <ItemGroup>
         <!-- Cookie authentication types (EmployeeSessionCookieEvents) live in the shared ASP.NET Core
          framework rather than a NuGet package; this library isn't Sdk.Web, so it needs an explicit
          FrameworkReference to see them. -->

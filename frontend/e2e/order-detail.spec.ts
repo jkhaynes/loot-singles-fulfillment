@@ -27,8 +27,11 @@ test('opens an available order and shows its picking details', async ({ page }) 
   await page.addStyleTag({ content: 'html { filter: grayscale(1) }' })
   await expect(line.getByText('2', { exact: true })).toBeVisible()
   await expect(line.getByText('2', { exact: true })).toHaveCSS('font-weight', '700')
-  await expect(line.getByLabel('Card image unavailable')).toBeVisible()
-  await expect(line.locator('img[src]')).toHaveCount(0)
+  await expect(line.getByLabel('Card image unavailable')).toHaveCount(0)
+  await expect(line.getByRole('img', { name: /Pikachu/i })).toHaveAttribute(
+    'src',
+    'https://static.e2e-fixtures.local/pikachu.png',
+  )
   await expect(page.getByRole('button', { name: /claim|pick|complete/i })).toHaveCount(0)
 
   await page.getByRole('link', { name: 'Dashboard' }).click()

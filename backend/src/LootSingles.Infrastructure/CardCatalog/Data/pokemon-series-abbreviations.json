@@ -1,0 +1,44 @@
+{
+  "series": [
+    {
+      "abbreviation": "ME",
+      "name": "Mega Evolution"
+    },
+    {
+      "abbreviation": "SV",
+      "name": "Scarlet & Violet"
+    },
+    {
+      "abbreviation": "SWSH",
+      "name": "Sword & Shield"
+    },
+    {
+      "abbreviation": "SM",
+      "name": "Sun & Moon"
+    },
+    {
+      "abbreviation": "XY",
+      "name": "XY"
+    },
+    {
+      "abbreviation": "BW",
+      "name": "Black & White"
+    },
+    {
+      "abbreviation": "HGSS",
+      "name": "HeartGold & SoulSilver"
+    },
+    {
+      "abbreviation": "DP",
+      "name": "Diamond & Pearl"
+    },
+    {
+      "abbreviation": "EX",
+      "name": "EX"
+    },
+    {
+      "abbreviation": "POP",
+      "name": "POP Series"
+    }
+  ]
+}

@@ -71,21 +71,29 @@ before this feature. Each user story below adds one real provider on top of this
 
 ### Tests for User Story 1
 
-- [ ] T020 [P] [US1] Add a stub `HttpMessageHandler` test helper to `backend/tests/LootSingles.UnitTests/CardCatalog/StubHttpMessageHandler.cs`: a small hand-rolled `HttpMessageHandler` returning a canned `HttpResponseMessage` (or throwing, for the unavailable case) per test, per research.md §9 — no mocking library
-- [ ] T021 [P] [US1] Add failing unit tests to `backend/tests/LootSingles.UnitTests/CardCatalog/PokemonTcgApiCardCatalogProviderTests.cs` using `StubHttpMessageHandler`: an exact set+collector-number match with a verified name returns the card's image URL; a response with no matching card returns `null`; a response with multiple candidate cards returns `null` (FR-003); a response whose card name doesn't match the imported product name returns `null`
-- [ ] T022 [US1] Run T020–T021 and confirm they fail for the expected reason (`PokemonTcgApiCardCatalogProvider` doesn't exist yet)
+- [X] T020 [P] [US1] Add a stub `HttpMessageHandler` test helper to `backend/tests/LootSingles.UnitTests/CardCatalog/StubHttpMessageHandler.cs`: a small hand-rolled `HttpMessageHandler` returning a canned `HttpResponseMessage` (or throwing, for the unavailable case) per test, per research.md §9 — no mocking library
+- [X] T021 [P] [US1] Add failing unit tests to `backend/tests/LootSingles.UnitTests/CardCatalog/PokemonTcgApiCardCatalogProviderTests.cs` using `StubHttpMessageHandler`: an exact set+collector-number match with a verified name returns the card's image URL; a response with no matching card returns `null`; a response with multiple candidate cards returns `null` (FR-003); a response whose card name doesn't match the imported product name returns `null`
+- [X] T022 [US1] Run T020–T021 and confirm they fail for the expected reason (`PokemonTcgApiCardCatalogProvider` doesn't exist yet)
 
 ### Implementation for User Story 1
 
-- [ ] T023 [US1] Implement `PokemonTcgApiCardCatalogProvider` in `backend/src/LootSingles.Infrastructure/CardCatalog/PokemonTcgApiCardCatalogProvider.cs`: `ProductLine = "Pokemon"`; first confirm against the Pokémon TCG API's live documentation how set name is queried or resolved (research.md §4's open item — use a set-name query parameter if directly queryable, or a set-lookup step otherwise); query by collector number and resolved set; verify the returned card's name; return the image URL only on a single confident match, to make T021 pass
-- [ ] T024 [US1] Register an `HttpClient` for `PokemonTcgApiCardCatalogProvider` via `AddHttpClient<PokemonTcgApiCardCatalogProvider>()` with a short timeout in `backend/src/LootSingles.Api/Program.cs`, register it as `ICardCatalogProvider`, and bind an optional API key from configuration (`CardCatalog:PokemonTcgApiKey`, User Secrets locally) attached as a request header when present, per research.md §8
-- [ ] T025 [US1] Run T020–T022, confirm they pass, and run the full backend test suite to confirm no regression
+- [X] T023 [US1] Implement `PokemonTcgApiCardCatalogProvider` in `backend/src/LootSingles.Infrastructure/CardCatalog/PokemonTcgApiCardCatalogProvider.cs`: `ProductLine = "Pokemon"`; first confirm against the Pokémon TCG API's live documentation how set name is queried or resolved (research.md §4's open item — use a set-name query parameter if directly queryable, or a set-lookup step otherwise); query by collector number and resolved set; verify the returned card's name; return the image URL only on a single confident match, to make T021 pass
+- [X] T024 [US1] Register an `HttpClient` for `PokemonTcgApiCardCatalogProvider` via `AddHttpClient<PokemonTcgApiCardCatalogProvider>()` with a short timeout in `backend/src/LootSingles.Api/Program.cs`, register it as `ICardCatalogProvider`, and bind an optional API key from configuration (`CardCatalog:PokemonTcgApiKey`, User Secrets locally) attached as a request header when present, per research.md §8
+- [X] T025 [US1] Run T020–T022, confirm they pass, and run the full backend test suite to confirm no regression
 
 ### E2E for User Story 1
 
-- [ ] T026 [P] [US1] Register a deterministic fake `ICardCatalogProvider` for `"Pokemon"` in `backend/tests/LootSingles.E2EHost/Program.cs` (returning a fixed test image URL for the seeded E2E order's Pikachu line), replacing the real `PokemonTcgApiCardCatalogProvider` registration for this host only, so Playwright never makes a live external call
-- [ ] T027 [US1] Add a failing Playwright assertion to `frontend/e2e/order-detail.spec.ts`: the Pikachu line renders an `<img>` with the fake provider's known `src`, in place of the neutral placeholder
-- [ ] T028 [US1] Run T027, confirm it fails for the expected reason then passes once T026 is in place, and run the full Playwright suite to confirm no regression
+- [X] T026 [P] [US1] Register a deterministic fake `ICardCatalogProvider` for `"Pokemon"` in `backend/tests/LootSingles.E2EHost/Program.cs` (returning a fixed test image URL for the seeded E2E order's Pikachu line), replacing the real `PokemonTcgApiCardCatalogProvider` registration for this host only, so Playwright never makes a live external call
+- [X] T027 [US1] Add a failing Playwright assertion to `frontend/e2e/order-detail.spec.ts`: the Pikachu line renders an `<img>` with the fake provider's known `src`, in place of the neutral placeholder
+- [X] T028 [US1] Run T027, confirm it fails for the expected reason then passes once T026 is in place, and run the full Playwright suite to confirm no regression
+
+### Set-Name Normalization for User Story 1 (added post-manual-testing, per FR-011 / Clarifications 2026-08-25)
+
+- [X] T028a [US1] Add failing unit tests to `backend/tests/LootSingles.UnitTests/CardCatalog/PokemonSeriesPrefixNormalizerTests.cs`: a known series-abbreviation prefix (e.g. `"SV: Black Bolt"`, `"SV10: Destined Rivals"`, `"ME05: Pitch Black"`) is stripped to the remaining set name; text with no recognized prefix (including an unrecognized colon-delimited prefix) is returned unchanged
+- [X] T028b [US1] Implement `PokemonSeriesPrefixNormalizer` in `backend/src/LootSingles.Infrastructure/CardCatalog/PokemonSeriesPrefixNormalizer.cs`, loading the Product-Owner-supplied series abbreviation table embedded from `backend/src/LootSingles.Infrastructure/CardCatalog/Data/pokemon-series-abbreviations.json`, to make T028a pass
+- [X] T028c [US1] Add a failing unit test to `PokemonTcgApiCardCatalogProviderTests.cs` asserting the provider queries `set.name` using the normalized set text (prefix stripped) rather than the raw packing-slip `Set` value; wire `PokemonSeriesPrefixNormalizer.Normalize` into `PokemonTcgApiCardCatalogProvider.TryMatchImageUrlAsync` to make it pass
+- [X] T028d [US1] Fix `NormalizeCollectorNumber` to also strip leading zeros (discovered during manual testing: the Pokémon TCG API stores `number` as `"67"`, not `"067"`), via a failing-first unit test
+- [X] T028e [US1] Run the full backend test suite to confirm no regression
 
 **Checkpoint**: A picker opens a Pokémon order and sees the real card image for a confidently
 matched line — User Story 1 (MVP) is independently complete and testable.

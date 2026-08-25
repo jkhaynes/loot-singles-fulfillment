@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using LootSingles.Api.Controllers;
 using LootSingles.Application.Auth;
+using LootSingles.Application.CardCatalog;
 using LootSingles.Application.Dashboard;
 using LootSingles.Application.Import;
 using LootSingles.Application.Orders;
@@ -15,6 +16,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Testcontainers.MsSql;
 
+const string FakePikachuImageUrl = "https://static.e2e-fixtures.local/pikachu.png";
 const string SqlServerImage = "mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-22.04";
 await using var container = new MsSqlBuilder(SqlServerImage).Build();
 await container.StartAsync();
@@ -49,6 +51,11 @@ builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
 builder.Services.AddScoped<PackingSlipImportService>();
 builder.Services.AddScoped<IPackingSlipImportService, ObservableProgressImportService>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvider(
+    "Pokemon",
+    FakePikachuImageUrl
+));
+builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();
 builder
     .Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -126,6 +133,17 @@ static async Task SeedAsync(IServiceProvider services)
         }
     );
     await context.SaveChangesAsync();
+}
+
+internal sealed class FakeCardCatalogProvider(string productLine, string imageUrl)
+    : ICardCatalogProvider
+{
+    public string ProductLine { get; } = productLine;
+
+    public Task<string?> TryMatchImageUrlAsync(
+        CardIdentity identity,
+        CancellationToken cancellationToken
+    ) => Task.FromResult<string?>(imageUrl);
 }
 
 internal sealed class ObservableProgressImportService(PackingSlipImportService inner)

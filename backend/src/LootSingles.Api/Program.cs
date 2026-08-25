@@ -8,6 +8,7 @@ using LootSingles.Application.Dashboard;
 using LootSingles.Application.Import;
 using LootSingles.Application.Orders;
 using LootSingles.Infrastructure.Auth;
+using LootSingles.Infrastructure.CardCatalog;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -65,6 +66,19 @@ builder.Services.AddScoped<EmployeeSessionCookieEvents>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddHttpClient<PokemonTcgApiCardCatalogProvider>(client =>
+{
+    client.BaseAddress = new Uri("https://api.pokemontcg.io/v2/");
+    client.Timeout = TimeSpan.FromSeconds(10);
+    var pokemonTcgApiKey = builder.Configuration["CardCatalog:PokemonTcgApiKey"];
+    if (!string.IsNullOrWhiteSpace(pokemonTcgApiKey))
+    {
+        client.DefaultRequestHeaders.Add("X-Api-Key", pokemonTcgApiKey);
+    }
+});
+builder.Services.AddScoped<ICardCatalogProvider>(sp =>
+    sp.GetRequiredService<PokemonTcgApiCardCatalogProvider>()
+);
 builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();
 builder

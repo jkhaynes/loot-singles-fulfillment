@@ -10,6 +10,7 @@ using LootSingles.Infrastructure.Persistence;
 using LootSingles.IntegrationTests.Auth;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace LootSingles.IntegrationTests.Orders;
 
@@ -21,11 +22,13 @@ public sealed class OrdersControllerTests
         await using var rootFactory = new AuthWebApplicationFactory();
         await using var factory = rootFactory.WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<ICardCatalogProvider>();
                 services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvider(
                     "Pokemon",
                     "https://example.com/genesect-ex.png"
-                ))
-            )
+                ));
+            })
         );
 
         Order order;
