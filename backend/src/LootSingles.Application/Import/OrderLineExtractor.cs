@@ -31,9 +31,27 @@ public static partial class OrderLineExtractor
             );
         }
 
-        var setAndProduct = string.Join(" - ", segments.Skip(1).Take(collectorIndex - 1));
+        var setAndProductSegments = segments.Skip(1).Take(collectorIndex - 1).ToArray();
+        var setAndProduct = string.Join(" - ", setAndProductSegments);
         var separator = setAndProduct.LastIndexOf(':');
-        if (separator < 0)
+
+        string set;
+        string productName;
+        if (separator >= 0)
+        {
+            // Colon-delimited set/product, e.g. Pokémon's "SV: Black Bolt: Genesect ex".
+            set = setAndProduct[..separator].Trim();
+            productName = setAndProduct[(separator + 1)..].Trim();
+        }
+        else if (setAndProductSegments.Length >= 2)
+        {
+            // No colon: the first segment is the set, and the card name — which may itself
+            // legitimately contain " - " (e.g. Disney Lorcana's "Scrooge McDuck - S.H.U.S.H.
+            // Agent") — is everything remaining before the collector number.
+            set = setAndProductSegments[0].Trim();
+            productName = string.Join(" - ", setAndProductSegments.Skip(1)).Trim();
+        }
+        else
         {
             return OrderLineValidationResult.Invalid(
                 FailureType.MissingProductName,
@@ -41,7 +59,6 @@ public static partial class OrderLineExtractor
             );
         }
 
-        var productName = setAndProduct[(separator + 1)..].Trim();
         var markers = ParentheticalMarkerPattern()
             .Matches(productName)
             .Select(match => match.Value)
@@ -55,7 +72,7 @@ public static partial class OrderLineExtractor
         {
             RawDescription = source.RawDescription,
             ProductLine = segments[0],
-            Set = setAndProduct[..separator].Trim(),
+            Set = set,
             ProductName = productName,
             CollectorNumber = segments[collectorIndex],
             Rarity =
