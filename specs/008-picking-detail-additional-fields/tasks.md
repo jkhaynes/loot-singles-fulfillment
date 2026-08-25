@@ -23,15 +23,15 @@ depend on this — there is no new endpoint or route, just a wider response on t
 
 ### Tests
 
-- [ ] T001 [P] Extend `GetByIdReturnsFullOrderDetail` in `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs`: seed the order's `Status`, give the existing "Genesect ex" line a `ProductLine`/`CollectorNumber`/`Rarity` (e.g. "Pokemon" / "#067/086" / "Double Rare"), give the existing "Pikachu" line (which already has `Variant = null`) a `Rarity = null` too, and assert the response's `status` and each line's `productLine`/`collectorNumber`/`rarity` — including that the null-rarity line's JSON `rarity` property is explicitly `null`, not omitted — per contracts/order-detail-api.md
-- [ ] T002 Run T001 and confirm it fails for the expected reason (the response does not yet contain `status`, `productLine`, `collectorNumber`, or `rarity`)
+- [X] T001 [P] Extend `GetByIdReturnsFullOrderDetail` in `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs`: seed the order's `Status`, give the existing "Genesect ex" line a `ProductLine`/`CollectorNumber`/`Rarity` (e.g. "Pokemon" / "#067/086" / "Double Rare"), give the existing "Pikachu" line (which already has `Variant = null`) a `Rarity = null` too, and assert the response's `status` and each line's `productLine`/`collectorNumber`/`rarity` — including that the null-rarity line's JSON `rarity` property is explicitly `null`, not omitted — per contracts/order-detail-api.md
+- [X] T002 Run T001 and confirm it fails for the expected reason (the response does not yet contain `status`, `productLine`, `collectorNumber`, or `rarity`)
 
 ### Implementation
 
-- [ ] T003 [P] Extend `backend/src/LootSingles.Application/Orders/OrderDetail.cs` per data-model.md: add `OrderStatus Status` to `OrderDetail`, and add `string ProductLine`, `string CollectorNumber`, `string? Rarity` to `OrderLineDetail`
-- [ ] T004 Extend `OrderRepository.GetByIdAsync`'s projection in `backend/src/LootSingles.Infrastructure/Persistence/OrderRepository.cs` to populate the four new properties from the already-loaded `Order`/`OrderLine` entities (no new `Include`, no new query shape)
-- [ ] T005 Extend `OrderDetailResponse`/`OrderLineDetailResponse` and the `GetById` mapping in `backend/src/LootSingles.Api/Controllers/OrdersController.cs` to include `Status`, `ProductLine`, `CollectorNumber`, `Rarity`, matching contracts/order-detail-api.md, to make T001 pass
-- [ ] T006 Run T001, confirm it passes, and run the full backend test suite to confirm no regression
+- [X] T003 [P] Extend `backend/src/LootSingles.Application/Orders/OrderDetail.cs` per data-model.md: add `OrderStatus Status` to `OrderDetail`, and add `string ProductLine`, `string CollectorNumber`, `string? Rarity` to `OrderLineDetail`
+- [X] T004 Extend `OrderRepository.GetByIdAsync`'s projection in `backend/src/LootSingles.Infrastructure/Persistence/OrderRepository.cs` to populate the four new properties from the already-loaded `Order`/`OrderLine` entities (no new `Include`, no new query shape)
+- [X] T005 Extend `OrderDetailResponse`/`OrderLineDetailResponse` and the `GetById` mapping in `backend/src/LootSingles.Api/Controllers/OrdersController.cs` to include `Status`, `ProductLine`, `CollectorNumber`, `Rarity`, matching contracts/order-detail-api.md, to make T001 pass
+- [X] T006 Run T001, confirm it passes, and run the full backend test suite to confirm no regression
 
 **Checkpoint**: `GET /api/orders/{orderId}` now returns `status` and every line's `productLine`/`collectorNumber`/`rarity` — both user stories below can now build their frontend rendering on this.
 

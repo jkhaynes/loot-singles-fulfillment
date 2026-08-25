@@ -41,10 +41,14 @@ public sealed class OrdersController(OrdersService ordersService) : ControllerBa
             new OrderDetailResponse(
                 order.OrderId,
                 order.TcgplayerOrderId,
+                order.Status,
                 order
                     .Lines.Select(line => new OrderLineDetailResponse(
                         line.ProductName,
+                        line.ProductLine,
                         line.Set,
+                        line.CollectorNumber,
+                        line.Rarity,
                         line.Variant,
                         line.Condition,
                         line.Quantity
@@ -65,12 +69,16 @@ public sealed record OrderResponse(
 public sealed record OrderDetailResponse(
     int OrderId,
     string TcgplayerOrderId,
+    OrderStatus Status,
     IReadOnlyList<OrderLineDetailResponse> Lines
 );
 
 public sealed record OrderLineDetailResponse(
     string ProductName,
+    string ProductLine,
     string Set,
+    string CollectorNumber,
+    string? Rarity,
     string? Variant,
     string Condition,
     int Quantity

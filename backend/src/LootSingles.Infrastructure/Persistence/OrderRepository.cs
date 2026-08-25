@@ -28,11 +28,15 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
             .Select(order => new OrderDetail(
                 order.Id,
                 order.TcgplayerOrderId,
+                order.Status,
                 order
                     .OrderLines.OrderBy(line => line.Id)
                     .Select(line => new OrderLineDetail(
                         line.ProductName,
+                        line.ProductLine,
                         line.Set,
+                        line.CollectorNumber,
+                        line.Rarity,
                         line.Variant,
                         line.Condition,
                         line.Quantity
