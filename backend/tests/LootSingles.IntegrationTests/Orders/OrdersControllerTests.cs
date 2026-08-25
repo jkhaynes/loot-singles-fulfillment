@@ -91,6 +91,71 @@ public sealed class OrdersControllerTests
     }
 
     [Fact]
+    public async Task GetByIdWhenProviderThrows_StillReturns200WithNullImageUrlForThatLine()
+    {
+        await using var rootFactory = new AuthWebApplicationFactory();
+        await using var factory = rootFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<ICardCatalogProvider>();
+                services.AddScoped<ICardCatalogProvider>(_ => new ThrowingCardCatalogProvider(
+                    "Pokemon"
+                ));
+            })
+        );
+
+        Order order;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
+            context.Employees.Add(
+                new Employee
+                {
+                    Username = "throwingprovideruser",
+                    NormalizedUsername = "THROWINGPROVIDERUSER",
+                    DisplayName = "Throwing Provider User",
+                    PinHash = new Pbkdf2PinHasher().Hash("1234"),
+                    Role = EmployeeRole.Picker,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                }
+            );
+            order = NewOrder("PROVIDER-THROWS-ORDER", DateTimeOffset.Parse("2026-08-25T15:00:00Z"));
+            order.OrderLines.Add(
+                NewOrderLine("Genesect ex", "SV: Black Bolt", "Holofoil", "Near Mint", 1)
+            );
+            context.Orders.Add(order);
+            await context.SaveChangesAsync();
+        }
+
+        var client = factory.CreateClient(
+            new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") }
+        );
+        var login = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest("throwingprovideruser", "1234")
+        );
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+
+        var response = await client.GetAsync($"/api/orders/{order.Id}");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var lines = document.RootElement.GetProperty("lines").EnumerateArray().ToArray();
+        Assert.True(lines[0].TryGetProperty("imageUrl", out var imageUrl));
+        Assert.Equal(JsonValueKind.Null, imageUrl.ValueKind);
+    }
+
+    private sealed class ThrowingCardCatalogProvider(string productLine) : ICardCatalogProvider
+    {
+        public string ProductLine { get; } = productLine;
+
+        public Task<string?> TryMatchImageUrlAsync(
+            CardIdentity identity,
+            CancellationToken cancellationToken
+        ) => throw new InvalidOperationException("Simulated provider failure.");
+    }
+
+    [Fact]
     public async Task GetByIdWithoutSessionReturns401()
     {
         await using var factory = new AuthWebApplicationFactory();

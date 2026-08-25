@@ -42,3 +42,25 @@ test('opens an available order and shows its picking details', async ({ page }) 
   await page.goto('/orders/2147483647')
   await expect(page.getByRole('alert')).toContainText(/order not found/i)
 })
+
+test('falls back to the placeholder for a line whose provider fails, without an error state', async ({
+  page,
+}) => {
+  await login(page)
+
+  await page.getByRole('link', { name: 'E2E-ORDER-00001' }).click()
+
+  await expect(page).toHaveURL(/\/orders\/\d+$/)
+  await expect(page.getByRole('heading', { name: /E2E-ORDER-00001/i })).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+
+  const failingLine = page.getByRole('article', { name: /Simulated Provider Failure/i })
+  await expect(failingLine.getByLabel('Card image unavailable')).toBeVisible()
+  await expect(failingLine.getByRole('img')).toHaveCount(0)
+
+  const workingLine = page.getByRole('article', { name: /Pikachu/i })
+  await expect(workingLine.getByRole('img', { name: /Pikachu/i })).toHaveAttribute(
+    'src',
+    'https://static.e2e-fixtures.local/pikachu.png',
+  )
+})

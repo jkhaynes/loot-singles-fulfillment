@@ -17,6 +17,7 @@ using Microsoft.EntityFrameworkCore;
 using Testcontainers.MsSql;
 
 const string FakePikachuImageUrl = "https://static.e2e-fixtures.local/pikachu.png";
+const string FailingProviderCollectorNumber = "#FAIL";
 const string SqlServerImage = "mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-22.04";
 await using var container = new MsSqlBuilder(SqlServerImage).Build();
 await container.StartAsync();
@@ -53,7 +54,8 @@ builder.Services.AddScoped<IPackingSlipImportService, ObservableProgressImportSe
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvider(
     "Pokemon",
-    FakePikachuImageUrl
+    FakePikachuImageUrl,
+    FailingProviderCollectorNumber
 ));
 builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();
@@ -129,21 +131,38 @@ static async Task SeedAsync(IServiceProvider services)
                     Condition = "Near Mint",
                     Quantity = 2,
                 },
+                new OrderLine
+                {
+                    RawDescription =
+                        "Simulated Provider Failure - Base Set - #FAIL - Common - Near Mint",
+                    ProductLine = "Pokemon",
+                    ProductName = "Simulated Provider Failure",
+                    Set = "Base Set",
+                    CollectorNumber = FailingProviderCollectorNumber,
+                    Condition = "Near Mint",
+                    Quantity = 1,
+                },
             ],
         }
     );
     await context.SaveChangesAsync();
 }
 
-internal sealed class FakeCardCatalogProvider(string productLine, string imageUrl)
-    : ICardCatalogProvider
+internal sealed class FakeCardCatalogProvider(
+    string productLine,
+    string imageUrl,
+    string failingCollectorNumber
+) : ICardCatalogProvider
 {
     public string ProductLine { get; } = productLine;
 
     public Task<string?> TryMatchImageUrlAsync(
         CardIdentity identity,
         CancellationToken cancellationToken
-    ) => Task.FromResult<string?>(imageUrl);
+    ) =>
+        identity.CollectorNumber == failingCollectorNumber
+            ? throw new InvalidOperationException("Simulated provider failure.")
+            : Task.FromResult<string?>(imageUrl);
 }
 
 internal sealed class ObservableProgressImportService(PackingSlipImportService inner)

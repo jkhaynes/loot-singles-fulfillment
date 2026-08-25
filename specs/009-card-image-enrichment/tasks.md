@@ -142,14 +142,14 @@ matched line — User Story 1 (MVP) is independently complete and testable.
 
 ### Tests for User Story 2
 
-- [ ] T029 [P] [US2] Add a failing unit test to `backend/tests/LootSingles.UnitTests/CardCatalog/CardImageEnrichmentServiceTests.cs` asserting an unavailable/throwing provider returns `null` without propagating (this is expected to pass immediately from T005's implementation — this test exists to give the hard safety rule its own independent verification, not to drive additional production code, mirroring feature 007 US3's precedent)
-- [ ] T030 [P] [US2] Add a failing integration test to `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs`: an order line whose registered provider throws still yields `200 OK` for the whole order, with that line's `imageUrl` explicitly `null` and no error surfaced
-- [ ] T031 [US2] Run T029–T030 and confirm they pass immediately (Foundational's `CardImageEnrichmentService` already implements this fallback per T005); if either fails, fix `CardImageEnrichmentService` to satisfy it before proceeding
+- [X] T029 [P] [US2] Add a failing unit test to `backend/tests/LootSingles.UnitTests/CardCatalog/CardImageEnrichmentServiceTests.cs` asserting an unavailable/throwing provider returns `null` without propagating (this is expected to pass immediately from T005's implementation — this test exists to give the hard safety rule its own independent verification, not to drive additional production code, mirroring feature 007 US3's precedent) — already satisfied verbatim by T001's `TryGetImageUrlAsync_ProviderThrows_ReturnsNullRatherThanPropagating`; no duplicate test added
+- [X] T030 [P] [US2] Add a failing integration test to `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs`: an order line whose registered provider throws still yields `200 OK` for the whole order, with that line's `imageUrl` explicitly `null` and no error surfaced
+- [X] T031 [US2] Run T029–T030 and confirm they pass immediately (Foundational's `CardImageEnrichmentService` already implements this fallback per T005); if either fails, fix `CardImageEnrichmentService` to satisfy it before proceeding — both passed immediately, no production code change needed
 
 ### E2E for User Story 2
 
-- [ ] T032 [P] [US2] Add a failing Playwright test to `frontend/e2e/order-detail.spec.ts`: with the E2EHost's fake Pokémon provider configured to simulate an unavailable/throwing provider for one line, confirm the order detail view still loads successfully, that line shows the existing neutral placeholder, and no error state is shown to the picker
-- [ ] T033 [US2] Extend `backend/tests/LootSingles.E2EHost/Program.cs`'s fake Pokémon provider (from T026) to support simulating a failure for a specific line (e.g. via a distinguishing collector-number value), to make T032 pass; run the full Playwright suite to confirm no regression
+- [X] T032 [P] [US2] Add a failing Playwright test to `frontend/e2e/order-detail.spec.ts`: with the E2EHost's fake Pokémon provider configured to simulate an unavailable/throwing provider for one line, confirm the order detail view still loads successfully, that line shows the existing neutral placeholder, and no error state is shown to the picker
+- [X] T033 [US2] Extend `backend/tests/LootSingles.E2EHost/Program.cs`'s fake Pokémon provider (from T026) to support simulating a failure for a specific line (e.g. via a distinguishing collector-number value), to make T032 pass; run the full Playwright suite to confirm no regression — all 10 Playwright tests pass
 
 **Checkpoint**: The hard "no image is better than the wrong image" rule is independently verified
 for the unavailable-provider and unsupported-game paths — User Story 2 is complete.
