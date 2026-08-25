@@ -65,13 +65,13 @@ public class OrderLineExtractionTests
         "Foil, (Showcase), (Surge Foil)"
     )]
     [InlineData(
-        "Lorcana TCG - The First Chapter: John Silver - Alien Pirate - #82/204 - Legendary - Near Mint",
-        "The First Chapter",
-        "John Silver - Alien Pirate",
-        "#82/204",
-        "Legendary",
+        "Lorcana TCG - Disney Lorcana Promo Cards - Scrooge McDuck - S.H.U.S.H. Agent - #36 - Promo - Near Mint Holofoil",
+        "Disney Lorcana Promo Cards",
+        "Scrooge McDuck - S.H.U.S.H. Agent",
+        "#36",
+        "Promo",
         "Near Mint",
-        null
+        "Holofoil"
     )]
     public void Extract_RepresentativeFixtureFormats_ExtractsStructuredFields(
         string description,
