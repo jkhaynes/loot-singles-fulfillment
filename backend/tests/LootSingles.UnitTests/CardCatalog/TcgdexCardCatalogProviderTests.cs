@@ -131,6 +131,32 @@ public sealed class TcgdexCardCatalogProviderTests
     }
 
     [Fact]
+    public async Task TryMatchImageUrlAsync_TwoProviderInstancesShareTheSameSetCatalog_FetchesTheSetsListOnlyOnce()
+    {
+        // The real scenario research.md §12 fixes: TcgdexCardCatalogProvider is Scoped (a fresh
+        // instance per HTTP request), so this proves the sets list is shared across separate
+        // provider instances via a common TcgdexSetCatalog, not just within one instance/request.
+        var handler = RouteByPath(
+            ("/sets", SetsListJson),
+            (
+                "/sets/sv10.5b/67",
+                """{ "name": "Genesect ex", "image": "https://assets.tcgdex.net/en/sv/sv10.5b/067" }"""
+            )
+        );
+        var setCatalog = NewSetCatalog(handler);
+        var firstProvider = NewProvider(handler, setCatalog);
+        var secondProvider = NewProvider(handler, setCatalog);
+
+        await firstProvider.TryMatchImageUrlAsync(Identity, CancellationToken.None);
+        await secondProvider.TryMatchImageUrlAsync(Identity, CancellationToken.None);
+
+        Assert.Single(
+            handler.Requests,
+            request => request.RequestUri!.AbsolutePath.EndsWith("/sets")
+        );
+    }
+
+    [Fact]
     public async Task TryMatchImageUrlAsync_CollectorNumberHasLeadingZeros_QueriesTheApiWithoutThem()
     {
         var handler = RouteByPath(
@@ -297,12 +323,30 @@ public sealed class TcgdexCardCatalogProviderTests
             throw new InvalidOperationException($"No stubbed route for '{path}'.");
         });
 
-    private static TcgdexCardCatalogProvider NewProvider(StubHttpMessageHandler handler)
+    private static TcgdexCardCatalogProvider NewProvider(StubHttpMessageHandler handler) =>
+        NewProvider(handler, NewSetCatalog(handler));
+
+    private static TcgdexCardCatalogProvider NewProvider(
+        StubHttpMessageHandler handler,
+        TcgdexSetCatalog setCatalog
+    )
     {
         var httpClient = new HttpClient(handler)
         {
             BaseAddress = new Uri("https://api.tcgdex.net/v2/en/"),
         };
-        return new TcgdexCardCatalogProvider(httpClient);
+        return new TcgdexCardCatalogProvider(httpClient, setCatalog);
+    }
+
+    private static TcgdexSetCatalog NewSetCatalog(StubHttpMessageHandler handler)
+    {
+        var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://api.tcgdex.net/v2/en/"),
+        };
+        return new TcgdexSetCatalog(
+            new SingleClientHttpClientFactory(httpClient),
+            new FakeTimeProvider(DateTimeOffset.UtcNow)
+        );
     }
 }

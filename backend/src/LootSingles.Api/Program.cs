@@ -71,6 +71,16 @@ builder.Services.AddHttpClient<TcgdexCardCatalogProvider>(client =>
     client.BaseAddress = new Uri("https://api.tcgdex.net/v2/en/");
     client.Timeout = TimeSpan.FromSeconds(10);
 });
+builder.Services.AddHttpClient(
+    "tcgdex",
+    client =>
+    {
+        client.BaseAddress = new Uri("https://api.tcgdex.net/v2/en/");
+        client.Timeout = TimeSpan.FromSeconds(10);
+    }
+);
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<TcgdexSetCatalog>();
 builder.Services.AddScoped<ICardCatalogProvider>(sp =>
     sp.GetRequiredService<TcgdexCardCatalogProvider>()
 );

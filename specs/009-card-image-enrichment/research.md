@@ -449,3 +449,79 @@ response; nothing about a match is retained between requests.
 Assumptions); restated here because it materially shapes this plan's data model (§ data-model.md)
 and rules out any design that would otherwise seem natural for "enrichment," such as an
 `OrderLineImage` table.
+
+**Scope note (2026-08-25, §12 below)**: §12's sets-list cache is a narrower, infrastructure-layer
+concern than this decision — an in-memory cache of TCGdex's own static *reference data* (set name
+→ set id), not of any order's resolved card match or image URL. This decision is unaffected: every
+order-detail request still performs a live per-card lookup and nothing about a match is persisted
+or reused between requests.
+
+## 12. Bulk reference-data caching (API citizenship)
+
+**Finding (Clarifications, 2026-08-25)**: TCGdex's API guidance explicitly asks consumers to
+"cache responses locally rather than fetching the same data repeatedly" for bulk data. Auditing
+the actual call pattern found the sets list — 218 sets, ~35KB, confirmed live to change only a
+handful of times a year — was being refetched in full on every single order-detail request. The
+Lock-guarded cached-`Task` pattern introduced in §4 correctly de-duplicates concurrent lookups
+*within* one request (`CardImageEnrichmentService` resolves every line concurrently via
+`Task.WhenAll`), but the cache lived on `TcgdexCardCatalogProvider`, which is Scoped
+(`AddScoped<ICardCatalogProvider>` wrapping `AddHttpClient<TcgdexCardCatalogProvider>`,
+`Program.cs`) — a fresh instance, and therefore a fresh empty cache, on every request. The
+frontend has no polling (`OrderDetailPage.tsx` fetches once per mount), so this isn't a runaway
+loop, but any picker opening, leaving, and reopening an order — or simply refreshing the page —
+re-triggers a full bulk fetch of effectively static data.
+
+**Decision**: Extract the sets-list cache into a new singleton component, `TcgdexSetCatalog`
+(`LootSingles.Infrastructure/CardCatalog/TcgdexSetCatalog.cs`), registered once for the lifetime of
+the application rather than per-request. It keeps the same Lock-guarded cached-`Task`
+de-duplication shape already proven in §4/§9's tests, plus a 24-hour cache duration — tracked via
+an injected `TimeProvider` (`TimeProvider.System` in production) rather than `DateTimeOffset.UtcNow`
+directly, specifically so the expiry behavior itself can be driven by a controllable fake time in
+tests (Constitution Principle XIII: a seam is justified here by a concrete testability need, not
+speculatively). On each access, if the cache is empty or older than 24 hours, it refetches; otherwise
+it returns the already-resolved dictionary with no HTTP call. `TcgdexCardCatalogProvider` no longer
+owns the sets-list fetch/cache itself — it takes `TcgdexSetCatalog` as an added constructor
+dependency (a Singleton injected into a Scoped consumer, which is always safe — the reverse would
+not be) and calls `GetSetIdsByNameAsync` on it.
+
+To avoid holding one `HttpClient` (and its underlying handler) for the application's entire
+lifetime — which would defeat `IHttpClientFactory`'s periodic DNS/handler refresh — `TcgdexSetCatalog`
+takes an `IHttpClientFactory` (itself already a Singleton service, safe to inject into another
+Singleton) and calls `CreateClient("tcgdex")` fresh only on the rare occasion it actually needs to
+fetch (at most a few times a day given the 24-hour cache duration), rather than storing one
+`HttpClient` instance as a field. `Program.cs` registers a named client, `AddHttpClient("tcgdex",
+...)`, with the same base address and timeout `TcgdexCardCatalogProvider`'s own typed client
+already uses, alongside `AddSingleton<TcgdexSetCatalog>()` and `AddSingleton(TimeProvider.System)`.
+
+**Rationale**: This directly targets TCGdex's own stated guidance for exactly the case it
+describes — bulk, slow-changing reference data, fetched repeatedly for no benefit. A 24-hour
+duration is a deliberate middle ground: short enough that a newly-released TCGdex set becomes
+usable within a bounded window without a redeploy, long enough that the ~35KB, ~218-entry list is
+fetched at most a small, fixed number of times per day regardless of how many orders or pickers
+are active, rather than once per page load. Reusing the existing Lock-guarded cached-`Task` shape
+(rather than reaching for `IMemoryCache`) keeps the concurrency guarantee this codebase has already
+proven correct (§9's `TryMatchImageUrlAsync_CalledTwice_FetchesTheSetsListOnlyOnce`-style tests) —
+`IMemoryCache`'s `GetOrCreateAsync` does not by itself guarantee only one factory execution under
+concurrent access to a missing/expired key, so an equivalent lock would be needed on top of it
+anyway, at which point introducing a second caching abstraction alongside the one already proven in
+this codebase adds no value.
+
+**Alternatives considered**:
+- *`IMemoryCache` with an absolute expiration* — considered and not rejected outright (it's a
+  reasonable idiomatic choice), but not selected because it still needs an equivalent lock for
+  single-flight de-duplication (a naive `GetOrCreateAsync` call does not prevent concurrent cache
+  stampede), at which point it doesn't simplify anything over reusing this codebase's own
+  already-proven Lock+cached-`Task` pattern, just promoted to Singleton lifetime.
+- *An HTTP-level caching `DelegatingHandler` honoring `Cache-Control`* — rejected: TCGdex's `/sets`
+  response sends `Cache-Control: no-cache, no-store, must-revalidate` (confirmed live), a
+  deliberate signal that they do not want this handled via standard HTTP/CDN caching semantics;
+  their own guidance is asking for an *application-level* cache instead, which is what this
+  decision implements.
+- *Holding one long-lived `HttpClient` as a Singleton field* — rejected per standard
+  `IHttpClientFactory` guidance: a Singleton holding one `HttpClient` forever forfeits the
+  factory's periodic handler rotation/DNS-refresh benefit. Calling `IHttpClientFactory.CreateClient`
+  fresh only when an actual fetch is needed (at most a few times a day here) avoids this entirely.
+- *Also caching individual per-card lookups in this same change* — rejected as out of scope for
+  this fix; it's a related but separate, smaller optimization (each call is small and targeted
+  rather than a bulk listing, though still redundant across repeat views of the same order/card),
+  tracked as a follow-up GitHub issue instead of bundled in here.

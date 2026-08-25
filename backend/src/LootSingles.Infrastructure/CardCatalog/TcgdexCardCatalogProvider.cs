@@ -12,26 +12,24 @@ namespace LootSingles.Infrastructure.CardCatalog;
 /// concurrency, while TCGdex handled the same 50-concurrent-request load with 100% success.
 ///
 /// TCGdex identifies sets by short id (e.g. "sv10.5b"), not by name, so a card lookup is two
-/// calls: resolve the packing slip's (normalized) set name to a set id via the sets list, then
-/// fetch the card directly by set id + collector number (a unique lookup — TCGdex has no
-/// multiple-candidate-match case the way a text search would). The sets list rarely changes, so
-/// it's cached for the lifetime of this instance (one instance is reused for every line in a
-/// single order-detail request — see CardImageEnrichmentService's DI scope) rather than re-fetched
-/// per line.
+/// calls: resolve the packing slip's (normalized) set name to a set id via <see cref="TcgdexSetCatalog"/>
+/// (an app-lifetime cache shared across requests — research.md §12), then fetch the card directly
+/// by set id + collector number (a unique lookup — TCGdex has no multiple-candidate-match case the
+/// way a text search would).
 /// </summary>
-public sealed partial class TcgdexCardCatalogProvider(HttpClient httpClient) : ICardCatalogProvider
+public sealed partial class TcgdexCardCatalogProvider(
+    HttpClient httpClient,
+    TcgdexSetCatalog setCatalog
+) : ICardCatalogProvider
 {
     public string ProductLine => "Pokemon";
-
-    private readonly Lock _setsLock = new();
-    private Task<IReadOnlyDictionary<string, string>>? _setIdsByNameTask;
 
     public async Task<string?> TryMatchImageUrlAsync(
         CardIdentity identity,
         CancellationToken cancellationToken
     )
     {
-        var setIdsByName = await GetSetIdsByNameAsync(cancellationToken);
+        var setIdsByName = await setCatalog.GetSetIdsByNameAsync(cancellationToken);
         var setId = PokemonSeriesPrefixNormalizer
             .NormalizeCandidates(identity.Set)
             .Select(candidate => setIdsByName.TryGetValue(candidate, out var id) ? id : null)
@@ -78,30 +76,6 @@ public sealed partial class TcgdexCardCatalogProvider(HttpClient httpClient) : I
     [GeneratedRegex(@"\s*\([^()]+\)$")]
     private static partial Regex TrailingParentheticalPattern();
 
-    private Task<IReadOnlyDictionary<string, string>> GetSetIdsByNameAsync(
-        CancellationToken cancellationToken
-    )
-    {
-        lock (_setsLock)
-        {
-            _setIdsByNameTask ??= FetchSetIdsByNameAsync(cancellationToken);
-        }
-
-        return _setIdsByNameTask;
-    }
-
-    private async Task<IReadOnlyDictionary<string, string>> FetchSetIdsByNameAsync(
-        CancellationToken cancellationToken
-    )
-    {
-        var sets =
-            await httpClient.GetFromJsonAsync<IReadOnlyList<SetSummary>>("sets", cancellationToken)
-            ?? [];
-
-        return sets.Where(set => set is { Id: not null, Name: not null })
-            .ToDictionary(set => set.Name!, set => set.Id!, StringComparer.OrdinalIgnoreCase);
-    }
-
     private static string NormalizeCollectorNumber(string collectorNumber)
     {
         // TCGdex is inconsistent about accepting a zero-padded local number: some sets accept
@@ -114,11 +88,6 @@ public sealed partial class TcgdexCardCatalogProvider(HttpClient httpClient) : I
         var withoutLeadingZeros = withoutHashAndTotal.TrimStart('0');
         return withoutLeadingZeros.Length == 0 ? "0" : withoutLeadingZeros;
     }
-
-    private sealed record SetSummary(
-        [property: JsonPropertyName("id")] string? Id,
-        [property: JsonPropertyName("name")] string? Name
-    );
 
     private sealed record Card(
         [property: JsonPropertyName("name")] string? Name,
