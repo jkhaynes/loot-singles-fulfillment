@@ -155,13 +155,13 @@ Pokémon — User Story 3 is independently complete and testable.
 
 ### Implementation for User Story 4
 
-- [ ] T044 [US4] Implement `LorcastCardCatalogProvider` in `backend/src/LootSingles.Infrastructure/CardCatalog/LorcastCardCatalogProvider.cs` per the shape confirmed in T042: `ProductLine` set to whatever value a real Lorcana packing-slip line actually prints (verify; adjust from `"Lorcana"` if different); query by set + collector number; verify the returned card's name; return the image URL only on a single confident match, to make T041 pass
+- [ ] T044 [US4] Implement `LorcastCardCatalogProvider` in `backend/src/LootSingles.Infrastructure/CardCatalog/LorcastCardCatalogProvider.cs` per the shape confirmed in T042: `ProductLine = "Lorcana TCG"` (confirmed by feature 010's real sample — research.md §5 update); query by set + collector number, accounting for promo-style collector numbers with no `/<total>` suffix (e.g. `"#36"`); verify the returned card's name; return the image URL only on a single confident match, to make T041 pass
 - [ ] T045 [US4] Register an `HttpClient` for `LorcastCardCatalogProvider` via `AddHttpClient<LorcastCardCatalogProvider>()` with a short timeout in `backend/src/LootSingles.Api/Program.cs`, and register it as `ICardCatalogProvider`
 - [ ] T046 [US4] Run T041, T043, confirm they pass, and run the full backend test suite to confirm no regression
 
 ### E2E for User Story 4
 
-- [ ] T047 [P] [US4] Extend `backend/tests/LootSingles.E2EHost/Program.cs` to seed a Lorcana product line on the E2E test order and register a deterministic fake `ICardCatalogProvider` for Lorcana, reusing the T026/T039 pattern
+- [ ] T047 [P] [US4] Extend `backend/tests/LootSingles.E2EHost/Program.cs` to seed a Lorcana product line (`ProductLine = "Lorcana TCG"`, matching real data per research.md §5) on the E2E test order and register a deterministic fake `ICardCatalogProvider` for `"Lorcana TCG"`, reusing the T026/T039 pattern
 - [ ] T048 [US4] Add a failing Playwright assertion to `frontend/e2e/order-detail.spec.ts`: the Lorcana line renders an `<img>` with the fake provider's known `src`; confirm it fails then passes, and run the full Playwright suite to confirm no regression
 
 **Checkpoint**: All three phase-1 games are independently complete and testable. One Piece

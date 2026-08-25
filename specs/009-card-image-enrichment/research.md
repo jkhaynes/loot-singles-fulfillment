@@ -83,6 +83,17 @@ treat its exact endpoint shapes and response schema as **unconfirmed** until ver
 Lorcast's live API documentation during implementation of the Lorcana user story (lowest priority,
 P3 — sequenced last specifically so this confirmation doesn't block Pokémon or Magic).
 
+**Update (confirmed by feature 010)**: The packing-slip `ProductLine` value for Lorcana lines is
+now known from a real, sanitized TCGplayer sample: `"Lorcana TCG"` (not `"Lorcana"` — the earlier
+placeholder guess this section originally carried). `LorcastCardCatalogProvider.ProductLine` MUST
+be `"Lorcana TCG"` for dispatch to actually match real order lines (`OrderLineExtractor` and its
+tests use this exact value; see `backend/tests/LootSingles.UnitTests/Import/OrderLineExtractionTests.cs`
+and the `lorcana-dashed-card-name.pdf` fixture). Separately, that same sample's collector number
+was `"#36"` — a promo card with no `/<total>` suffix, unlike Pokémon's `"#067/086"` style — worth
+accounting for when designing the Lorcast query in T044, since promo cards are sometimes modeled
+as a distinct set/collection by catalog providers rather than sharing a mainline set's numbering.
+The endpoint/response schema itself is still unconfirmed and remains T042's job.
+
 **Rationale**: Unlike Scryfall (mature, extensively documented) and Pokémon TCG API (documented,
 used elsewhere), this project has no prior integration experience with Lorcast, and inventing
 specific endpoint paths or field names here would risk the implementation phase building against
