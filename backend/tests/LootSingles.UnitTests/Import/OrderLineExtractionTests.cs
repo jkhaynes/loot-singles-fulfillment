@@ -111,4 +111,110 @@ public class OrderLineExtractionTests
         Assert.False(result.IsValid);
         Assert.Equal(FailureType.MissingProductName, result.FailureType);
     }
+
+    [Fact]
+    public void Extract_DuplicateCollectorNumberEcho_ExcludesEchoFromProductName()
+    {
+        var source = new RawProductLine
+        {
+            QuantityText = "1",
+            RawDescription =
+                "Pokemon - ME05: Pitch Black: Fomantis - 085/084 - #085/084 - Illustration Rare - Near Mint Holofoil",
+        };
+
+        var result = OrderLineExtractor.Extract(source);
+
+        Assert.True(result.IsValid);
+        var orderLine = result.OrderLine!;
+        Assert.Equal("ME05: Pitch Black", orderLine.Set);
+        Assert.Equal("Fomantis", orderLine.ProductName);
+        Assert.Equal("#085/084", orderLine.CollectorNumber);
+    }
+
+    [Theory]
+    [InlineData(
+        "Pokemon - ME05: Pitch Black: Manectric - 065/084 - #065/084 - Illustration Rare - Near Mint Holofoil",
+        "ME05: Pitch Black",
+        "Manectric"
+    )]
+    [InlineData(
+        "Pokemon - ME05: Pitch Black: Clefairy - 040/084 - #040/084 - Illustration Rare - Near Mint Holofoil",
+        "ME05: Pitch Black",
+        "Clefairy"
+    )]
+    public void Extract_OtherRealDuplicateCollectorNumberEchoLines_ExcludesEchoFromProductName(
+        string description,
+        string expectedSet,
+        string expectedProductName
+    )
+    {
+        var result = OrderLineExtractor.Extract(
+            new RawProductLine { QuantityText = "1", RawDescription = description }
+        );
+
+        Assert.True(result.IsValid);
+        var orderLine = result.OrderLine!;
+        Assert.Equal(expectedSet, orderLine.Set);
+        Assert.Equal(expectedProductName, orderLine.ProductName);
+    }
+
+    [Fact]
+    public void Extract_NonDuplicateSegmentBeforeCollectorNumber_IsNeverDroppedAsFalsePositive()
+    {
+        var source = new RawProductLine
+        {
+            QuantityText = "1",
+            RawDescription = "Pokemon - Some Set: Card - 099 - #100/150 - Common - Near Mint",
+        };
+
+        var result = OrderLineExtractor.Extract(source);
+
+        Assert.True(result.IsValid);
+        var orderLine = result.OrderLine!;
+        Assert.Equal("Some Set", orderLine.Set);
+        Assert.Equal("Card - 099", orderLine.ProductName);
+        Assert.Equal("#100/150", orderLine.CollectorNumber);
+    }
+
+    [Theory]
+    [InlineData(
+        "Pokemon - ME05: Pitch Black: Meowth - #106/094 - Common - Near Mint",
+        "ME05: Pitch Black",
+        "Meowth"
+    )]
+    [InlineData(
+        "Pokemon - ME05: Pitch Black: Blastoise ex - #030/142 - Double Rare - Near Mint Holofoil",
+        "ME05: Pitch Black",
+        "Blastoise ex"
+    )]
+    public void Extract_RealNonDuplicateLinesFromSameOrder_AreUnaffectedByEchoExclusion(
+        string description,
+        string expectedSet,
+        string expectedProductName
+    )
+    {
+        var result = OrderLineExtractor.Extract(
+            new RawProductLine { QuantityText = "1", RawDescription = description }
+        );
+
+        Assert.True(result.IsValid);
+        var orderLine = result.OrderLine!;
+        Assert.Equal(expectedSet, orderLine.Set);
+        Assert.Equal(expectedProductName, orderLine.ProductName);
+    }
+
+    [Fact]
+    public void Extract_EchoOnlySpan_IsStillRejectedAsMissingProductName()
+    {
+        var source = new RawProductLine
+        {
+            QuantityText = "1",
+            RawDescription = "Pokemon - 067/086 - #067/086 - Rare - Near Mint",
+        };
+
+        var result = OrderLineExtractor.Extract(source);
+
+        Assert.False(result.IsValid);
+        Assert.Equal(FailureType.MissingProductName, result.FailureType);
+    }
 }
