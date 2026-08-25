@@ -85,12 +85,12 @@ depend on this — there is no new endpoint or route, just a wider response on t
 
 **Purpose**: Confirm full regression across both stacks and complete manual validation.
 
-- [ ] T019 [P] Extend `frontend/e2e/order-detail.spec.ts` to assert the product line, collector number, and order status are visible on the seeded E2E order's detail view
-- [ ] T020 [P] Re-run `frontend/e2e/responsive.spec.ts`'s existing order-detail mobile-viewport check with the added fields in place; adjust `OrderDetailPage.css` further only if it now fails
-- [ ] T021 [P] Run backend build, full unit suite, full SQL Server integration suite, and CSharpier; confirm all existing tests remain green and record results in `specs/008-picking-detail-additional-fields/validation-results.md`
-- [ ] T022 [P] Run frontend lint, unit test suite, production build, Prettier check, and the full Playwright suite; confirm all existing tests remain green and record results in `specs/008-picking-detail-additional-fields/validation-results.md`
-- [ ] T023 Perform the quickstart.md manual validation (run the app locally, exercise every scenario) and record observations in `specs/008-picking-detail-additional-fields/validation-results.md`
-- [ ] T024 Perform the constitution Architecture and Changeability Review against the implemented boundaries, capture any Must Fix findings as new tasks in `specs/008-picking-detail-additional-fields/tasks.md`, and do not proceed to convergence until resolved
+- [X] T019 [P] Extend `frontend/e2e/order-detail.spec.ts` to assert the product line, collector number, and order status are visible on the seeded E2E order's detail view
+- [X] T020 [P] Re-run `frontend/e2e/responsive.spec.ts`'s existing order-detail mobile-viewport check with the added fields in place; adjust `OrderDetailPage.css` further only if it now fails
+- [X] T021 [P] Run backend build, full unit suite, full SQL Server integration suite, and CSharpier; confirm all existing tests remain green and record results in `specs/008-picking-detail-additional-fields/validation-results.md`
+- [X] T022 [P] Run frontend lint, unit test suite, production build, Prettier check, and the full Playwright suite; confirm all existing tests remain green and record results in `specs/008-picking-detail-additional-fields/validation-results.md`
+- [X] T023 Perform the quickstart.md manual validation (run the app locally, exercise every scenario) and record observations in `specs/008-picking-detail-additional-fields/validation-results.md`
+- [X] T024 Perform the constitution Architecture and Changeability Review against the implemented boundaries, capture any Must Fix findings as new tasks in `specs/008-picking-detail-additional-fields/tasks.md`, and do not proceed to convergence until resolved
 
 ---
 
