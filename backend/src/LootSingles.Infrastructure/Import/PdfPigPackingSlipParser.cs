@@ -94,19 +94,15 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
         );
         var priceHeader = tableHeader.Words.First(word => Normalize(word.Text) == "price");
 
-        var totalLine = lines
-            .Where(line => line.Bottom < tableHeader.Bottom)
-            .Where(line => line.Words.Count <= 4)
-            .Where(line =>
-                line.Words.Any(word =>
-                    Normalize(word.Text) == "total"
-                    && Math.Abs(word.BoundingBox.Left - descriptionHeader.BoundingBox.Left) < 8
-                )
-            )
-            .OrderByDescending(line => line.Bottom)
-            .FirstOrDefault();
+        // The grand-total row is the precise lower bound when present, but TCGplayer prints it
+        // only on a multi-page order's final page. A continuation page has no total row of its
+        // own, so fall back to its "Order Number:" footer line (the only other fixed marker below
+        // the product rows on such a page) rather than treating the page as having no rows at all.
+        var lowerBoundLine =
+            FindGrandTotalLine(lines, tableHeader, descriptionHeader)
+            ?? FindOrderNumberFooterLine(lines, tableHeader);
 
-        if (totalLine is null)
+        if (lowerBoundLine is null)
         {
             return Array.Empty<RawProductLine>();
         }
@@ -115,7 +111,7 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
             .Where(word => word.BoundingBox.Left >= quantityHeader.BoundingBox.Left - 8)
             .Where(word => word.BoundingBox.Right < descriptionHeader.BoundingBox.Left - 4)
             .Where(word => word.BoundingBox.Bottom < quantityHeader.BoundingBox.Bottom - 2)
-            .Where(word => word.BoundingBox.Bottom > totalLine.Bottom + 2)
+            .Where(word => word.BoundingBox.Bottom > lowerBoundLine.Bottom + 2)
             .OrderByDescending(word => word.BoundingBox.Bottom)
             .ToList();
 
@@ -131,7 +127,7 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
             var lowerNeighbor =
                 index + 1 < quantityWords.Count
                     ? quantityWords[index + 1].BoundingBox.Bottom
-                    : totalLine.Bottom;
+                    : lowerBoundLine.Bottom;
             var lowerBound = (quantity.BoundingBox.Bottom + lowerNeighbor) / 2;
 
             var descriptionWords = words
@@ -153,6 +149,33 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
 
         return productLines;
     }
+
+    private static TextLine? FindGrandTotalLine(
+        IReadOnlyList<TextLine> lines,
+        TextLine tableHeader,
+        Word descriptionHeader
+    ) =>
+        lines
+            .Where(line => line.Bottom < tableHeader.Bottom)
+            .Where(line => line.Words.Count <= 4)
+            .Where(line =>
+                line.Words.Any(word =>
+                    Normalize(word.Text) == "total"
+                    && Math.Abs(word.BoundingBox.Left - descriptionHeader.BoundingBox.Left) < 8
+                )
+            )
+            .OrderByDescending(line => line.Bottom)
+            .FirstOrDefault();
+
+    private static TextLine? FindOrderNumberFooterLine(
+        IReadOnlyList<TextLine> lines,
+        TextLine tableHeader
+    ) =>
+        lines
+            .Where(line => line.Bottom < tableHeader.Bottom)
+            .Where(line => ContainsSequence(line.Words, "Order", "Number:"))
+            .OrderByDescending(line => line.Bottom)
+            .FirstOrDefault();
 
     private static TextLine? FindTableHeader(IEnumerable<TextLine> lines) =>
         lines.SingleOrDefault(line =>
@@ -208,9 +231,49 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
         public ParsedPackingSlip ToResult() =>
             new()
             {
-                OrderBlocks = OrderBlocks,
+                OrderBlocks = MergeContinuationPages(OrderBlocks),
                 SummaryPageFound = SummaryPageFound,
                 SummaryOrderIdentifiers = SummaryOrderIdentifiers,
             };
+
+        // TCGplayer prints a multi-page order's grand-total row only on its final page, so pages
+        // sharing the same "Order Number:" identifier arrive here as separate blocks (one per
+        // page) even though they're really continuation pages of one order. Merge them here, in
+        // page order, so a block downstream always means one real order. A block with no
+        // identifier (research.md §2) is never merged with anything, including another such
+        // block - a missing identifier gives no basis to say two pages belong together.
+        private static IReadOnlyList<RawOrderBlock> MergeContinuationPages(
+            IReadOnlyList<RawOrderBlock> blocks
+        )
+        {
+            var merged = new List<RawOrderBlock>();
+            var indexByIdentifier = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var block in blocks)
+            {
+                if (
+                    !string.IsNullOrWhiteSpace(block.OrderIdentifier)
+                    && indexByIdentifier.TryGetValue(block.OrderIdentifier, out var existingIndex)
+                )
+                {
+                    var existing = merged[existingIndex];
+                    merged[existingIndex] = new RawOrderBlock
+                    {
+                        OrderIdentifier = existing.OrderIdentifier,
+                        ProductLines = existing.ProductLines.Concat(block.ProductLines).ToList(),
+                    };
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(block.OrderIdentifier))
+                {
+                    indexByIdentifier[block.OrderIdentifier] = merged.Count;
+                }
+
+                merged.Add(block);
+            }
+
+            return merged;
+        }
     }
 }
