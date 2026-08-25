@@ -59,7 +59,135 @@ safe rather than fails dangerous.
 for print-level accuracy, matching PRD §31's assessment of it as "well suited to matching using
 set and collector number." No API key is required for read access.
 
-## 4. Pokémon — Pokémon TCG API
+## 4. Pokémon — TCGdex (switched from the Pokémon TCG API)
+
+**Update (Clarifications, 2026-08-25 — provider switched)**: During manual testing against a real
+50-line multi-page order, the Pokémon TCG API (this section's original choice, below) was found to
+fail roughly half of all requests — and not because of our own concurrency. Direct, controlled
+testing against the live API with the app's configured key showed:
+
+- 8 truly concurrent requests: 6 of 8 failed with `500`.
+- 6 fully sequential requests (one at a time, no concurrency at all): 3 of 6 failed with `500`/`502`.
+- 6 sequential requests with a full 1-second pause between each (eliminating any burst effect):
+  4 of 6 still failed.
+- Retrying one identical failing query 5 times succeeded on the 3rd attempt — failures are
+  transient/random, not deterministic per-query, and not a documented rate-limit rejection (no
+  `429` was ever observed; the API's own docs describe `429`s only for a documented
+  concurrent-request race condition, which is a different failure mode than what was observed).
+
+The same 50-concurrent-request load that broke the Pokémon TCG API was run against TCGdex
+(`https://api.tcgdex.net/v2/en/`) and succeeded 50/50 (100%), the great majority in ~250ms, worst
+case ~1.4s. No API key is required, and no hard rate limit is published (TCGdex's guidance is simply
+"be considerate; cache responses locally rather than fetching the same data repeatedly" — see the
+sets-list caching decision below, which follows this guidance).
+
+**Decision**: Pokémon's `ICardCatalogProvider` implementation is `TcgdexCardCatalogProvider`,
+querying TCGdex instead of the Pokémon TCG API. Per Constitution Principle IX (Replaceable
+Integrations), this changes only the provider implementation — `ICardCatalogProvider`'s contract,
+`CardImageEnrichmentService`, `OrdersService`, the API response shape, and the frontend are all
+unaffected.
+
+**TCGdex integration shape** (confirmed live, using the real "Genesect ex" / Black Bolt #67
+example already used to confirm the series-prefix normalization in the Clarifications above):
+
+- Sets are identified by a short id (e.g. `sv10.5b` for "Black Bolt"), not by name — unlike the
+  Pokémon TCG API's `set.name:"..."` text query, there is no direct "query by set name" endpoint.
+  `GET /v2/en/sets` returns every set as `{ id, name, ... }`; the (already series-prefix-normalized,
+  per this feature's earlier clarification) `Set` text is matched against this list's `name` field
+  (case-insensitive exact match) to resolve a set id.
+- Card lookup is then a direct, unique fetch: `GET /v2/en/sets/{setId}/{localNumber}` — e.g.
+  `GET /v2/en/sets/sv10.5b/67`. Confirmed live that TCGdex accepts the collector number both with
+  and without leading zeros (`67` and `067` both resolve to the same card, `localId: "067"`), so —
+  unlike the Pokémon TCG API — no leading-zero-stripping is strictly required, though the existing
+  `#`/`/<total>`-stripping is still needed (`"#067/086"` → `"067"` or `"67"`, either works).
+  Because this is a direct id-keyed lookup rather than a text search, there is no
+  multiple-candidate-match case to handle the way the Pokémon TCG API's query needed
+  (`FR-003`/multiple-plausible-matches is structurally impossible here) — a `404` (no card at that
+  number) is the only "no match" outcome, and is treated as `null` exactly like any other failure.
+- Response fields used: `name` (verified against the imported product name, same as before) and
+  `image` — a base URL with **no file extension**, e.g.
+  `"https://assets.tcgdex.net/en/sv/sv10.5b/067"`. A quality and format suffix must be appended to
+  get a real image: `{quality}.{extension}`, where quality is `high` (600×825) or `low` (245×337),
+  and extension is `webp` (recommended, smaller with transparency), `png` (transparent), or `jpg`
+  (opaque background, not recommended). This provider uses `high.webp`.
+- **Sets-list caching**: `GET /v2/en/sets` returns the full set list (a few hundred entries,
+  low-churn reference data — a different concept from the "no caching of catalog *match results*"
+  decision in §11, which is about not caching which image resolves for a given order line). Fetching
+  it once per line (50 times for a 50-line order) would be wasteful and directly contradicts
+  TCGdex's own "cache responses locally" guidance, so `TcgdexCardCatalogProvider` caches the
+  resolved id-by-name map **for the lifetime of the provider instance**, not statically across
+  requests. Confirmed via the DI registration (`AddScoped<ICardCatalogProvider>` wrapping the
+  `AddHttpClient`-registered, otherwise-transient `TcgdexCardCatalogProvider`) that exactly one
+  provider instance is created per HTTP request/scope, and `CardImageEnrichmentService` (also
+  scoped) holds that same instance for every line's lookup within that request — so a 50-line order
+  makes one sets-list fetch plus up to 50 per-card fetches, not 50 of each, and the cache is
+  discarded (not left stale) once the request completes. The concurrent-caller de-duplication uses
+  the "cache the in-flight `Task`, not just the eventual result" pattern, since `CardImageEnrichmentService`
+  dispatches all of a request's lines concurrently (research.md §7) and multiple lines' lookups can
+  race to populate this cache on the same instance.
+
+**Alternatives considered**: Adding retry-with-backoff around the Pokémon TCG API instead of
+switching providers — rejected as treating a symptom rather than the cause; the underlying API's
+~50% baseline failure rate would still mean materially slower page loads (retries add latency per
+retried line) for a worse overall result than a provider that simply doesn't fail this way. Throttling
+concurrency to the Pokémon TCG API — rejected once sequential (fully non-concurrent) testing showed
+nearly the same failure rate as concurrent testing; the problem was never primarily concurrency-driven.
+
+**Update (Clarifications, 2026-08-25 — three implementation-level corrections found via full
+evaluation of the real 50-line order against TCGdex)**: After the provider switch above, the same
+order still resolved only a handful of images. Every failing line was checked directly against
+TCGdex to find the cause. Two categories turned out to be genuinely correct, safe behavior (not
+bugs): TCGdex has no `image` field at all for some Trainer Gallery alt-art cards (confirmed:
+absent from the raw JSON response entirely, not merely null) — e.g. Roserade, Spiritomb — and a
+`"Miscellaneous Cards & Products"` line (Charmeleon) has no real corresponding TCGdex set to
+resolve at all. Both correctly and safely fall back to the placeholder; there is nothing to fix.
+Three other categories were genuine, fixable defects in this feature's own not-yet-shipped code:
+
+1. **Collector-number leading zeros** (confirmed via direct testing: `GET /v2/en/sets/cel25/005`
+   404s, `GET /v2/en/sets/cel25/5` 200s for the same Pikachu card; same pattern confirmed for
+   Evolving Skies `028`/`28`, while other sets like Black Bolt and Pitch Black accept both forms).
+   `NormalizeCollectorNumber` now always strips leading zeros — restoring the same stripping the
+   original Pokémon TCG API provider already had, which was incorrectly dropped when this provider
+   was first written for TCGdex on the (wrong, single-example) assumption that TCGdex accepted
+   both forms universally.
+2. **Set names with an unrecognized colon-delimited prefix** (`"Celebrations: Classic
+   Collection"` — `"Celebrations"` is itself a real, standalone TCGdex set name used as a
+   sub-collection prefix, not a short series-era code, so it was never going to be in the ~10-entry
+   abbreviation table by design). `PokemonSeriesPrefixNormalizer.NormalizeCandidates` now returns
+   an ordered list of candidates to try against the sets dictionary: the abbreviation-stripped
+   result first, and — only when no abbreviation was recognized — a second candidate with the
+   first `": "` replaced by a plain space (confirmed live: TCGdex's real name is `"Celebrations
+   Classic Collection"`, no colon). The second candidate is never tried when the first already
+   matched, so this can't produce a worse match for the many cases the abbreviation table already
+   handles correctly.
+3. **Trailing printing/variant descriptors in the product name** (`"Alakazam V (Full Art)"`,
+   `"Galarian Obstagoon (Secret)"` vs TCGdex's plain `"Alakazam V"`/`"Galarian Obstagoon"`).
+   `TcgdexCardCatalogProvider` now strips a trailing parenthetical from the imported product name
+   *only for the name-verification comparison* — `identity.ProductName` itself, and everything
+   displayed to the picker, is completely unchanged (TCGplayer data stays authoritative). This
+   reuses the same trailing-parenthetical shape `OrderLineExtractor` (feature 001) already
+   recognizes as a printing/variant marker for `Variant` parsing, so it isn't a new, invented
+   concept — just applying the already-established marker recognition to the matching step too.
+
+All three are additive corrections to `TcgdexCardCatalogProvider`/`PokemonSeriesPrefixNormalizer`
+(this feature's own code, not yet merged) — no change to `CardIdentity`, `ICardCatalogProvider`,
+`CardImageEnrichmentService`, or anything outside the Pokémon adapter boundary.
+
+A fourth, much larger category — TCGplayer's product title containing a redundant, duplicated
+collector-number echo baked into the raw description itself (e.g. `"Fomantis - 085/084 - #085/084
+- ..."`, confirmed via direct inspection of the PDF's word positions to be genuine source content,
+not a parsing artifact) — causes `OrderLineExtractor` (feature 001) to absorb the echo into
+`ProductName` (`"Fomantis - 085/084"` instead of `"Fomantis"`). This accounts for the large
+majority of this order's remaining non-matches. It is **not** fixed here: it's a defect in
+already-shipped feature 001 import behavior, the same category as the Lorcana (010) and multi-page
+(011) fixes, and is being addressed as its own Spec Kit feature using this same real order as
+validation.
+
+---
+
+## 4a. Historical: Pokémon TCG API research (superseded 2026-08-25 — see above)
+
+Kept for context on how the original choice was evaluated; no longer the active decision.
 
 **Decision**: Query by set and collector number (the API supports structured, Lucene-style query
 parameters including `number` and set-scoped fields). Verify the returned card's name before

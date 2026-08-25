@@ -47,6 +47,41 @@ public static class PokemonSeriesPrefixNormalizer
         return rawSetText;
     }
 
+    /// <summary>
+    /// Ordered set-name candidates to try against a provider's own set list: the abbreviation-
+    /// stripped result of <see cref="Normalize"/> first, then — only when that differs from the
+    /// raw text and the raw text has a colon-delimited prefix that ISN'T a known series
+    /// abbreviation (e.g. "Celebrations: Classic Collection", where "Celebrations" is itself a
+    /// real, standalone set name used as a sub-collection prefix, not a short era code) — a
+    /// second candidate with the first ": " replaced by a plain space (e.g.
+    /// "Celebrations Classic Collection", confirmed to match TCGdex's real name for this case).
+    /// Never duplicates a candidate already produced.
+    /// </summary>
+    public static IReadOnlyList<string> NormalizeCandidates(string rawSetText)
+    {
+        var normalized = Normalize(rawSetText);
+        var candidates = new List<string> { normalized };
+
+        var colonIndex = rawSetText.IndexOf(": ", StringComparison.Ordinal);
+        // Only offer the colon-to-space fallback when no known abbreviation prefix was
+        // recognized — a recognized abbreviation already produced the correct candidate, and
+        // trying a second, unverified guess alongside it would risk a wrong match.
+        if (colonIndex >= 0 && normalized == rawSetText)
+        {
+            var colonToSpace = string.Concat(
+                rawSetText.AsSpan(0, colonIndex),
+                " ",
+                rawSetText.AsSpan(colonIndex + 2)
+            );
+            if (!candidates.Contains(colonToSpace, StringComparer.OrdinalIgnoreCase))
+            {
+                candidates.Add(colonToSpace);
+            }
+        }
+
+        return candidates;
+    }
+
     private static IReadOnlyList<string> LoadAbbreviations()
     {
         var assembly = typeof(PokemonSeriesPrefixNormalizer).GetTypeInfo().Assembly;

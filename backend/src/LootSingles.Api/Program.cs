@@ -66,18 +66,13 @@ builder.Services.AddScoped<EmployeeSessionCookieEvents>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
-builder.Services.AddHttpClient<PokemonTcgApiCardCatalogProvider>(client =>
+builder.Services.AddHttpClient<TcgdexCardCatalogProvider>(client =>
 {
-    client.BaseAddress = new Uri("https://api.pokemontcg.io/v2/");
+    client.BaseAddress = new Uri("https://api.tcgdex.net/v2/en/");
     client.Timeout = TimeSpan.FromSeconds(10);
-    var pokemonTcgApiKey = builder.Configuration["CardCatalog:PokemonTcgApiKey"];
-    if (!string.IsNullOrWhiteSpace(pokemonTcgApiKey))
-    {
-        client.DefaultRequestHeaders.Add("X-Api-Key", pokemonTcgApiKey);
-    }
 });
 builder.Services.AddScoped<ICardCatalogProvider>(sp =>
-    sp.GetRequiredService<PokemonTcgApiCardCatalogProvider>()
+    sp.GetRequiredService<TcgdexCardCatalogProvider>()
 );
 builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();

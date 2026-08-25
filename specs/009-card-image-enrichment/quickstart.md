@@ -14,8 +14,8 @@ usable if a catalog provider is unreachable.
 - At least one Ready order containing a product line for each phase-1 game (Pokémon, Magic,
   Lorcana) whose set and collector number identify a real, known card — import via Import Orders
   or seed directly
-- If a Pokémon TCG API key is configured, it comes from User Secrets locally (`dotnet user-secrets`
-  against `LootSingles.Api`) — never committed
+- No API key is required for Pokémon (TCGdex, switched from the Pokémon TCG API 2026-08-25 —
+  research.md §4); Scryfall and Lorcast also require no key for this feature's usage
 
 ## Run the app
 

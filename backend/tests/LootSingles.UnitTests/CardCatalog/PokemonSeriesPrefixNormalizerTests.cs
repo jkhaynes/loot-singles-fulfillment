@@ -32,4 +32,33 @@ public sealed class PokemonSeriesPrefixNormalizerTests
 
         Assert.Equal(rawSetText, result);
     }
+
+    [Fact]
+    public void NormalizeCandidates_KnownAbbreviationPrefix_ReturnsOnlyTheAbbreviationStrippedCandidate()
+    {
+        var candidates = PokemonSeriesPrefixNormalizer.NormalizeCandidates("SV: Black Bolt");
+
+        Assert.Equal(["Black Bolt"], candidates);
+    }
+
+    [Fact]
+    public void NormalizeCandidates_UnrecognizedColonDelimitedPrefix_AlsoOffersTheColonToSpaceCandidate()
+    {
+        var candidates = PokemonSeriesPrefixNormalizer.NormalizeCandidates(
+            "Celebrations: Classic Collection"
+        );
+
+        Assert.Equal(
+            ["Celebrations: Classic Collection", "Celebrations Classic Collection"],
+            candidates
+        );
+    }
+
+    [Fact]
+    public void NormalizeCandidates_NoColonAtAll_ReturnsOnlyTheRawText()
+    {
+        var candidates = PokemonSeriesPrefixNormalizer.NormalizeCandidates("Base Set");
+
+        Assert.Equal(["Base Set"], candidates);
+    }
 }

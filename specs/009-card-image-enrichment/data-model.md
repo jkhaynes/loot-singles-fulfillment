@@ -31,7 +31,7 @@ carries — no new data collection.
 | `ProductLine` | string (get) | The game this provider serves, matched against `OrderLine.ProductLine` (research.md §1 dispatch) |
 | `TryMatchImageUrlAsync` | `(CardIdentity, CancellationToken) -> Task<string?>` | Returns a confident image URL, or `null` for any non-confident/unavailable outcome — callers never distinguish *why* it was `null` (FR-004 treats no-match, ambiguous-match, and provider-unreachable identically) |
 
-Three implementations in this phase — Pokémon TCG API, Scryfall, Lorcast — each confined to
+Three implementations in this phase — TCGdex (Pokémon; switched from the Pokémon TCG API 2026-08-25, research.md §4), Scryfall, Lorcast — each confined to
 `LootSingles.Infrastructure/CardCatalog/` (research.md §3–5). No shared base class; each
 implements the interface directly, since the only shared contract is the interface itself
 (Principle XIII — composition/interface over inheritance where no real shared behavior exists).
