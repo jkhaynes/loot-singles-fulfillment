@@ -61,4 +61,35 @@ public sealed class PokemonSeriesPrefixNormalizerTests
 
         Assert.Equal(["Base Set"], candidates);
     }
+
+    [Theory]
+    [InlineData(
+        "ME: Mega Evolution Promo",
+        "Mega Evolution Promo",
+        "ME Black Star Promos",
+        "MEP Black Star Promos"
+    )]
+    [InlineData(
+        "SV: Scarlet & Violet Promo Cards",
+        "Scarlet & Violet Promo Cards",
+        "SV Black Star Promos",
+        "SVP Black Star Promos"
+    )]
+    [InlineData(
+        "SWSH: Sword & Shield Promo Cards",
+        "Sword & Shield Promo Cards",
+        "SWSH Black Star Promos",
+        "SWSHP Black Star Promos"
+    )]
+    public void NormalizeCandidates_RecognizedAbbreviationPromoShapedName_AlsoOffersBothBlackStarPromosCandidates(
+        string rawSetText,
+        string expectedStripped,
+        string expectedPlainForm,
+        string expectedPSuffixForm
+    )
+    {
+        var candidates = PokemonSeriesPrefixNormalizer.NormalizeCandidates(rawSetText);
+
+        Assert.Equal([expectedStripped, expectedPlainForm, expectedPSuffixForm], candidates);
+    }
 }

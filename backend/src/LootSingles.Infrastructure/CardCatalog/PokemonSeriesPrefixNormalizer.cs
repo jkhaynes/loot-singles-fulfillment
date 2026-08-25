@@ -18,7 +18,10 @@ public static class PokemonSeriesPrefixNormalizer
 
     private static readonly IReadOnlyList<string> KnownAbbreviations = LoadAbbreviations();
 
-    public static string Normalize(string rawSetText)
+    public static string Normalize(string rawSetText) =>
+        MatchAbbreviation(rawSetText)?.Name ?? rawSetText;
+
+    private static (string Abbreviation, string Name)? MatchAbbreviation(string rawSetText)
     {
         foreach (var abbreviation in KnownAbbreviations)
         {
@@ -40,11 +43,11 @@ public static class PokemonSeriesPrefixNormalizer
             var afterDigits = afterAbbreviation[digitCount..];
             if (afterDigits.StartsWith(": ", StringComparison.Ordinal))
             {
-                return afterDigits[2..].ToString();
+                return (abbreviation, afterDigits[2..].ToString());
             }
         }
 
-        return rawSetText;
+        return null;
     }
 
     /// <summary>
@@ -59,8 +62,28 @@ public static class PokemonSeriesPrefixNormalizer
     /// </summary>
     public static IReadOnlyList<string> NormalizeCandidates(string rawSetText)
     {
-        var normalized = Normalize(rawSetText);
+        var match = MatchAbbreviation(rawSetText);
+        var normalized = match?.Name ?? rawSetText;
         var candidates = new List<string> { normalized };
+
+        // TCGplayer labels Black Star Promo sets as "<full era name> Promo[ Cards]" (e.g. "Mega
+        // Evolution Promo"), but TCGdex names them "<code> Black Star Promos" instead - and,
+        // confirmed live against TCGdex's full sets list, the code is sometimes the plain era
+        // abbreviation (e.g. "SWSH") and sometimes has a "P" appended (e.g. "SVP", "MEP") with no
+        // rule that predicts which. Try both forms, built from the abbreviation this method
+        // already recognized - each is only ever used if it exactly matches a real entry in
+        // TCGdex's own fetched set list, so a wrong guess simply fails to match.
+        if (
+            match is { } recognized
+            && (
+                normalized.EndsWith(" Promo", StringComparison.Ordinal)
+                || normalized.EndsWith(" Promo Cards", StringComparison.Ordinal)
+            )
+        )
+        {
+            candidates.Add($"{recognized.Abbreviation} Black Star Promos");
+            candidates.Add($"{recognized.Abbreviation}P Black Star Promos");
+        }
 
         var colonIndex = rawSetText.IndexOf(": ", StringComparison.Ordinal);
         // Only offer the colon-to-space fallback when no known abbreviation prefix was

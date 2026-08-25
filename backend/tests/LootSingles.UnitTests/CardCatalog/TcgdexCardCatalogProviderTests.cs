@@ -211,6 +211,68 @@ public sealed class TcgdexCardCatalogProviderTests
         Assert.Equal("https://assets.tcgdex.net/en/swsh/cel25cc/076/high.webp", result);
     }
 
+    [Fact]
+    public async Task TryMatchImageUrlAsync_PromoSetNameOnlyResolvesViaThePSuffixForm_StillResolves()
+    {
+        var provider = NewProvider(
+            RouteByPath(
+                (
+                    "/sets",
+                    """
+                    [{ "id": "svp", "name": "SVP Black Star Promos" }]
+                    """
+                ),
+                (
+                    "/sets/svp/196",
+                    """{ "name": "Charizard ex", "image": "https://assets.tcgdex.net/en/sv/svp/196" }"""
+                )
+            )
+        );
+
+        var result = await provider.TryMatchImageUrlAsync(
+            Identity with
+            {
+                Set = "SV: Scarlet & Violet Promo Cards",
+                ProductName = "Charizard ex",
+                CollectorNumber = "#196",
+            },
+            CancellationToken.None
+        );
+
+        Assert.Equal("https://assets.tcgdex.net/en/sv/svp/196/high.webp", result);
+    }
+
+    [Fact]
+    public async Task TryMatchImageUrlAsync_PromoSetNameOnlyResolvesViaThePlainForm_StillResolves()
+    {
+        var provider = NewProvider(
+            RouteByPath(
+                (
+                    "/sets",
+                    """
+                    [{ "id": "swshp", "name": "SWSH Black Star Promos" }]
+                    """
+                ),
+                (
+                    "/sets/swshp/54",
+                    """{ "name": "Sobble", "image": "https://assets.tcgdex.net/en/swsh/swshp/SWSH054" }"""
+                )
+            )
+        );
+
+        var result = await provider.TryMatchImageUrlAsync(
+            Identity with
+            {
+                Set = "SWSH: Sword & Shield Promo Cards",
+                ProductName = "Sobble",
+                CollectorNumber = "#054",
+            },
+            CancellationToken.None
+        );
+
+        Assert.Equal("https://assets.tcgdex.net/en/swsh/swshp/SWSH054/high.webp", result);
+    }
+
     private static StubHttpMessageHandler RouteByPath(
         params (string PathSuffix, string? Json)[] routes
     ) =>

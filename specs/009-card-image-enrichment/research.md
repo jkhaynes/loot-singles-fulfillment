@@ -177,11 +177,87 @@ A fourth, much larger category — TCGplayer's product title containing a redund
 collector-number echo baked into the raw description itself (e.g. `"Fomantis - 085/084 - #085/084
 - ..."`, confirmed via direct inspection of the PDF's word positions to be genuine source content,
 not a parsing artifact) — causes `OrderLineExtractor` (feature 001) to absorb the echo into
-`ProductName` (`"Fomantis - 085/084"` instead of `"Fomantis"`). This accounts for the large
-majority of this order's remaining non-matches. It is **not** fixed here: it's a defect in
+`ProductName` (`"Fomantis - 085/084"` instead of `"Fomantis"`). This accounted for the large
+majority of this order's remaining non-matches. It was **not** fixed here: it was a defect in
 already-shipped feature 001 import behavior, the same category as the Lorcana (010) and multi-page
-(011) fixes, and is being addressed as its own Spec Kit feature using this same real order as
-validation.
+(011) fixes, and was addressed as its own Spec Kit feature (012) using this same real order as
+validation, then merged back into this branch.
+
+**Update (Clarifications, 2026-08-25 — promo-set naming mismatch found via post-012 re-evaluation;
+design only, implementation pending sign-off)**: After feature 012 merged in, the same real order
+was re-checked end-to-end (manual picking-detail view, corroborated against the live backend). The
+`OrderLineExtractor` fix resolved the large majority of remaining lines (confirmed: Fomantis,
+Manectric, Clefairy and others now show correct names and real images). Two further categories of
+non-match were then investigated:
+
+1. **Roserade / Trainer Gallery — already-known, correct safe-fallback behavior.** Re-confirmed
+   live: `GET /v2/en/sets/swsh11tg/TG02` (the exact card the order line identifies — set resolves
+   correctly via `"SWSH11: Lost Origin Trainer Gallery"` → `"Lost Origin Trainer Gallery"` →
+   `swsh11tg`) returns a card named exactly `"Roserade"`, but the JSON response has no `"image"`
+   key at all. This is the same category already documented above (§4, "correct, safe behavior")
+   — not a new finding, just re-verified against this specific card on request.
+
+2. **Promo-card set names — a new, genuine defect.** Five lines in the real order belong to
+   Black Star Promo sets across three different eras:
+
+   | Raw `Set` text | Era abbreviation | Normalized (today) | TCGdex's real set name | TCGdex set id |
+   |---|---|---|---|---|
+   | `"ME: Mega Evolution Promo"` (Sobble) | `ME` | `"Mega Evolution Promo"` | `"MEP Black Star Promos"` | `mep` |
+   | `"SV: Scarlet & Violet Promo Cards"` (×3, incl. Charizard ex) | `SV` | `"Scarlet & Violet Promo Cards"` | `"SVP Black Star Promos"` | `svp` |
+   | `"SWSH: Sword & Shield Promo Cards"` (×1) | `SWSH` | `"Sword & Shield Promo Cards"` | `"SWSH Black Star Promos"` | `swshp` |
+
+   Confirmed live against TCGdex's complete `/v2/en/sets` listing that every Black Star Promo set
+   follows one of two shapes, and that shape is **not** a deterministic function of the era
+   abbreviation alone:
+
+   | TCGdex set id | TCGdex set name |
+   |---|---|
+   | `dpp` | `DP Black Star Promos` |
+   | `hgssp` | `HGSS Black Star Promos` |
+   | `bwp` | `BW Black Star Promos` |
+   | `xyp` | `XY Black Star Promos` |
+   | `smp` | `SM Black Star Promos` |
+   | `swshp` | `SWSH Black Star Promos` |
+   | `svp` | `SVP Black Star Promos` |
+   | `mep` | `MEP Black Star Promos` |
+
+   Six eras (DP, HGSS, BW, XY, SM, SWSH) use the plain abbreviation; two (SV, ME) append a `P`.
+   There is no rule evidenced in this data that predicts which form a given era uses.
+
+**Decision**: Extend `PokemonSeriesPrefixNormalizer.NormalizeCandidates` so that, only when
+`Normalize` *did* recognize a known abbreviation prefix (reusing that same recognized abbreviation
+— no independent detection), and the resulting stripped name ends with `" Promo"` or
+`" Promo Cards"` (the exact trailing shape evidenced above — narrow and evidence-based, not a
+speculative general rule), it appends two more candidates ahead of any existing colon-to-space
+fallback: `"{abbreviation} Black Star Promos"` and `"{abbreviation}P Black Star Promos"`. Both are
+tried against TCGdex's real, live-fetched set-name dictionary exactly like every other candidate —
+never asserted directly — so a wrong guess for some future, unevidenced era just fails to match
+(falls back to the placeholder, per Principle V) rather than risking a wrong image.
+
+**Rationale**: This mirrors the exact design already used for the Celebrations colon-to-space
+fallback (§4 above, correction 2) — reuse already-computed state (the recognized abbreviation),
+add a narrowly-triggered additional candidate, and let the existing "verify against the live set
+list" step be the only thing that decides whether a candidate is actually used. Trying both known
+suffix shapes rather than picking one is safe specifically because every produced candidate is
+checked against the authoritative fetched dictionary before ever being used — this is not a guess
+that reaches the picker, only a guess about which literal string to look up.
+
+**Alternatives considered**: A per-era explicit mapping table (era abbreviation → TCGdex promo set
+id), similar in shape to the existing `pokemon-series-abbreviations.json` — rejected for this fix:
+it would require the exact same two literal forms this decision already tries, just spelled out
+once per era instead of computed from the abbreviation already on hand; the two-candidate approach
+covers every era observed today without needing a new data file, and remains exactly as safe
+because both candidates are still verified against the live set list before use. If a future era
+were discovered that uses neither shape, that would need its own table entry at that time — not
+a reason to add one preemptively now (Principle XIII).
+
+**Status**: Implemented and verified (T028o–T028r). Unit tests confirm both candidate forms
+resolve correctly and non-promo-shaped names are unaffected; a live manual check against the real
+order confirmed Pecharunt and Terapagos ex (`"SV: Scarlet & Violet Promo Cards"`) now display real
+images. Sobble and Charizard ex (`"ME: Mega Evolution Promo"` / `"SV: Scarlet & Violet Promo
+Cards"`) still correctly show the placeholder — confirmed live that TCGdex's own card records for
+`mep-054` and `svp-196` have no `image` field at all, the same safe-fallback category already
+documented above for Roserade/Spiritomb, not a defect in this fix.
 
 ---
 
