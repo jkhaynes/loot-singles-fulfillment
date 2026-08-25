@@ -57,6 +57,47 @@ Every user story below adds one real provider on top of this; none of them touch
 - [X] T018 Adjust `frontend/src/features/orders/OrderDetailPage.css` as needed so a real card image renders at the same size/position the placeholder already occupies, remaining legible at mobile width
 - [X] T019 Run T014, confirm it passes, and run the full frontend test suite to confirm no regression
 
+### Batch-Shaped Provider Contract (added pre-User-Story-3, per Clarifications 2026-08-25 — Scryfall rate-limit research; design confirmed, see plan.md/research.md)
+
+**Purpose**: Give `ICardCatalogProvider` an additive batch operation (a list of identities in, a
+dictionary of results out) alongside its existing single-card one, via a C# default interface
+method that fans out to the single-card operation unless a provider overrides it — so
+`OrdersService` can call each provider once per game instead of once per line, required for User
+Story 3 to use Scryfall's `POST /cards/collection` batch endpoint safely. This is additive, not a
+breaking signature change: `TcgdexCardCatalogProvider` and every existing fake
+`ICardCatalogProvider` in the test suite implement only the single-card operation today and need
+**no changes** — they inherit correct batch behavior automatically.
+
+- [ ] T028y Add a failing unit test to a new `backend/tests/LootSingles.UnitTests/CardCatalog/CardCatalogProviderDefaultBatchTests.cs`
+  proving the interface's default `TryMatchImageUrlsAsync` body is correct against a minimal fake
+  that implements only `TryMatchImageUrlAsync`: a batch of multiple distinct identities resolves
+  each independently (fanned out, not serialized — assert via a fake that records concurrent
+  in-flight calls); duplicate `CardIdentity` values within one batch don't throw and both resolve
+  to the same result. Add `TryMatchImageUrlsAsync` to `ICardCatalogProvider` (Application) as a
+  default interface method per research.md §3's design to make it pass — no other provider file
+  changes
+- [ ] T028z Add failing unit tests to `CardImageEnrichmentServiceTests.cs` for the new
+  `TryGetImageUrlsAsync(productLine, IReadOnlyList<CardIdentity>, CancellationToken) -> IReadOnlyDictionary<CardIdentity, string?>`
+  shape (replacing the old single-identity `TryGetImageUrlAsync`): no registered provider for the
+  game returns every identity mapped to `null` without invoking any provider; a registered provider
+  delegates and its returned dictionary passes through (using the existing hand-rolled fakes
+  unchanged — they still implement only the single-card method); a provider that throws returns
+  every identity mapped to `null` rather than propagating. Implement
+  `CardImageEnrichmentService.TryGetImageUrlsAsync` to make them pass
+- [ ] T028aa Add a failing unit test to `OrdersServiceTests.cs` proving `GetByIdAsync` groups lines
+  by `ProductLine`, calls the enrichment service once per distinct game present (not once per
+  line), and — critically — preserves each line's original position/order in the response
+  regardless of grouping. Update `OrdersService.GetByIdAsync` to group `order.Lines` by
+  `ProductLine`, call `CardImageEnrichmentService.TryGetImageUrlsAsync` once per group via
+  `Task.WhenAll` across groups, and map each group's dictionary result back to its lines by
+  original index (not by `CardIdentity`, so duplicate identities across different lines each
+  resolve independently and safely) to make it pass
+- [ ] T028ab Run the full backend test suite (unit + integration), the full frontend suite
+  (vitest + Playwright), and CSharpier/Prettier/oxlint to confirm zero behavior change for
+  Pokémon — `TcgdexCardCatalogProviderTests.cs`, `OrdersControllerTests.cs`'s fake providers, and
+  `backend/tests/LootSingles.E2EHost/Program.cs`'s fake provider are all expected to need no
+  changes and no re-verification beyond passing as-is
+
 **Checkpoint**: The enrichment pipeline and UI rendering are fully wired end-to-end, but with zero
 real providers registered — every line still falls back to the placeholder today, exactly as
 before this feature. Each user story below adds one real provider on top of this, unchanged.
@@ -164,14 +205,17 @@ for the unavailable-provider and unsupported-game paths — User Story 2 is comp
 
 ### Tests for User Story 3
 
-- [ ] T034 [P] [US3] Add failing unit tests to `backend/tests/LootSingles.UnitTests/CardCatalog/ScryfallCardCatalogProviderTests.cs` using `StubHttpMessageHandler`: an exact set-code+collector-number match with a verified name returns the card's image URL; no-match, ambiguous-match, and name-mismatch responses each return `null`
-- [ ] T035 [US3] Run T034 and confirm it fails for the expected reason (`ScryfallCardCatalogProvider` doesn't exist yet)
+- [ ] T034a [P] [US3] Add failing unit tests to a new `backend/tests/LootSingles.UnitTests/CardCatalog/ScryfallSetCatalogTests.cs`, mirroring `TcgdexSetCatalogTests.cs` exactly (research.md §3/§12): two calls within the 24-hour cache duration fetch the sets list only once; a call after the duration elapses refetches; a failed fetch is retried on the next call rather than cached for the remainder of the duration (the sticky-failure-cache fix from the TCGdex code-design-review pass, applied here from the start); the resolved dictionary is keyed by set name to set code
+- [ ] T034b [P] [US3] Add failing unit tests to `backend/tests/LootSingles.UnitTests/CardCatalog/ScryfallCardCatalogProviderTests.cs` using `StubHttpMessageHandler`, exercising `TryMatchImageUrlsAsync` with a batch of identities against a stubbed `POST /cards/collection` response: a batch of exact set+collector-number matches with verified names returns each card's image URL, in one outbound request regardless of batch size (up to 75); a card absent from the response's `data` array (Scryfall's `not_found` case) maps to `null`; a returned card whose name doesn't match the imported product name maps to `null`; an unresolvable set name (no match in `ScryfallSetCatalog`) maps to `null` without being included in the outbound request at all; a batch larger than 75 identities is split into multiple chunked requests; duplicate `CardIdentity` values within one batch don't produce a duplicate-key error and both resolve to the same result
+- [ ] T034c [US3] Run T034a–T034b and confirm they fail for the expected reason (`ScryfallSetCatalog`/`ScryfallCardCatalogProvider` don't exist yet)
 
 ### Implementation for User Story 3
 
-- [ ] T036 [US3] Implement `ScryfallCardCatalogProvider` in `backend/src/LootSingles.Infrastructure/CardCatalog/ScryfallCardCatalogProvider.cs`: `ProductLine = "Magic"`; first confirm against Scryfall's live API documentation how to resolve the imported set name to Scryfall's short set code (research.md §3's open item); query the exact set-code + collector-number endpoint; verify the returned card's name; return the image URL only on a single confident match, to make T034 pass
-- [ ] T037 [US3] Register an `HttpClient` for `ScryfallCardCatalogProvider` via `AddHttpClient<ScryfallCardCatalogProvider>()` with a short timeout and a descriptive `User-Agent` header (per Scryfall's usage terms, research.md §8) in `backend/src/LootSingles.Api/Program.cs`, and register it as `ICardCatalogProvider`
-- [ ] T038 [US3] Run T034–T035, confirm they pass, and run the full backend test suite to confirm no regression
+- [ ] T035 [US3] Confirm against Scryfall's live API documentation (research.md §3) the exact `/sets` list shape (`code`/`name` fields) and the `/cards/collection` request/response shape (`identifiers` array of `{set, collector_number}` objects, `data` array of matched cards, `not_found` array) before implementing, per research.md §3's confirmed findings — this task exists to keep the confirmation traceable alongside implementation, not to re-derive it
+- [ ] T036a [US3] Implement `ScryfallSetCatalog` in `backend/src/LootSingles.Infrastructure/CardCatalog/ScryfallSetCatalog.cs`: singleton-lifetime, copied from `TcgdexSetCatalog`'s proven design (Lock-guarded cached `Task<IReadOnlyDictionary<string,string>>`, 24-hour duration via injected `TimeProvider`, `IHttpClientFactory`-per-fetch, and the sticky-failure-cache fix applied from the start rather than discovered later) to make T034a pass
+- [ ] T036b [US3] Implement `ScryfallCardCatalogProvider` in `backend/src/LootSingles.Infrastructure/CardCatalog/ScryfallCardCatalogProvider.cs` per research.md §3: `ProductLine = "Magic"`; `TryMatchImageUrlsAsync` dedupes incoming identities, resolves each identity's set name via `ScryfallSetCatalog` (dropping unresolvable ones from the request, mapped to `null`), chunks the remainder at 75 identifiers per `POST /cards/collection` request, verifies each returned card's name against the imported product name (PRD §32), and returns the image URL (`image_uris` or, for double-faced cards, the first face's) only for confident matches, to make T034b pass
+- [ ] T037 [US3] Register a named `"scryfall"` `HttpClient` via `AddHttpClient("scryfall", ...)` with a short timeout and a descriptive `User-Agent` header (per Scryfall's usage terms, research.md §8) in `backend/src/LootSingles.Api/Program.cs`; register `ScryfallSetCatalog` as a singleton and `ScryfallCardCatalogProvider` as `ICardCatalogProvider`, following the same registration shape `TcgdexSetCatalog`/`TcgdexCardCatalogProvider` already establish
+- [ ] T038 [US3] Run T034a–T034c, confirm they pass, and run the full backend test suite to confirm no regression
 
 ### E2E for User Story 3
 

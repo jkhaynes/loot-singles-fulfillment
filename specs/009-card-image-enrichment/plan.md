@@ -78,6 +78,45 @@ a fourth already anticipated by the PRD) and by testability (isolating the codeb
 external HTTP dependency). No persistence, resilience/retry, or metadata abstraction was added
 beyond what FR-002/FR-004/FR-007 actually require. No deviation required.
 
+**Update (Clarifications, 2026-08-25 — `ICardCatalogProvider` gains an additive batch operation)**:
+Pre-implementation research for User Story 3 found Scryfall enforces real, hard rate limits
+(unlike TCGdex) and offers a batch lookup endpoint (`POST /cards/collection`, up to 75 identities
+per request) that both avoids that risk and directly satisfies Scryfall's own bulk-data caching
+guidance — see research.md §1/§3/§7 for the full evidence and alternatives considered. This
+changes three rows of the table above:
+
+- `ICardCatalogProvider` gains a second operation,
+  `TryMatchImageUrlsAsync(IReadOnlyList<CardIdentity>, CancellationToken) -> IReadOnlyDictionary<CardIdentity, string?>`,
+  **added alongside** the original single-card `TryMatchImageUrlAsync`, as a C# default interface
+  method whose body fans out to the single-card operation unless a provider overrides it. This is
+  still the same adapter boundary and the same variation point (one implementation per game); the
+  addition responds to a second concrete provider (Scryfall) revealing a genuinely different
+  efficient shape than the first (TCGdex), which is exactly the situation Constitution Principle
+  XII names as warranting a real extension boundary — but making it additive rather than a breaking
+  signature change means the extension costs nothing for a provider that doesn't need it.
+- `TcgdexCardCatalogProvider` (and `LorcastCardCatalogProvider` once implemented) require **no
+  code change at all** — they keep implementing only the single-card operation exactly as today,
+  and inherit a correct, behavior-identical batch operation via the interface's default method.
+  Nothing about the picking domain, the API contract, or the frontend changes, and nothing about
+  Pokémon's already-shipped implementation or test coverage needs to move.
+- `OrdersService.GetByIdAsync` now groups an order's lines by `ProductLine` before enriching,
+  and calls `CardImageEnrichmentService` (and, transitively, the one matching provider's batch
+  operation) once per distinct game present rather than once per line — still concurrent across
+  groups (`Task.WhenAll`), still independently try/caught per group, still untouched for
+  `GetAllAsync`. Only `ScryfallCardCatalogProvider` overrides the batch operation with real
+  `POST /cards/collection` logic; its own single-card operation (still required by the interface)
+  delegates to the batch one with a one-item list.
+
+No other row in the table changes. This was chosen over an alternative that would have left
+`ICardCatalogProvider` untouched entirely and hidden a timing-based request-coalescing buffer
+inside `ScryfallCardCatalogProvider` — rejected because `OrdersService` already knows an order's
+complete set of lines upfront with certainty, so inferring the batch from concurrent-call timing
+would solve a problem that doesn't exist, in exchange for a narrower diff that leaves a trickier,
+harder-to-test mechanism as the only thing standing between this feature and Scryfall's rate
+limits. An earlier draft of this same decision replaced the single-card operation outright rather
+than adding to it — revisited once it was clear that would force `TcgdexCardCatalogProvider` and
+its full test file to be rewritten for no behavioral benefit.
+
 ## Project Structure
 
 ### Documentation (this feature)

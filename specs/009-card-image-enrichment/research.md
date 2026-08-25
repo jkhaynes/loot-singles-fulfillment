@@ -18,6 +18,14 @@ rejected; this is exactly the "central conditional/orchestration code that must 
 modified" Principle XII warns against, since adding One Piece would mean editing that switch
 rather than adding a file.
 
+**Update (Clarifications, 2026-08-25)**: `ICardCatalogProvider` gains an additive batch operation
+(`IReadOnlyList<CardIdentity>` in, `IReadOnlyDictionary<CardIdentity, string?>` out) alongside the
+original single-card one, as a default interface method that fans out to the single-card method
+unless a provider overrides it — see §3's Scryfall rate-limit findings for the full rationale.
+`TcgdexCardCatalogProvider` needs no changes; only `ScryfallCardCatalogProvider` overrides the
+batch method. The adapter-per-game boundary itself, and `CardImageEnrichmentService`'s role in
+picking the one provider for a line's game, are unchanged.
+
 ## 2. Matching algorithm
 
 **Decision**: Implement PRD §32's conservative algorithm literally, inside each provider adapter:
@@ -58,6 +66,140 @@ safe rather than fails dangerous.
 **Rationale**: Scryfall's own documentation recommends exactly this exact-identity lookup pattern
 for print-level accuracy, matching PRD §31's assessment of it as "well suited to matching using
 set and collector number." No API key is required for read access.
+
+**Update (Clarifications, 2026-08-25 — pre-implementation provider/rate-limit audit)**: Before
+starting this user story, and directly motivated by the Pokémon TCG API's earlier reliability
+surprise (§4), Scryfall's actual terms and every credible free alternative were checked live
+rather than assumed.
+
+*Alternatives evaluated and rejected*:
+
+- **magicthegathering.io** — confirmed live to return zero results for `Final Fantasy` (a real
+  set already used in this project's own fixtures/tests — `"Commander: FINAL FANTASY"`), and its
+  live rate-limit response header (`Ratelimit-Limit: 1000`) disagreed with its own published docs
+  (5000/hour). An independent 2026 API comparison corroborates this: "Deprecated/unmaintained...
+  Missing newer sets... Slower response times." Disqualified on data freshness alone.
+- **TCG API (tcgapi.dev)** — a newer multi-game pricing API. Disqualified because it hosts no
+  card images at all (only TCGPlayer product links, per its own docs), which this feature requires,
+  and its free tier is capped at 100 requests/day.
+- **MTGJSON** — bulk JSON downloads, not a live API, and explicitly has no images of its own
+  ("get card images through Scryfall using the `scryfallId` property" per its own FAQ). Even this
+  path terminates at Scryfall for the one thing this feature actually needs.
+- **TCGdex** — confirmed to be Pokémon-only ("The Multilingual Pokémon TCG API"); not an option
+  for Magic.
+
+Scryfall remains the correct, and effectively only credible, choice.
+
+*Rate limits — a materially different situation than TCGdex*: unlike TCGdex ("no published hard
+rate limits"), Scryfall's docs are explicit that "endpoints (especially for card data) have
+specific hard rate limits," confirmed on their Rate Limits page:
+
+| Endpoint | Limit |
+|---|---|
+| `/cards/search`, `/cards/named`, `/cards/random`, `/cards/collection` | 2/second |
+| `/cards/manifest` | 10/minute |
+| All other methods (including `/cards/:code/:number` and `/sets`) | 10/second |
+| Direct image files (`*.scryfall.io`) | No rate limit |
+
+Exceeding the limit returns `429` and a 30-second lockout; "continuing to overload the API after
+this point may result in a temporary or permanent ban of your application" — a harder, enforced
+consequence than TCGdex's soft "please be considerate" ask. This project's own `Task.WhenAll`
+concurrency design (§7), safe for TCGdex (no hard limit, proven via a 50-concurrent-request live
+test), would not be safe unmodified against Scryfall: an order with more than ~10 Magic lines
+resolving in the same instant could trigger `429`s, and repeated overage risks the shop's Scryfall
+access being throttled or banned entirely.
+
+*Decision — use `POST /cards/collection`*: Scryfall's batch endpoint accepts up to 75 card
+identifiers per request (including the exact `{set, collector_number}` shape this feature needs)
+and returns every matching card in one response. It sits in the 2/second bucket, which is
+irrelevant once a single order's Magic lines fit in one (or, for an implausibly large order,
+a small handful of chunked) request(s) rather than one request per card. This directly satisfies
+Scryfall's own caching/bulk-use guidance ("we encourage you to cache the data you download from
+Scryfall... at least for 24 hours" — matching the 24-hour duration already chosen for
+`TcgdexSetCatalog`, §12) far better than per-card polling ever could, and sidesteps the hard
+rate-limit risk entirely rather than managing it with a throttle.
+
+**Decision — add a batch-shaped operation to `ICardCatalogProvider`, additively**: Using the batch
+endpoint properly requires the provider boundary to accept a list of card identities and return a
+mapping of results, not one identity in/one result out. `OrdersService.GetByIdAsync` already has
+every line of an order available before enrichment starts, so it can group lines by `ProductLine`
+and call each matching provider exactly once per group — no timing-based coalescing is needed to
+"discover" the batch, unlike a request-scoped API that doesn't know its future callers in advance.
+
+Rather than replacing the existing single-card `TryMatchImageUrlAsync` operation — which
+`TcgdexCardCatalogProvider` already implements and `LorcastCardCatalogProvider` will implement,
+and which has no batch-friendly endpoint to exploit on either provider — the new batch operation
+is added to the interface as a C# default interface method whose body fans out to the single-card
+one:
+
+```csharp
+public interface ICardCatalogProvider
+{
+    string ProductLine { get; }
+
+    Task<string?> TryMatchImageUrlAsync(CardIdentity identity, CancellationToken cancellationToken);
+
+    // Default: fan out to TryMatchImageUrlAsync, unchanged concurrency/outward behavior from
+    // today. A provider overrides this only when it has a genuine batch endpoint to use instead.
+    async Task<IReadOnlyDictionary<CardIdentity, string?>> TryMatchImageUrlsAsync(
+        IReadOnlyList<CardIdentity> identities,
+        CancellationToken cancellationToken
+    )
+    {
+        var distinctIdentities = identities.Distinct().ToArray();
+        var results = await Task.WhenAll(
+            distinctIdentities.Select(async identity =>
+                (identity, url: await TryMatchImageUrlAsync(identity, cancellationToken))
+            )
+        );
+        return results.ToDictionary(r => r.identity, r => r.url);
+    }
+}
+```
+
+`TcgdexCardCatalogProvider` needs **no code change at all** — it keeps implementing only
+`TryMatchImageUrlAsync` exactly as it does today, and inherits a correct, behavior-identical batch
+operation via the interface's default body. `LorcastCardCatalogProvider` will do the same when
+built. Only `ScryfallCardCatalogProvider` overrides `TryMatchImageUrlsAsync` with real batch logic:
+resolve set names to codes via a new `ScryfallSetCatalog` (mirroring `TcgdexSetCatalog`'s
+singleton/24-hour-cache/`IHttpClientFactory`-per-fetch design from §12, including its
+sticky-failure-cache fix from the code-design-review pass — the same defensive design applies here
+from the start), then issue one `POST /cards/collection` request per ≤75-identity chunk, verify
+each returned card's name (PRD §32), and populate the result dictionary. Its own
+`TryMatchImageUrlAsync` (still required by the interface) simply delegates to the batch method with
+a one-item list. A `CardIdentity` producing no confident match (set doesn't resolve, card isn't in
+the response, or name doesn't verify) maps to `null`, same safe-fallback semantics as today.
+
+**Rationale**: This is not reshaping a shared abstraction for a hypothetical future need —
+Scryfall is a second, already-approved, concretely different provider whose efficient shape
+genuinely differs from TCGdex's, which is exactly the situation Constitution Principle XII names
+as warranting a real extension boundary rather than a workaround. Making the addition purely
+additive (default interface method, not a breaking signature change) means the already-shipped,
+already-tested `TcgdexCardCatalogProvider` — and every existing fake `ICardCatalogProvider` used
+across the test suite, none of which implement more than the single-card method — needs zero
+changes and zero re-verification beyond confirming the default method itself is correct, which is
+a smaller, safer diff than forcing every provider to conform to a batch shape it doesn't need.
+Duplicate `CardIdentity` values within one batch (e.g. two order lines that happen to describe the
+identical card) are handled by deduping before building each provider's result dictionary — reads
+against the resulting dictionary are unaffected by duplicates, since two lines describing the same
+card correctly resolve to the same image.
+
+**Alternatives considered**: A request-coalescing/"DataLoader" pattern kept entirely inside
+`ScryfallCardCatalogProvider`, leaving `ICardCatalogProvider`, `TcgdexCardCatalogProvider`, and
+`OrdersService` untouched — considered and rejected. It would need a buffering-window heuristic
+(how long to wait for concurrent callers before flushing) to discover its own batch, when
+`OrdersService` already knows the complete batch upfront with certainty; solving a problem that
+doesn't exist (timing-based batch discovery) in exchange for avoiding a wider, but more honest and
+more testable, diff was judged the worse trade. Unconditionally replacing the single-card method
+with a batch-only signature (an earlier draft of this decision) — rejected once revisited: it would
+have forced `TcgdexCardCatalogProvider` and its full test file to be rewritten for no behavioral
+benefit, when a default interface method achieves the identical outward contract for zero diff on
+every provider that doesn't need batching. A per-provider concurrency-limiting semaphore
+(bounding concurrent per-card Scryfall calls under its rate limit) was also considered as a
+smaller alternative to batching altogether — rejected because it still leaves an order with many
+Magic lines taking multiple seconds to resolve and does not address Scryfall's own explicit
+request to avoid fetching the same/similar data repeatedly; the batch endpoint solves both the
+rate-limit risk and the latency at once.
 
 ## 4. Pokémon — TCGdex (switched from the Pokémon TCG API)
 
@@ -396,6 +538,17 @@ directly works against a picker's ability to use the view promptly.
 **Alternatives considered**: Sequential enrichment — rejected as the simplest-but-slowest option
 with no offsetting benefit; concurrent calls to independent external services carry no shared-state
 risk here since each line's enrichment is fully independent.
+
+**Update (Clarifications, 2026-08-25)**: With `ICardCatalogProvider` gaining an additive batch
+operation (§1, §3), concurrency now happens at two levels: `OrdersService.GetByIdAsync` groups an
+order's lines by `ProductLine` and calls `Task.WhenAll` **once per distinct game present**
+(unchanged in spirit — still concurrent, still independently try/caught per group), and each
+provider decides its own internal concurrency for resolving its group's identities (TCGdex's
+default-interface-method fan-out is per-card concurrent via `Task.WhenAll`, byte-for-byte
+identical to today's behavior; Scryfall issues one batched request per ≤75-identity chunk instead
+of fanning out at all). An order with only Pokémon and Magic lines now makes at most two top-level
+provider calls total (one per game), each independently safe-failing, rather than one call per
+line.
 
 ## 8. Secrets and configuration
 
