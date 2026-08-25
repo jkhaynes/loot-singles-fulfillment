@@ -32,6 +32,24 @@ public static partial class OrderLineExtractor
         }
 
         var setAndProductSegments = segments.Skip(1).Take(collectorIndex - 1).ToArray();
+
+        // TCGplayer sometimes prints the collector number twice for certain rarities - once as a
+        // bare, unprefixed echo immediately before the "#"-prefixed collector number segment
+        // itself (e.g. "Fomantis - 085/084 - #085/084 - ..."). When the segment right before the
+        // true collector number is an exact match for it (minus the "#"), it's a redundant echo,
+        // not part of the set or product name - drop it.
+        if (
+            setAndProductSegments.Length > 0
+            && string.Equals(
+                setAndProductSegments[^1],
+                segments[collectorIndex].TrimStart('#'),
+                StringComparison.Ordinal
+            )
+        )
+        {
+            setAndProductSegments = setAndProductSegments[..^1];
+        }
+
         var setAndProduct = string.Join(" - ", setAndProductSegments);
         var separator = setAndProduct.LastIndexOf(':');
 
