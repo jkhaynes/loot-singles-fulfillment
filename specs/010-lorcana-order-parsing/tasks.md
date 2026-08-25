@@ -55,9 +55,9 @@
 
 **Purpose**: Confirm full regression and complete manual validation.
 
-- [ ] T010 [P] Run backend build, full unit suite, full SQL Server integration suite, and CSharpier; confirm all existing tests remain green and record results in `specs/010-lorcana-order-parsing/validation-results.md`
-- [ ] T011 Perform the quickstart.md manual validation (import the real sample through the running app, confirm correct display in Browse Orders / the order detail view, confirm Pokémon import unaffected, confirm genuinely malformed data is still rejected) and record observations in `specs/010-lorcana-order-parsing/validation-results.md`
-- [ ] T012 Perform the constitution Architecture and Changeability Review against the implemented fix, capture any Must Fix findings as new tasks in `specs/010-lorcana-order-parsing/tasks.md`, and do not proceed to convergence until resolved
+- [X] T010 [P] Run backend build, full unit suite, full SQL Server integration suite, and CSharpier; confirm all existing tests remain green and record results in `specs/010-lorcana-order-parsing/validation-results.md`
+- [X] T011 Perform the quickstart.md manual validation (import the real sample through the running app, confirm correct display in Browse Orders / the order detail view, confirm Pokémon import unaffected, confirm genuinely malformed data is still rejected) and record observations in `specs/010-lorcana-order-parsing/validation-results.md` — performed by the Developer directly
+- [X] T012 Perform the constitution Architecture and Changeability Review against the implemented fix, capture any Must Fix findings as new tasks in `specs/010-lorcana-order-parsing/tasks.md`, and do not proceed to convergence until resolved
 
 ---
 
