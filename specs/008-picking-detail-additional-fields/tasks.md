@@ -45,16 +45,16 @@ depend on this — there is no new endpoint or route, just a wider response on t
 
 ### Tests for User Story 1
 
-- [ ] T007 [P] [US1] Extend the render test in `frontend/tests/orders/OrderDetailPage.test.tsx` (the one asserting the order identifier and every line field): assert `productLine` and `collectorNumber` render for every line, and `rarity` renders for the line where it's present
-- [ ] T008 [P] [US1] Add a failing test case to `frontend/tests/orders/OrderDetailPage.test.tsx`: a line with `rarity: null` renders without a blank or broken rarity field (no "Rarity" label rendered for that line), mirroring the existing variant-omission assertion, per FR-003
-- [ ] T009 [US1] Run T007–T008 and confirm they fail for the expected reason (`OrderDetailPage` does not render `productLine`, `collectorNumber`, or `rarity` yet)
+- [X] T007 [P] [US1] Extend the render test in `frontend/tests/orders/OrderDetailPage.test.tsx` (the one asserting the order identifier and every line field): assert `productLine` and `collectorNumber` render for every line, and `rarity` renders for the line where it's present
+- [X] T008 [P] [US1] Add a failing test case to `frontend/tests/orders/OrderDetailPage.test.tsx`: a line with `rarity: null` renders without a blank or broken rarity field (no "Rarity" label rendered for that line), mirroring the existing variant-omission assertion, per FR-003
+- [X] T009 [US1] Run T007–T008 and confirm they fail for the expected reason (`OrderDetailPage` does not render `productLine`, `collectorNumber`, or `rarity` yet)
 
 ### Implementation for User Story 1
 
-- [ ] T010 [P] [US1] Extend `OrderLineDetail` in `frontend/src/features/orders/ordersApi.ts`: add `productLine: string`, `collectorNumber: string`, `rarity: string | null`
-- [ ] T011 [US1] Update `frontend/src/features/orders/OrderDetailPage.tsx` to render `productLine` and `collectorNumber` unconditionally and `rarity` conditionally (omitted when `null`, mirroring the existing `variant` treatment) for every line, to make T007–T008 pass
-- [ ] T012 [US1] Adjust `frontend/src/features/orders/OrderDetailPage.css` as needed so the three added attribute rows remain legible and unclipped within the existing `.order-detail-line__attributes` grid
-- [ ] T013 [US1] Run T007–T008, confirm they pass, and run the full frontend test suite to confirm no regression
+- [X] T010 [P] [US1] Extend `OrderLineDetail` in `frontend/src/features/orders/ordersApi.ts`: add `productLine: string`, `collectorNumber: string`, `rarity: string | null`
+- [X] T011 [US1] Update `frontend/src/features/orders/OrderDetailPage.tsx` to render `productLine` and `collectorNumber` unconditionally and `rarity` conditionally (omitted when `null`, mirroring the existing `variant` treatment) for every line, to make T007–T008 pass
+- [X] T012 [US1] Adjust `frontend/src/features/orders/OrderDetailPage.css` as needed so the three added attribute rows remain legible and unclipped within the existing `.order-detail-line__attributes` grid
+- [X] T013 [US1] Run T007–T008, confirm they pass, and run the full frontend test suite to confirm no regression
 
 **Checkpoint**: Every product line shows its game, collector number, and rarity (when present) — User Story 1 is independently complete and testable.
 

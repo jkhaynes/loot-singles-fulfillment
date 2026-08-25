@@ -70,9 +70,23 @@ export function OrderDetailPage() {
                 <h2>{line.productName}</h2>
                 <dl className="order-detail-line__attributes">
                   <div>
+                    <dt>Product Line</dt>
+                    <dd>{line.productLine}</dd>
+                  </div>
+                  <div>
                     <dt>Set</dt>
                     <dd>{line.set}</dd>
                   </div>
+                  <div>
+                    <dt>Collector Number</dt>
+                    <dd>{line.collectorNumber}</dd>
+                  </div>
+                  {line.rarity !== null && (
+                    <div>
+                      <dt>Rarity</dt>
+                      <dd>{line.rarity}</dd>
+                    </div>
+                  )}
                   {line.variant !== null && (
                     <div>
                       <dt>Variant</dt>
