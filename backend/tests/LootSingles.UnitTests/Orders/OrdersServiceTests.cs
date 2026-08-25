@@ -32,8 +32,91 @@ public sealed class OrdersServiceTests
         Assert.Same(expected, result);
     }
 
+    [Fact]
+    public async Task GetByIdAsync_GroupsLinesByProductLineAndPreservesOriginalLineOrder()
+    {
+        var pokemonProvider = new RecordingProvider("Pokemon");
+        var magicProvider = new RecordingProvider("Magic");
+        var lines = new[]
+        {
+            NewLine("Magic", "Lightning Bolt"),
+            NewLine("Pokemon", "Pikachu"),
+            NewLine("Magic", "Counterspell"),
+            NewLine("Pokemon", "Charizard"),
+        };
+        var order = new OrderDetail(1, "ORDER-1", OrderStatus.Ready, lines);
+        var enrichmentService = new CardImageEnrichmentService(
+            [pokemonProvider, magicProvider],
+            NullLogger<CardImageEnrichmentService>.Instance
+        );
+        var service = new OrdersService(new FakeOrderDetailRepository(order), enrichmentService);
+
+        var result = await service.GetByIdAsync(1, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(
+            ["Lightning Bolt", "Pikachu", "Counterspell", "Charizard"],
+            result!.Lines.Select(line => line.ProductName).ToArray()
+        );
+        Assert.Equal(
+            new string?[]
+            {
+                "image-for-Lightning Bolt",
+                "image-for-Pikachu",
+                "image-for-Counterspell",
+                "image-for-Charizard",
+            },
+            result.Lines.Select(line => line.ImageUrl).ToArray()
+        );
+        Assert.Equal(1, pokemonProvider.BatchCallCount);
+        Assert.Equal(1, magicProvider.BatchCallCount);
+        Assert.Equal(2, pokemonProvider.LastBatchSize);
+        Assert.Equal(2, magicProvider.LastBatchSize);
+    }
+
+    private static OrderLineDetail NewLine(string productLine, string productName) =>
+        new(productName, productLine, "Set", "#1", null, null, "Near Mint", 1);
+
     private static CardImageEnrichmentService NewEnrichmentService() =>
         new([], NullLogger<CardImageEnrichmentService>.Instance);
+
+    private sealed class RecordingProvider(string productLine) : ICardCatalogProvider
+    {
+        public string ProductLine { get; } = productLine;
+        public int BatchCallCount { get; private set; }
+        public int LastBatchSize { get; private set; }
+
+        public Task<string?> TryMatchImageUrlAsync(
+            CardIdentity identity,
+            CancellationToken cancellationToken
+        ) => throw new NotSupportedException("Only the batch operation is expected to be called.");
+
+        public Task<IReadOnlyDictionary<CardIdentity, string?>> TryMatchImageUrlsAsync(
+            IReadOnlyList<CardIdentity> identities,
+            CancellationToken cancellationToken
+        )
+        {
+            BatchCallCount++;
+            LastBatchSize = identities.Count;
+            IReadOnlyDictionary<CardIdentity, string?> result = identities
+                .Distinct()
+                .ToDictionary(
+                    identity => identity,
+                    identity => (string?)$"image-for-{identity.ProductName}"
+                );
+            return Task.FromResult(result);
+        }
+    }
+
+    private sealed class FakeOrderDetailRepository(OrderDetail order) : IOrderRepository
+    {
+        public Task<IReadOnlyList<OrderListItem>> GetAllAsync(
+            CancellationToken cancellationToken
+        ) => Task.FromResult<IReadOnlyList<OrderListItem>>([]);
+
+        public Task<OrderDetail?> GetByIdAsync(int orderId, CancellationToken cancellationToken) =>
+            Task.FromResult<OrderDetail?>(order);
+    }
 
     private sealed class FakeOrderRepository(IReadOnlyList<OrderListItem> orders) : IOrderRepository
     {

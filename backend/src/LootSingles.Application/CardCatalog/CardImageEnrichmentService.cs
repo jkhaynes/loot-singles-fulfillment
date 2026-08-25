@@ -7,9 +7,9 @@ public sealed class CardImageEnrichmentService(
     ILogger<CardImageEnrichmentService> logger
 )
 {
-    public async Task<string?> TryGetImageUrlAsync(
+    public async Task<IReadOnlyDictionary<CardIdentity, string?>> TryGetImageUrlsAsync(
         string productLine,
-        CardIdentity identity,
+        IReadOnlyList<CardIdentity> identities,
         CancellationToken cancellationToken
     )
     {
@@ -18,21 +18,26 @@ public sealed class CardImageEnrichmentService(
         );
         if (provider is null)
         {
-            return null;
+            return NullResultFor(identities);
         }
 
         try
         {
-            return await provider.TryMatchImageUrlAsync(identity, cancellationToken);
+            return await provider.TryMatchImageUrlsAsync(identities, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(
                 ex,
-                "Card catalog provider for product line {ProductLine} failed to resolve an image.",
-                productLine
+                "Card catalog provider for product line {ProductLine} failed to resolve images for {Count} card(s).",
+                productLine,
+                identities.Count
             );
-            return null;
+            return NullResultFor(identities);
         }
     }
+
+    private static IReadOnlyDictionary<CardIdentity, string?> NullResultFor(
+        IReadOnlyList<CardIdentity> identities
+    ) => identities.Distinct().ToDictionary(identity => identity, _ => (string?)null);
 }

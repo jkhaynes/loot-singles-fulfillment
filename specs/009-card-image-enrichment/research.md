@@ -149,13 +149,38 @@ public interface ICardCatalogProvider
         var distinctIdentities = identities.Distinct().ToArray();
         var results = await Task.WhenAll(
             distinctIdentities.Select(async identity =>
-                (identity, url: await TryMatchImageUrlAsync(identity, cancellationToken))
-            )
+            {
+                try
+                {
+                    return (identity, url: await TryMatchImageUrlAsync(identity, cancellationToken));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    return (identity, url: (string?)null);
+                }
+            })
         );
         return results.ToDictionary(r => r.identity, r => r.url);
     }
 }
 ```
+
+**Caught during implementation (isolation regression)**: an earlier version of this default method
+let `Task.WhenAll` propagate a single identity's exception unfiltered, which faults the *entire*
+`Task.WhenAll` — meaning one card's provider failure would wipe out every sibling card's
+already-successful result within the same game group, not just that one card. This was caught by
+the existing Playwright suite (the E2E "provider throws for one line" test started failing the
+*other*, healthy Pikachu line too once dispatch moved from one call per line to one call per
+game). Fixed by wrapping each identity's call in its own try/catch inside the fan-out, mapping
+only the failing identity to `null` — restoring the same per-line failure isolation
+`OrdersService` provided before this refactor (research.md §7's original guarantee). Proven by a
+dedicated regression test
+(`TryMatchImageUrlsAsync_DefaultImplementation_OneIdentityThrows_SiblingIdentityStillResolves`).
+`CardImageEnrichmentService`'s own outer catch (§ existing) is still correct and unchanged for the
+case a provider's own overridden batch implementation fails atomically for the whole group (e.g.
+Scryfall's single `POST /cards/collection` request failing at the transport level, where there is
+no way to know which cards would have individually succeeded) — that is a different, legitimately
+group-level failure, not a per-card one.
 
 `TcgdexCardCatalogProvider` needs **no code change at all** — it keeps implementing only
 `TryMatchImageUrlAsync` exactly as it does today, and inherits a correct, behavior-identical batch

@@ -68,7 +68,7 @@ breaking signature change: `TcgdexCardCatalogProvider` and every existing fake
 `ICardCatalogProvider` in the test suite implement only the single-card operation today and need
 **no changes** — they inherit correct batch behavior automatically.
 
-- [ ] T028y Add a failing unit test to a new `backend/tests/LootSingles.UnitTests/CardCatalog/CardCatalogProviderDefaultBatchTests.cs`
+- [X] T028y Add a failing unit test to a new `backend/tests/LootSingles.UnitTests/CardCatalog/CardCatalogProviderDefaultBatchTests.cs`
   proving the interface's default `TryMatchImageUrlsAsync` body is correct against a minimal fake
   that implements only `TryMatchImageUrlAsync`: a batch of multiple distinct identities resolves
   each independently (fanned out, not serialized — assert via a fake that records concurrent
@@ -76,7 +76,7 @@ breaking signature change: `TcgdexCardCatalogProvider` and every existing fake
   to the same result. Add `TryMatchImageUrlsAsync` to `ICardCatalogProvider` (Application) as a
   default interface method per research.md §3's design to make it pass — no other provider file
   changes
-- [ ] T028z Add failing unit tests to `CardImageEnrichmentServiceTests.cs` for the new
+- [X] T028z Add failing unit tests to `CardImageEnrichmentServiceTests.cs` for the new
   `TryGetImageUrlsAsync(productLine, IReadOnlyList<CardIdentity>, CancellationToken) -> IReadOnlyDictionary<CardIdentity, string?>`
   shape (replacing the old single-identity `TryGetImageUrlAsync`): no registered provider for the
   game returns every identity mapped to `null` without invoking any provider; a registered provider
@@ -84,7 +84,7 @@ breaking signature change: `TcgdexCardCatalogProvider` and every existing fake
   unchanged — they still implement only the single-card method); a provider that throws returns
   every identity mapped to `null` rather than propagating. Implement
   `CardImageEnrichmentService.TryGetImageUrlsAsync` to make them pass
-- [ ] T028aa Add a failing unit test to `OrdersServiceTests.cs` proving `GetByIdAsync` groups lines
+- [X] T028aa Add a failing unit test to `OrdersServiceTests.cs` proving `GetByIdAsync` groups lines
   by `ProductLine`, calls the enrichment service once per distinct game present (not once per
   line), and — critically — preserves each line's original position/order in the response
   regardless of grouping. Update `OrdersService.GetByIdAsync` to group `order.Lines` by
@@ -92,11 +92,20 @@ breaking signature change: `TcgdexCardCatalogProvider` and every existing fake
   `Task.WhenAll` across groups, and map each group's dictionary result back to its lines by
   original index (not by `CardIdentity`, so duplicate identities across different lines each
   resolve independently and safely) to make it pass
-- [ ] T028ab Run the full backend test suite (unit + integration), the full frontend suite
+- [X] T028ab Run the full backend test suite (unit + integration), the full frontend suite
   (vitest + Playwright), and CSharpier/Prettier/oxlint to confirm zero behavior change for
   Pokémon — `TcgdexCardCatalogProviderTests.cs`, `OrdersControllerTests.cs`'s fake providers, and
-  `backend/tests/LootSingles.E2EHost/Program.cs`'s fake provider are all expected to need no
-  changes and no re-verification beyond passing as-is
+  `backend/tests/LootSingles.E2EHost/Program.cs`'s fake provider needed no changes and required no
+  code changes to build or pass, exactly as designed. **Caught a real regression via the existing
+  Playwright suite**: the default interface method's `Task.WhenAll` faulted the *entire* batch
+  when any one identity's `TryMatchImageUrlAsync` threw, so E2E's intentionally-failing line was
+  wiping out its sibling Pikachu line's already-successful image too — a real loss of the "one
+  line's failure can't block others" guarantee from Phase 3 (US2). Fixed by wrapping each
+  identity's call in its own try/catch inside the default method (mapping only that identity to
+  `null`), added a new regression test
+  (`TryMatchImageUrlsAsync_DefaultImplementation_OneIdentityThrows_SiblingIdentityStillResolves`)
+  proving per-identity isolation. Full suite re-run clean after the fix: 122/122 unit, 107/107
+  integration, 45/45 frontend unit, 10/10 Playwright, CSharpier/Prettier/oxlint all clean
 
 **Checkpoint**: The enrichment pipeline and UI rendering are fully wired end-to-end, but with zero
 real providers registered — every line still falls back to the placeholder today, exactly as
