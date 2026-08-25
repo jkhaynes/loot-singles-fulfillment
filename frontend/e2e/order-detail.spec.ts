@@ -64,3 +64,19 @@ test('falls back to the placeholder for a line whose provider fails, without an 
     'https://static.e2e-fixtures.local/pikachu.png',
   )
 })
+
+test('shows a Magic card image resolved by its own provider', async ({ page }) => {
+  await login(page)
+
+  await page.getByRole('link', { name: 'E2E-ORDER-00001' }).click()
+
+  const line = page.getByRole('article', { name: /Lightning Bolt/i })
+  await expect(line).toContainText('Magic')
+  await expect(line).toContainText('Alpha')
+  await expect(line).toContainText('#161')
+  await expect(line.getByLabel('Card image unavailable')).toHaveCount(0)
+  await expect(line.getByRole('img', { name: /Lightning Bolt/i })).toHaveAttribute(
+    'src',
+    'https://static.e2e-fixtures.local/lightning-bolt.png',
+  )
+})

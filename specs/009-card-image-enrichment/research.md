@@ -67,6 +67,61 @@ safe rather than fails dangerous.
 for print-level accuracy, matching PRD §31's assessment of it as "well suited to matching using
 set and collector number." No API key is required for read access.
 
+**Update (implementation, 2026-08-25 — set-name resolution confirmed live, PRD §41 Q29 resolved
+for Magic)**: Resolved via a cached mapping from Scryfall's `/sets` list (`ScryfallSetCatalog`,
+mirroring `TcgdexSetCatalog`'s design — see the sets-list caching addendum below), never
+`/cards/search` (rate-limited at 2/second and a fuzzy-match endpoint, wrong shape for an exact
+lookup per FR-003). Checked every real Magic `Set` text already present in this project's own
+fixtures (`ValidImportTests.cs`) against Scryfall's live `/sets` data:
+
+| Raw `Set` text | Result |
+|---|---|
+| `"The Hobbit"`, `"Commander Legends"`, `"Tarkir: Dragonstorm"`, `"Duskmourn: House of Horror"`, `"Modern Horizons 3"` | Direct match, no transformation needed — the majority case. Many real Magic set names already contain a colon (e.g. `"Tarkir: Dragonstorm"`), so a colon alone is not a signal that stripping is needed, unlike Pokémon's short-abbreviation-prefix pattern. |
+| `"Commander: FINAL FANTASY"` → `"Final Fantasy Commander"` (`fic`); `"Commander: Marvel Super Heroes"` → `"Marvel Super Heroes Commander"` (`msc`) | TCGplayer's `"Commander: <Set>"` product-line prefix is reversed and de-colonized on Scryfall's side: `"<Set> Commander"`. Confirmed with two independent real examples. |
+| `"Universes Beyond: Fallout"` → `"Fallout"` (`pip`) | TCGplayer's `"Universes Beyond: <Set>"` prefix is a marketing/crossover-line label with no Scryfall equivalent at all — the real set name is just the suffix, prefix dropped entirely. |
+| `"The Hobbit: Eternal-Legal"` → `"The Hobbit Eternal"` (`hoc`, a genuinely distinct real set from `"The Hobbit"`/`hob`) | TCGplayer's `": Eternal-Legal"` suffix maps to a real, separate Scryfall set named `"<Set> Eternal"` — not a pseudo-category to ignore, an actual different print product. |
+
+**Decision**: `MagicSetNameNormalizer.NormalizeCandidates(rawSetText)` (new,
+`LootSingles.Infrastructure/CardCatalog/`, mirroring `PokemonSeriesPrefixNormalizer.NormalizeCandidates`'s
+shape) returns an ordered list of candidates to try against `ScryfallSetCatalog`'s live-fetched
+dictionary, stopping at the first that matches: (1) the raw text unchanged (covers the majority
+direct-match case); (2) if the text starts with `"Commander: "`, the reversed, de-colonized form
+(`"{suffix} Commander"`); (3) if the text starts with `"Universes Beyond: "`, the suffix alone with
+the prefix dropped; (4) if the text ends with `": Eternal-Legal"`, the prefix with `" Eternal"`
+appended instead. Every candidate is only ever used if it exactly matches a real entry already
+present in Scryfall's own fetched set-name dictionary — exactly like `PokemonSeriesPrefixNormalizer`'s
+design — so a set-naming pattern not yet evidenced here simply fails to match and falls back to
+the placeholder (Principle V), never risking a wrong image.
+
+**Rationale**: Same reasoning as the Pokémon precedent (§4's colon-to-space/promo-naming
+corrections): reuse an already-proven, safe candidate-list pattern rather than inventing a new
+mechanism, and only encode transformations backed by real, live-verified evidence rather than a
+guessed general rule (a single incorrect guess at a "general" transformation risks silently
+breaking the majority direct-match case, which trying literal, narrowly-scoped candidates avoids
+entirely).
+
+**Alternatives considered**: A single "smart" normalization function attempting to infer set-name
+transformations generically (e.g., "always try reversing colon-delimited text") — rejected;
+`"Tarkir: Dragonstorm"` and `"Duskmourn: House of Horror"` already directly match, so a
+generic reversal rule would need its own exception list anyway, at which point an explicit,
+narrowly-scoped candidate list is simpler and more auditable (Principle XIII).
+
+**Update (implementation, 2026-08-25 — multi-faced card name verification, caught via live
+Scryfall API check)**: Live-testing the real `POST /cards/collection` call against `hob/271`
+("My Precious", an adventure-layout card) surfaced a genuine defect before it shipped: Scryfall's
+top-level `name` field for a multi-faced card (adventure/split/transform/modal-double-faced
+layouts) is the **combined** name — `"My Precious // Allure of Power"` — not the single front-face
+name the packing slip's `ProductName` actually contains. Comparing against the raw top-level
+`name` would have rejected every multi-faced card as a name mismatch, silently falling back to the
+placeholder for a whole category of real cards. Fixed by comparing against
+`card_faces[0].name` when `card_faces` is present, falling back to the top-level `name` for the
+ordinary single-faced case. The image itself needed no equivalent fix: confirmed live that
+Scryfall still populates the top-level `image_uris` for this adventure-layout example (only some
+layouts, e.g. true double-faced transform cards, put images under `card_faces` instead) — the
+existing `card.ImageUris?.Large ?? card.CardFaces?.FirstOrDefault()?.ImageUris?.Large` fallback
+already covers both shapes correctly. Proven by a dedicated regression test
+(`TryMatchImageUrlsAsync_MultiFacedCard_ComparesAgainstTheFirstFacesNameNotTheCombinedName`).
+
 **Update (Clarifications, 2026-08-25 — pre-implementation provider/rate-limit audit)**: Before
 starting this user story, and directly motivated by the Pokémon TCG API's earlier reliability
 surprise (§4), Scryfall's actual terms and every credible free alternative were checked live

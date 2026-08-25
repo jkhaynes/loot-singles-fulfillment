@@ -17,6 +17,7 @@ using Microsoft.EntityFrameworkCore;
 using Testcontainers.MsSql;
 
 const string FakePikachuImageUrl = "https://static.e2e-fixtures.local/pikachu.png";
+const string FakeLightningBoltImageUrl = "https://static.e2e-fixtures.local/lightning-bolt.png";
 const string FailingProviderCollectorNumber = "#FAIL";
 const string SqlServerImage = "mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-22.04";
 await using var container = new MsSqlBuilder(SqlServerImage).Build();
@@ -55,6 +56,11 @@ builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvider(
     "Pokemon",
     FakePikachuImageUrl,
+    FailingProviderCollectorNumber
+));
+builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvider(
+    "Magic",
+    FakeLightningBoltImageUrl,
     FailingProviderCollectorNumber
 ));
 builder.Services.AddScoped<CardImageEnrichmentService>();
@@ -139,6 +145,16 @@ static async Task SeedAsync(IServiceProvider services)
                     ProductName = "Simulated Provider Failure",
                     Set = "Base Set",
                     CollectorNumber = FailingProviderCollectorNumber,
+                    Condition = "Near Mint",
+                    Quantity = 1,
+                },
+                new OrderLine
+                {
+                    RawDescription = "Lightning Bolt - Alpha - #161 - Common - Near Mint",
+                    ProductLine = "Magic",
+                    ProductName = "Lightning Bolt",
+                    Set = "Alpha",
+                    CollectorNumber = "#161",
                     Condition = "Near Mint",
                     Quantity = 1,
                 },

@@ -84,6 +84,27 @@ builder.Services.AddSingleton<TcgdexSetCatalog>();
 builder.Services.AddScoped<ICardCatalogProvider>(sp =>
     sp.GetRequiredService<TcgdexCardCatalogProvider>()
 );
+builder.Services.AddHttpClient<ScryfallCardCatalogProvider>(client =>
+{
+    client.BaseAddress = new Uri("https://api.scryfall.com/");
+    client.Timeout = TimeSpan.FromSeconds(10);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("LootSinglesFulfillment/1.0");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+});
+builder.Services.AddHttpClient(
+    "scryfall",
+    client =>
+    {
+        client.BaseAddress = new Uri("https://api.scryfall.com/");
+        client.Timeout = TimeSpan.FromSeconds(10);
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("LootSinglesFulfillment/1.0");
+        client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+    }
+);
+builder.Services.AddSingleton<ScryfallSetCatalog>();
+builder.Services.AddScoped<ICardCatalogProvider>(sp =>
+    sp.GetRequiredService<ScryfallCardCatalogProvider>()
+);
 builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();
 builder

@@ -1,6 +1,5 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using LootSingles.Application.CardCatalog;
 
 namespace LootSingles.Infrastructure.CardCatalog;
@@ -17,10 +16,8 @@ namespace LootSingles.Infrastructure.CardCatalog;
 /// by set id + collector number (a unique lookup — TCGdex has no multiple-candidate-match case the
 /// way a text search would).
 /// </summary>
-public sealed partial class TcgdexCardCatalogProvider(
-    HttpClient httpClient,
-    TcgdexSetCatalog setCatalog
-) : ICardCatalogProvider
+public sealed class TcgdexCardCatalogProvider(HttpClient httpClient, TcgdexSetCatalog setCatalog)
+    : ICardCatalogProvider
 {
     public string ProductLine => "Pokemon";
 
@@ -61,7 +58,7 @@ public sealed partial class TcgdexCardCatalogProvider(
         // only a *trailing* parenthetical for this comparison — not a fuzzy match, just excluding
         // text already structurally recognized elsewhere (OrderLineExtractor's own parenthetical
         // marker extraction) as a printing/variant marker rather than part of the card's name.
-        var comparableProductName = StripTrailingParenthetical(identity.ProductName);
+        var comparableProductName = TrailingParentheticalStripper.Strip(identity.ProductName);
         if (!string.Equals(card.Name, comparableProductName, StringComparison.OrdinalIgnoreCase))
         {
             return null;
@@ -69,12 +66,6 @@ public sealed partial class TcgdexCardCatalogProvider(
 
         return $"{card.Image}/high.webp";
     }
-
-    private static string StripTrailingParenthetical(string name) =>
-        TrailingParentheticalPattern().Replace(name, "").TrimEnd();
-
-    [GeneratedRegex(@"\s*\([^()]+\)$")]
-    private static partial Regex TrailingParentheticalPattern();
 
     private static string NormalizeCollectorNumber(string collectorNumber)
     {
