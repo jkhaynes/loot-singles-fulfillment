@@ -92,16 +92,16 @@ that same order (rejected) and a different, unclaimed order (succeeds).
 
 ### Tests for User Story 2 ⚠️ Write first, confirm failing before implementing
 
-- [ ] T018 [P] [US2] Add failing unit tests for `OrderClaimService.ClaimAsync(orderId, actorEmployeeId)` (`Success`, `OrderNotFound`, `AlreadyClaimed`, `EmployeeHasActiveClaim`) in `OrderClaimServiceTests.cs`
-- [ ] T019 [P] [US2] Add failing integration tests for `POST /api/orders/{orderId}/claim` (200, 404, 409 `order_already_claimed` with claimant fields, 409 `employee_has_active_claim`) in `OrdersControllerClaimingTests.cs`
-- [ ] T020 [US2] Add failing real-database concurrency tests in `OrderClaimConcurrencyTests.cs`: (a) two simultaneous `ClaimAsync` calls against the same order id yield exactly one `Success` and one `AlreadyClaimed`; (b) one `PickNextAsync` and one `ClaimAsync` targeting the same order at the same time still yield exactly one winner (spec.md Edge Cases §2)
+- [X] T018 [P] [US2] Add failing unit tests for `OrderClaimService.ClaimAsync(orderId, actorEmployeeId)` (`Success`, `OrderNotFound`, `AlreadyClaimed`, `EmployeeHasActiveClaim`) in `OrderClaimServiceTests.cs`
+- [X] T019 [P] [US2] Add failing integration tests for `POST /api/orders/{orderId}/claim` (200, 404, 409 `order_already_claimed` with claimant fields, 409 `employee_has_active_claim`) in `OrdersControllerClaimingTests.cs`
+- [X] T020 [US2] Add failing real-database concurrency tests in `OrderClaimConcurrencyTests.cs`: (a) two simultaneous `ClaimAsync` calls against the same order id yield exactly one `Success` and one `AlreadyClaimed`; (b) one `PickNextAsync` and one `ClaimAsync` targeting the same order at the same time still yield exactly one winner (spec.md Edge Cases §2)
 
 ### Implementation for User Story 2
 
-- [ ] T021 [US2] Add `ClaimSpecificAsync(int orderId, int actorEmployeeId, CancellationToken)` to `IOrderRepository`/`OrderRepository`: the same conditional `ExecuteUpdateAsync` predicate as T013 but targeting a caller-supplied `orderId`; on 0-rows-affected, load the order (with `ClaimedByEmployee`) to distinguish "doesn't exist" from "already claimed by X"
-- [ ] T022 [US2] Implement `OrderClaimService.ClaimAsync(int orderId, int actorEmployeeId, CancellationToken)`, reusing `HasActiveClaimAsync` and `ClaimSpecificAsync`, mapping outcomes per `contracts/order-claiming-api.md` — depends on T014, T021
-- [ ] T023 [US2] Add `POST /api/orders/{orderId}/claim` to `OrdersController.cs` — depends on T022
-- [ ] T024 [US2] Add logging for claim success/already-claimed/lost-race outcomes in `OrderClaimService.cs`
+- [X] T021 [US2] Add `ClaimSpecificAsync(int orderId, int actorEmployeeId, CancellationToken)` to `IOrderRepository`/`OrderRepository`: the same conditional `ExecuteUpdateAsync` predicate as T013 but targeting a caller-supplied `orderId`; on 0-rows-affected, load the order (with `ClaimedByEmployee`) to distinguish "doesn't exist" from "already claimed by X" — returns a new `ClaimAttemptResult(bool Succeeded, Order? Order)` so the service can distinguish all three outcomes from one repository call
+- [X] T022 [US2] Implement `OrderClaimService.ClaimAsync(int orderId, int actorEmployeeId, CancellationToken)`, reusing `GetActiveClaimedOrderIdAsync` and `ClaimSpecificAsync`, mapping outcomes per `contracts/order-claiming-api.md` — depends on T014, T021
+- [X] T023 [US2] Add `POST /api/orders/{orderId}/claim` to `OrdersController.cs` — depends on T022
+- [X] T024 [US2] Add logging for claim success/already-claimed/lost-race outcomes in `OrderClaimService.cs`
 
 **Checkpoint**: User Stories 1 and 2 both work independently.
 

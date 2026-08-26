@@ -66,6 +66,79 @@ public sealed class OrderClaimServiceTests
         Assert.Equal(7, result.ConflictingOrderId);
     }
 
+    [Fact]
+    public async Task ClaimAsync_OrderAvailable_ReturnsSuccessWithClaimedOrder()
+    {
+        var claimedOrder = NewOrder(5, "ORDER-5");
+        var repository = new FakeOrderRepository { ClaimSpecificResult = new(true, claimedOrder) };
+        var service = NewService(repository);
+
+        var result = await service.ClaimAsync(
+            orderId: 5,
+            actorEmployeeId: 1,
+            CancellationToken.None
+        );
+
+        Assert.Equal(OrderClaimOutcome.Success, result.Outcome);
+        Assert.Same(claimedOrder, result.Order);
+    }
+
+    [Fact]
+    public async Task ClaimAsync_OrderDoesNotExist_ReturnsOrderNotFound()
+    {
+        var repository = new FakeOrderRepository { ClaimSpecificResult = new(false, null) };
+        var service = NewService(repository);
+
+        var result = await service.ClaimAsync(
+            orderId: 999,
+            actorEmployeeId: 1,
+            CancellationToken.None
+        );
+
+        Assert.Equal(OrderClaimOutcome.OrderNotFound, result.Outcome);
+    }
+
+    [Fact]
+    public async Task ClaimAsync_OrderAlreadyClaimedByAnother_ReturnsAlreadyClaimedWithExistingClaimant()
+    {
+        var existingClaim = NewOrder(5, "ORDER-5");
+        var repository = new FakeOrderRepository
+        {
+            ClaimSpecificResult = new(false, existingClaim),
+        };
+        var service = NewService(repository);
+
+        var result = await service.ClaimAsync(
+            orderId: 5,
+            actorEmployeeId: 1,
+            CancellationToken.None
+        );
+
+        Assert.Equal(OrderClaimOutcome.AlreadyClaimed, result.Outcome);
+        Assert.Same(existingClaim, result.Order);
+    }
+
+    [Fact]
+    public async Task ClaimAsync_EmployeeAlreadyHasActiveClaim_ReturnsEmployeeHasActiveClaimWithoutAttemptingClaim()
+    {
+        var repository = new FakeOrderRepository
+        {
+            InitialActiveClaimedOrderId = 42,
+            ClaimSpecificResult = new(true, NewOrder(5, "ORDER-5")),
+        };
+        var service = NewService(repository);
+
+        var result = await service.ClaimAsync(
+            orderId: 5,
+            actorEmployeeId: 1,
+            CancellationToken.None
+        );
+
+        Assert.Equal(OrderClaimOutcome.EmployeeHasActiveClaim, result.Outcome);
+        Assert.Equal(42, result.ConflictingOrderId);
+        Assert.False(repository.ClaimSpecificCalled);
+    }
+
     private static OrderClaimService NewService(IOrderRepository repository) =>
         new(repository, NullLogger<OrderClaimService>.Instance);
 
@@ -85,6 +158,8 @@ public sealed class OrderClaimServiceTests
         public bool ThrowUniqueViolationOnClaim { get; set; }
         public int? ActiveClaimedOrderIdAfterRace { get; set; }
         public bool ClaimNextAvailableCalled { get; private set; }
+        public ClaimAttemptResult ClaimSpecificResult { get; set; } = new(false, null);
+        public bool ClaimSpecificCalled { get; private set; }
 
         public Task<IReadOnlyList<OrderListItem>> GetAllAsync(
             CancellationToken cancellationToken
@@ -119,5 +194,15 @@ public sealed class OrderClaimServiceTests
                     ? ActiveClaimedOrderIdAfterRace
                     : InitialActiveClaimedOrderId
             );
+
+        public Task<ClaimAttemptResult> ClaimSpecificAsync(
+            int orderId,
+            int actorEmployeeId,
+            CancellationToken cancellationToken
+        )
+        {
+            ClaimSpecificCalled = true;
+            return Task.FromResult(ClaimSpecificResult);
+        }
     }
 }

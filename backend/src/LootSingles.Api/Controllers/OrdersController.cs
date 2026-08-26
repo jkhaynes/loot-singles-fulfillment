@@ -36,6 +36,40 @@ public sealed class OrdersController(
         };
     }
 
+    [HttpPost("{orderId:int}/claim")]
+    public async Task<IActionResult> Claim(int orderId, CancellationToken cancellationToken)
+    {
+        var result = await orderClaimService.ClaimAsync(
+            orderId,
+            ActorEmployeeId(),
+            cancellationToken
+        );
+
+        return result.Outcome switch
+        {
+            OrderClaimOutcome.Success => Ok(ToClaimResponse(result.Order!)),
+            OrderClaimOutcome.OrderNotFound => NotFound(new { error = "order_not_found" }),
+            OrderClaimOutcome.AlreadyClaimed => Conflict(
+                new
+                {
+                    error = "order_already_claimed",
+                    claimedByEmployeeId = result.Order!.ClaimedByEmployeeId,
+                    claimedByEmployeeName = result.Order.ClaimedByEmployee?.DisplayName,
+                }
+            ),
+            OrderClaimOutcome.EmployeeHasActiveClaim => Conflict(
+                new
+                {
+                    error = "employee_has_active_claim",
+                    claimedOrderId = result.ConflictingOrderId,
+                }
+            ),
+            _ => throw new InvalidOperationException(
+                $"Unexpected outcome {result.Outcome} for Claim."
+            ),
+        };
+    }
+
     private static OrderClaimResponse ToClaimResponse(Order order) =>
         new(
             order.Id,

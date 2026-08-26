@@ -58,6 +58,22 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
         return null;
     }
 
+    public async Task<ClaimAttemptResult> ClaimSpecificAsync(
+        int orderId,
+        int actorEmployeeId,
+        CancellationToken cancellationToken
+    )
+    {
+        var rowsAffected = await TryClaimAsync(orderId, actorEmployeeId, cancellationToken);
+
+        var currentOrder = await context
+            .Orders.AsNoTracking()
+            .Include(order => order.ClaimedByEmployee)
+            .SingleOrDefaultAsync(order => order.Id == orderId, cancellationToken);
+
+        return new ClaimAttemptResult(rowsAffected == 1, currentOrder);
+    }
+
     public Task<int?> GetActiveClaimedOrderIdAsync(
         int employeeId,
         CancellationToken cancellationToken

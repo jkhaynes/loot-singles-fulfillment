@@ -66,4 +66,71 @@ public sealed class OrderClaimService(
             return OrderClaimResult.EmployeeHasActiveClaim(conflictingOrderId ?? 0);
         }
     }
+
+    public async Task<OrderClaimResult> ClaimAsync(
+        int orderId,
+        int actorEmployeeId,
+        CancellationToken cancellationToken
+    )
+    {
+        var activeClaimId = await repository.GetActiveClaimedOrderIdAsync(
+            actorEmployeeId,
+            cancellationToken
+        );
+        if (activeClaimId is not null)
+        {
+            logger.LogInformation(
+                "Employee {EmployeeId} attempted to choose order {OrderId} but already holds order {ActiveClaimId}.",
+                actorEmployeeId,
+                orderId,
+                activeClaimId
+            );
+            return OrderClaimResult.EmployeeHasActiveClaim(activeClaimId.Value);
+        }
+
+        try
+        {
+            var attempt = await repository.ClaimSpecificAsync(
+                orderId,
+                actorEmployeeId,
+                cancellationToken
+            );
+
+            if (attempt.Succeeded)
+            {
+                logger.LogInformation(
+                    "Employee {EmployeeId} claimed order {OrderId} via Choose Order.",
+                    actorEmployeeId,
+                    orderId
+                );
+                return OrderClaimResult.Success(attempt.Order!);
+            }
+
+            if (attempt.Order is null)
+            {
+                return OrderClaimResult.OrderNotFound;
+            }
+
+            logger.LogInformation(
+                "Employee {EmployeeId} attempted to choose order {OrderId} but it is already claimed by employee {ClaimantId}.",
+                actorEmployeeId,
+                orderId,
+                attempt.Order.ClaimedByEmployeeId
+            );
+            return OrderClaimResult.AlreadyClaimed(attempt.Order);
+        }
+        catch (UniqueConstraintViolationException)
+        {
+            var conflictingOrderId = await repository.GetActiveClaimedOrderIdAsync(
+                actorEmployeeId,
+                cancellationToken
+            );
+            logger.LogInformation(
+                "Employee {EmployeeId} lost a Choose Order race to their own concurrent claim on order {OrderId}.",
+                actorEmployeeId,
+                conflictingOrderId
+            );
+            return OrderClaimResult.EmployeeHasActiveClaim(conflictingOrderId ?? 0);
+        }
+    }
 }

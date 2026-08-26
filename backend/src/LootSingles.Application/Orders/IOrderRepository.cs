@@ -22,4 +22,17 @@ public interface IOrderRepository
     /// they hold no active claim (013-order-claiming FR-009).
     /// </summary>
     Task<int?> GetActiveClaimedOrderIdAsync(int employeeId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Atomically claims a caller-chosen order for <paramref name="actorEmployeeId"/> if it is
+    /// still Ready and unclaimed (013-order-claiming FR-002-004, research.md §1).
+    /// </summary>
+    /// <exception cref="LootSingles.Application.Persistence.UniqueConstraintViolationException">
+    /// The employee already holds another active claim (research.md §3 race backstop).
+    /// </exception>
+    Task<ClaimAttemptResult> ClaimSpecificAsync(
+        int orderId,
+        int actorEmployeeId,
+        CancellationToken cancellationToken
+    );
 }
