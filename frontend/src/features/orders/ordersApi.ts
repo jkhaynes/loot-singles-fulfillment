@@ -3,6 +3,8 @@ export interface OrderListItem {
   tcgplayerOrderId: string
   status: string
   importedAt: string
+  claimedByEmployeeId: number | null
+  claimedByEmployeeName: string | null
 }
 
 export interface OrderLineDetail {
@@ -22,6 +24,8 @@ export interface OrderDetail {
   tcgplayerOrderId: string
   status: string
   lines: OrderLineDetail[]
+  claimedByEmployeeId: number | null
+  claimedByEmployeeName: string | null
 }
 
 export class OrderNotFoundError extends Error {

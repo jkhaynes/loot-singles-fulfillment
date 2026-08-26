@@ -117,15 +117,15 @@ view and sees that order marked in-progress with the claimant's name.
 
 ### Tests for User Story 3 ⚠️ Write first, confirm failing before implementing
 
-- [ ] T025 [P] [US3] Add failing unit tests to `backend/tests/LootSingles.UnitTests/Orders/OrdersServiceTests.cs` asserting `OrderListItem`/`OrderDetail` carry claim state for both a claimed and an unclaimed order
-- [ ] T026 [P] [US3] Add failing integration tests to `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs` asserting `GET /api/orders` and `GET /api/orders/{id}` include `claimedByEmployeeId`/`claimedByEmployeeName` (`null` when unclaimed) per `contracts/order-claiming-api.md`
+- [X] T025 [P] [US3] Add failing unit tests to `backend/tests/LootSingles.UnitTests/Orders/OrdersServiceTests.cs` asserting `OrderListItem`/`OrderDetail` carry claim state for both a claimed and an unclaimed order
+- [X] T026 [P] [US3] Add failing integration tests to `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs` asserting `GET /api/orders` and `GET /api/orders/{id}` include `claimedByEmployeeId`/`claimedByEmployeeName` (`null` when unclaimed) per `contracts/order-claiming-api.md`
 
 ### Implementation for User Story 3
 
-- [ ] T027 [US3] Extend `OrderListItem`/`OrderDetail` (`backend/src/LootSingles.Application/Orders/`) and `OrderRepository.GetAllAsync`/`GetByIdAsync` (`backend/src/LootSingles.Infrastructure/Persistence/OrderRepository.cs`) to project `ClaimedByEmployeeId` and the claimant's `DisplayName` via the `ClaimedByEmployee` navigation from T002
-- [ ] T028 [US3] Extend `OrderResponse`/`OrderDetailResponse` in `OrdersController.cs` with `ClaimedByEmployeeId`/`ClaimedByEmployeeName` — depends on T027
-- [ ] T029 [P] [US3] Frontend: show an "In Progress · Picking by <name>" badge on the order list in `frontend/src/pages/OrdersPage.vue` and the header of `frontend/src/pages/OrderDetailPage.vue`, matching the PRD's example text
-- [ ] T030 [P] [US3] Frontend: extend the order response types in `frontend/src/services/ordersApi.ts` with the new claim fields
+- [X] T027 [US3] Extend `OrderListItem`/`OrderDetail` (`backend/src/LootSingles.Application/Orders/`) and `OrderRepository.GetAllAsync`/`GetByIdAsync` (`backend/src/LootSingles.Infrastructure/Persistence/OrderRepository.cs`) to project `ClaimedByEmployeeId` and the claimant's `DisplayName` via the `ClaimedByEmployee` navigation from T002
+- [X] T028 [US3] Extend `OrderResponse`/`OrderDetailResponse` in `OrdersController.cs` with `ClaimedByEmployeeId`/`ClaimedByEmployeeName` — depends on T027
+- [X] T029 [P] [US3] Frontend: show an "In Progress · Picking by <name>" badge on the order list in `frontend/src/features/orders/OrdersPage.tsx` and the header of `frontend/src/features/orders/OrderDetailPage.tsx`, matching the PRD's example text (the frontend is React/`.tsx`, not Vue — plan.md corrected to match; see note there)
+- [X] T030 [P] [US3] Frontend: extend the order response types in `frontend/src/features/orders/ordersApi.ts` with the new claim fields
 
 **Checkpoint**: User Stories 1–3 all work independently.
 
@@ -151,7 +151,7 @@ a different picker.
 - [ ] T035 [US4] Implement `OrderClaimService.ReleaseAsync(int orderId, int actorEmployeeId, CancellationToken)` mapping outcomes per `contracts/order-claiming-api.md` — depends on T034
 - [ ] T036 [US4] Add `POST /api/orders/{orderId}/release` to `OrdersController.cs` — depends on T035
 - [ ] T037 [US4] Add logging for release success/rejected outcomes in `OrderClaimService.cs`
-- [ ] T038 [P] [US4] Frontend: add a "Release" action to `frontend/src/pages/OrderDetailPage.vue`, visible only when `claimedByEmployeeId` matches the signed-in employee, calling a new `releaseOrder` function in `ordersApi.ts`
+- [ ] T038 [P] [US4] Frontend: add a "Release" action to `frontend/src/features/orders/OrderDetailPage.tsx`, visible only when `claimedByEmployeeId` matches the signed-in employee, calling a new `releaseOrder` function in `frontend/src/features/orders/ordersApi.ts`
 
 **Checkpoint**: User Stories 1–4 all work independently; the claim lifecycle is fully usable by a
 picker end-to-end.
@@ -177,7 +177,7 @@ and the original claimant no longer holds it. A non-manager's attempt is rejecte
 - [ ] T042 [US5] Implement `OrderClaimService.ForceReleaseAsync(int orderId, CancellationToken)` mapping outcomes per `contracts/order-claiming-api.md` — depends on T041
 - [ ] T043 [US5] Add `POST /api/orders/{orderId}/force-release` to `OrdersController.cs` with `[Authorize(Roles = nameof(EmployeeRole.ManagerAdmin))]` on the action, mirroring `EmployeesController` — depends on T042
 - [ ] T044 [US5] Add logging for force-release outcomes in `OrderClaimService.cs`, including which manager force-released which employee's claim
-- [ ] T045 [P] [US5] Frontend: add a Manager/Admin-only "Force-Release" action to `frontend/src/pages/OrderDetailPage.vue`, visible only when the signed-in employee's role is `ManagerAdmin` and the order is claimed by someone else, calling a new `forceReleaseOrder` function in `ordersApi.ts`
+- [ ] T045 [P] [US5] Frontend: add a Manager/Admin-only "Force-Release" action to `frontend/src/features/orders/OrderDetailPage.tsx`, visible only when the signed-in employee's role is `ManagerAdmin` and the order is claimed by someone else, calling a new `forceReleaseOrder` function in `frontend/src/features/orders/ordersApi.ts`
 
 **Checkpoint**: All 5 user stories are independently functional. Feature is complete per spec.md.
 

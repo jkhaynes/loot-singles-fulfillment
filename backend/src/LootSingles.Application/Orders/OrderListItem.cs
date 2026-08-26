@@ -6,5 +6,7 @@ public sealed record OrderListItem(
     int OrderId,
     string TcgplayerOrderId,
     OrderStatus Status,
-    DateTimeOffset ImportedAt
+    DateTimeOffset ImportedAt,
+    int? ClaimedByEmployeeId = null,
+    string? ClaimedByEmployeeName = null
 );

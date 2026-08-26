@@ -6,7 +6,9 @@ public sealed record OrderDetail(
     int OrderId,
     string TcgplayerOrderId,
     OrderStatus Status,
-    IReadOnlyList<OrderLineDetail> Lines
+    IReadOnlyList<OrderLineDetail> Lines,
+    int? ClaimedByEmployeeId = null,
+    string? ClaimedByEmployeeName = null
 );
 
 public sealed record OrderLineDetail(

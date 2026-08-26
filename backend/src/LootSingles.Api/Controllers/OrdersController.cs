@@ -92,7 +92,9 @@ public sealed class OrdersController(
                     order.OrderId,
                     order.TcgplayerOrderId,
                     order.Status,
-                    order.ImportedAt
+                    order.ImportedAt,
+                    order.ClaimedByEmployeeId,
+                    order.ClaimedByEmployeeName
                 ))
                 .ToList()
         );
@@ -125,7 +127,9 @@ public sealed class OrdersController(
                         line.Quantity,
                         line.ImageUrl
                     ))
-                    .ToList()
+                    .ToList(),
+                order.ClaimedByEmployeeId,
+                order.ClaimedByEmployeeName
             )
         );
     }
@@ -135,14 +139,18 @@ public sealed record OrderResponse(
     int OrderId,
     string TcgplayerOrderId,
     OrderStatus Status,
-    DateTimeOffset ImportedAt
+    DateTimeOffset ImportedAt,
+    int? ClaimedByEmployeeId,
+    string? ClaimedByEmployeeName
 );
 
 public sealed record OrderDetailResponse(
     int OrderId,
     string TcgplayerOrderId,
     OrderStatus Status,
-    IReadOnlyList<OrderLineDetailResponse> Lines
+    IReadOnlyList<OrderLineDetailResponse> Lines,
+    int? ClaimedByEmployeeId,
+    string? ClaimedByEmployeeName
 );
 
 public sealed record OrderClaimResponse(

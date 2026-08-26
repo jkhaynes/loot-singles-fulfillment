@@ -77,7 +77,11 @@ export function OrdersPage() {
               </div>
               <div>
                 <span className="order-list-item__label">Status</span>
-                <span className="order-list-item__status">{order.status}</span>
+                <span className="order-list-item__status">
+                  {order.claimedByEmployeeName
+                    ? `In Progress · Picking by ${order.claimedByEmployeeName}`
+                    : order.status}
+                </span>
               </div>
               <div>
                 <span className="order-list-item__label">Imported</span>

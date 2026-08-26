@@ -33,6 +33,70 @@ public sealed class OrdersServiceTests
     }
 
     [Fact]
+    public async Task GetAllAsync_IncludesClaimStateForClaimedAndUnclaimedOrders()
+    {
+        OrderListItem[] expected =
+        [
+            new(
+                1,
+                "ORDER-1",
+                OrderStatus.InProgress,
+                DateTimeOffset.Parse("2026-08-21T12:00:00Z"),
+                ClaimedByEmployeeId: 7,
+                ClaimedByEmployeeName: "Sam"
+            ),
+            new(2, "ORDER-2", OrderStatus.Ready, DateTimeOffset.Parse("2026-08-22T12:00:00Z")),
+        ];
+        var service = new OrdersService(new FakeOrderRepository(expected), NewEnrichmentService());
+
+        var result = await service.GetAllAsync(CancellationToken.None);
+
+        Assert.Equal(7, result[0].ClaimedByEmployeeId);
+        Assert.Equal("Sam", result[0].ClaimedByEmployeeName);
+        Assert.Null(result[1].ClaimedByEmployeeId);
+        Assert.Null(result[1].ClaimedByEmployeeName);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ClaimedOrder_PreservesClaimStateFromRepository()
+    {
+        var claimedOrder = new OrderDetail(
+            1,
+            "ORDER-1",
+            OrderStatus.InProgress,
+            [],
+            ClaimedByEmployeeId: 7,
+            ClaimedByEmployeeName: "Sam"
+        );
+        var service = new OrdersService(
+            new FakeOrderDetailRepository(claimedOrder),
+            NewEnrichmentService()
+        );
+
+        var result = await service.GetByIdAsync(1, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(7, result!.ClaimedByEmployeeId);
+        Assert.Equal("Sam", result.ClaimedByEmployeeName);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_UnclaimedOrder_HasNullClaimFields()
+    {
+        var unclaimedOrder = new OrderDetail(1, "ORDER-1", OrderStatus.Ready, []);
+        var service = new OrdersService(
+            new FakeOrderDetailRepository(unclaimedOrder),
+            NewEnrichmentService()
+        );
+
+        var result = await service.GetByIdAsync(1, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Null(result!.ClaimedByEmployeeId);
+        Assert.Null(result.ClaimedByEmployeeName);
+    }
+
+    [Fact]
     public async Task GetByIdAsync_GroupsLinesByProductLineAndPreservesOriginalLineOrder()
     {
         var pokemonProvider = new RecordingProvider("Pokemon");

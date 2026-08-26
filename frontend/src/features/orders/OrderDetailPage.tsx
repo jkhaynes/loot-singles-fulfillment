@@ -40,7 +40,9 @@ export function OrderDetailPage() {
           <h1>{order ? `Order ${order.tcgplayerOrderId}` : 'Order detail'}</h1>
           {order && (
             <p className="order-detail-header__status" aria-label={`Order status: ${order.status}`}>
-              {order.status}
+              {order.claimedByEmployeeName
+                ? `In Progress · Picking by ${order.claimedByEmployeeName}`
+                : order.status}
             </p>
           )}
         </div>

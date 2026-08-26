@@ -21,8 +21,10 @@ filtered unique index as a second, independent safety net for the one-active-cla
 
 ## Technical Context
 
-**Language/Version**: C# 12 / .NET 8 (existing backend), TypeScript / Vue 3 (existing frontend) —
-unchanged from features 007/009.
+**Language/Version**: C# 12 / .NET 8 (existing backend), TypeScript / React 18 (existing frontend,
+`.tsx` components under `frontend/src/features/orders/`) — unchanged from features 007/009. (Note:
+an earlier draft of this section incorrectly stated Vue 3 — corrected 2026-08-26 during Phase 5
+implementation after checking the actual frontend source.)
 
 **Primary Dependencies**: ASP.NET Core Web API, EF Core 8 (SQL Server provider), cookie-based
 `ClaimsPrincipal` auth (existing `AuthController`/`[Authorize(Roles=...)]` pattern) — all existing,
@@ -127,9 +129,10 @@ backend/
 
 frontend/
 ├── src/
-│   ├── pages/OrdersPage.vue       # + "Pick Next Order" entry point, in-progress badge/claimant name
-│   ├── pages/OrderDetailPage.vue  # + Release / Force-Release actions, claimant display
-│   └── services/ordersApi.ts      # + claim/release/force-release/pick-next calls
+│   └── features/orders/
+│       ├── OrdersPage.tsx       # + "Pick Next Order" entry point, in-progress badge/claimant name
+│       ├── OrderDetailPage.tsx  # + Release / Force-Release actions, claimant display
+│       └── ordersApi.ts         # + claim/release/force-release/pick-next calls
 └── e2e/
     └── order-claiming.spec.ts     # new
 ```

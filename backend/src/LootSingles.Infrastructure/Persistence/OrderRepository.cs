@@ -126,7 +126,9 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                 order.Id,
                 order.TcgplayerOrderId,
                 order.Status,
-                order.ImportedAt
+                order.ImportedAt,
+                order.ClaimedByEmployeeId,
+                order.ClaimedByEmployee != null ? order.ClaimedByEmployee.DisplayName : null
             ))
             .ToListAsync(cancellationToken);
     }
@@ -152,7 +154,9 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                         line.Condition,
                         line.Quantity
                     ))
-                    .ToList()
+                    .ToList(),
+                order.ClaimedByEmployeeId,
+                order.ClaimedByEmployee != null ? order.ClaimedByEmployee.DisplayName : null
             ))
             .SingleOrDefaultAsync(cancellationToken);
     }
