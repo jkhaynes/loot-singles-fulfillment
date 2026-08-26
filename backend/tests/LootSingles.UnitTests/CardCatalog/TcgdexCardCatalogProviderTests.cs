@@ -299,6 +299,155 @@ public sealed class TcgdexCardCatalogProviderTests
         Assert.Equal("https://assets.tcgdex.net/en/swsh/swshp/SWSH054/high.webp", result);
     }
 
+    [Fact]
+    public async Task TryMatchImageUrlAsync_VariantClaimsHolofoilButCardIsNotHolo_ReturnsNull()
+    {
+        var provider = NewProvider(
+            RouteByPath(
+                ("/sets", SetsListJson),
+                (
+                    "/sets/sv10.5b/67",
+                    """
+                    {
+                      "name": "Genesect ex",
+                      "image": "https://assets.tcgdex.net/en/sv/sv10.5b/067",
+                      "variants": { "holo": false, "reverse": false, "firstEdition": false }
+                    }
+                    """
+                )
+            )
+        );
+
+        var result = await provider.TryMatchImageUrlAsync(
+            Identity with
+            {
+                Variant = "Holofoil",
+            },
+            CancellationToken.None
+        );
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task TryMatchImageUrlAsync_VariantClaimsHolofoilAndCardIsHolo_ReturnsImageUrl()
+    {
+        var provider = NewProvider(
+            RouteByPath(
+                ("/sets", SetsListJson),
+                (
+                    "/sets/sv10.5b/67",
+                    """
+                    {
+                      "name": "Genesect ex",
+                      "image": "https://assets.tcgdex.net/en/sv/sv10.5b/067",
+                      "variants": { "holo": true, "reverse": false, "firstEdition": false }
+                    }
+                    """
+                )
+            )
+        );
+
+        var result = await provider.TryMatchImageUrlAsync(
+            Identity with
+            {
+                Variant = "Holofoil",
+            },
+            CancellationToken.None
+        );
+
+        Assert.Equal("https://assets.tcgdex.net/en/sv/sv10.5b/067/high.webp", result);
+    }
+
+    [Fact]
+    public async Task TryMatchImageUrlAsync_VariantClaimsReverseHolofoilButCardIsNotReverse_ReturnsNull()
+    {
+        var provider = NewProvider(
+            RouteByPath(
+                ("/sets", SetsListJson),
+                (
+                    "/sets/sv10.5b/67",
+                    """
+                    {
+                      "name": "Genesect ex",
+                      "image": "https://assets.tcgdex.net/en/sv/sv10.5b/067",
+                      "variants": { "holo": true, "reverse": false, "firstEdition": false }
+                    }
+                    """
+                )
+            )
+        );
+
+        var result = await provider.TryMatchImageUrlAsync(
+            Identity with
+            {
+                Variant = "Reverse Holofoil",
+            },
+            CancellationToken.None
+        );
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task TryMatchImageUrlAsync_VariantClaims1stEditionButCardIsNot_ReturnsNull()
+    {
+        var provider = NewProvider(
+            RouteByPath(
+                ("/sets", SetsListJson),
+                (
+                    "/sets/sv10.5b/67",
+                    """
+                    {
+                      "name": "Genesect ex",
+                      "image": "https://assets.tcgdex.net/en/sv/sv10.5b/067",
+                      "variants": { "holo": true, "reverse": false, "firstEdition": false }
+                    }
+                    """
+                )
+            )
+        );
+
+        var result = await provider.TryMatchImageUrlAsync(
+            Identity with
+            {
+                Variant = "1st Edition",
+            },
+            CancellationToken.None
+        );
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task TryMatchImageUrlAsync_NoVariantClaim_IgnoresVariantsFieldEvenWhenHoloOnlyExclusive()
+    {
+        // Asymmetric by design (research.md): only reject when the packing slip's Variant text
+        // explicitly claims a finish the provider says is impossible. A silent/absent Variant
+        // never triggers a rejection, even against an exclusive-holo card, since we have no
+        // confirmed evidence TCGplayer always labels every holo-exclusive product consistently -
+        // a false rejection here would regress FR-001 for no confirmed safety benefit.
+        var provider = NewProvider(
+            RouteByPath(
+                ("/sets", SetsListJson),
+                (
+                    "/sets/sv10.5b/67",
+                    """
+                    {
+                      "name": "Genesect ex",
+                      "image": "https://assets.tcgdex.net/en/sv/sv10.5b/067",
+                      "variants": { "holo": true, "normal": false, "reverse": false, "firstEdition": false }
+                    }
+                    """
+                )
+            )
+        );
+
+        var result = await provider.TryMatchImageUrlAsync(Identity, CancellationToken.None);
+
+        Assert.Equal("https://assets.tcgdex.net/en/sv/sv10.5b/067/high.webp", result);
+    }
+
     private static StubHttpMessageHandler RouteByPath(
         params (string PathSuffix, string? Json)[] routes
     ) =>

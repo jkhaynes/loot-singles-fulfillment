@@ -19,7 +19,7 @@ by feature 008's `OrderLineDetail` — as input to matching. No new field is add
 | `ProductName` | string | From the order line's existing `ProductName` |
 | `Set` | string | From the order line's existing `Set` (TCGplayer's set name text — provider adapters resolve this to their own set identifier internally, research.md §3–4) |
 | `CollectorNumber` | string | From the order line's existing `CollectorNumber` |
-| `Variant` | string? | From the order line's existing `Variant`; used to validate printing/variant where a provider exposes that information |
+| `Variant` | string? | From the order line's existing `Variant`; validated against provider-exposed finish data where obtainable (PRD §32 step 9) — TCGdex's per-print `variants` flags and Scryfall's `finishes` array; not obtainable from Lorcast, which exposes no reliable per-print finish field (research.md §5 update, 2026-08-26) |
 
 Constructed once per line, from data `OrderDetail`/`OrderLineDetail` (feature 007/008) already
 carries — no new data collection.

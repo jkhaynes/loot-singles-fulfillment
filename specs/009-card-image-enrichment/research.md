@@ -415,6 +415,24 @@ resolve a real image; the remaining 2 (`"Merry-Go-Round"` #222, `"Swinging Ship"
 genuinely-ambiguous-Attraction-prints case in point 4 above, correctly and safely showing no image
 rather than a guess — not a remaining defect.
 
+**Update (implementation, 2026-08-26 — `/code-design-review` Must Fix: PRD §32 step 9 variant
+verification was never implemented)**: A code-design-review pass found `identity.Variant` was
+never read by any provider, despite PRD §32 step 9 ("Validate relevant printing/variant
+information where possible") and `spec.md` FR-002 both calling for it, and `data-model.md`
+documenting the field as used for exactly this purpose. Confirmed live that Scryfall's card
+objects carry a `finishes` array (e.g. `["nonfoil", "foil"]`; a print can be exclusively
+`["nonfoil"]` or `["foil"]`/`["etched"]`). **Decision**: `ScryfallCardCatalogProvider` now rejects
+a candidate (added to its existing per-candidate name-match filter, so it participates in the same
+"exactly one valid candidate" safety check already in place) when `identity.Variant` contains
+`"Foil"` (case-insensitive) and the returned card's `finishes` is exclusively `["nonfoil"]`.
+Deliberately asymmetric: the reverse (a silent `Variant` against a foil-exclusive print) is never
+rejected, since there is no confirmed evidence TCGplayer always labels every foil-only print's
+condition text consistently — a false rejection there would regress FR-001/SC-001 for an
+unconfirmed benefit. Live-verified against all 24 real orders after the change: Magic's resolved
+count is unchanged (44/46, the same 2 pre-existing ambiguous-Attraction cases) — the new check
+does not fire against any current real order's data, confirming zero regression while adding a
+real safety net for the case PRD §32 step 9 describes.
+
 ## 4. Pokémon — TCGdex (switched from the Pokémon TCG API)
 
 **Update (Clarifications, 2026-08-25 — provider switched)**: During manual testing against a real
@@ -691,6 +709,28 @@ which is explicitly out of scope here.
 **Rationale**: PRD §31 identifies this as the leading candidate; it exposes structured card/set
 data and image URLs directly.
 
+**Update (implementation, 2026-08-26 — `/code-design-review` Must Fix: PRD §32 step 9 variant
+verification, TCGdex side)**: Companion fix to the Scryfall update above. Confirmed live that
+TCGdex's card response carries a `variants` object of booleans per exact print — `{holo, reverse,
+firstEdition, normal, wPromo}` — e.g. a "Double rare" ex card returned `{holo: true, normal:
+false, reverse: false, firstEdition: false}` (holo-exclusive), while an ordinary common returned
+`{holo: true, normal: true, reverse: true}` (all three coexist under the same number, the more
+typical case). **Decision**: `TcgdexCardCatalogProvider` now rejects a match, after the existing
+name check, when `identity.Variant` explicitly claims a specific finish the response says is
+`false` for this print — `"Reverse Holofoil"` → `variants.reverse`, `"Holofoil"` (checked after
+"Reverse Holofoil" specifically, since the plain-holo check would otherwise misread the substring)
+→ `variants.holo`, `"1st Edition"` → `variants.firstEdition`. Same asymmetric design as Scryfall:
+a silent/absent `Variant` is never treated as implying "normal," even against a holo-exclusive
+print, since there is no confirmed evidence TCGplayer always labels every holo-exclusive product's
+condition text consistently. Live-verified against all 24 real orders: the 9 Pokémon lines still
+missing an image after the change are unaffected by this check — each fails for an already-
+documented or independently-confirmed unrelated reason (no `image` field for that print, an
+unmapped `"Miscellaneous Cards & Products"` set, or — newly discovered during this verification
+pass, unrelated to this fix — TCGdex having externally renumbered two cards, e.g. `"M Rayquaza
+EX"` moving from local id `76` to `CC024` in the `cel25cc` set, since the colon-to-space fallback
+was last verified; that renumbering is a separate, pre-existing data-drift issue, out of this
+fix's scope).
+
 ## 5. Disney Lorcana — Lorcast
 
 **Decision**: Implement the same adapter contract (`ICardCatalogProvider`) against Lorcast, but
@@ -883,6 +923,18 @@ set-code+number fetch) and a `LogWarning` for the multiple-valid-candidates case
 **Result**: Confirmed live against the real order — `imageUrl` now resolves to
 `https://cards.lorcast.io/card/digital/large/....avif?...` for the previously-missing line. Full
 regression re-run clean: 179/179 backend unit, CSharpier clean.
+
+**Update (implementation, 2026-08-26 — `/code-design-review` Must Fix: PRD §32 step 9 variant
+verification evaluated and declined for Lorcast)**: Unlike TCGdex (`variants` booleans) and
+Scryfall (`finishes` array), Lorcast's card response exposes no reliable per-print finish field at
+all — confirmed live (`GET /v0/cards/1/42`): no `finishes`, no `foil`/`nonfoil` flag, only
+`prices: {usd, usd_foil}`, which is pricing data, not availability data, and `usd_foil` is present
+on the large majority of cards regardless of whether the specific customer-ordered copy is foil —
+using its mere presence as an exclusivity signal would be an unevidenced heuristic, not a
+confirmed one, and risks false rejections for no real safety benefit. **Decision**: no variant
+check is added for `LorcastCardCatalogProvider`; this satisfies PRD §32 step 9's own "where
+possible" qualifier by explicitly evaluating and declining, rather than the prior silent omission
+`/code-design-review` flagged. Revisit only if Lorcast's API adds a genuine per-print finish field.
 
 ## 6. HTTP client setup
 

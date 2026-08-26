@@ -433,3 +433,41 @@ just-shipped Lorcast provider (Phase 5); research.md §5 has full detail per fix
 - [X] T065 Run the full backend test suite (179/179 unit) and CSharpier to confirm no regression;
   manually re-verify against the real order via the running app — `imageUrl` now resolves to a real
   `cards.lorcast.io` URL for the previously-missing line
+
+## Phase 10: Variant/Printing Verification (`/code-design-review` Must Fix, 2026-08-26)
+
+**Purpose**: `/code-design-review` found PRD §32 step 9 ("Validate relevant printing/variant
+information where possible") and `spec.md` FR-002 were never implemented — no provider read
+`identity.Variant` at all, despite `data-model.md` documenting the field as used for exactly this
+purpose. research.md §3–5 has full detail per provider, including live evidence for what each
+provider's API actually exposes and why the check is deliberately asymmetric (only ever adds a
+rejection, never a new acceptance path, and never rejects on a silent/absent `Variant`).
+
+- [X] T066 [P] Add failing unit tests to `TcgdexCardCatalogProviderTests.cs`: `Variant = "Holofoil"`
+  against a card whose `variants.holo` is `false` returns `null`; the same `Variant` against
+  `variants.holo: true` still returns the image; `"Reverse Holofoil"` and `"1st Edition"` are
+  checked the same way against `variants.reverse`/`variants.firstEdition`; a card with no
+  `Variant` claim still resolves even when `variants` is holo-exclusive (asymmetric — no
+  regression for the common case). Add a `Variants` record (`holo`, `reverse`, `firstEdition`) to
+  `TcgdexCardCatalogProvider`'s `Card` deserialization and a
+  `VariantConflictsWithTcgdexVariants` check after the existing name-match step, to make them pass
+- [X] T067 [P] Add failing unit tests to `ScryfallCardCatalogProviderTests.cs`: `Variant = "Foil"`
+  against a card whose `finishes` is `["nonfoil"]` only returns `null`; the same `Variant` against
+  `finishes: ["nonfoil", "foil"]` still returns the image; a card with no `Variant` claim still
+  resolves even when `finishes` is nonfoil-exclusive. Add `Finishes` to the `Card` record and a
+  `VariantConflictsWithFinishes` check folded into the existing per-candidate `.Where(...)`
+  filter (so it participates in the same "exactly one valid candidate" safety check already in
+  place), to make them pass
+- [X] T068 Evaluate Lorcast for the same check: confirmed live it exposes no reliable per-print
+  finish field (only `prices.usd_foil`, present on most cards regardless of the ordered copy's
+  actual finish — not usable as an exclusivity signal). Documented as an explicitly evaluated and
+  declined decision in research.md §5, satisfying PRD §32 step 9's "where possible" qualifier
+  rather than leaving it silently unaddressed. No code change to `LorcastCardCatalogProvider`
+- [X] T069 Run the full backend test suite (187/187 unit, 107/107 integration) and CSharpier to
+  confirm no regression; live-audit all real orders after the change: Magic's resolved count is
+  unchanged (44/46, same pre-existing ambiguous cases); all 9 still-missing Pokémon lines verified
+  individually against live TCGdex to confirm each fails for an already-documented or independently
+  confirmed unrelated reason (not this change) — including discovering TCGdex externally renumbered
+  `"M Rayquaza EX"` (`76` → `CC024` in `cel25cc`) since last verified, a separate, pre-existing
+  data-drift issue out of this fix's scope, not a regression. Updated `data-model.md`'s `Variant`
+  field description to match what is now actually implemented

@@ -175,6 +175,7 @@ public sealed class ScryfallCardCatalogProvider(
                         StringComparison.OrdinalIgnoreCase
                     )
                     && CardNameMatches(candidate.Identity.ProductName, card)
+                    && !VariantConflictsWithFinishes(candidate.Identity.Variant, card.Finishes)
                 )
                 .Select(GetImageUrl)
                 .Where(url => url is not null)
@@ -236,6 +237,32 @@ public sealed class ScryfallCardCatalogProvider(
         return cardList?.Data ?? [];
     }
 
+    private static bool VariantConflictsWithFinishes(
+        string? variant,
+        IReadOnlyList<string>? finishes
+    )
+    {
+        // PRD §32 step 9 / FR-002: validate printing/variant information where obtainable.
+        // Asymmetric and conservative by design (research.md): only reject when the packing
+        // slip's Variant text explicitly claims "Foil" and Scryfall says this exact print has
+        // no foil-type finish at all - never the reverse (a silent Variant is never treated as
+        // implying "nonfoil"), since that inference is weaker and would risk false rejections.
+        if (finishes is null || finishes.Count == 0)
+        {
+            return false;
+        }
+
+        var claimsFoil = variant?.Contains("Foil", StringComparison.OrdinalIgnoreCase) ?? false;
+        if (!claimsFoil)
+        {
+            return false;
+        }
+
+        return finishes.All(finish =>
+            string.Equals(finish, "nonfoil", StringComparison.OrdinalIgnoreCase)
+        );
+    }
+
     private static bool CardNameMatches(string productName, Card card)
     {
         var cardName = card.CardFaces?.FirstOrDefault()?.Name ?? card.Name;
@@ -266,7 +293,8 @@ public sealed class ScryfallCardCatalogProvider(
         [property: JsonPropertyName("set")] string? Set,
         [property: JsonPropertyName("collector_number")] string? CollectorNumber,
         [property: JsonPropertyName("image_uris")] ImageUris? ImageUris,
-        [property: JsonPropertyName("card_faces")] IReadOnlyList<CardFace>? CardFaces
+        [property: JsonPropertyName("card_faces")] IReadOnlyList<CardFace>? CardFaces,
+        [property: JsonPropertyName("finishes")] IReadOnlyList<string>? Finishes
     );
 
     private sealed record CardFace(

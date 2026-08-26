@@ -492,6 +492,89 @@ public sealed class ScryfallCardCatalogProviderTests
             };
         });
 
+    [Fact]
+    public async Task TryMatchImageUrlsAsync_VariantClaimsFoilButCardIsNonfoilOnly_ReturnsNull()
+    {
+        var handler = RouteByMethodAndPath(
+            (
+                HttpMethod.Post,
+                "/cards/collection",
+                """
+                {
+                  "object": "list",
+                  "not_found": [],
+                  "data": [
+                    { "name": "My Precious", "set": "hob", "collector_number": "271", "finishes": ["nonfoil"], "image_uris": { "large": "https://cards.scryfall.io/large/my-precious.jpg" } }
+                  ]
+                }
+                """
+            )
+        );
+        var provider = NewProvider(handler);
+        CardIdentity[] identities = [new("My Precious", "The Hobbit", "#271", "Foil")];
+
+        var results = await provider.TryMatchImageUrlsAsync(identities, CancellationToken.None);
+
+        Assert.Null(results[identities[0]]);
+    }
+
+    [Fact]
+    public async Task TryMatchImageUrlsAsync_VariantClaimsFoilAndCardHasFoilFinish_ReturnsImageUrl()
+    {
+        var handler = RouteByMethodAndPath(
+            (
+                HttpMethod.Post,
+                "/cards/collection",
+                """
+                {
+                  "object": "list",
+                  "not_found": [],
+                  "data": [
+                    { "name": "My Precious", "set": "hob", "collector_number": "271", "finishes": ["nonfoil", "foil"], "image_uris": { "large": "https://cards.scryfall.io/large/my-precious.jpg" } }
+                  ]
+                }
+                """
+            )
+        );
+        var provider = NewProvider(handler);
+        CardIdentity[] identities = [new("My Precious", "The Hobbit", "#271", "Foil")];
+
+        var results = await provider.TryMatchImageUrlsAsync(identities, CancellationToken.None);
+
+        Assert.Equal("https://cards.scryfall.io/large/my-precious.jpg", results[identities[0]]);
+    }
+
+    [Fact]
+    public async Task TryMatchImageUrlsAsync_NoVariantClaim_IgnoresFinishesEvenWhenNonfoilOnly()
+    {
+        // Asymmetric by design (research.md): only reject when the packing slip's Variant text
+        // explicitly claims "Foil" and Scryfall says the print has no foil-type finish at all.
+        // A silent/absent Variant never triggers a rejection, even against a nonfoil-exclusive
+        // print, since we have no confirmed evidence TCGplayer always labels foil copies
+        // consistently - a false rejection here would regress FR-001 for no confirmed benefit.
+        var handler = RouteByMethodAndPath(
+            (
+                HttpMethod.Post,
+                "/cards/collection",
+                """
+                {
+                  "object": "list",
+                  "not_found": [],
+                  "data": [
+                    { "name": "My Precious", "set": "hob", "collector_number": "271", "finishes": ["nonfoil"], "image_uris": { "large": "https://cards.scryfall.io/large/my-precious.jpg" } }
+                  ]
+                }
+                """
+            )
+        );
+        var provider = NewProvider(handler);
+        CardIdentity[] identities = [new("My Precious", "The Hobbit", "#271", null)];
+
+        var results = await provider.TryMatchImageUrlsAsync(identities, CancellationToken.None);
+
+        Assert.Equal("https://cards.scryfall.io/large/my-precious.jpg", results[identities[0]]);
+    }
+
     private static StubHttpMessageHandler RouteByMethodAndPath(
         params (HttpMethod Method, string PathSuffix, string Json)[] routes
     ) =>

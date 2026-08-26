@@ -64,7 +64,44 @@ public sealed class TcgdexCardCatalogProvider(HttpClient httpClient, TcgdexSetCa
             return null;
         }
 
+        // PRD §32 step 9 / FR-002: validate printing/variant information where obtainable.
+        // Asymmetric and conservative by design (research.md): only reject when the packing
+        // slip's Variant text explicitly claims a finish TCGdex says is impossible for this
+        // exact print - never the reverse (a silent Variant is never treated as implying
+        // "normal"), since that inference is weaker and would risk false rejections.
+        if (VariantConflictsWithTcgdexVariants(identity.Variant, card.Variants))
+        {
+            return null;
+        }
+
         return $"{card.Image}/high.webp";
+    }
+
+    private static bool VariantConflictsWithTcgdexVariants(string? variant, Variants? variants)
+    {
+        if (variant is null || variants is null)
+        {
+            return false;
+        }
+
+        // "Reverse Holofoil" must be checked before plain "Holofoil" - it contains "Holofoil"
+        // as a substring and would otherwise be misread as a plain-holo claim.
+        if (variant.Contains("Reverse Holofoil", StringComparison.OrdinalIgnoreCase))
+        {
+            return variants.Reverse == false;
+        }
+
+        if (variant.Contains("Holofoil", StringComparison.OrdinalIgnoreCase))
+        {
+            return variants.Holo == false;
+        }
+
+        if (variant.Contains("1st Edition", StringComparison.OrdinalIgnoreCase))
+        {
+            return variants.FirstEdition == false;
+        }
+
+        return false;
     }
 
     private static string NormalizeCollectorNumber(string collectorNumber)
@@ -82,6 +119,13 @@ public sealed class TcgdexCardCatalogProvider(HttpClient httpClient, TcgdexSetCa
 
     private sealed record Card(
         [property: JsonPropertyName("name")] string? Name,
-        [property: JsonPropertyName("image")] string? Image
+        [property: JsonPropertyName("image")] string? Image,
+        [property: JsonPropertyName("variants")] Variants? Variants
+    );
+
+    private sealed record Variants(
+        [property: JsonPropertyName("holo")] bool? Holo,
+        [property: JsonPropertyName("reverse")] bool? Reverse,
+        [property: JsonPropertyName("firstEdition")] bool? FirstEdition
     );
 }
