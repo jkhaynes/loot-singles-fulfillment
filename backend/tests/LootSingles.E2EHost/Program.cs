@@ -71,6 +71,7 @@ builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvide
 ));
 builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();
+builder.Services.AddScoped<OrderClaimService>();
 builder
     .Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

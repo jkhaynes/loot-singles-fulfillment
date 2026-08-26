@@ -19,8 +19,7 @@ public sealed record OrderClaimResult(
     int? ConflictingOrderId = null
 )
 {
-    public static OrderClaimResult Success(Order order) =>
-        new(OrderClaimOutcome.Success, order);
+    public static OrderClaimResult Success(Order order) => new(OrderClaimOutcome.Success, order);
 
     public static readonly OrderClaimResult OrderNotFound = new(OrderClaimOutcome.OrderNotFound);
 

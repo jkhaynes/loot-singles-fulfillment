@@ -116,6 +116,16 @@ public sealed class OrdersServiceTests
 
         public Task<OrderDetail?> GetByIdAsync(int orderId, CancellationToken cancellationToken) =>
             Task.FromResult<OrderDetail?>(order);
+
+        public Task<LootSingles.Domain.Orders.Order?> ClaimNextAvailableAsync(
+            int actorEmployeeId,
+            CancellationToken cancellationToken
+        ) => throw new NotSupportedException("Not exercised by these tests.");
+
+        public Task<int?> GetActiveClaimedOrderIdAsync(
+            int employeeId,
+            CancellationToken cancellationToken
+        ) => throw new NotSupportedException("Not exercised by these tests.");
     }
 
     private sealed class FakeOrderRepository(IReadOnlyList<OrderListItem> orders) : IOrderRepository
@@ -126,5 +136,15 @@ public sealed class OrdersServiceTests
 
         public Task<OrderDetail?> GetByIdAsync(int orderId, CancellationToken cancellationToken) =>
             Task.FromResult<OrderDetail?>(null);
+
+        public Task<LootSingles.Domain.Orders.Order?> ClaimNextAvailableAsync(
+            int actorEmployeeId,
+            CancellationToken cancellationToken
+        ) => throw new NotSupportedException("Not exercised by these tests.");
+
+        public Task<int?> GetActiveClaimedOrderIdAsync(
+            int employeeId,
+            CancellationToken cancellationToken
+        ) => throw new NotSupportedException("Not exercised by these tests.");
     }
 }

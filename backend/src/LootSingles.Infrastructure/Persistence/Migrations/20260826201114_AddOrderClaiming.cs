@@ -15,27 +15,31 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                 name: "ClaimedAt",
                 table: "Orders",
                 type: "datetimeoffset",
-                nullable: true);
+                nullable: true
+            );
 
             migrationBuilder.AddColumn<int>(
                 name: "ClaimedByEmployeeId",
                 table: "Orders",
                 type: "int",
-                nullable: true);
+                nullable: true
+            );
 
             migrationBuilder.CreateIndex(
                 name: "IX_Orders_ClaimedByEmployeeId",
                 table: "Orders",
                 column: "ClaimedByEmployeeId",
                 unique: true,
-                filter: "[ClaimedByEmployeeId] IS NOT NULL");
+                filter: "[ClaimedByEmployeeId] IS NOT NULL"
+            );
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Orders_Employees_ClaimedByEmployeeId",
                 table: "Orders",
                 column: "ClaimedByEmployeeId",
                 principalTable: "Employees",
-                principalColumn: "Id");
+                principalColumn: "Id"
+            );
         }
 
         /// <inheritdoc />
@@ -43,19 +47,14 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
         {
             migrationBuilder.DropForeignKey(
                 name: "FK_Orders_Employees_ClaimedByEmployeeId",
-                table: "Orders");
+                table: "Orders"
+            );
 
-            migrationBuilder.DropIndex(
-                name: "IX_Orders_ClaimedByEmployeeId",
-                table: "Orders");
+            migrationBuilder.DropIndex(name: "IX_Orders_ClaimedByEmployeeId", table: "Orders");
 
-            migrationBuilder.DropColumn(
-                name: "ClaimedAt",
-                table: "Orders");
+            migrationBuilder.DropColumn(name: "ClaimedAt", table: "Orders");
 
-            migrationBuilder.DropColumn(
-                name: "ClaimedByEmployeeId",
-                table: "Orders");
+            migrationBuilder.DropColumn(name: "ClaimedByEmployeeId", table: "Orders");
         }
     }
 }

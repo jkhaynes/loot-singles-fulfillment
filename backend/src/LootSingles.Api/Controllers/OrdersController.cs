@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using LootSingles.Application.Orders;
 using LootSingles.Domain.Orders;
 using Microsoft.AspNetCore.Authorization;
@@ -8,8 +9,44 @@ namespace LootSingles.Api.Controllers;
 [ApiController]
 [Route("api/orders")]
 [Authorize]
-public sealed class OrdersController(OrdersService ordersService) : ControllerBase
+public sealed class OrdersController(
+    OrdersService ordersService,
+    OrderClaimService orderClaimService
+) : ControllerBase
 {
+    [HttpPost("pick-next")]
+    public async Task<IActionResult> PickNext(CancellationToken cancellationToken)
+    {
+        var result = await orderClaimService.PickNextAsync(ActorEmployeeId(), cancellationToken);
+
+        return result.Outcome switch
+        {
+            OrderClaimOutcome.Success => Ok(ToClaimResponse(result.Order!)),
+            OrderClaimOutcome.NoOrdersAvailable => Conflict(new { error = "no_orders_available" }),
+            OrderClaimOutcome.EmployeeHasActiveClaim => Conflict(
+                new
+                {
+                    error = "employee_has_active_claim",
+                    claimedOrderId = result.ConflictingOrderId,
+                }
+            ),
+            _ => throw new InvalidOperationException(
+                $"Unexpected outcome {result.Outcome} for Pick Next Order."
+            ),
+        };
+    }
+
+    private static OrderClaimResponse ToClaimResponse(Order order) =>
+        new(
+            order.Id,
+            order.TcgplayerOrderId,
+            order.Status,
+            order.ClaimedByEmployeeId,
+            order.ClaimedByEmployee?.DisplayName
+        );
+
+    private int ActorEmployeeId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken cancellationToken)
     {
@@ -72,6 +109,14 @@ public sealed record OrderDetailResponse(
     string TcgplayerOrderId,
     OrderStatus Status,
     IReadOnlyList<OrderLineDetailResponse> Lines
+);
+
+public sealed record OrderClaimResponse(
+    int OrderId,
+    string TcgplayerOrderId,
+    OrderStatus Status,
+    int? ClaimedByEmployeeId,
+    string? ClaimedByEmployeeName
 );
 
 public sealed record OrderLineDetailResponse(
