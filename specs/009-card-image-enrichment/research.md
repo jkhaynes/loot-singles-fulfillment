@@ -823,6 +823,67 @@ requests per second" than a bare concurrency cap, but rejected as introducing a 
 control pattern into a codebase that has so far needed only `SemaphoreSlim`/`lock`-guarded
 patterns (§4, §12), without a concrete demonstrated need for the token-bucket's extra precision.
 
+**Status (implementation, 2026-08-25)**: Implemented and verified. `LorcastSetCatalog` mirrors
+`TcgdexSetCatalog`/`ScryfallSetCatalog` exactly (including the sticky-failure-cache fix applied
+from the start), keyed by set name → set code (not id, since the card-lookup path needs the short
+code). `LorcastCardCatalogProvider.TryMatchImageUrlAsync` uses `image_uris.digital.large` verbatim
+and shares `CardNameMatcher` with the other two providers. `TryMatchImageUrlsAsync` is overridden
+with a `SemaphoreSlim(5)` gate around the same `Task.WhenAll` fan-out shape TCGdex's default
+interface method uses, with per-identity exception isolation preserved. Since
+`StubHttpMessageHandler` completes synchronously and never lets `Task.WhenAll` callers genuinely
+interleave, the concurrency-cap test uses a small dedicated genuinely-async `HttpMessageHandler`
+(real `Task.Delay`, `Interlocked` in-flight counter) local to that one test file rather than
+touching the shared stub. Full regression clean: 175/175 backend unit, 107/107 integration, 45/45
+frontend unit, 12/12 Playwright, CSharpier/oxlint/Prettier all clean.
+
+**Update (implementation, 2026-08-26 — real-order defect report, `Scrooge McDuck - S.H.U.S.H.
+Agent` not resolving)**: A user manually testing a real imported order (`F0000000-000AAA-00000`)
+reported this card's image missing. Root cause confirmed live, and it was two separate defects,
+not one:
+
+1. **The promo set-name gap the design above already anticipated in principle, now confirmed with
+   a real case.** `Set = "Disney Lorcana Promo Cards"` matched no entry in `LorcastSetCatalog`'s
+   dictionary at all — Lorcast's real `/v0/sets` data has no set by that name; it publishes each
+   promo drop separately (`P1`/"Promo Set 1", `P2`/"Promo Set 2", `P3`/"Promo Set 3",
+   `cp`/"Challenge Promo", confirmed live). Worse, the same collector number recurs across them
+   for different cards: `P1/36` = "Hidden Inkcaster", `P2/36` = "Mickey Mouse", `P3/36` = "Scrooge
+   McDuck" — so this isn't a simple one-name-to-one-code fix. `LorcastSetCatalog` now derives a
+   synthetic `"Disney Lorcana Promo Cards"` key at fetch time, populated with every real set code
+   whose Lorcast name matches `^(Promo Set \d+|Challenge Promo)$` (evidence-based on the four
+   confirmed real names, not a speculative general rule — a future differently-named promo drop
+   would need its own evidence-based addition, same as every other pattern in this document). This
+   mirrors `IMagicSetCrosswalk`'s 1-TCGplayer-name-to-many-real-codes shape exactly.
+   `LorcastCardCatalogProvider.TryMatchImageUrlAsync` now loops every candidate code sequentially
+   (Lorcast has no batch endpoint), evaluating each returned card's name and requiring exactly one
+   valid match across all candidates before returning an image — the same "exactly one valid
+   candidate" safety check already proven for Scryfall's multi-set-code candidates and its
+   Attraction letter-suffix retry, so a base number with two genuinely different real prints across
+   promo sets correctly falls back to no image rather than guessing (proven by a dedicated test).
+   Since sequential per-identity requests stay inside the existing per-identity semaphore slot
+   (§5's concurrency-cap decision), this does not change the overall concurrent-request bound —
+   only ordinary-named-set lines still cost exactly one request; promo-labeled lines now cost up to
+   four, sequentially, within their own slot.
+2. **A genuinely new, more fundamental gap: Lorcast splits every card's printed name into separate
+   `name` and `version` fields** (`{"name": "Scrooge McDuck", "version": "S.H.U.S.H. Agent"}`), but
+   TCGplayer's `ProductName` is the combined `"Name - Version"` form — confirmed not just for this
+   card but universally: even the unrelated `"Elsa"` line already checked into this project's own
+   fixtures only ever appears as `"Elsa - Spirit of Winter"` style text (four different real Elsa
+   printings checked live, all with a version). `TryMatchImageUrlAsync`'s name comparison now
+   builds `card.Version is null/empty ? card.Name : $"{card.Name} - {card.Version}"` before passing
+   to `CardNameMatcher`, so a plain card with no version still compares correctly (degrades to just
+   `card.Name`) while every versioned card (the common case) now compares against the same combined
+   form TCGplayer's `ProductName` actually uses. This is the more consequential of the two fixes:
+   without it, most real Lorcana cards would fail name verification regardless of set resolution.
+
+Also added an `ILogger<LorcastCardCatalogProvider>` (a genuinely new dependency, since this
+provider previously had no ambiguity case to log — every prior lookup was a single, unique
+set-code+number fetch) and a `LogWarning` for the multiple-valid-candidates case, mirroring
+`ScryfallCardCatalogProvider`'s existing ambiguous-match logging for the identical scenario shape.
+
+**Result**: Confirmed live against the real order — `imageUrl` now resolves to
+`https://cards.lorcast.io/card/digital/large/....avif?...` for the previously-missing line. Full
+regression re-run clean: 179/179 backend unit, CSharpier clean.
+
 ## 6. HTTP client setup
 
 **Decision**: Register each provider as a typed `HttpClient` via `AddHttpClient<TProvider>()` in

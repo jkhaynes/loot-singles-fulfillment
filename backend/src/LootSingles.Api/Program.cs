@@ -95,6 +95,23 @@ builder.Services.AddSingleton<IMagicSetCrosswalk>(_ => MagicSetCrosswalk.LoadEmb
 builder.Services.AddScoped<ICardCatalogProvider>(sp =>
     sp.GetRequiredService<ScryfallCardCatalogProvider>()
 );
+builder.Services.AddHttpClient(
+    "lorcast",
+    client =>
+    {
+        client.BaseAddress = new Uri("https://api.lorcast.com/v0/");
+        client.Timeout = TimeSpan.FromSeconds(10);
+    }
+);
+builder.Services.AddHttpClient<LorcastCardCatalogProvider>(client =>
+{
+    client.BaseAddress = new Uri("https://api.lorcast.com/v0/");
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+builder.Services.AddSingleton<LorcastSetCatalog>();
+builder.Services.AddScoped<ICardCatalogProvider>(sp =>
+    sp.GetRequiredService<LorcastCardCatalogProvider>()
+);
 builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();
 builder

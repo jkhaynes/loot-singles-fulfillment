@@ -249,23 +249,23 @@ Pokémon — User Story 3 is independently complete and testable.
 ### Tests for User Story 4
 
 - [X] T042 [US4] Confirm Lorcast's live API documentation for its exact set+collector-number lookup endpoint and response schema (research.md §5's explicitly unconfirmed item); update research.md §5 with the confirmed shape before implementing — **done**: `GET /v0/cards/:set/:number` (exact, unique), `GET /v0/sets` (id/code-keyed, not name-queryable, same shape as TCGdex), `image_uris.digital.large` used verbatim (never constructed, unlike TCGdex), no batch endpoint, a real documented ~10 req/sec limit with 429/ban risk (research.md §5 update, 2026-08-25); also confirmed and documented the alternatives evaluated (Lorcana-api.com, LorcanaJSON, TCG API, Scrydex — all rejected) and the concurrency-capping decision below
-- [ ] T041 [P] [US4] Add failing unit tests to `backend/tests/LootSingles.UnitTests/CardCatalog/LorcastCardCatalogProviderTests.cs` using `StubHttpMessageHandler`, following the same exact-match/no-match/ambiguous/name-mismatch coverage as T021/T034, against the shape confirmed in T042; assert the image URL is taken verbatim from `image_uris.digital.large` in the response, never constructed from a base URL
-- [ ] T042a [P] [US4] Add failing unit tests to a new `backend/tests/LootSingles.UnitTests/CardCatalog/LorcastSetCatalogTests.cs`, mirroring `TcgdexSetCatalogTests.cs`/`ScryfallSetCatalogTests.cs` exactly (research.md §4/§12/§5): two calls within the 24-hour cache duration fetch the sets list only once; a call after the duration elapses refetches; a failed fetch is retried on the next call rather than cached for the remainder of the duration (the sticky-failure-cache fix applied here from the start); the resolved dictionary is keyed by set name to set code
-- [ ] T042b [P] [US4] Add a failing unit test to `LorcastCardCatalogProviderTests.cs` proving `TryMatchImageUrlsAsync` never exceeds a bounded number of concurrent in-flight requests to Lorcast for a batch larger than that bound (a stub handler that records concurrent in-flight call count via an increment/decrement around an artificial delay, per research.md §5's semaphore decision); a second test proves per-identity exception isolation still holds through the semaphore gate (one identity's failure doesn't block or fail siblings), mirroring the same isolation test already proven for the default interface method (§3)
-- [ ] T043 [US4] Run T041, T042a, T042b and confirm they fail for the expected reason (`LorcastCardCatalogProvider`/`LorcastSetCatalog` don't exist yet)
+- [X] T041 [P] [US4] Add failing unit tests to `backend/tests/LootSingles.UnitTests/CardCatalog/LorcastCardCatalogProviderTests.cs` using `StubHttpMessageHandler`, following the same exact-match/no-match/ambiguous/name-mismatch coverage as T021/T034, against the shape confirmed in T042; assert the image URL is taken verbatim from `image_uris.digital.large` in the response, never constructed from a base URL
+- [X] T042a [P] [US4] Add failing unit tests to a new `backend/tests/LootSingles.UnitTests/CardCatalog/LorcastSetCatalogTests.cs`, mirroring `TcgdexSetCatalogTests.cs`/`ScryfallSetCatalogTests.cs` exactly (research.md §4/§12/§5): two calls within the 24-hour cache duration fetch the sets list only once; a call after the duration elapses refetches; a failed fetch is retried on the next call rather than cached for the remainder of the duration (the sticky-failure-cache fix applied here from the start); the resolved dictionary is keyed by set name to set code
+- [X] T042b [P] [US4] Add a failing unit test to `LorcastCardCatalogProviderTests.cs` proving `TryMatchImageUrlsAsync` never exceeds a bounded number of concurrent in-flight requests to Lorcast for a batch larger than that bound (a genuinely-async local `HttpMessageHandler` tracking concurrent in-flight call count via `Interlocked` around a real `Task.Delay`, since the shared `StubHttpMessageHandler` completes synchronously and never lets `Task.WhenAll` callers interleave); a second test proves per-identity exception isolation still holds through the semaphore gate (one identity's failure doesn't block or fail siblings), mirroring the same isolation test already proven for the default interface method (§3)
+- [X] T043 [US4] Run T041, T042a, T042b and confirm they fail for the expected reason (`LorcastCardCatalogProvider`/`LorcastSetCatalog` don't exist yet)
 
 ### Implementation for User Story 4
 
-- [ ] T044 [US4] Implement `LorcastSetCatalog` in `backend/src/LootSingles.Infrastructure/CardCatalog/LorcastSetCatalog.cs`: singleton-lifetime, copied from `TcgdexSetCatalog`/`ScryfallSetCatalog`'s proven design (Lock-guarded cached `Task<IReadOnlyDictionary<string,string>>`, 24-hour duration via injected `TimeProvider`, `IHttpClientFactory`-per-fetch, sticky-failure-cache fix applied from the start) to make T042a pass
-- [ ] T044a [US4] Implement `LorcastCardCatalogProvider.TryMatchImageUrlAsync` in `backend/src/LootSingles.Infrastructure/CardCatalog/LorcastCardCatalogProvider.cs` per the shape confirmed in T042: `ProductLine = "Lorcana TCG"` (confirmed by feature 010's real sample — research.md §5 update); resolve the set name to a code via `LorcastSetCatalog`; query by set code + collector number, accounting for promo-style collector numbers with no `/<total>` suffix (e.g. `"#36"`); verify the returned card's name; use `image_uris.digital.large` verbatim as the image URL, never constructed; return the image URL only on a single confident match, to make T041 pass
-- [ ] T044b [US4] Override `TryMatchImageUrlsAsync` in `LorcastCardCatalogProvider` per research.md §5's decision: gate each per-identity `TryMatchImageUrlAsync` call through a `SemaphoreSlim` capping concurrent in-flight Lorcast requests to a small number safely under the ~10/sec guidance (confirm the specific value against real observed latency, not guessed), dispatching all of a batch's calls via the same `Task.WhenAll` fan-out shape already proven for TCGdex, with per-identity exception isolation preserved through the semaphore gate, to make T042b pass
-- [ ] T045 [US4] Register a named `"lorcast"` `HttpClient` via `AddHttpClient("lorcast", ...)` with a short timeout in `backend/src/LootSingles.Api/Program.cs`, following the same registration shape `TcgdexSetCatalog`/`ScryfallSetCatalog`'s named clients already establish; register `LorcastSetCatalog` as a singleton and `LorcastCardCatalogProvider` as `ICardCatalogProvider`
-- [ ] T046 [US4] Run T041, T042a, T042b, T043, confirm they pass, and run the full backend test suite to confirm no regression
+- [X] T044 [US4] Implement `LorcastSetCatalog` in `backend/src/LootSingles.Infrastructure/CardCatalog/LorcastSetCatalog.cs`: singleton-lifetime, copied from `TcgdexSetCatalog`/`ScryfallSetCatalog`'s proven design (Lock-guarded cached `Task<IReadOnlyDictionary<string,string>>`, 24-hour duration via injected `TimeProvider`, `IHttpClientFactory`-per-fetch, sticky-failure-cache fix applied from the start) to make T042a pass
+- [X] T044a [US4] Implement `LorcastCardCatalogProvider.TryMatchImageUrlAsync` in `backend/src/LootSingles.Infrastructure/CardCatalog/LorcastCardCatalogProvider.cs` per the shape confirmed in T042: `ProductLine = "Lorcana TCG"` (confirmed by feature 010's real sample — research.md §5 update); resolve the set name to a code via `LorcastSetCatalog`; query by set code + collector number, accounting for promo-style collector numbers with no `/<total>` suffix (e.g. `"#36"`); verify the returned card's name via `CardNameMatcher`; use `image_uris.digital.large` verbatim as the image URL, never constructed; return the image URL only on a single confident match, to make T041 pass
+- [X] T044b [US4] Override `TryMatchImageUrlsAsync` in `LorcastCardCatalogProvider` per research.md §5's decision: gate each per-identity `TryMatchImageUrlAsync` call through a `SemaphoreSlim` (cap of 5, safely under the ~10/sec guidance) capping concurrent in-flight Lorcast requests, dispatching all of a batch's calls via the same `Task.WhenAll` fan-out shape already proven for TCGdex, with per-identity exception isolation preserved through the semaphore gate, to make T042b pass
+- [X] T045 [US4] Register a named `"lorcast"` `HttpClient` via `AddHttpClient("lorcast", ...)` and a typed `AddHttpClient<LorcastCardCatalogProvider>` client, both with a short timeout, in `backend/src/LootSingles.Api/Program.cs`, following the same registration shape `TcgdexSetCatalog`/`ScryfallSetCatalog`'s named clients already establish; register `LorcastSetCatalog` as a singleton and `LorcastCardCatalogProvider` as `ICardCatalogProvider`
+- [X] T046 [US4] Run T041, T042a, T042b, T043, confirm they pass, and run the full backend test suite to confirm no regression — 175/175 unit, 107/107 integration, both clean
 
 ### E2E for User Story 4
 
-- [ ] T047 [P] [US4] Extend `backend/tests/LootSingles.E2EHost/Program.cs` to seed a Lorcana product line (`ProductLine = "Lorcana TCG"`, matching real data per research.md §5) on the E2E test order and register a deterministic fake `ICardCatalogProvider` for `"Lorcana TCG"`, reusing the T026/T039 pattern
-- [ ] T048 [US4] Add a failing Playwright assertion to `frontend/e2e/order-detail.spec.ts`: the Lorcana line renders an `<img>` with the fake provider's known `src`; confirm it fails then passes, and run the full Playwright suite to confirm no regression
+- [X] T047 [P] [US4] Extend `backend/tests/LootSingles.E2EHost/Program.cs` to seed a Lorcana product line (`ProductLine = "Lorcana TCG"`, matching real data per research.md §5) on the E2E test order and register a deterministic fake `ICardCatalogProvider` for `"Lorcana TCG"`, reusing the T026/T039 pattern
+- [X] T048 [US4] Add a failing Playwright assertion to `frontend/e2e/order-detail.spec.ts`: the Lorcana line renders an `<img>` with the fake provider's known `src`; confirm it fails then passes, and run the full Playwright suite to confirm no regression — 12/12 Playwright, 45/45 frontend unit, lint, and Prettier all clean
 
 **Checkpoint**: All three phase-1 games are independently complete and testable. One Piece
 continues to show the placeholder (FR-010), ready for a future feature to add its adapter once a
@@ -402,3 +402,34 @@ provider is selected.
   /cards/collection` call that the remaining 2 (`"Merry-Go-Round"` #222, `"Swinging Ship"` #231)
   are exactly the genuinely-ambiguous-multiple-real-prints case T060's safety check is designed to
   reject — correct, safe "no image" behavior per Principle V, not a remaining defect
+
+## Phase 9: Lorcana Real-Order Matching Corrections (2026-08-26)
+
+**Purpose**: A user manually testing a real imported order reported `Scrooge McDuck - S.H.U.S.H.
+Agent` (a Lorcana promo card) not resolving an image. Root-caused to two distinct defects in the
+just-shipped Lorcast provider (Phase 5); research.md §5 has full detail per fix.
+
+- [X] T062 [P] Add a failing unit test to `LorcastCardCatalogProviderTests.cs` proving the name
+  comparison combines Lorcast's separate `name` and `version` response fields
+  (`"{name} - {version}"`) before matching against `identity.ProductName`, since TCGplayer's
+  packing-slip text is always the combined form and Lorcast never returns it pre-combined. Update
+  `LorcastCardCatalogProvider`'s `Card` record to include `Version` and build the comparable name
+  accordingly (degrading to `Name` alone when `Version` is null/empty) to make it pass
+- [X] T063 [P] Add a failing unit test to `LorcastSetCatalogTests.cs` proving a synthetic
+  `"Disney Lorcana Promo Cards"` key is derived at fetch time from every real set whose Lorcast
+  name matches `^(Promo Set \d+|Challenge Promo)$` — the generic TCGplayer label Lorcast has no
+  literal set named. Change `LorcastSetCatalog.GetSetCodesByNameAsync`'s return type from
+  `IReadOnlyDictionary<string,string>` to `IReadOnlyDictionary<string,IReadOnlyList<string>>`
+  (every ordinary set still maps to its own single-element list) to make it pass; update the
+  existing `LorcastSetCatalogTests.cs` assertions for the new list-valued shape
+- [X] T064 Add failing unit tests to `LorcastCardCatalogProviderTests.cs`: a Set name with multiple
+  candidate codes (the promo case) resolves through whichever single candidate's returned card name
+  matches; multiple candidates both matching the name returns `null` rather than guessing (mirrors
+  Scryfall's multi-set-code safety check). Restructure `LorcastCardCatalogProvider.TryMatchImageUrlAsync`
+  to loop every candidate code sequentially (no batch endpoint exists), evaluate each returned
+  card's combined name, and require exactly one valid match across all candidates, to make them
+  pass. Add `ILogger<LorcastCardCatalogProvider>` and log a warning for the multiple-valid-candidates
+  case, mirroring `ScryfallCardCatalogProvider`'s existing ambiguous-match logging
+- [X] T065 Run the full backend test suite (179/179 unit) and CSharpier to confirm no regression;
+  manually re-verify against the real order via the running app — `imageUrl` now resolves to a real
+  `cards.lorcast.io` URL for the previously-missing line

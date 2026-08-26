@@ -18,6 +18,7 @@ using Testcontainers.MsSql;
 
 const string FakePikachuImageUrl = "https://static.e2e-fixtures.local/pikachu.png";
 const string FakeLightningBoltImageUrl = "https://static.e2e-fixtures.local/lightning-bolt.png";
+const string FakeElsaImageUrl = "https://static.e2e-fixtures.local/elsa.png";
 const string FailingProviderCollectorNumber = "#FAIL";
 const string SqlServerImage = "mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-22.04";
 await using var container = new MsSqlBuilder(SqlServerImage).Build();
@@ -61,6 +62,11 @@ builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvide
 builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvider(
     "Magic",
     FakeLightningBoltImageUrl,
+    FailingProviderCollectorNumber
+));
+builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvider(
+    "Lorcana TCG",
+    FakeElsaImageUrl,
     FailingProviderCollectorNumber
 ));
 builder.Services.AddScoped<CardImageEnrichmentService>();
@@ -155,6 +161,16 @@ static async Task SeedAsync(IServiceProvider services)
                     ProductName = "Lightning Bolt",
                     Set = "Alpha",
                     CollectorNumber = "#161",
+                    Condition = "Near Mint",
+                    Quantity = 1,
+                },
+                new OrderLine
+                {
+                    RawDescription = "Elsa - The First Chapter - #207 - Legendary - Near Mint",
+                    ProductLine = "Lorcana TCG",
+                    ProductName = "Elsa",
+                    Set = "The First Chapter",
+                    CollectorNumber = "#207",
                     Condition = "Near Mint",
                     Quantity = 1,
                 },

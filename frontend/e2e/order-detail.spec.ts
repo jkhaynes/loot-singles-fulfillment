@@ -80,3 +80,19 @@ test('shows a Magic card image resolved by its own provider', async ({ page }) =
     'https://static.e2e-fixtures.local/lightning-bolt.png',
   )
 })
+
+test('shows a Lorcana card image resolved by its own provider', async ({ page }) => {
+  await login(page)
+
+  await page.getByRole('link', { name: 'E2E-ORDER-00001' }).click()
+
+  const line = page.getByRole('article', { name: /Elsa/i })
+  await expect(line).toContainText('Lorcana TCG')
+  await expect(line).toContainText('The First Chapter')
+  await expect(line).toContainText('#207')
+  await expect(line.getByLabel('Card image unavailable')).toHaveCount(0)
+  await expect(line.getByRole('img', { name: /Elsa/i })).toHaveAttribute(
+    'src',
+    'https://static.e2e-fixtures.local/elsa.png',
+  )
+})
