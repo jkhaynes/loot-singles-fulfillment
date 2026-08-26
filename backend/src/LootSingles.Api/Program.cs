@@ -91,17 +91,7 @@ builder.Services.AddHttpClient<ScryfallCardCatalogProvider>(client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("LootSinglesFulfillment/1.0");
     client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
 });
-builder.Services.AddHttpClient(
-    "scryfall",
-    client =>
-    {
-        client.BaseAddress = new Uri("https://api.scryfall.com/");
-        client.Timeout = TimeSpan.FromSeconds(10);
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("LootSinglesFulfillment/1.0");
-        client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
-    }
-);
-builder.Services.AddSingleton<ScryfallSetCatalog>();
+builder.Services.AddSingleton<IMagicSetCrosswalk>(_ => MagicSetCrosswalk.LoadEmbedded());
 builder.Services.AddScoped<ICardCatalogProvider>(sp =>
     sp.GetRequiredService<ScryfallCardCatalogProvider>()
 );
@@ -121,6 +111,9 @@ builder
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// Validate the checked-in crosswalk during startup rather than on the first order-detail request.
+_ = app.Services.GetRequiredService<IMagicSetCrosswalk>();
 
 if (args.Length == 1 && string.Equals(args[0], "bootstrap-admin", StringComparison.Ordinal))
 {

@@ -117,6 +117,19 @@ limits. An earlier draft of this same decision replaced the single-card operatio
 than adding to it — revisited once it was clear that would force `TcgdexCardCatalogProvider` and
 its full test file to be rewritten for no behavioral benefit.
 
+**Update (implementation, 2026-08-25 — Magic set-name resolution replaced with a static
+crosswalk)**: The provider-adapters row's `ScryfallCardCatalogProvider` entry above continues to
+own its request shape, response parsing, and confidence verification unchanged; what changed is
+*how* it resolves a packing-slip Set name to a Scryfall set code. The live-fetched-`/sets`-plus-
+narrow-candidate-list approach (`ScryfallSetCatalog` + `MagicSetNameNormalizer`) was replaced with
+an exhaustive, checked-in `IMagicSetCrosswalk` built offline from TCGplayer's own product catalog —
+see research.md §3 for the full decision and rationale. This is still entirely contained within the
+Magic adapter boundary: no change to `ICardCatalogProvider`, `CardImageEnrichmentService`,
+`OrdersService`, the API contract, or the frontend. A follow-up real-order audit against this new
+design found four further, narrower matching gaps (diacritics, multiple trailing parentheticals, a
+Set-text hyphen/whitespace artifact, and Unfinity Attraction letter-suffixed collector numbers),
+each fixed within the same adapter boundary — see research.md §3 for detail on all four.
+
 ## Project Structure
 
 ### Documentation (this feature)
@@ -146,8 +159,12 @@ backend/
 │   └── OrdersService.cs                        # enrich lines concurrently in GetByIdAsync
 ├── src/LootSingles.Infrastructure/CardCatalog/
 │   ├── TcgdexCardCatalogProvider.cs            # new (replaces PokemonTcgApiCardCatalogProvider, 2026-08-25)
-│   ├── PokemonSeriesPrefixNormalizer.cs        # new — shared set-name normalization
+│   ├── PokemonSeriesPrefixNormalizer.cs        # new — Pokémon-specific set-name normalization
+│   ├── CardNameMatcher.cs                      # new — shared trailing-parenthetical + diacritic-insensitive name comparison (research.md §3 update, 2026-08-25)
 │   ├── ScryfallCardCatalogProvider.cs          # new
+│   ├── IMagicSetCrosswalk.cs / MagicSetCrosswalk.cs   # new — static crosswalk, replaces ScryfallSetCatalog/MagicSetNameNormalizer (research.md §3 update, 2026-08-25)
+│   ├── Data/tcgplayer-magic-to-scryfall-set-codes.json # new — embedded, checked-in TCGplayer-to-Scryfall Magic set crosswalk
+│   ├── HyphenatedSetNameNormalizer.cs          # new — mitigates a mid-word hyphen line-wrap artifact in Set text (research.md §3 update, 2026-08-25)
 │   └── LorcastCardCatalogProvider.cs           # new
 ├── src/LootSingles.Api/Controllers/OrdersController.cs   # add ImageUrl to response records
 └── tests/

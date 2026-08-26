@@ -1,22 +1,24 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using LootSingles.Application.CardCatalog;
+using Microsoft.Extensions.Logging;
 
 namespace LootSingles.Infrastructure.CardCatalog;
 
-/// <summary>
-/// <see cref="ICardCatalogProvider"/> for Magic: The Gathering, backed by Scryfall
-/// (https://api.scryfall.com). Unlike TCGdex, Scryfall enforces real hard rate limits (research.md
-/// §3), so this provider overrides the batch operation to use <c>POST /cards/collection</c> (up
-/// to 75 card identifiers per request) instead of one request per card - resolving an entire
-/// order's Magic lines in one or a small handful of requests rather than one per line.
-/// </summary>
 public sealed class ScryfallCardCatalogProvider(
     HttpClient httpClient,
-    ScryfallSetCatalog setCatalog
+    IMagicSetCrosswalk setCrosswalk,
+    ILogger<ScryfallCardCatalogProvider> logger
 ) : ICardCatalogProvider
 {
     private const int MaxIdentifiersPerRequest = 75;
+
+    // Some Unfinity "Attraction" cards print a letter-suffixed collector number (e.g. "222a")
+    // that TCGplayer's packing slip prints without the letter ("#222"). Not universal - other
+    // Attractions have a plain number - and some base numbers have multiple distinct real prints
+    // sharing it (e.g. Scavenger Hunt: 226a/226b/226c), so this can never assume a single letter;
+    // it must go through the same "exactly one valid candidate" safety check as everything else.
+    private static readonly string[] AttractionLetterSuffixes = ["a", "b", "c"];
 
     public string ProductLine => "Magic";
 
@@ -36,70 +38,76 @@ public sealed class ScryfallCardCatalogProvider(
     {
         var distinctIdentities = identities.Distinct().ToArray();
         var results = distinctIdentities.ToDictionary(identity => identity, _ => (string?)null);
+        var setCodesByIdentity = new Dictionary<CardIdentity, IReadOnlyList<string>>();
+        var candidates = new List<Candidate>();
 
-        var setCodesByName = await setCatalog.GetSetCodesByNameAsync(cancellationToken);
-
-        var resolvable =
-            new List<(CardIdentity Identity, string SetCode, string CollectorNumber)>();
         foreach (var identity in distinctIdentities)
         {
-            var setCode = MagicSetNameNormalizer
-                .NormalizeCandidates(identity.Set)
-                .Select(candidate =>
-                    setCodesByName.TryGetValue(candidate, out var code) ? code : null
-                )
-                .FirstOrDefault(code => code is not null);
-            if (setCode is not null)
+            var setCodes = ResolveSetCodes(identity);
+            if (setCodes is null || setCodes.Count == 0)
             {
-                resolvable.Add(
-                    (identity, setCode, NormalizeCollectorNumber(identity.CollectorNumber))
-                );
+                continue;
+            }
+
+            setCodesByIdentity[identity] = setCodes;
+            candidates.AddRange(
+                setCodes.Select(code => new Candidate(
+                    identity,
+                    code,
+                    NormalizeCollectorNumber(identity.CollectorNumber)
+                ))
+            );
+        }
+
+        var returnedCards = await FetchAllAsync(candidates, cancellationToken);
+        var unresolvedIdentities = new List<CardIdentity>();
+        foreach (var identityGroup in candidates.GroupBy(candidate => candidate.Identity))
+        {
+            var validImages = EvaluateCandidates(identityGroup, returnedCards);
+            if (validImages.Count == 1)
+            {
+                results[identityGroup.Key] = validImages[0];
+            }
+            else if (validImages.Count > 1)
+            {
+                LogAmbiguous(identityGroup.Key, validImages.Count);
+            }
+            else
+            {
+                unresolvedIdentities.Add(identityGroup.Key);
             }
         }
 
-        foreach (var chunk in resolvable.Chunk(MaxIdentifiersPerRequest))
+        // Only retry with a letter-suffixed collector number for identities that found zero
+        // valid matches with their base number - trying every identity would quadruple query
+        // volume for every Magic card just to handle this rare Unfinity-specific quirk.
+        var suffixCandidates = unresolvedIdentities
+            .Where(setCodesByIdentity.ContainsKey)
+            .SelectMany(identity =>
+                setCodesByIdentity[identity]
+                    .SelectMany(code =>
+                        AttractionLetterSuffixes.Select(suffix => new Candidate(
+                            identity,
+                            code,
+                            NormalizeCollectorNumber(identity.CollectorNumber) + suffix
+                        ))
+                    )
+            )
+            .ToList();
+
+        if (suffixCandidates.Count > 0)
         {
-            var cards = await FetchChunkAsync(chunk, cancellationToken);
-            foreach (var entry in chunk)
+            var suffixCards = await FetchAllAsync(suffixCandidates, cancellationToken);
+            foreach (var identityGroup in suffixCandidates.GroupBy(candidate => candidate.Identity))
             {
-                var card = cards.FirstOrDefault(candidate =>
-                    string.Equals(candidate.Set, entry.SetCode, StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(
-                        candidate.CollectorNumber,
-                        entry.CollectorNumber,
-                        StringComparison.OrdinalIgnoreCase
-                    )
-                );
-                if (card?.Name is null)
+                var validImages = EvaluateCandidates(identityGroup, suffixCards);
+                if (validImages.Count == 1)
                 {
-                    continue;
+                    results[identityGroup.Key] = validImages[0];
                 }
-
-                // A multi-faced card (adventure/split/transform layout) reports a combined
-                // top-level "name" (e.g. "My Precious // Allure of Power"), but the imported
-                // ProductName is only the front face's name ("My Precious") - confirmed live.
-                // Compare against the first face's name when present, the top-level name
-                // otherwise.
-                var cardName = card.CardFaces?.FirstOrDefault()?.Name ?? card.Name;
-                var comparableProductName = TrailingParentheticalStripper.Strip(
-                    entry.Identity.ProductName
-                );
-                if (
-                    !string.Equals(
-                        cardName,
-                        comparableProductName,
-                        StringComparison.OrdinalIgnoreCase
-                    )
-                )
+                else if (validImages.Count > 1)
                 {
-                    continue;
-                }
-
-                var imageUrl =
-                    card.ImageUris?.Large ?? card.CardFaces?.FirstOrDefault()?.ImageUris?.Large;
-                if (imageUrl is not null)
-                {
-                    results[entry.Identity] = imageUrl;
+                    LogAmbiguous(identityGroup.Key, validImages.Count);
                 }
             }
         }
@@ -107,8 +115,100 @@ public sealed class ScryfallCardCatalogProvider(
         return results;
     }
 
+    private IReadOnlyList<string>? ResolveSetCodes(CardIdentity identity)
+    {
+        var setCodes = HyphenatedSetNameNormalizer
+            .NormalizeCandidates(identity.Set)
+            .Select(candidateSetName =>
+                setCrosswalk.TryGetScryfallSetCodes(candidateSetName, out var codes) ? codes : null
+            )
+            .FirstOrDefault(codes => codes is not null);
+
+        if (setCodes is null)
+        {
+            logger.LogInformation(
+                "No TCGplayer-to-Scryfall Magic set mapping exists for set {SetName}.",
+                identity.Set
+            );
+            return null;
+        }
+
+        if (setCodes.Count == 0)
+        {
+            logger.LogInformation(
+                "TCGplayer-to-Scryfall Magic set mapping has no candidate codes for set {SetName}.",
+                identity.Set
+            );
+        }
+
+        return setCodes;
+    }
+
+    private async Task<List<Card>> FetchAllAsync(
+        List<Candidate> candidates,
+        CancellationToken cancellationToken
+    )
+    {
+        var returnedCards = new List<Card>();
+        foreach (var chunk in candidates.Chunk(MaxIdentifiersPerRequest))
+        {
+            returnedCards.AddRange(await FetchChunkAsync(chunk, cancellationToken));
+        }
+
+        return returnedCards;
+    }
+
+    private List<string> EvaluateCandidates(
+        IEnumerable<Candidate> candidatesForIdentity,
+        IReadOnlyList<Card> returnedCards
+    )
+    {
+        var validImages = new List<string>();
+        foreach (var candidate in candidatesForIdentity)
+        {
+            var candidateImages = returnedCards
+                .Where(card =>
+                    string.Equals(card.Set, candidate.SetCode, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(
+                        card.CollectorNumber,
+                        candidate.CollectorNumber,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                    && CardNameMatches(candidate.Identity.ProductName, card)
+                )
+                .Select(GetImageUrl)
+                .Where(url => url is not null)
+                .Cast<string>()
+                .ToArray();
+
+            if (candidateImages.Length == 1)
+            {
+                validImages.Add(candidateImages[0]);
+            }
+            else
+            {
+                logger.LogInformation(
+                    "Scryfall candidate {SetCode} failed safe for collector number {CollectorNumber}; valid card count was {ValidCardCount}.",
+                    candidate.SetCode,
+                    candidate.CollectorNumber,
+                    candidateImages.Length
+                );
+            }
+        }
+
+        return validImages;
+    }
+
+    private void LogAmbiguous(CardIdentity identity, int validCandidateCount) =>
+        logger.LogWarning(
+            "Scryfall lookup was ambiguous for Magic set {SetName} and collector number {CollectorNumber}; {ValidCandidateCount} candidates were valid.",
+            identity.Set,
+            NormalizeCollectorNumber(identity.CollectorNumber),
+            validCandidateCount
+        );
+
     private async Task<IReadOnlyList<Card>> FetchChunkAsync(
-        (CardIdentity Identity, string SetCode, string CollectorNumber)[] chunk,
+        Candidate[] chunk,
         CancellationToken cancellationToken
     )
     {
@@ -124,6 +224,11 @@ public sealed class ScryfallCardCatalogProvider(
         );
         if (!response.IsSuccessStatusCode)
         {
+            logger.LogWarning(
+                "Scryfall collection lookup failed with status {StatusCode} for {CandidateCount} candidate(s).",
+                (int)response.StatusCode,
+                chunk.Length
+            );
             return [];
         }
 
@@ -131,8 +236,19 @@ public sealed class ScryfallCardCatalogProvider(
         return cardList?.Data ?? [];
     }
 
+    private static bool CardNameMatches(string productName, Card card)
+    {
+        var cardName = card.CardFaces?.FirstOrDefault()?.Name ?? card.Name;
+        return cardName is not null && CardNameMatcher.Matches(productName, cardName);
+    }
+
+    private static string? GetImageUrl(Card card) =>
+        card.ImageUris?.Large ?? card.CardFaces?.FirstOrDefault()?.ImageUris?.Large;
+
     private static string NormalizeCollectorNumber(string collectorNumber) =>
         collectorNumber.TrimStart('#').Split('/')[0];
+
+    private sealed record Candidate(CardIdentity Identity, string SetCode, string CollectorNumber);
 
     private sealed record CollectionRequest(
         [property: JsonPropertyName("identifiers")] IReadOnlyList<CardIdentifier> Identifiers

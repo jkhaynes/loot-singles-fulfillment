@@ -302,6 +302,119 @@ Magic lines taking multiple seconds to resolve and does not address Scryfall's o
 request to avoid fetching the same/similar data repeatedly; the batch endpoint solves both the
 rate-limit risk and the latency at once.
 
+**Update (implementation, 2026-08-25 — Product Owner replaced live Scryfall-derived set-name
+resolution with a static TCGplayer-to-Scryfall crosswalk; supersedes `ScryfallSetCatalog` and
+`MagicSetNameNormalizer` above)**: The live-fetched-`/sets`-plus-candidate-list design above
+(`ScryfallSetCatalog` + `MagicSetNameNormalizer.NormalizeCandidates`) was replaced end-to-end with
+a checked-in, static crosswalk built by cross-referencing TCGplayer's own product catalog
+(`tcgcsv.com` groups endpoint) against Scryfall's bulk card data and `/sets` endpoint offline, ahead
+of time, rather than inferring the mapping live from narrowly-scoped candidate-string guesses.
+`ScryfallSetCatalog.cs`/`ScryfallSetCatalogTests.cs` and
+`MagicSetNameNormalizer.cs`/`MagicSetNameNormalizerTests.cs` were deleted; no code outside the
+Magic adapter changed.
+
+**Decision**: `IMagicSetCrosswalk`/`MagicSetCrosswalk`
+(`backend/src/LootSingles.Infrastructure/CardCatalog/{IMagicSetCrosswalk,MagicSetCrosswalk}.cs`) —
+a singleton, loaded once at application startup from an embedded resource,
+`Data/tcgplayer-magic-to-scryfall-set-codes.json`. Unlike the old design's *narrow* candidate list
+(a handful of curated prefix/suffix transforms, each independently evidenced from one real card),
+the crosswalk is *exhaustive*: every one of TCGplayer's 453 Magic product groups is pre-resolved
+to its correct Scryfall set code(s) offline, where the mapping can be verified against TCGplayer's
+own catalog rather than guessed one real-order failure at a time. `TryGetScryfallSetCodes(string
+tcgplayerSetName, out IReadOnlyList<string> setCodes)` does a case-insensitive lookup after the
+same NFKC-normalization/smart-quote/whitespace-collapse treatment `Normalize` applies internally,
+validated eagerly at startup (`Program.cs`: `_ = app.Services.GetRequiredService<IMagicSetCrosswalk>();`)
+so a malformed crosswalk file fails the app at boot, not on a picker's first order-detail request.
+A TCGplayer set name genuinely maps to **more than one** Scryfall set code for some real entries
+(e.g. a set that spans multiple physical Scryfall printings) — `ScryfallCardCatalogProvider`
+already had to evaluate multiple set-code candidates per identity (§ above, the shared TCGdex
+sets-list era), so this is not a new safety concern, just a different source for the candidate
+list.
+
+**Rationale**: The Product Owner judged an exhaustive, offline-verified mapping preferable to
+narrowly-scoped, evidence-as-you-go candidate transforms discovered one real-order failure at a
+time (as §3's `MagicSetNameNormalizer` history above shows happening repeatedly — Commander,
+Universes Beyond, March of the Machine, Eternal-Legal, each added only after a real card failed to
+resolve). A static crosswalk front-loads that verification instead of deferring it to production
+failures, at the cost of needing a refresh process when TCGplayer or Scryfall add new sets (tracked
+as its own follow-up GitHub issue — T056 below — rather than solved as part of this change).
+`ScryfallSetCatalog`'s live `/sets` fetch (and its 24-hour cache, singleton lifetime, sticky-
+failure-cache fix) is no longer needed at all: the crosswalk already knows the correct Scryfall set
+code(s) directly, with no live "resolve this text against a fetched name list" step in between.
+
+**Alternatives considered**: Keeping the live-fetched-plus-candidate-list design and continuing to
+extend `MagicSetNameNormalizer`'s curated transform list as further real-order failures surface —
+this is exactly what §3's history above already did three times (Commander reversal, dropped
+Universes-Beyond-style prefixes, Eternal-Legal suffix) before this replacement; rejected by the
+Product Owner as an approach that would keep discovering gaps reactively rather than covering the
+whole TCGplayer Magic catalog up front.
+
+**Update (implementation, 2026-08-25 — post-crosswalk real-order re-audit, four further matching
+corrections)**: After the crosswalk replaced the old design, a live audit of all 24 real imported
+orders' 46 Magic lines found the crosswalk itself resolved two cases the old design's candidate
+list never covered (`"Brothers' War: Retro Frame Artifacts"`, `"Warhammer 40,000"`), taking real
+failures from 8/46 to 6/46 automatically. The remaining 6 were each root-caused individually and
+fixed:
+
+1. **Diacritics.** A packing-slip `ProductName` and Scryfall's own canonical name can disagree on
+   accenting the same real card (e.g. `"Jotun Grunt"` vs. Scryfall's `"Jötun Grunt"`). New shared
+   `CardNameMatcher.Matches(productName, providerCardName)`
+   (`backend/src/LootSingles.Infrastructure/CardCatalog/CardNameMatcher.cs`) strips a trailing
+   parenthetical (as before, via `TrailingParentheticalStripper`) and then compares both sides with
+   diacritics removed (Unicode NFD decomposition, strip `UnicodeCategory.NonSpacingMark`, recompose
+   NFC) before an ordinal case-insensitive comparison. Both `TcgdexCardCatalogProvider` and
+   `ScryfallCardCatalogProvider` now call this one shared helper instead of each doing its own
+   direct `string.Equals` — the first time name-verification comparison logic has been shared
+   across providers, since the same disagreement is provider-independent, not Magic-specific.
+2. **Multiple trailing parentheticals.** `TrailingParentheticalStripper.Strip` used a single
+   `Replace` call anchored to the end of the string, which only strips *one* trailing group — a
+   card whose `ProductName` carries two (e.g. `"Carrion Feeder (Borderless) (Foil Etched)"`) was
+   left with one still attached (`"Carrion Feeder (Borderless)"`), which then failed name
+   verification against Scryfall's plain `"Carrion Feeder"`. Fixed by looping the same strip-and-
+   trim step until it stops changing the string, so any number of consecutive trailing groups are
+   removed, not just the last one.
+3. **A mid-word hyphen line-wrap artifact in the Set text.** One real order's Set text for
+   `"Universes Beyond: The Lord of the Rings: Tales of Middle-earth"` came through as `"...Tales of
+   Middle- earth"` — a stray space after the hyphen, none before it — which does not match the
+   crosswalk's exact key. The source PDF for this specific order was not available locally to run
+   the same word-bounding-box diagnostic feature 012 used to confirm the Fomantis duplicate-echo
+   was genuine PDF content rather than a parsing artifact (research.md §4's fourth category), so
+   the true root cause (a genuine PDF line-wrap vs. an `OrderLineExtractor` artifact) is not
+   confirmed the way that earlier case was. New `HyphenatedSetNameNormalizer.NormalizeCandidates`
+   (`backend/src/LootSingles.Infrastructure/CardCatalog/HyphenatedSetNameNormalizer.cs`) offers the
+   raw Set text as-is first, plus — only when a hyphen has no space before it but is followed by
+   whitespace (the specific artifact shape observed; a genuine spaced dash separator like `"Foo -
+   Bar"` has a space on *both* sides and is left untouched) — a second candidate with that
+   whitespace collapsed. `ScryfallCardCatalogProvider` tries each candidate against the crosswalk
+   in order, stopping at the first that resolves; the displayed, authoritative `Set` value itself
+   is never altered, only this internal lookup. This is a defensive mitigation for the evidenced
+   symptom, not a confirmed fix for a root cause in `OrderLineExtractor` — flagged as a gap in case
+   the same artifact shape turns out to affect other, not-yet-seen set names too.
+4. **Unfinity "Attraction" letter-suffixed collector numbers.** Some Unfinity Attraction cards
+   print a letter-suffixed collector number on Scryfall (e.g. `"222a"`) that TCGplayer's packing
+   slip omits (`"#222"`) — confirmed live via `POST /cards/collection` for `unf/222`
+   (`not_found`) vs. `unf/222a` (`"Merry-Go-Round"`, found). This is not universal — other
+   Attractions have a plain, unsuffixed number — and some base numbers have **multiple** distinct
+   real prints sharing them with no unsuffixed version at all (confirmed live: `unf/222a` and
+   `unf/222b` are both real, different `"Merry-Go-Round"` prints; `unf/231a`/`unf/231b` are both
+   real, different `"Swinging Ship"` prints), so a letter can never simply be assumed. Added a
+   second lookup phase to `ScryfallCardCatalogProvider.TryMatchImageUrlsAsync`: only for identities
+   that found **zero** valid matches with their base collector number (not the ones that already
+   resolved, and not the already-ambiguous ones — retrying those too would just waste a second
+   round of requests for no benefit), retry with `a`/`b`/`c` suffixes appended, reusing the exact
+   same "exactly one valid candidate across every candidate tried" safety check already used for
+   multi-set-code candidates — so a base number with two genuinely different real letter-suffixed
+   prints correctly still falls back to the placeholder (confirmed live for `"Merry-Go-Round"`
+   `#222` and `"Swinging Ship"` `#231` in this project's own real order data) rather than guessing
+   between them, exactly per Principle V. Only identities with zero matches get the extra
+   candidates, so an order with many ordinary (non-Attraction) Magic lines does not pay for this
+   quirk's extra request volume.
+
+**Result**: Live audit against the same 24 real orders' 46 Magic lines after all four fixes: 44/46
+resolve a real image; the remaining 2 (`"Merry-Go-Round"` #222, `"Swinging Ship"` #231) are the
+genuinely-ambiguous-Attraction-prints case in point 4 above, correctly and safely showing no image
+rather than a guess — not a remaining defect.
+
 ## 4. Pokémon — TCGdex (switched from the Pokémon TCG API)
 
 **Update (Clarifications, 2026-08-25 — provider switched)**: During manual testing against a real

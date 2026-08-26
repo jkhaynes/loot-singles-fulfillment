@@ -337,3 +337,64 @@ provider is selected.
 - This feature adds new production logging for the first time since feature 006/007/008's precedent of adding none — a single `LogWarning` per provider failure (research.md §10), proportional and PII-free.
 - Assert against the JSON response shape and rendered DOM content precisely as specified in contracts/order-detail-api.md and data-model.md — not just that a value appears somewhere on the page.
 - T023, T036, and T044 each carry a genuine, explicitly-flagged research uncertainty (research.md §3–5) — confirm the real provider API shape against live documentation as part of that task rather than guessing; a wrong guess here fails safe (returns no image) rather than fails dangerous, but still wastes implementation time if not verified first.
+## Phase 7: TCGplayer-to-Scryfall Magic Set Crosswalk
+
+- [X] T050 Copy the supplied crosswalk into `backend/src/LootSingles.Infrastructure/CardCatalog/Data/tcgplayer-magic-to-scryfall-set-codes.json` and include it in build and publish output
+- [X] T051 Add failing unit tests for crosswalk loading, exact documented normalization, validation, missing mappings, and the checked-in `March of the Machine: Multiverse Legends` mapping
+- [X] T052 Add failing provider tests for zero, one, and multiple candidate codes; exhaustive candidate evaluation; exactly-one-valid acceptance; ambiguity rejection; wrong-name rejection; and no semantic guessing or live external calls
+- [X] T053 Implement a singleton `IMagicSetCrosswalk`/`MagicSetCrosswalk` that loads once, validates the JSON, and queries an in-memory normalized-name dictionary
+- [X] T054 Replace Scryfall set-name guessing with crosswalk candidates, preserve exact collector/name verification, add safe structured logging, and remove obsolete set-list/semantic-normalizer code proven unnecessary by T051-T052
+- [X] T055 Verify the JSON is present in build and publish output; run formatter, relevant tests, full backend tests, and build
+- [X] T056 Create the future crosswalk-automation GitHub issue using only existing labels
+
+## Phase 8: Post-Crosswalk Real-Order Matching Corrections (2026-08-25)
+
+**Purpose**: A live audit of all 24 real imported orders' 46 Magic lines against the new crosswalk
+(Phase 7) found 6 remaining failures beyond the 2 the crosswalk itself already fixed automatically
+(8/46 → 6/46). Each of the 6 was root-caused and fixed; research.md §3 has full detail per fix.
+
+- [X] T057 [P] Add a failing unit test to `TrailingParentheticalStripperTests.cs` for a name with
+  two trailing parenthetical groups (`"Carrion Feeder (Borderless) (Foil Etched)"` →
+  `"Carrion Feeder"`); fix `TrailingParentheticalStripper.Strip` to loop the strip-and-trim step
+  until it stops changing the string, rather than a single anchored `Replace` call that only
+  removes the last group, to make it pass
+- [X] T058 [P] Add a new `CardNameMatcherTests.cs` covering diacritic-only differences in either
+  direction (e.g. `"Seance"`/`"Séance"`), case-only differences, and the existing trailing-
+  parenthetical-stripping behavior. Implement shared `CardNameMatcher.Matches(productName,
+  providerCardName)` (`backend/src/LootSingles.Infrastructure/CardCatalog/CardNameMatcher.cs`):
+  strip a trailing parenthetical (via T057's fixed stripper) then compare with diacritics removed
+  (NFD decomposition, strip non-spacing marks, recompose NFC) case-insensitively. Wire it into both
+  `TcgdexCardCatalogProvider` and `ScryfallCardCatalogProvider`'s name-verification step, replacing
+  each provider's own direct `string.Equals` comparison
+- [X] T059 [P] Add a new `HyphenatedSetNameNormalizerTests.cs`: the raw Set text is always the
+  first candidate; a hyphen with no space before it but whitespace after (the observed artifact
+  shape — e.g. `"...Tales of Middle- earth"`) also yields a second candidate with that whitespace
+  collapsed; a genuine spaced dash separator (space on both sides, e.g. `"Foo - Bar"`) yields no
+  second candidate. Implement `HyphenatedSetNameNormalizer.NormalizeCandidates` and wire it into
+  `ScryfallCardCatalogProvider`'s set-code resolution step, trying each candidate against
+  `IMagicSetCrosswalk` in order and stopping at the first that resolves — the displayed,
+  authoritative `Set` value itself is never altered, only this internal crosswalk lookup. The
+  source PDF for the affected real order was not available locally to confirm via the same
+  word-position diagnostic feature 012 used for the Fomantis case, so this is a defensive
+  mitigation for the evidenced symptom, not a confirmed `OrderLineExtractor` root-cause fix
+- [X] T060 Add failing unit tests to `ScryfallCardCatalogProviderTests.cs` for the Unfinity
+  Attraction letter-suffix retry: an identity with zero matches on its base collector number
+  resolves via a single letter-suffixed match found on retry (`"Ferris Wheel"` #222 → `unf/222a`
+  only); an identity whose base number has zero matches but *multiple* letter-suffixed variants
+  are all valid (e.g. two distinct real `unf/226a`/`unf/226b`/`unf/226c` prints) still returns
+  `null` rather than guessing; an identity that already resolves on its base number does not
+  attempt the retry at all (no extra `/cards/collection` request). Restructure
+  `ScryfallCardCatalogProvider.TryMatchImageUrlsAsync` into a two-phase lookup: phase one resolves
+  every identity against its base collector number as today; phase two retries only the
+  zero-match identities with `a`/`b`/`c`-suffixed collector numbers, reusing the same
+  "exactly one valid candidate across every candidate tried" safety check for both phases, to make
+  the new tests pass. Also updated the existing `TryMatchImageUrlsAsync_BatchLargerThan75_...`
+  test's stub to return per-chunk-matching card data (a fixed response echoed to every chunk would
+  duplicate every card across chunks under the new two-phase logic and incorrectly trigger phase
+  two for all 80 identities)
+- [X] T061 Run the full backend test suite (163/163 unit, 107/107 integration) and CSharpier to
+  confirm no regression; re-run the live audit against all 24 real orders' 46 Magic lines via the
+  running app: 44/46 now resolve a real image. Manually confirmed via a direct `POST
+  /cards/collection` call that the remaining 2 (`"Merry-Go-Round"` #222, `"Swinging Ship"` #231)
+  are exactly the genuinely-ambiguous-multiple-real-prints case T060's safety check is designed to
+  reject — correct, safe "no image" behavior per Principle V, not a remaining defect

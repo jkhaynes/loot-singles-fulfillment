@@ -54,12 +54,12 @@ public sealed class TcgdexCardCatalogProvider(HttpClient httpClient, TcgdexSetCa
 
         // The imported ProductName is authoritative and kept as-is for display, but TCGplayer
         // sometimes appends a trailing printing/variant descriptor to it (e.g. "Alakazam V
-        // (Full Art)") that the provider's own card name never includes ("Alakazam V"). Strip
-        // only a *trailing* parenthetical for this comparison — not a fuzzy match, just excluding
-        // text already structurally recognized elsewhere (OrderLineExtractor's own parenthetical
-        // marker extraction) as a printing/variant marker rather than part of the card's name.
-        var comparableProductName = TrailingParentheticalStripper.Strip(identity.ProductName);
-        if (!string.Equals(card.Name, comparableProductName, StringComparison.OrdinalIgnoreCase))
+        // (Full Art)") that the provider's own card name never includes ("Alakazam V"), and may
+        // disagree with the provider's diacritics for the same real card. CardNameMatcher strips
+        // only a *trailing* parenthetical and ignores diacritics for this comparison — not a
+        // fuzzy match, just excluding text already structurally recognized elsewhere
+        // (OrderLineExtractor's own parenthetical marker extraction) as a printing/variant marker.
+        if (!CardNameMatcher.Matches(identity.ProductName, card.Name))
         {
             return null;
         }

@@ -5,6 +5,11 @@
 
     <ItemGroup>
         <EmbeddedResource Include="CardCatalog\Data\pokemon-series-abbreviations.json" />
+        <EmbeddedResource Include="CardCatalog\Data\tcgplayer-magic-to-scryfall-set-codes.json" />
+        <Content Include="CardCatalog\Data\tcgplayer-magic-to-scryfall-set-codes.json">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
     </ItemGroup>
 
     <ItemGroup>

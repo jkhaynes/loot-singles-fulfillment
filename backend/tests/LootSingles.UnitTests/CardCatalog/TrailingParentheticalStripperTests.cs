@@ -9,6 +9,7 @@ public sealed class TrailingParentheticalStripperTests
     [InlineData("Galadriel's Dismissal (Borderless)", "Galadriel's Dismissal")]
     [InlineData("Elrond, Moon-Reader (Extended Art)", "Elrond, Moon-Reader")]
     [InlineData("Genesect ex", "Genesect ex")]
+    [InlineData("Carrion Feeder (Borderless) (Foil Etched)", "Carrion Feeder")]
     public void Strip_TrailingParenthetical_RemovesItForComparisonOnly(string name, string expected)
     {
         var result = TrailingParentheticalStripper.Strip(name);

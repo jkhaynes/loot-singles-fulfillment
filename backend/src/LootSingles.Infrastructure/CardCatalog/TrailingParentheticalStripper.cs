@@ -14,7 +14,23 @@ namespace LootSingles.Infrastructure.CardCatalog;
 /// </summary>
 public static partial class TrailingParentheticalStripper
 {
-    public static string Strip(string name) => Pattern().Replace(name, "").TrimEnd();
+    public static string Strip(string name)
+    {
+        var result = name;
+        string stripped;
+        while (
+            !string.Equals(
+                stripped = Pattern().Replace(result, "").TrimEnd(),
+                result,
+                StringComparison.Ordinal
+            )
+        )
+        {
+            result = stripped;
+        }
+
+        return result;
+    }
 
     [GeneratedRegex(@"\s*\([^()]+\)$")]
     private static partial Regex Pattern();
