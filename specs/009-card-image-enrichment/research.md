@@ -720,6 +720,109 @@ shape, so this uncertainty does not block architecture or the other two provider
 — rejected as exactly the kind of invented specificity that misleads implementation; PRD §31 itself
 already flags Lorcast's selection as "not yet permanent architecture commitments."
 
+**Update (Clarifications, 2026-08-25 — Lorcast endpoint shape confirmed live; T042's uncertainty
+resolved)**: Fetched Lorcast's own live API documentation (`lorcast.com/docs/api`) directly rather
+than continuing to treat the shape as unconfirmed:
+
+- **Card lookup**: `GET https://api.lorcast.com/v0/cards/:set/:number` — an exact, unique lookup by
+  set code and collector number (e.g. `.../cards/1/207`), the same "direct id-keyed fetch, no
+  multiple-candidate-match case" shape TCGdex already established (§4) — structurally impossible to
+  return more than one card, unlike a text search. `image_uris.digital` (per Lorcast's Images docs)
+  has `full` (1468×2048, JPG), `large` (674×940, AVIF), `normal` (488×681, AVIF), and `small`
+  (146×204, AVIF) variants; `large` is this provider's chosen field, matching the resolution
+  Scryfall's `large` (672×936) and TCGdex's `high` (600×825) already use for the same purpose.
+  **Unlike TCGdex, the image URL must be taken verbatim from the response, never constructed**:
+  Lorcast's own docs explicitly warn "you should not assume that the URL structure or domain will
+  stay the same forever... use the card URIs returned from the API" (the CDN lives on a *separate*
+  domain, `*.lorcast.io`, from the API itself, `api.lorcast.com`). This is actually simpler than
+  TCGdex's shape (which requires appending `/{quality}.{extension}` to a returned base) — one field,
+  no string-building.
+- **Sets list**: `GET https://api.lorcast.com/v0/sets` returns `{id, code, name, released_at,
+  prereleased_at}` per set — same "id/code-keyed, not name-queryable" shape as TCGdex's `/v2/en/sets`,
+  so the same set-name-to-code resolution pattern (§4, §12: fetch once, cache, match by `name`
+  case-insensitively) applies here too, not yet built.
+- **No batch/bulk endpoint** exists (confirmed: the API overview page documents only Images, Sets,
+  and Cards sections; no `card_ids`/collection-style endpoint is documented anywhere, unlike
+  Scryfall's `POST /cards/collection`). Every card is one request.
+- **Rate limit — real and enforced, unlike TCGdex, closer to Scryfall's model**: Lorcast's docs ask
+  for "50–100 milliseconds of delay between requests... roughly 10 requests per second on average,"
+  and state exceeding it returns `HTTP 429` with "potential IP bans" for continued overloading — a
+  hard consequence, not TCGdex's "no published hard limit." The numeric limit itself (~10/sec) is
+  5x more generous than Scryfall's 2/sec bucket for card-data endpoints, but because there is no
+  batch endpoint to fall back on the way Scryfall's design does (§3), the existing default
+  interface method's unthrottled per-card `Task.WhenAll` fan-out (safe for TCGdex only because
+  TCGdex has no hard limit — confirmed via a live 50-concurrent-request load test, §4) would not be
+  safe reused here unmodified: a Lorcana order with many lines firing all its lookups at once could
+  trip the limit.
+- **Maturity**: the API is versioned `v0` and explicitly labeled **beta** ("future versions of it
+  will be backward compatible," but breaking changes are possible pre-stable) — a different risk
+  profile than Scryfall (mature) or TCGdex (load-tested and proven reliable by this project). No
+  live reliability data exists yet for Lorcast the way it does for the other two providers; worth a
+  similar live check during T044 implementation, given that exact gap (assumed reliability, never
+  verified under load) is what caused the original Pokémon TCG API choice to fail in production.
+- **Cost/terms**: free, no API key, and operates under Ravensburger's Community Code Policy (Disney
+  Lorcana's official fan-content policy), which explicitly prohibits Lorcast from ever charging for
+  access — a stronger free-forever guarantee than either TCGdex or Scryfall's terms carry.
+
+*Alternatives evaluated and rejected* (mirroring §3's Scryfall-alternatives audit):
+
+- **Lorcana-api.com** — the only other genuine live REST API found; free, no key, and notably open
+  source/self-hostable. Rejected for now: no documented rate limit anywhere in its public docs
+  (unknown risk, not "no risk," and a worse-understood risk than Lorcast's explicit, documented
+  one); its endpoints are named `/strict/`, `/fuzzy/`, `/lists/`, `/search/` — the presence of a
+  `/fuzzy/` mode is a flag against PRD §32/FR-003's hard exact-match-only requirement, and public
+  docs didn't confirm whether `/strict/` gives the same guaranteed-single-result shape Lorcast's
+  direct `/cards/:set/:number` lookup does. Single hobbyist maintainer, no stated uptime track
+  record — unverified the way TCGdex was live-load-tested before being trusted.
+- **LorcanaJSON** — bulk JSON data dumps (hosted at `lorcanajson.org`), not a live API; the same
+  category MTGJSON was for Magic (§3). Would require syncing and hosting our own dataset, directly
+  conflicting with this feature's "live lookup only, no persistence" design (§11). Disqualified for
+  the identical reason MTGJSON was.
+- **TCG API (tcgapi.dev)** — already disqualified for Magic (§3); confirmed the same problems apply
+  to Lorcana specifically: requires a paid API key, a 100-requests/day free-tier cap (unworkable for
+  real order volume), and its "images" are generic TCGplayer marketplace product photos
+  (`tcgplayer-cdn.tcgplayer.com`) rather than print-specific catalog card art — a real precision
+  concern given PRD's emphasis on exact print/variant confidence, not just a rate-limit issue.
+- **Scrydex** — no free tier at all ($29/month minimum). Disqualified on the same "no budget for a
+  paid API" basis every other provider choice in this project has followed.
+
+Lorcast remains the correct choice: the only free, live, exact-match API with a known, documented
+rate-limit shape and a guaranteed-free license.
+
+**Decision — bound concurrency with a `SemaphoreSlim` rather than pace with explicit delays**:
+`LorcastCardCatalogProvider` overrides `TryMatchImageUrlsAsync` (the same default-interface-method
+extension point Scryfall uses, but for throttling rather than batching, since no batch endpoint
+exists to use instead) and gates each per-identity `TryMatchImageUrlAsync` call through a
+`SemaphoreSlim` capping concurrent in-flight Lorcast requests to a small number safely under the
+~10/sec guidance (a specific value to be confirmed against real observed latency during T044, not
+guessed here) before dispatching all of a batch's calls via the same `Task.WhenAll` fan-out shape
+already proven for TCGdex — per-identity exception isolation (the same fix applied to the default
+interface method itself, §3) still applies, since a `SemaphoreSlim`-gated call can still throw or
+time out independently of its siblings.
+
+**Rationale**: This is the smallest fix proportional to the actual risk (Principle XIII): no new
+NuGet package, no explicit sleep/delay bookkeeping to maintain, and it reuses the exact concurrent-
+fan-out shape this codebase has already proven correct for TCGdex — only the addition of a
+concurrency cap is new. A semaphore naturally self-paces reasonably well because each real HTTP
+request carries real latency, without needing to compute or tune an explicit inter-request delay.
+This also deliberately does not add retry-with-backoff for an occasional `429`: consistent with
+research.md §6's existing rejection of a resilience/retry package for Scryfall, a request that hits
+the limit despite the cap simply maps that one identity to `null` (the existing, already-proven
+safe-fallback path), rather than adding new retry machinery FR-009 doesn't require.
+
+**Alternatives considered**: Explicit paced dispatch (fire one request, `Task.Delay(~75ms)`, fire
+the next, rather than concurrency-capping) — matches Lorcast's stated guidance more literally and
+would be the safer choice if Lorcana orders were expected to carry many lines, but adds real,
+compounding latency for a multi-line order (N lines × ~75ms minimum, serialized) and more
+bookkeeping than a semaphore for a provider whose real-world line volume is expected to be low
+(Lorcana is P3, sequenced last, and no real order data in this project's own fixtures has shown a
+high-line-count Lorcana order the way the Pokémon 50-line order did) — reconsider this alternative
+if T044's real-order testing shows otherwise. A `System.Threading.RateLimiter`-based token-bucket
+limiter (available in the BCL since .NET 7) was also considered — a more precise fit for "N
+requests per second" than a bare concurrency cap, but rejected as introducing a second concurrency-
+control pattern into a codebase that has so far needed only `SemaphoreSlim`/`lock`-guarded
+patterns (§4, §12), without a concrete demonstrated need for the token-bucket's extra precision.
+
 ## 6. HTTP client setup
 
 **Decision**: Register each provider as a typed `HttpClient` via `AddHttpClient<TProvider>()` in
