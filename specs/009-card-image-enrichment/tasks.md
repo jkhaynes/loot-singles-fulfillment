@@ -471,3 +471,27 @@ rejection, never a new acceptance path, and never rejects on a silent/absent `Va
   `"M Rayquaza EX"` (`76` → `CC024` in `cel25cc`) since last verified, a separate, pre-existing
   data-drift issue out of this fix's scope, not a regression. Updated `data-model.md`'s `Variant`
   field description to match what is now actually implemented
+
+## Phase 11: Shared Candidate-Resolution Extraction (`/code-design-review` Advisory, 2026-08-26)
+
+**Purpose**: A re-run `/code-design-review` after Phase 10 found `ScryfallCardCatalogProvider` and
+`LorcastCardCatalogProvider` independently duplicating the same "exactly one valid candidate, else
+log ambiguous and return null" aggregation — a genuine shared concept, since both providers (unlike
+TCGdex) have real multi-real-candidate-set problems. Advisory, not Must Fix; the Developer chose to
+extract it and explicitly declined the review's second Advisory finding (`LorcastSetCatalog`'s
+synthetic-key collision safety) as not worth guarding against.
+
+- [X] T070 [P] Add a new `CandidateImageResolverTests.cs`: exactly one valid image is returned
+  without logging; zero valid images returns `null` without logging (the ordinary, unremarkable
+  "no match" outcome); two or more valid images invokes the caller's ambiguity callback with the
+  count and returns `null`. Implement `CandidateImageResolver.Resolve(IReadOnlyList<string>
+  validImages, Action<int> logAmbiguous)` (`backend/src/LootSingles.Infrastructure/CardCatalog/CandidateImageResolver.cs`)
+  to make them pass
+- [X] T071 Refactor `ScryfallCardCatalogProvider.TryMatchImageUrlsAsync` (both the base-phase and
+  Attraction-suffix-retry-phase aggregation loops) and `LorcastCardCatalogProvider.TryMatchImageUrlAsync`
+  to call `CandidateImageResolver.Resolve` instead of their own hand-rolled `Count == 1`/`Count > 1`
+  branching, each passing its own provider-specific ambiguity log message as the callback.
+  Behavior-preserving only — no new production behavior
+- [X] T072 Run the full backend test suite (190/190 unit, 107/107 integration) and CSharpier to
+  confirm the refactor is behavior-preserving (Principle IV: existing tests remain green throughout,
+  no test changes needed for either provider's existing suite)

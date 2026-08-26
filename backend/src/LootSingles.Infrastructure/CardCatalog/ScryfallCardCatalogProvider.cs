@@ -64,15 +64,15 @@ public sealed class ScryfallCardCatalogProvider(
         foreach (var identityGroup in candidates.GroupBy(candidate => candidate.Identity))
         {
             var validImages = EvaluateCandidates(identityGroup, returnedCards);
-            if (validImages.Count == 1)
+            var resolved = CandidateImageResolver.Resolve(
+                validImages,
+                count => LogAmbiguous(identityGroup.Key, count)
+            );
+            if (resolved is not null)
             {
-                results[identityGroup.Key] = validImages[0];
+                results[identityGroup.Key] = resolved;
             }
-            else if (validImages.Count > 1)
-            {
-                LogAmbiguous(identityGroup.Key, validImages.Count);
-            }
-            else
+            else if (validImages.Count == 0)
             {
                 unresolvedIdentities.Add(identityGroup.Key);
             }
@@ -101,13 +101,13 @@ public sealed class ScryfallCardCatalogProvider(
             foreach (var identityGroup in suffixCandidates.GroupBy(candidate => candidate.Identity))
             {
                 var validImages = EvaluateCandidates(identityGroup, suffixCards);
-                if (validImages.Count == 1)
+                var resolved = CandidateImageResolver.Resolve(
+                    validImages,
+                    count => LogAmbiguous(identityGroup.Key, count)
+                );
+                if (resolved is not null)
                 {
-                    results[identityGroup.Key] = validImages[0];
-                }
-                else if (validImages.Count > 1)
-                {
-                    LogAmbiguous(identityGroup.Key, validImages.Count);
+                    results[identityGroup.Key] = resolved;
                 }
             }
         }

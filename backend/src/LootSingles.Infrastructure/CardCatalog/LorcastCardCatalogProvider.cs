@@ -83,18 +83,16 @@ public sealed class LorcastCardCatalogProvider(
             }
         }
 
-        if (validImages.Count > 1)
-        {
-            logger.LogWarning(
-                "Lorcast lookup was ambiguous for set {SetName} and collector number {CollectorNumber}; {ValidCandidateCount} candidates were valid.",
-                identity.Set,
-                collectorNumber,
-                validImages.Count
-            );
-            return null;
-        }
-
-        return validImages.Count == 1 ? validImages[0] : null;
+        return CandidateImageResolver.Resolve(
+            validImages,
+            count =>
+                logger.LogWarning(
+                    "Lorcast lookup was ambiguous for set {SetName} and collector number {CollectorNumber}; {ValidCandidateCount} candidates were valid.",
+                    identity.Set,
+                    collectorNumber,
+                    count
+                )
+        );
     }
 
     public async Task<IReadOnlyDictionary<CardIdentity, string?>> TryMatchImageUrlsAsync(

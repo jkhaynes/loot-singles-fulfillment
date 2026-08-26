@@ -146,6 +146,20 @@ collector numbers for different cards (resolved via a synthetic multi-code candi
 card's name into separate `name`/`version` fields that must be recombined before comparison. Both
 fixed within the Lorcast adapter alone — see research.md §5 for full detail.
 
+**Update (implementation, 2026-08-26 — `/code-design-review` Advisory: shared candidate-resolution
+extraction)**: `ScryfallCardCatalogProvider` and `LorcastCardCatalogProvider` both had their own
+"exactly one valid candidate, else log ambiguous and return null" aggregation — an Advisory finding
+from `/code-design-review`, since both providers have a genuine multi-real-candidate problem
+`TcgdexCardCatalogProvider` structurally does not (TCGdex's candidates are alternate spellings of
+one intended set, not alternate real sets, so at most one can ever resolve — no duplication was
+missing there). Extracted the shared aggregation into a new `CandidateImageResolver.Resolve`
+(Infrastructure, new — a small static helper, not a new interface or abstraction layer), taking
+the caller's valid-image list and an ambiguity-logging callback so each provider keeps its own log
+message shape. Purely a behavior-preserving refactor confirmed by the full existing test suite
+remaining green throughout (Principle IV) — no new production behavior. The second Advisory
+finding from that same review (`LorcastSetCatalog`'s synthetic-key collision safety) was
+explicitly declined by the Developer as not worth guarding against.
+
 ## Project Structure
 
 ### Documentation (this feature)
@@ -181,7 +195,8 @@ backend/
 │   ├── IMagicSetCrosswalk.cs / MagicSetCrosswalk.cs   # new — static crosswalk, replaces ScryfallSetCatalog/MagicSetNameNormalizer (research.md §3 update, 2026-08-25)
 │   ├── Data/tcgplayer-magic-to-scryfall-set-codes.json # new — embedded, checked-in TCGplayer-to-Scryfall Magic set crosswalk
 │   ├── HyphenatedSetNameNormalizer.cs          # new — mitigates a mid-word hyphen line-wrap artifact in Set text (research.md §3 update, 2026-08-25)
-│   └── LorcastCardCatalogProvider.cs           # new
+│   ├── LorcastCardCatalogProvider.cs           # new
+│   └── CandidateImageResolver.cs               # new — shared "exactly one valid candidate" aggregation for Scryfall/Lorcast (plan.md update, 2026-08-26)
 ├── src/LootSingles.Api/Controllers/OrdersController.cs   # add ImageUrl to response records
 └── tests/
     ├── LootSingles.UnitTests/CardCatalog/      # new — one test file per provider + dispatch service
