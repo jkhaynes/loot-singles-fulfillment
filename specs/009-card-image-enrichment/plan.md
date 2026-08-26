@@ -94,11 +94,12 @@ changes three rows of the table above:
   efficient shape than the first (TCGdex), which is exactly the situation Constitution Principle
   XII names as warranting a real extension boundary — but making it additive rather than a breaking
   signature change means the extension costs nothing for a provider that doesn't need it.
-- `TcgdexCardCatalogProvider` (and `LorcastCardCatalogProvider` once implemented) require **no
-  code change at all** — they keep implementing only the single-card operation exactly as today,
-  and inherit a correct, behavior-identical batch operation via the interface's default method.
-  Nothing about the picking domain, the API contract, or the frontend changes, and nothing about
-  Pokémon's already-shipped implementation or test coverage needs to move.
+- `TcgdexCardCatalogProvider` requires **no code change at all** — it keeps implementing only the
+  single-card operation exactly as today, and inherits a correct, behavior-identical batch
+  operation via the interface's default method. Nothing about the picking domain, the API
+  contract, or the frontend changes, and nothing about Pokémon's already-shipped implementation or
+  test coverage needs to move. (`LorcastCardCatalogProvider`, once implemented, turned out to need
+  its own override too — see the User Story 4 Update below; this prediction was only half right.)
 - `OrdersService.GetByIdAsync` now groups an order's lines by `ProductLine` before enriching,
   and calls `CardImageEnrichmentService` (and, transitively, the one matching provider's batch
   operation) once per distinct game present rather than once per line — still concurrent across
@@ -129,6 +130,21 @@ Magic adapter boundary: no change to `ICardCatalogProvider`, `CardImageEnrichmen
 design found four further, narrower matching gaps (diacritics, multiple trailing parentheticals, a
 Set-text hyphen/whitespace artifact, and Unfinity Attraction letter-suffixed collector numbers),
 each fixed within the same adapter boundary — see research.md §3 for detail on all four.
+
+**Update (implementation, 2026-08-26 — User Story 4, `LorcastCardCatalogProvider` needed its own
+batch override after all)**: Unlike TCGdex (no published hard rate limit, inherits the default
+interface method unchanged) and Scryfall (has a batch endpoint to sidestep its limit),
+`LorcastCardCatalogProvider` overrides `TryMatchImageUrlsAsync` for a third reason: Lorcast
+documents a real, enforced ~10 requests/second limit with no batch/collection endpoint to fall
+back on, so the override exists purely to gate concurrency (`SemaphoreSlim(5)`) around the same
+`Task.WhenAll` fan-out shape the default method already uses, not to change the request shape
+itself — see research.md §5. A follow-up real-order defect report (`Scrooge McDuck - S.H.U.S.H.
+Agent` not resolving) found two further gaps within the same Lorcana adapter boundary: TCGplayer's
+generic `"Disney Lorcana Promo Cards"` label collapses several real Lorcast sets that reuse
+collector numbers for different cards (resolved via a synthetic multi-code candidate key in
+`LorcastSetCatalog`, mirroring `IMagicSetCrosswalk`'s 1-to-many shape), and Lorcast splits every
+card's name into separate `name`/`version` fields that must be recombined before comparison. Both
+fixed within the Lorcast adapter alone — see research.md §5 for full detail.
 
 ## Project Structure
 
