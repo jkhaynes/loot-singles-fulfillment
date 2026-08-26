@@ -107,6 +107,16 @@
   font-size: var(--font-size-body-small);
 }
 
+.order-detail-line__image {
+  display: block;
+  width: 100%;
+  min-height: 13rem;
+  max-height: 13rem;
+  border-radius: var(--radius-small);
+  background: var(--color-surface);
+  object-fit: contain;
+}
+
 .order-detail-line__identity {
   min-width: 0;
 }
@@ -174,6 +184,11 @@
 
   .order-detail-line__placeholder {
     min-height: 10rem;
+  }
+
+  .order-detail-line__image {
+    min-height: 10rem;
+    max-height: 10rem;
   }
 
   .order-detail-line__attributes {

@@ -68,9 +68,17 @@ export function OrderDetailPage() {
               className="order-detail-line"
               aria-label={`Product ${line.productName}`}
             >
-              <div className="order-detail-line__placeholder" aria-label="Card image unavailable">
-                <span aria-hidden="true">No image</span>
-              </div>
+              {line.imageUrl !== null ? (
+                <img
+                  className="order-detail-line__image"
+                  src={line.imageUrl}
+                  alt={line.productName}
+                />
+              ) : (
+                <div className="order-detail-line__placeholder" aria-label="Card image unavailable">
+                  <span aria-hidden="true">No image</span>
+                </div>
+              )}
               <div className="order-detail-line__identity">
                 <h2>{line.productName}</h2>
                 <dl className="order-detail-line__attributes">

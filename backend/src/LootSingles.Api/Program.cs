@@ -3,10 +3,12 @@ using System.Text.Json.Serialization;
 using LootSingles.Api;
 using LootSingles.Api.Controllers;
 using LootSingles.Application.Auth;
+using LootSingles.Application.CardCatalog;
 using LootSingles.Application.Dashboard;
 using LootSingles.Application.Import;
 using LootSingles.Application.Orders;
 using LootSingles.Infrastructure.Auth;
+using LootSingles.Infrastructure.CardCatalog;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -64,6 +66,53 @@ builder.Services.AddScoped<EmployeeSessionCookieEvents>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddHttpClient<TcgdexCardCatalogProvider>(client =>
+{
+    client.BaseAddress = new Uri("https://api.tcgdex.net/v2/en/");
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+builder.Services.AddHttpClient(
+    "tcgdex",
+    client =>
+    {
+        client.BaseAddress = new Uri("https://api.tcgdex.net/v2/en/");
+        client.Timeout = TimeSpan.FromSeconds(10);
+    }
+);
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<TcgdexSetCatalog>();
+builder.Services.AddScoped<ICardCatalogProvider>(sp =>
+    sp.GetRequiredService<TcgdexCardCatalogProvider>()
+);
+builder.Services.AddHttpClient<ScryfallCardCatalogProvider>(client =>
+{
+    client.BaseAddress = new Uri("https://api.scryfall.com/");
+    client.Timeout = TimeSpan.FromSeconds(10);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("LootSinglesFulfillment/1.0");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+});
+builder.Services.AddSingleton<IMagicSetCrosswalk>(_ => MagicSetCrosswalk.LoadEmbedded());
+builder.Services.AddScoped<ICardCatalogProvider>(sp =>
+    sp.GetRequiredService<ScryfallCardCatalogProvider>()
+);
+builder.Services.AddHttpClient(
+    "lorcast",
+    client =>
+    {
+        client.BaseAddress = new Uri("https://api.lorcast.com/v0/");
+        client.Timeout = TimeSpan.FromSeconds(10);
+    }
+);
+builder.Services.AddHttpClient<LorcastCardCatalogProvider>(client =>
+{
+    client.BaseAddress = new Uri("https://api.lorcast.com/v0/");
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+builder.Services.AddSingleton<LorcastSetCatalog>();
+builder.Services.AddScoped<ICardCatalogProvider>(sp =>
+    sp.GetRequiredService<LorcastCardCatalogProvider>()
+);
+builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();
 builder
     .Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -79,6 +128,9 @@ builder
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// Validate the checked-in crosswalk during startup rather than on the first order-detail request.
+_ = app.Services.GetRequiredService<IMagicSetCrosswalk>();
 
 if (args.Length == 1 && string.Equals(args[0], "bootstrap-admin", StringComparison.Ordinal))
 {

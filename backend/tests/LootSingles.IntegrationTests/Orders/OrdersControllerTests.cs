@@ -2,15 +2,159 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using LootSingles.Api.Controllers;
+using LootSingles.Application.CardCatalog;
 using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Auth;
+using LootSingles.Infrastructure.Persistence;
 using LootSingles.IntegrationTests.Auth;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace LootSingles.IntegrationTests.Orders;
 
 public sealed class OrdersControllerTests
 {
+    [Fact]
+    public async Task GetByIdReturnsImageUrlFromRegisteredProviderAndNullForUnsupportedGame()
+    {
+        await using var rootFactory = new AuthWebApplicationFactory();
+        await using var factory = rootFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<ICardCatalogProvider>();
+                services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvider(
+                    "Pokemon",
+                    "https://example.com/genesect-ex.png"
+                ));
+            })
+        );
+
+        Order order;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
+            context.Employees.Add(
+                new Employee
+                {
+                    Username = "imageorderuser",
+                    NormalizedUsername = "IMAGEORDERUSER",
+                    DisplayName = "Image Order User",
+                    PinHash = new Pbkdf2PinHasher().Hash("1234"),
+                    Role = EmployeeRole.Picker,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                }
+            );
+            order = NewOrder("IMAGE-ORDER", DateTimeOffset.Parse("2026-08-24T15:00:00Z"));
+            order.OrderLines.Add(
+                NewOrderLine("Genesect ex", "SV: Black Bolt", "Holofoil", "Near Mint", 3)
+            );
+            order.OrderLines.Add(
+                NewOrderLine("Lightning Bolt", "Alpha", null, "Near Mint", 1, productLine: "Magic")
+            );
+            context.Orders.Add(order);
+            await context.SaveChangesAsync();
+        }
+
+        var client = factory.CreateClient(
+            new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") }
+        );
+        var login = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest("imageorderuser", "1234")
+        );
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+
+        var response = await client.GetAsync($"/api/orders/{order.Id}");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var lines = document.RootElement.GetProperty("lines").EnumerateArray().ToArray();
+        Assert.Equal(
+            "https://example.com/genesect-ex.png",
+            lines[0].GetProperty("imageUrl").GetString()
+        );
+        Assert.True(lines[1].TryGetProperty("imageUrl", out var unsupportedGameImageUrl));
+        Assert.Equal(JsonValueKind.Null, unsupportedGameImageUrl.ValueKind);
+    }
+
+    private sealed class FakeCardCatalogProvider(string productLine, string imageUrl)
+        : ICardCatalogProvider
+    {
+        public string ProductLine { get; } = productLine;
+
+        public Task<string?> TryMatchImageUrlAsync(
+            CardIdentity identity,
+            CancellationToken cancellationToken
+        ) => Task.FromResult<string?>(imageUrl);
+    }
+
+    [Fact]
+    public async Task GetByIdWhenProviderThrows_StillReturns200WithNullImageUrlForThatLine()
+    {
+        await using var rootFactory = new AuthWebApplicationFactory();
+        await using var factory = rootFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<ICardCatalogProvider>();
+                services.AddScoped<ICardCatalogProvider>(_ => new ThrowingCardCatalogProvider(
+                    "Pokemon"
+                ));
+            })
+        );
+
+        Order order;
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
+            context.Employees.Add(
+                new Employee
+                {
+                    Username = "throwingprovideruser",
+                    NormalizedUsername = "THROWINGPROVIDERUSER",
+                    DisplayName = "Throwing Provider User",
+                    PinHash = new Pbkdf2PinHasher().Hash("1234"),
+                    Role = EmployeeRole.Picker,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                }
+            );
+            order = NewOrder("PROVIDER-THROWS-ORDER", DateTimeOffset.Parse("2026-08-25T15:00:00Z"));
+            order.OrderLines.Add(
+                NewOrderLine("Genesect ex", "SV: Black Bolt", "Holofoil", "Near Mint", 1)
+            );
+            context.Orders.Add(order);
+            await context.SaveChangesAsync();
+        }
+
+        var client = factory.CreateClient(
+            new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") }
+        );
+        var login = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest("throwingprovideruser", "1234")
+        );
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+
+        var response = await client.GetAsync($"/api/orders/{order.Id}");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var lines = document.RootElement.GetProperty("lines").EnumerateArray().ToArray();
+        Assert.True(lines[0].TryGetProperty("imageUrl", out var imageUrl));
+        Assert.Equal(JsonValueKind.Null, imageUrl.ValueKind);
+    }
+
+    private sealed class ThrowingCardCatalogProvider(string productLine) : ICardCatalogProvider
+    {
+        public string ProductLine { get; } = productLine;
+
+        public Task<string?> TryMatchImageUrlAsync(
+            CardIdentity identity,
+            CancellationToken cancellationToken
+        ) => throw new InvalidOperationException("Simulated provider failure.");
+    }
+
     [Fact]
     public async Task GetByIdWithoutSessionReturns401()
     {
@@ -221,12 +365,13 @@ public sealed class OrdersControllerTests
         string condition,
         int quantity,
         string collectorNumber = "#001",
-        string? rarity = null
+        string? rarity = null,
+        string productLine = "Pokemon"
     ) =>
         new()
         {
             RawDescription = productName,
-            ProductLine = "Pokemon",
+            ProductLine = productLine,
             ProductName = productName,
             Set = set,
             CollectorNumber = collectorNumber,

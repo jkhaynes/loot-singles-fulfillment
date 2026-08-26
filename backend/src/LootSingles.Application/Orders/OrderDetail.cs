@@ -17,5 +17,6 @@ public sealed record OrderLineDetail(
     string? Rarity,
     string? Variant,
     string Condition,
-    int Quantity
+    int Quantity,
+    string? ImageUrl = null
 );

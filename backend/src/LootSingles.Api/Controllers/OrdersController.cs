@@ -51,7 +51,8 @@ public sealed class OrdersController(OrdersService ordersService) : ControllerBa
                         line.Rarity,
                         line.Variant,
                         line.Condition,
-                        line.Quantity
+                        line.Quantity,
+                        line.ImageUrl
                     ))
                     .ToList()
             )
@@ -81,5 +82,6 @@ public sealed record OrderLineDetailResponse(
     string? Rarity,
     string? Variant,
     string Condition,
-    int Quantity
+    int Quantity,
+    string? ImageUrl
 );
