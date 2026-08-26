@@ -31,7 +31,7 @@ independently implementable, testable, and demonstrable.
 
 ## Phase 1: Setup
 
-- [ ] T001 Verify EF Core tooling is available for generating a new migration (`dotnet ef --version` from `backend/src/LootSingles.Api`) — no new NuGet/npm dependencies are needed for this feature (plan.md Technical Context)
+- [X] T001 Verify EF Core tooling is available for generating a new migration (`dotnet ef --version` from `backend/src/LootSingles.Api`) — no new NuGet/npm dependencies are needed for this feature (plan.md Technical Context)
 
 ---
 
@@ -41,14 +41,14 @@ independently implementable, testable, and demonstrable.
 
 **⚠️ CRITICAL**: No user story task may begin until this phase is complete.
 
-- [ ] T002 [P] Add `ClaimedByEmployeeId` (`int?`), `ClaimedAt` (`DateTimeOffset?`), and a `ClaimedByEmployee` (`Employee?`) navigation property to `Order` in `backend/src/LootSingles.Domain/Orders/Order.cs` (data-model.md)
-- [ ] T003 [P] Add `InProgress = 1` to `OrderStatus` in `backend/src/LootSingles.Domain/Orders/OrderStatus.cs` (data-model.md)
-- [ ] T004 [P] Define `OrderClaimOutcome` enum (`Success, OrderNotFound, AlreadyClaimed, NoOrdersAvailable, EmployeeHasActiveClaim, NotYourClaim, OrderNotClaimed`) and an `OrderClaimResult` record (`Outcome`, `Order? Order = null`, `int? ConflictingOrderId = null`) with static factories, in new `backend/src/LootSingles.Application/Orders/OrderClaimResult.cs` — mirror the shape of `backend/src/LootSingles.Application/Auth/EmployeeManagementResult.cs`
-- [ ] T005 Add a filtered unique index on `ClaimedByEmployeeId` (`.HasIndex(o => o.ClaimedByEmployeeId).IsUnique().HasFilter("[ClaimedByEmployeeId] IS NOT NULL")`) in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/OrderConfiguration.cs` (research.md §3) — depends on T002
-- [ ] T006 Generate the EF Core migration `AddOrderClaiming` (`dotnet ef migrations add AddOrderClaiming --project backend/src/LootSingles.Infrastructure --startup-project backend/src/LootSingles.Api`) adding the two new `Orders` columns and the filtered unique index — depends on T002, T003, T005
-- [ ] T007 [P] Update the expected migration list in `Clean_database_has_all_migrations_in_assembly_order_and_matches_current_model` in `backend/tests/LootSingles.IntegrationTests/Persistence/MigrationTests.cs` to include the new `AddOrderClaiming` migration — depends on T006
-- [ ] T008 [P] Update `Schema_contains_behaviorally_relevant_unique_and_lookup_indexes` in `backend/tests/LootSingles.IntegrationTests/Persistence/SqlServerSchemaTests.cs` to assert the new `IX_Orders_ClaimedByEmployeeId` unique index exists — depends on T006
-- [ ] T009 [P] Add `Model_ForOrder_HasUniqueIndexOnClaimedByEmployeeId` to `backend/tests/LootSingles.IntegrationTests/Persistence/OrderConfigurationTests.cs`, mirroring the existing `Model_ForOrder_HasUniqueIndexOnTcgplayerOrderId` test — depends on T005
+- [X] T002 [P] Add `ClaimedByEmployeeId` (`int?`), `ClaimedAt` (`DateTimeOffset?`), and a `ClaimedByEmployee` (`Employee?`) navigation property to `Order` in `backend/src/LootSingles.Domain/Orders/Order.cs` (data-model.md)
+- [X] T003 [P] Add `InProgress = 1` to `OrderStatus` in `backend/src/LootSingles.Domain/Orders/OrderStatus.cs` (data-model.md)
+- [X] T004 [P] Define `OrderClaimOutcome` enum (`Success, OrderNotFound, AlreadyClaimed, NoOrdersAvailable, EmployeeHasActiveClaim, NotYourClaim, OrderNotClaimed`) and an `OrderClaimResult` record (`Outcome`, `Order? Order = null`, `int? ConflictingOrderId = null`) with static factories, in new `backend/src/LootSingles.Application/Orders/OrderClaimResult.cs` — mirror the shape of `backend/src/LootSingles.Application/Auth/EmployeeManagementResult.cs`
+- [X] T005 Add a filtered unique index on `ClaimedByEmployeeId` (`.HasIndex(o => o.ClaimedByEmployeeId).IsUnique().HasFilter("[ClaimedByEmployeeId] IS NOT NULL")`) in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/OrderConfiguration.cs` (research.md §3) — depends on T002
+- [X] T006 Generate the EF Core migration `AddOrderClaiming` (`dotnet ef migrations add AddOrderClaiming --project backend/src/LootSingles.Infrastructure --startup-project backend/src/LootSingles.Api`) adding the two new `Orders` columns and the filtered unique index — depends on T002, T003, T005
+- [X] T007 [P] Update the expected migration list in `Clean_database_has_all_migrations_in_assembly_order_and_matches_current_model` in `backend/tests/LootSingles.IntegrationTests/Persistence/MigrationTests.cs` to include the new `AddOrderClaiming` migration — depends on T006
+- [X] T008 [P] Update `Schema_contains_behaviorally_relevant_unique_and_lookup_indexes` in `backend/tests/LootSingles.IntegrationTests/Persistence/SqlServerSchemaTests.cs` to assert the new `IX_Orders_ClaimedByEmployeeId` unique index exists — depends on T006
+- [X] T009 [P] Add `Model_ForOrder_HasUniqueIndexOnClaimedByEmployeeId` to `backend/tests/LootSingles.IntegrationTests/Persistence/OrderConfigurationTests.cs`, mirroring the existing `Model_ForOrder_HasUniqueIndexOnTcgplayerOrderId` test — depends on T005
 
 **Checkpoint**: Domain model, migration, and outcome types exist — user story phases can begin.
 

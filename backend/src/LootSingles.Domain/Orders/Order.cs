@@ -1,3 +1,5 @@
+using LootSingles.Domain.Employees;
+
 namespace LootSingles.Domain.Orders;
 
 /// <summary>
@@ -33,4 +35,21 @@ public class Order
     /// An Order must contain at least one OrderLine.
     /// </summary>
     public ICollection<OrderLine> OrderLines { get; set; } = new List<OrderLine>();
+
+    /// <summary>
+    /// The employee currently claiming this order, if any. Null iff <see cref="Status"/> is
+    /// <see cref="OrderStatus.Ready"/>; set iff <see cref="OrderStatus.InProgress"/> (013-order-claiming).
+    /// </summary>
+    public int? ClaimedByEmployeeId { get; set; }
+
+    /// <summary>
+    /// When the current claim was made. Null iff <see cref="ClaimedByEmployeeId"/> is null.
+    /// Informational only — claims never expire automatically (FR-008).
+    /// </summary>
+    public DateTimeOffset? ClaimedAt { get; set; }
+
+    /// <summary>
+    /// Navigation to the claiming employee, for surfacing the claimant's display name (FR-005).
+    /// </summary>
+    public Employee? ClaimedByEmployee { get; set; }
 }

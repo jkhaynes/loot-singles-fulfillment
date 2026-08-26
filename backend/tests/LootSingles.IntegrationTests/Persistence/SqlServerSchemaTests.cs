@@ -24,6 +24,7 @@ public sealed class SqlServerSchemaTests(SqlServerContainerFixture fixture)
             FROM sys.indexes i
             WHERE i.name IN (
                 'IX_Orders_TcgplayerOrderId',
+                'IX_Orders_ClaimedByEmployeeId',
                 'IX_OrderLines_OrderId',
                 'IX_ImportOrderResults_ImportAttemptId',
                 'IX_ImportOrderResults_ResultingOrderId',
@@ -37,8 +38,9 @@ public sealed class SqlServerSchemaTests(SqlServerContainerFixture fixture)
             indexes.Add(reader.GetString(0), reader.GetBoolean(1));
         }
 
-        Assert.Equal(7, indexes.Count);
+        Assert.Equal(8, indexes.Count);
         Assert.True(indexes["IX_Orders_TcgplayerOrderId"]);
+        Assert.True(indexes["IX_Orders_ClaimedByEmployeeId"]);
         Assert.True(indexes["IX_Employees_NormalizedUsername"]);
     }
 
