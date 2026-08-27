@@ -16,7 +16,11 @@ public sealed class MigrationTests(SqlServerContainerFixture fixture)
         var applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
 
         Assert.Equal(
-            ["20260820212459_InitialCreate", "20260821170809_AddEmployeeAuthentication"],
+            [
+                "20260820212459_InitialCreate",
+                "20260821170809_AddEmployeeAuthentication",
+                "20260826201114_AddOrderClaiming",
+            ],
             migrations
         );
         Assert.Equal(migrations, applied);

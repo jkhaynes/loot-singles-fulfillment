@@ -235,6 +235,118 @@ public sealed class OrdersControllerTests
         Assert.Equal(JsonValueKind.Null, variant.ValueKind);
         Assert.True(lines[1].TryGetProperty("rarity", out var rarity));
         Assert.Equal(JsonValueKind.Null, rarity.ValueKind);
+        Assert.True(
+            document.RootElement.TryGetProperty("claimedByEmployeeId", out var claimedByEmployeeId)
+        );
+        Assert.Equal(JsonValueKind.Null, claimedByEmployeeId.ValueKind);
+        Assert.True(
+            document.RootElement.TryGetProperty(
+                "claimedByEmployeeName",
+                out var claimedByEmployeeName
+            )
+        );
+        Assert.Equal(JsonValueKind.Null, claimedByEmployeeName.ValueKind);
+    }
+
+    [Fact]
+    public async Task GetByIdIncludesClaimStateForAClaimedOrder()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = NewOrder("CLAIMED-DETAIL-ORDER", DateTimeOffset.Parse("2026-08-24T15:00:00Z"));
+        order.OrderLines.Add(
+            NewOrderLine("Pikachu", "Base Set", null, "Near Mint", 1, rarity: "Common")
+        );
+        var claimant = new Employee
+        {
+            Username = "claimantuser",
+            NormalizedUsername = "CLAIMANTUSER",
+            DisplayName = "Claimant User",
+            PinHash = new Pbkdf2PinHasher().Hash("1234"),
+            Role = EmployeeRole.Picker,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        await factory.SeedAsync(context =>
+        {
+            context.Employees.Add(claimant);
+            context.Orders.Add(order);
+            return Task.CompletedTask;
+        });
+        await factory.SeedAsync(context =>
+        {
+            order.Status = OrderStatus.InProgress;
+            order.ClaimedByEmployeeId = claimant.Id;
+            order.ClaimedAt = DateTimeOffset.UtcNow;
+            context.Orders.Update(order);
+            return Task.CompletedTask;
+        });
+
+        var response = await client.GetAsync($"/api/orders/{order.Id}");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("inProgress", document.RootElement.GetProperty("status").GetString());
+        Assert.Equal(
+            claimant.Id,
+            document.RootElement.GetProperty("claimedByEmployeeId").GetInt32()
+        );
+        Assert.Equal(
+            "Claimant User",
+            document.RootElement.GetProperty("claimedByEmployeeName").GetString()
+        );
+    }
+
+    [Fact]
+    public async Task GetIncludesClaimStateForClaimedAndUnclaimedOrders()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var claimant = new Employee
+        {
+            Username = "listclaimantuser",
+            NormalizedUsername = "LISTCLAIMANTUSER",
+            DisplayName = "List Claimant",
+            PinHash = new Pbkdf2PinHasher().Hash("1234"),
+            Role = EmployeeRole.Picker,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        var claimed = NewOrder("LIST-CLAIMED-ORDER", DateTimeOffset.UtcNow);
+        var unclaimed = NewOrder("LIST-UNCLAIMED-ORDER", DateTimeOffset.UtcNow);
+        await factory.SeedAsync(context =>
+        {
+            context.Employees.Add(claimant);
+            context.Orders.AddRange(claimed, unclaimed);
+            return Task.CompletedTask;
+        });
+        await factory.SeedAsync(context =>
+        {
+            claimed.Status = OrderStatus.InProgress;
+            claimed.ClaimedByEmployeeId = claimant.Id;
+            claimed.ClaimedAt = DateTimeOffset.UtcNow;
+            context.Orders.Update(claimed);
+            return Task.CompletedTask;
+        });
+
+        var response = await client.GetAsync("/api/orders");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var items = document.RootElement.EnumerateArray().ToArray();
+        var claimedItem = items.Single(item =>
+            item.GetProperty("tcgplayerOrderId").GetString() == "LIST-CLAIMED-ORDER"
+        );
+        var unclaimedItem = items.Single(item =>
+            item.GetProperty("tcgplayerOrderId").GetString() == "LIST-UNCLAIMED-ORDER"
+        );
+
+        Assert.Equal(claimant.Id, claimedItem.GetProperty("claimedByEmployeeId").GetInt32());
+        Assert.Equal("List Claimant", claimedItem.GetProperty("claimedByEmployeeName").GetString());
+        Assert.Equal(
+            JsonValueKind.Null,
+            unclaimedItem.GetProperty("claimedByEmployeeId").ValueKind
+        );
+        Assert.Equal(
+            JsonValueKind.Null,
+            unclaimedItem.GetProperty("claimedByEmployeeName").ValueKind
+        );
     }
 
     [Fact]
@@ -309,7 +421,14 @@ public sealed class OrdersControllerTests
             item =>
             {
                 Assert.Equal(
-                    ["importedAt", "orderId", "status", "tcgplayerOrderId"],
+                    [
+                        "claimedByEmployeeId",
+                        "claimedByEmployeeName",
+                        "importedAt",
+                        "orderId",
+                        "status",
+                        "tcgplayerOrderId",
+                    ],
                     item.EnumerateObject().Select(property => property.Name).Order().ToArray()
                 );
                 Assert.Equal("ready", item.GetProperty("status").GetString());

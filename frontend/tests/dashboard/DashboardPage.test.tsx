@@ -1,21 +1,31 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { DashboardPage } from '../../src/features/dashboard/DashboardPage'
 import * as dashboardApi from '../../src/features/dashboard/dashboardApi'
+import * as ordersApi from '../../src/features/orders/ordersApi'
+import { NoOrdersAvailableError } from '../../src/features/orders/ordersApi'
 
 vi.mock('../../src/features/dashboard/dashboardApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/features/dashboard/dashboardApi')>()
   return { ...actual, getDashboard: vi.fn() }
 })
 
+vi.mock('../../src/features/orders/ordersApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/features/orders/ordersApi')>()
+  return { ...actual, pickNextOrder: vi.fn() }
+})
+
 const employee = { employeeId: 1, displayName: 'Jamie', role: 'Picker' }
 
 function renderDashboard(onLogout = vi.fn()) {
   return render(
-    <MemoryRouter>
-      <DashboardPage employee={employee} onLogout={onLogout} />
+    <MemoryRouter initialEntries={['/']}>
+      <Routes>
+        <Route path="/" element={<DashboardPage employee={employee} onLogout={onLogout} />} />
+        <Route path="/orders/:orderId" element={<p>Order detail page</p>} />
+      </Routes>
     </MemoryRouter>,
   )
 }
@@ -176,5 +186,33 @@ describe('DashboardPage', () => {
     await screen.findByText(/no orders ready to pick/i)
 
     expect(screen.getByRole('link', { name: /import orders/i })).toHaveAttribute('href', '/import')
+  })
+
+  it('claims and navigates to the assigned order when Pick Next Order succeeds', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({ ready: { count: 1, orders: [] } })
+    vi.mocked(ordersApi.pickNextOrder).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'PICKED-ORDER',
+      status: 'inProgress',
+      claimedByEmployeeId: 1,
+      claimedByEmployeeName: 'Jamie',
+    })
+    const user = userEvent.setup()
+
+    renderDashboard()
+    await user.click(await screen.findByRole('button', { name: /pick next order/i }))
+
+    expect(await screen.findByText('Order detail page')).toBeInTheDocument()
+  })
+
+  it('shows a clear message when no orders are available to pick', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({ ready: { count: 0, orders: [] } })
+    vi.mocked(ordersApi.pickNextOrder).mockRejectedValue(new NoOrdersAvailableError())
+    const user = userEvent.setup()
+
+    renderDashboard()
+    await user.click(await screen.findByRole('button', { name: /pick next order/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no orders are currently available/i)
   })
 })

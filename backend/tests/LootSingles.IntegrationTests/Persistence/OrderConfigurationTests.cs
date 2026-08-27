@@ -31,4 +31,28 @@ public class OrderConfigurationTests
         Assert.NotNull(index);
         Assert.True(index.IsUnique);
     }
+
+    [Fact]
+    public void Model_ForOrder_HasUniqueIndexOnClaimedByEmployeeId()
+    {
+        var options = new DbContextOptionsBuilder<LootSinglesDbContext>()
+            .UseSqlServer(
+                "Server=unused;Database=unused;Integrated Security=true;TrustServerCertificate=true"
+            )
+            .Options;
+
+        using var context = new LootSinglesDbContext(options);
+
+        var entityType = context.Model.FindEntityType(typeof(Order));
+        Assert.NotNull(entityType);
+
+        var index = entityType
+            .GetIndexes()
+            .SingleOrDefault(i =>
+                i.Properties.Select(p => p.Name).SequenceEqual([nameof(Order.ClaimedByEmployeeId)])
+            );
+
+        Assert.NotNull(index);
+        Assert.True(index.IsUnique);
+    }
 }

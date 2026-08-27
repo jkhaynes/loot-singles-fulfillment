@@ -71,6 +71,7 @@ builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvide
 ));
 builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();
+builder.Services.AddScoped<OrderClaimService>();
 builder
     .Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -125,6 +126,30 @@ static async Task SeedAsync(IServiceProvider services)
             CreatedAt = DateTimeOffset.UtcNow,
         }
     );
+    context.Employees.Add(
+        new Employee
+        {
+            Username = "e2epicker",
+            NormalizedUsername = "E2EPICKER",
+            DisplayName = "E2E Picker",
+            PinHash = pinHasher.Hash("1234"),
+            Role = EmployeeRole.Picker,
+            CreatedAt = DateTimeOffset.UtcNow,
+        }
+    );
+    context.Employees.Add(
+        new Employee
+        {
+            // A distinct second Picker so parallel claiming E2E tests never contend over
+            // FR-009's one-active-claim-per-employee rule against a shared identity.
+            Username = "e2epickertwo",
+            NormalizedUsername = "E2EPICKERTWO",
+            DisplayName = "E2E Picker Two",
+            PinHash = pinHasher.Hash("1234"),
+            Role = EmployeeRole.Picker,
+            CreatedAt = DateTimeOffset.UtcNow,
+        }
+    );
     context.Orders.Add(
         new Order
         {
@@ -171,6 +196,52 @@ static async Task SeedAsync(IServiceProvider services)
                     ProductName = "Elsa",
                     Set = "The First Chapter",
                     CollectorNumber = "#207",
+                    Condition = "Near Mint",
+                    Quantity = 1,
+                },
+            ],
+        }
+    );
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00002",
+            Status = OrderStatus.Ready,
+            // Deliberately older than E2E-ORDER-00001 so "Pick Next Order" (FIFO-oldest) always
+            // prefers this order first and never disturbs E2E-ORDER-00001, which order-detail.spec.ts
+            // depends on staying Ready/unclaimed.
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(-10),
+            OrderLines =
+            [
+                new OrderLine
+                {
+                    RawDescription = "Pikachu - Base Set - #58/102 - Common - Near Mint",
+                    ProductLine = "Pokemon",
+                    ProductName = "Pikachu",
+                    Set = "Base Set",
+                    CollectorNumber = "#58/102",
+                    Condition = "Near Mint",
+                    Quantity = 1,
+                },
+            ],
+        }
+    );
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00003",
+            Status = OrderStatus.Ready,
+            // Older than E2E-ORDER-00001 but newer than E2E-ORDER-00002 — see the comment there.
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(-5),
+            OrderLines =
+            [
+                new OrderLine
+                {
+                    RawDescription = "Pikachu - Base Set - #58/102 - Common - Near Mint",
+                    ProductLine = "Pokemon",
+                    ProductName = "Pikachu",
+                    Set = "Base Set",
+                    CollectorNumber = "#58/102",
                     Condition = "Near Mint",
                     Quantity = 1,
                 },

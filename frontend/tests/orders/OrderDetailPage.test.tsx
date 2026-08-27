@@ -3,24 +3,40 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OrderDetailPage } from '../../src/features/orders/OrderDetailPage'
 import * as ordersApi from '../../src/features/orders/ordersApi'
+import { AuthProvider } from '../../src/features/auth/AuthContext'
+import * as authApi from '../../src/features/auth/authApi'
 
 vi.mock('../../src/features/orders/ordersApi', async (original) => ({
   ...(await original<typeof import('../../src/features/orders/ordersApi')>()),
   getOrderDetail: vi.fn(),
 }))
 
+vi.mock('../../src/features/auth/authApi', async (original) => ({
+  ...(await original<typeof import('../../src/features/auth/authApi')>()),
+  me: vi.fn(),
+}))
+
 function renderPage(orderId = 42) {
   return render(
-    <MemoryRouter initialEntries={[`/orders/${orderId}`]}>
-      <Routes>
-        <Route path="/orders/:orderId" element={<OrderDetailPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <AuthProvider>
+      <MemoryRouter initialEntries={[`/orders/${orderId}`]}>
+        <Routes>
+          <Route path="/orders/:orderId" element={<OrderDetailPage />} />
+        </Routes>
+      </MemoryRouter>
+    </AuthProvider>,
   )
 }
 
 describe('OrderDetailPage', () => {
-  beforeEach(() => vi.resetAllMocks())
+  beforeEach(() => {
+    vi.resetAllMocks()
+    vi.mocked(authApi.me).mockResolvedValue({
+      employeeId: 1,
+      displayName: 'Test Picker',
+      role: 'Picker',
+    })
+  })
 
   it('renders the order identifier and every line field, omitting a missing variant', async () => {
     vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
