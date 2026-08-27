@@ -186,6 +186,53 @@ public class EmployeeManagementServiceTests
     }
 
     [Fact]
+    public async Task DeactivateAsync_LastActiveManagerAdmin_ReturnsWouldRemoveLastManagerAdminAndLeavesAccountActive()
+    {
+        var repository = new FakeEmployeeRepository();
+        var manager = NewEmployee(1, "manager", "hash");
+        manager.Role = EmployeeRole.ManagerAdmin;
+        repository.Employees.Add(manager);
+        var service = new EmployeeManagementService(repository, new Pbkdf2PinHasher());
+
+        var result = await service.DeactivateAsync(9, 1, default);
+
+        Assert.Equal(EmployeeManagementOutcome.WouldRemoveLastManagerAdmin, result.Outcome);
+        Assert.True(manager.IsActive);
+    }
+
+    [Fact]
+    public async Task DeactivateAsync_AnotherActiveManagerAdminRemains_Succeeds()
+    {
+        var repository = new FakeEmployeeRepository();
+        var manager = NewEmployee(1, "manager", "hash");
+        manager.Role = EmployeeRole.ManagerAdmin;
+        var otherManager = NewEmployee(2, "othermanager", "hash");
+        otherManager.Role = EmployeeRole.ManagerAdmin;
+        repository.Employees.Add(manager);
+        repository.Employees.Add(otherManager);
+        var service = new EmployeeManagementService(repository, new Pbkdf2PinHasher());
+
+        var result = await service.DeactivateAsync(9, 1, default);
+
+        Assert.Equal(EmployeeManagementOutcome.Success, result.Outcome);
+        Assert.False(manager.IsActive);
+    }
+
+    [Fact]
+    public async Task DeactivateAsync_TargetIsPicker_SucceedsRegardlessOfManagerCount()
+    {
+        var repository = new FakeEmployeeRepository();
+        var picker = NewEmployee(1, "picker", "hash");
+        repository.Employees.Add(picker);
+        var service = new EmployeeManagementService(repository, new Pbkdf2PinHasher());
+
+        var result = await service.DeactivateAsync(9, 1, default);
+
+        Assert.Equal(EmployeeManagementOutcome.Success, result.Outcome);
+        Assert.False(picker.IsActive);
+    }
+
+    [Fact]
     public async Task StateChangeForMissingEmployee_ReturnsNotFoundWithoutAuditEvent()
     {
         var repository = new FakeEmployeeRepository();

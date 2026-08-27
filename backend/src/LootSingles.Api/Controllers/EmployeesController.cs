@@ -82,7 +82,23 @@ public sealed class EmployeesController(EmployeeManagementService managementServ
             id,
             cancellationToken
         );
-        return result.Outcome == EmployeeManagementOutcome.NotFound ? NotFound() : NoContent();
+
+        if (result.Outcome == EmployeeManagementOutcome.NotFound)
+        {
+            return NotFound();
+        }
+
+        if (result.Outcome == EmployeeManagementOutcome.WouldRemoveLastManagerAdmin)
+        {
+            return Conflict(
+                new ErrorResponse(
+                    "would_remove_last_manager_admin",
+                    "Deactivating this employee would leave zero active Manager/Admin employees."
+                )
+            );
+        }
+
+        return NoContent();
     }
 
     [HttpPost("{id:int}/reactivate")]

@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { createEmployee, listEmployees, UsernameTakenError } from './adminApi'
+import {
+  createEmployee,
+  deactivateEmployee,
+  listEmployees,
+  reactivateEmployee,
+  UsernameTakenError,
+  WouldRemoveLastManagerAdminError,
+} from './adminApi'
 import type { EmployeeListItem } from './adminApi'
 import './AdminPage.css'
 
@@ -16,6 +23,9 @@ export function AdminPage() {
   const [role, setRole] = useState('Picker')
   const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+
+  const [actingEmployeeId, setActingEmployeeId] = useState<number | null>(null)
+  const [rowActionError, setRowActionError] = useState<string | null>(null)
 
   async function refreshEmployees() {
     setIsLoading(true)
@@ -67,6 +77,36 @@ export function AdminPage() {
       }
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  async function handleDeactivate(employeeId: number) {
+    setActingEmployeeId(employeeId)
+    setRowActionError(null)
+    try {
+      await deactivateEmployee(employeeId)
+      await refreshEmployees()
+    } catch (error) {
+      if (error instanceof WouldRemoveLastManagerAdminError) {
+        setRowActionError('Removing this employee would leave zero active Manager/Admin employees.')
+      } else {
+        setRowActionError("Couldn't remove this employee. Try again.")
+      }
+    } finally {
+      setActingEmployeeId(null)
+    }
+  }
+
+  async function handleReactivate(employeeId: number) {
+    setActingEmployeeId(employeeId)
+    setRowActionError(null)
+    try {
+      await reactivateEmployee(employeeId)
+      await refreshEmployees()
+    } catch {
+      setRowActionError("Couldn't restore this employee. Try again.")
+    } finally {
+      setActingEmployeeId(null)
     }
   }
 
@@ -138,6 +178,12 @@ export function AdminPage() {
         </form>
       </section>
 
+      {rowActionError && (
+        <p role="alert" className="admin-state admin-state--error">
+          {rowActionError}
+        </p>
+      )}
+
       {isLoading ? (
         <p className="admin-state">Loading employees…</p>
       ) : hasError ? (
@@ -154,6 +200,7 @@ export function AdminPage() {
               <th scope="col">Display Name</th>
               <th scope="col">Role</th>
               <th scope="col">Status</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -165,6 +212,25 @@ export function AdminPage() {
                 <td>
                   {employee.isActive ? 'Active' : 'Inactive'}
                   {employee.isLocked ? ' · Locked' : ''}
+                </td>
+                <td>
+                  {employee.isActive ? (
+                    <button
+                      type="button"
+                      onClick={() => handleDeactivate(employee.employeeId)}
+                      disabled={actingEmployeeId === employee.employeeId}
+                    >
+                      Remove
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleReactivate(employee.employeeId)}
+                      disabled={actingEmployeeId === employee.employeeId}
+                    >
+                      Restore
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

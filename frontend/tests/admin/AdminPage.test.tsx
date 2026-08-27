@@ -4,12 +4,17 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminPage } from '../../src/features/admin/AdminPage'
 import * as adminApi from '../../src/features/admin/adminApi'
-import { UsernameTakenError } from '../../src/features/admin/adminApi'
+import {
+  UsernameTakenError,
+  WouldRemoveLastManagerAdminError,
+} from '../../src/features/admin/adminApi'
 
 vi.mock('../../src/features/admin/adminApi', async (original) => ({
   ...(await original<typeof import('../../src/features/admin/adminApi')>()),
   listEmployees: vi.fn(),
   createEmployee: vi.fn(),
+  deactivateEmployee: vi.fn(),
+  reactivateEmployee: vi.fn(),
 }))
 
 function renderPage() {
@@ -124,5 +129,97 @@ describe('AdminPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/already in use/i)
     expect(screen.queryByRole('row', { name: /dupe/i })).not.toBeInTheDocument()
+  })
+
+  it('removes an active employee and shows them as inactive afterward', async () => {
+    vi.mocked(adminApi.listEmployees)
+      .mockResolvedValueOnce([
+        {
+          employeeId: 5,
+          username: 'toremove',
+          displayName: 'To Remove',
+          role: 'Picker',
+          isActive: true,
+          isLocked: false,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          employeeId: 5,
+          username: 'toremove',
+          displayName: 'To Remove',
+          role: 'Picker',
+          isActive: false,
+          isLocked: false,
+        },
+      ])
+    vi.mocked(adminApi.deactivateEmployee).mockResolvedValue(undefined)
+    const user = userEvent.setup()
+
+    renderPage()
+    const row = await screen.findByRole('row', { name: /toremove/i })
+    await user.click(within(row).getByRole('button', { name: /remove/i }))
+
+    expect(adminApi.deactivateEmployee).toHaveBeenCalledWith(5)
+    const updatedRow = await screen.findByRole('row', { name: /toremove/i })
+    expect(within(updatedRow).getByText(/inactive/i)).toBeInTheDocument()
+  })
+
+  it('restores an inactive employee and shows them as active afterward', async () => {
+    vi.mocked(adminApi.listEmployees)
+      .mockResolvedValueOnce([
+        {
+          employeeId: 6,
+          username: 'torestore',
+          displayName: 'To Restore',
+          role: 'Picker',
+          isActive: false,
+          isLocked: false,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          employeeId: 6,
+          username: 'torestore',
+          displayName: 'To Restore',
+          role: 'Picker',
+          isActive: true,
+          isLocked: false,
+        },
+      ])
+    vi.mocked(adminApi.reactivateEmployee).mockResolvedValue(undefined)
+    const user = userEvent.setup()
+
+    renderPage()
+    const row = await screen.findByRole('row', { name: /torestore/i })
+    await user.click(within(row).getByRole('button', { name: /restore/i }))
+
+    expect(adminApi.reactivateEmployee).toHaveBeenCalledWith(6)
+    const updatedRow = await screen.findByRole('row', { name: /torestore/i })
+    expect(within(updatedRow).getByText(/^active$/i)).toBeInTheDocument()
+  })
+
+  it('shows a clear message and leaves the row unchanged when removal is blocked', async () => {
+    vi.mocked(adminApi.listEmployees).mockResolvedValue([
+      {
+        employeeId: 7,
+        username: 'lastmanager',
+        displayName: 'Last Manager',
+        role: 'ManagerAdmin',
+        isActive: true,
+        isLocked: false,
+      },
+    ])
+    vi.mocked(adminApi.deactivateEmployee).mockRejectedValue(new WouldRemoveLastManagerAdminError())
+    const user = userEvent.setup()
+
+    renderPage()
+    const row = await screen.findByRole('row', { name: /lastmanager/i })
+    await user.click(within(row).getByRole('button', { name: /remove/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/manager/i)
+    expect(
+      within(screen.getByRole('row', { name: /lastmanager/i })).getByText(/^active$/i),
+    ).toBeInTheDocument()
   })
 })

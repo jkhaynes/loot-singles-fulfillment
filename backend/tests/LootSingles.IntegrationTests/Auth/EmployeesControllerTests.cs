@@ -162,6 +162,35 @@ public class EmployeesControllerTests
     }
 
     [Fact]
+    public async Task Deactivate_LastActiveManagerAdmin_ReturnsConflictAndLeavesAccountActive()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var manager = await SeedEmployeeAsync(
+            factory,
+            "manager",
+            "1234",
+            EmployeeRole.ManagerAdmin
+        );
+        using var client = factory.CreateAuthenticatedClient();
+        await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("manager", "1234"));
+
+        var response = await client.PostAsync($"/api/employees/{manager.Id}/deactivate", null);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(
+            "would_remove_last_manager_admin",
+            (await response.Content.ReadFromJsonAsync<ErrorResponse>())?.Error
+        );
+        await AssertEmployeeStateAsync(
+            factory,
+            manager.Id,
+            isActive: true,
+            isLocked: false,
+            failedCount: 0
+        );
+    }
+
+    [Fact]
     public async Task MissingEmployeeActionsReturnNotFound()
     {
         await using var factory = new AuthWebApplicationFactory();

@@ -64,18 +64,59 @@ public sealed class EmployeeManagementService(IEmployeeRepository repository, IP
         return EmployeeManagementResult.Success(employee);
     }
 
-    public Task<EmployeeManagementResult> DeactivateAsync(
+    public async Task<EmployeeManagementResult> DeactivateAsync(
         int actorEmployeeId,
         int targetEmployeeId,
         CancellationToken cancellationToken
-    ) =>
-        ChangeAsync(
-            actorEmployeeId,
-            targetEmployeeId,
-            EmployeeAuditActionType.Deactivated,
-            employee => employee.IsActive = false,
-            cancellationToken
+    )
+    {
+        var employee = await repository.GetByIdAsync(targetEmployeeId, cancellationToken);
+        if (employee is null)
+        {
+            return EmployeeManagementResult.NotFound;
+        }
+
+        // Only an active Manager/Admin can threaten the "at least one active Manager/Admin"
+        // invariant; guarding a Picker's deactivation would incorrectly block it whenever the
+        // store happens to have zero Manager/Admin employees for unrelated reasons (the guard's
+        // count excludes this employee unconditionally — it has no way to know their current
+        // role on its own, since it must query the database rather than this pending change).
+        var requiresLastManagerAdminGuard = employee.Role == EmployeeRole.ManagerAdmin;
+
+        employee.IsActive = false;
+        repository.AddAuditEvent(
+            new EmployeeAuditEvent
+            {
+                ActorEmployeeId = actorEmployeeId,
+                TargetEmployeeId = targetEmployeeId,
+                ActionType = EmployeeAuditActionType.Deactivated,
+                OccurredAt = DateTimeOffset.UtcNow,
+            }
         );
+
+        if (!requiresLastManagerAdminGuard)
+        {
+            await repository.SaveChangesAsync(cancellationToken);
+            return EmployeeManagementResult.Success(employee);
+        }
+
+        // The mutation and the audit event above must be saved together with the guard's count
+        // check, inside the guard's single held lock/transaction (research.md §1) — a separate
+        // "check, then save" pair here would reopen the exact TOCTOU race feature 013's
+        // code-design-review already found and fixed once this session.
+        if (
+            !await repository.SaveChangesGuardingLastManagerAdminAsync(
+                targetEmployeeId,
+                cancellationToken
+            )
+        )
+        {
+            employee.IsActive = true;
+            return EmployeeManagementResult.WouldRemoveLastManagerAdmin;
+        }
+
+        return EmployeeManagementResult.Success(employee);
+    }
 
     public Task<EmployeeManagementResult> ReactivateAsync(
         int actorEmployeeId,

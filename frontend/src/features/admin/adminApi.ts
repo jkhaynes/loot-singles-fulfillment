@@ -21,6 +21,13 @@ export class InvalidEmployeeRequestError extends Error {
   }
 }
 
+export class WouldRemoveLastManagerAdminError extends Error {
+  constructor() {
+    super('This would leave zero active Manager/Admin employees')
+    this.name = 'WouldRemoveLastManagerAdminError'
+  }
+}
+
 export async function listEmployees(): Promise<EmployeeListItem[]> {
   const response = await fetch('/api/employees', { credentials: 'include' })
 
@@ -54,5 +61,31 @@ export async function createEmployee(
 
   if (!response.ok) {
     throw new Error(`Failed to create employee (status ${response.status})`)
+  }
+}
+
+export async function deactivateEmployee(id: number): Promise<void> {
+  const response = await fetch(`/api/employees/${id}/deactivate`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+
+  if (response.status === 409) {
+    throw new WouldRemoveLastManagerAdminError()
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to deactivate employee (status ${response.status})`)
+  }
+}
+
+export async function reactivateEmployee(id: number): Promise<void> {
+  const response = await fetch(`/api/employees/${id}/reactivate`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to reactivate employee (status ${response.status})`)
   }
 }
