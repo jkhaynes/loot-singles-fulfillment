@@ -64,15 +64,15 @@ screen is not reachable.
 
 ### Tests for User Story 1 ⚠️ Write first, confirm failing before implementing
 
-- [ ] T004 [P] [US1] Add a failing frontend component test for a `RequireManagerAdmin` route-guard component in `frontend/tests/admin/RequireManagerAdmin.test.tsx`: renders its children when `employee.role === 'ManagerAdmin'`, redirects (or shows an access-denied state) otherwise
-- [ ] T005 [P] [US1] Add a failing frontend component test for `AdminPage.tsx` in `frontend/tests/admin/AdminPage.test.tsx`: renders every employee returned by a mocked `listEmployees()` call, showing username, display name, role, and active/locked status for both active and inactive employees
+- [X] T004 [P] [US1] Add a failing frontend component test for a `RequireManagerAdmin` route-guard component in `frontend/tests/admin/RequireManagerAdmin.test.tsx`: renders its children when `employee.role === 'ManagerAdmin'`, redirects (or shows an access-denied state) otherwise
+- [X] T005 [P] [US1] Add a failing frontend component test for `AdminPage.tsx` in `frontend/tests/admin/AdminPage.test.tsx`: renders every employee returned by a mocked `listEmployees()` call, showing username, display name, role, and active/locked status for both active and inactive employees
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Create `frontend/src/features/admin/adminApi.ts` with an `EmployeeListItem` type and a `listEmployees()` function calling `GET /api/employees` (contracts/employee-management-api.md), following the existing `ordersApi.ts`/`dashboardApi.ts` conventions
-- [ ] T007 [US1] Create `frontend/src/features/admin/AdminPage.tsx` and `AdminPage.css` rendering the roster (username, display name, role, active/locked status) fetched via `listEmployees()`, following the existing `OrdersPage.tsx` list-rendering pattern
-- [ ] T008 [US1] Add a `RequireManagerAdmin` route-guard component and register the `/admin` route behind it in `frontend/src/App.tsx` (research.md §4)
-- [ ] T009 [P] [US1] Add a "Manage Employees" link to `frontend/src/features/dashboard/DashboardPage.tsx`'s header actions, visible only when `employee.role === 'ManagerAdmin'`, targeting `/admin` — following the same conditional-visibility pattern already used for Force-Release in `OrderDetailPage.tsx`
+- [X] T006 [US1] Create `frontend/src/features/admin/adminApi.ts` with an `EmployeeListItem` type and a `listEmployees()` function calling `GET /api/employees` (contracts/employee-management-api.md), following the existing `ordersApi.ts`/`dashboardApi.ts` conventions
+- [X] T007 [US1] Create `frontend/src/features/admin/AdminPage.tsx` and `AdminPage.css` rendering the roster (username, display name, role, active/locked status) fetched via `listEmployees()`, following the existing `OrdersPage.tsx` list-rendering pattern
+- [X] T008 [US1] Add a `RequireManagerAdmin` route-guard component and register the `/admin` route behind it in `frontend/src/App.tsx` (research.md §4). Also made the guard wait for `useAuth()`'s `isLoading` to resolve before evaluating the role, rather than assuming its caller already gates on that (defensive — correct regardless of where the guard is mounted, confirmed via a direct-render test that isn't wrapped in App's own loading gate).
+- [X] T009 [P] [US1] Add a "Manage Employees" link to `frontend/src/features/dashboard/DashboardPage.tsx`'s header actions, visible only when `employee.role === 'ManagerAdmin'`, targeting `/admin` — following the same conditional-visibility pattern already used for Force-Release in `OrderDetailPage.tsx`
 
 **Checkpoint**: User Story 1 is fully functional and independently testable/demoable (MVP — the
 screen exists and is reachable only by a Manager/Admin, even though it has no actions yet).

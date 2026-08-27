@@ -1,0 +1,29 @@
+.admin-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.admin-header {
+  margin-bottom: 1.5rem;
+}
+
+.admin-state {
+  color: #555;
+}
+
+.admin-state--error {
+  color: #b00020;
+}
+
+.admin-employee-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-employee-table th,
+.admin-employee-table td {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #e2e2e2;
+}
