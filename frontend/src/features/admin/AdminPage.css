@@ -16,6 +16,10 @@
   color: #b00020;
 }
 
+.admin-state--success {
+  color: #0a7d32;
+}
+
 .admin-employee-table {
   width: 100%;
   border-collapse: collapse;

@@ -28,6 +28,13 @@ export class WouldRemoveLastManagerAdminError extends Error {
   }
 }
 
+export class InvalidPinError extends Error {
+  constructor() {
+    super('A 4-digit numeric PIN is required')
+    this.name = 'InvalidPinError'
+  }
+}
+
 export async function listEmployees(): Promise<EmployeeListItem[]> {
   const response = await fetch('/api/employees', { credentials: 'include' })
 
@@ -104,5 +111,33 @@ export async function changeEmployeeRole(id: number, role: string): Promise<void
 
   if (!response.ok) {
     throw new Error(`Failed to change employee role (status ${response.status})`)
+  }
+}
+
+export async function resetPin(id: number, newPin: string): Promise<void> {
+  const response = await fetch(`/api/employees/${id}/reset-pin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ newPin }),
+  })
+
+  if (response.status === 400) {
+    throw new InvalidPinError()
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to reset PIN (status ${response.status})`)
+  }
+}
+
+export async function unlockEmployee(id: number): Promise<void> {
+  const response = await fetch(`/api/employees/${id}/unlock`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to unlock employee (status ${response.status})`)
   }
 }

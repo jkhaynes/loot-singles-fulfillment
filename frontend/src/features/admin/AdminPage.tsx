@@ -5,8 +5,11 @@ import {
   changeEmployeeRole,
   createEmployee,
   deactivateEmployee,
+  InvalidPinError,
   listEmployees,
   reactivateEmployee,
+  resetPin,
+  unlockEmployee,
   UsernameTakenError,
   WouldRemoveLastManagerAdminError,
 } from './adminApi'
@@ -27,6 +30,8 @@ export function AdminPage() {
 
   const [actingEmployeeId, setActingEmployeeId] = useState<number | null>(null)
   const [rowActionError, setRowActionError] = useState<string | null>(null)
+  const [rowActionSuccess, setRowActionSuccess] = useState<string | null>(null)
+  const [pinDrafts, setPinDrafts] = useState<Record<number, string>>({})
 
   async function refreshEmployees() {
     setIsLoading(true)
@@ -84,6 +89,7 @@ export function AdminPage() {
   async function handleDeactivate(employeeId: number) {
     setActingEmployeeId(employeeId)
     setRowActionError(null)
+    setRowActionSuccess(null)
     try {
       await deactivateEmployee(employeeId)
       await refreshEmployees()
@@ -101,6 +107,7 @@ export function AdminPage() {
   async function handleReactivate(employeeId: number) {
     setActingEmployeeId(employeeId)
     setRowActionError(null)
+    setRowActionSuccess(null)
     try {
       await reactivateEmployee(employeeId)
       await refreshEmployees()
@@ -114,6 +121,7 @@ export function AdminPage() {
   async function handleChangeRole(employeeId: number, newRole: string) {
     setActingEmployeeId(employeeId)
     setRowActionError(null)
+    setRowActionSuccess(null)
     try {
       await changeEmployeeRole(employeeId, newRole)
       await refreshEmployees()
@@ -125,6 +133,41 @@ export function AdminPage() {
       } else {
         setRowActionError("Couldn't change this employee's role. Try again.")
       }
+    } finally {
+      setActingEmployeeId(null)
+    }
+  }
+
+  async function handleResetPin(employeeId: number) {
+    const newPin = pinDrafts[employeeId] ?? ''
+    setActingEmployeeId(employeeId)
+    setRowActionError(null)
+    setRowActionSuccess(null)
+    try {
+      await resetPin(employeeId, newPin)
+      setPinDrafts((previous) => ({ ...previous, [employeeId]: '' }))
+      setRowActionSuccess('PIN reset.')
+    } catch (error) {
+      if (error instanceof InvalidPinError) {
+        setRowActionError('A 4-digit numeric PIN is required.')
+      } else {
+        setRowActionError("Couldn't reset this employee's PIN. Try again.")
+      }
+    } finally {
+      setActingEmployeeId(null)
+    }
+  }
+
+  async function handleUnlock(employeeId: number) {
+    setActingEmployeeId(employeeId)
+    setRowActionError(null)
+    setRowActionSuccess(null)
+    try {
+      await unlockEmployee(employeeId)
+      await refreshEmployees()
+      setRowActionSuccess('Account unlocked.')
+    } catch {
+      setRowActionError("Couldn't unlock this employee. Try again.")
     } finally {
       setActingEmployeeId(null)
     }
@@ -203,6 +246,7 @@ export function AdminPage() {
           {rowActionError}
         </p>
       )}
+      {rowActionSuccess && <p className="admin-state admin-state--success">{rowActionSuccess}</p>}
 
       {isLoading ? (
         <p className="admin-state">Loading employees…</p>
@@ -221,6 +265,7 @@ export function AdminPage() {
               <th scope="col">Role</th>
               <th scope="col">Status</th>
               <th scope="col">Change Role</th>
+              <th scope="col">Reset PIN</th>
               <th scope="col">Actions</th>
             </tr>
           </thead>
@@ -246,6 +291,27 @@ export function AdminPage() {
                   </select>
                 </td>
                 <td>
+                  <input
+                    aria-label="New PIN"
+                    type="password"
+                    inputMode="numeric"
+                    value={pinDrafts[employee.employeeId] ?? ''}
+                    onChange={(event) =>
+                      setPinDrafts((previous) => ({
+                        ...previous,
+                        [employee.employeeId]: event.target.value,
+                      }))
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleResetPin(employee.employeeId)}
+                    disabled={actingEmployeeId === employee.employeeId}
+                  >
+                    Reset PIN
+                  </button>
+                </td>
+                <td>
                   {employee.isActive ? (
                     <button
                       type="button"
@@ -261,6 +327,15 @@ export function AdminPage() {
                       disabled={actingEmployeeId === employee.employeeId}
                     >
                       Restore
+                    </button>
+                  )}
+                  {employee.isLocked && (
+                    <button
+                      type="button"
+                      onClick={() => handleUnlock(employee.employeeId)}
+                      disabled={actingEmployeeId === employee.employeeId}
+                    >
+                      Unlock
                     </button>
                   )}
                 </td>

@@ -16,6 +16,8 @@ vi.mock('../../src/features/admin/adminApi', async (original) => ({
   deactivateEmployee: vi.fn(),
   reactivateEmployee: vi.fn(),
   changeEmployeeRole: vi.fn(),
+  resetPin: vi.fn(),
+  unlockEmployee: vi.fn(),
 }))
 
 function renderPage() {
@@ -282,5 +284,101 @@ describe('AdminPage', () => {
     expect(
       within(screen.getByRole('row', { name: /lastmanagerrole/i })).getByText('ManagerAdmin'),
     ).toBeInTheDocument()
+  })
+
+  it("resets an employee's PIN and shows a success message", async () => {
+    vi.mocked(adminApi.listEmployees).mockResolvedValue([
+      {
+        employeeId: 10,
+        username: 'pinuser',
+        displayName: 'Pin User',
+        role: 'Picker',
+        isActive: true,
+        isLocked: false,
+      },
+    ])
+    vi.mocked(adminApi.resetPin).mockResolvedValue(undefined)
+    const user = userEvent.setup()
+
+    renderPage()
+    const row = await screen.findByRole('row', { name: /pinuser/i })
+    await user.type(within(row).getByLabelText(/new pin/i), '4321')
+    await user.click(within(row).getByRole('button', { name: /reset pin/i }))
+
+    expect(adminApi.resetPin).toHaveBeenCalledWith(10, '4321')
+    expect(await screen.findByText(/pin reset/i)).toBeInTheDocument()
+  })
+
+  it('shows an error message when resetting a PIN fails', async () => {
+    vi.mocked(adminApi.listEmployees).mockResolvedValue([
+      {
+        employeeId: 13,
+        username: 'pinfailuser',
+        displayName: 'Pin Fail User',
+        role: 'Picker',
+        isActive: true,
+        isLocked: false,
+      },
+    ])
+    vi.mocked(adminApi.resetPin).mockRejectedValue(new Error('server unavailable'))
+    const user = userEvent.setup()
+
+    renderPage()
+    const row = await screen.findByRole('row', { name: /pinfailuser/i })
+    await user.type(within(row).getByLabelText(/new pin/i), '4321')
+    await user.click(within(row).getByRole('button', { name: /reset pin/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/couldn.?t reset/i)
+  })
+
+  it('shows an Unlock action only for a locked employee and unlocks on click', async () => {
+    vi.mocked(adminApi.listEmployees)
+      .mockResolvedValueOnce([
+        {
+          employeeId: 11,
+          username: 'lockeduser',
+          displayName: 'Locked User',
+          role: 'Picker',
+          isActive: true,
+          isLocked: true,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          employeeId: 11,
+          username: 'lockeduser',
+          displayName: 'Locked User',
+          role: 'Picker',
+          isActive: true,
+          isLocked: false,
+        },
+      ])
+    vi.mocked(adminApi.unlockEmployee).mockResolvedValue(undefined)
+    const user = userEvent.setup()
+
+    renderPage()
+    const row = await screen.findByRole('row', { name: /lockeduser/i })
+    await user.click(within(row).getByRole('button', { name: /unlock/i }))
+
+    expect(adminApi.unlockEmployee).toHaveBeenCalledWith(11)
+    const updatedRow = await screen.findByRole('row', { name: /lockeduser/i })
+    expect(within(updatedRow).queryByRole('button', { name: /unlock/i })).not.toBeInTheDocument()
+  })
+
+  it('hides the Unlock action for an employee who is not locked', async () => {
+    vi.mocked(adminApi.listEmployees).mockResolvedValue([
+      {
+        employeeId: 12,
+        username: 'normaluser',
+        displayName: 'Normal User',
+        role: 'Picker',
+        isActive: true,
+        isLocked: false,
+      },
+    ])
+
+    renderPage()
+    const row = await screen.findByRole('row', { name: /normaluser/i })
+    expect(within(row).queryByRole('button', { name: /unlock/i })).not.toBeInTheDocument()
   })
 })

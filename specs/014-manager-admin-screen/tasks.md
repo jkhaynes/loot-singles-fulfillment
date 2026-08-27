@@ -176,12 +176,12 @@ with their existing PIN.
 
 ### Tests for User Story 5 ⚠️ Write first, confirm failing before implementing
 
-- [ ] T031 [US5] Add failing frontend component tests to `AdminPage.test.tsx`: a "Reset PIN" action per row prompts for a new PIN and calls `resetPin`, showing success/error feedback; an "Unlock" action is shown only for locked employees and calls `unlockEmployee`, showing success/error feedback
+- [X] T031 [US5] Add failing frontend component tests to `AdminPage.test.tsx`: a "Reset PIN" action per row prompts for a new PIN and calls `resetPin`, showing success/error feedback; an "Unlock" action is shown only for locked employees and calls `unlockEmployee`, showing success/error feedback. Implemented "prompts for a new PIN" as an inline per-row PIN input (`aria-label="New PIN"`) rather than a native `window.prompt()` dialog, consistent with every other input on this screen.
 
 ### Implementation for User Story 5
 
-- [ ] T032 [US5] Add `resetPin(id, newPin)`/`unlockEmployee(id)` functions to `adminApi.ts`, calling the existing `POST /api/employees/{id}/reset-pin`/`/unlock` endpoints and handling their existing `400`/`404` responses
-- [ ] T033 [US5] Add "Reset PIN" (all rows) and "Unlock" (locked rows only) actions to `AdminPage.tsx`, calling T032's functions and showing success/error feedback — depends on T032
+- [X] T032 [US5] Add `resetPin(id, newPin)`/`unlockEmployee(id)` functions to `adminApi.ts`, calling the existing `POST /api/employees/{id}/reset-pin`/`/unlock` endpoints and handling their existing `400`/`404` responses. Added a typed `InvalidPinError` for the `400` case, mirroring the existing typed-error-class convention.
+- [X] T033 [US5] Add "Reset PIN" (all rows) and "Unlock" (locked rows only) actions to `AdminPage.tsx`, calling T032's functions and showing success/error feedback — depends on T032. Added a `rowActionSuccess` state (a non-alert status message, separate from the existing `rowActionError`) reused by Reset PIN and Unlock; Reset PIN does not need to refresh the roster (PIN is never displayed), but Unlock does (`isLocked` is shown in the Status column).
 
 **Checkpoint**: All 5 user stories are independently functional. Feature is complete per spec.md.
 
