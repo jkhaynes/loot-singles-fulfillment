@@ -91,12 +91,12 @@ username and confirm a clear rejection.
 
 ### Tests for User Story 2 ⚠️ Write first, confirm failing before implementing
 
-- [ ] T010 [US2] Add failing frontend component tests to `AdminPage.test.tsx`: submitting the create-employee form with a mocked successful `createEmployee()` call refreshes the roster to include the new employee; a mocked duplicate-username rejection shows a clear conflict message and does not add a row
+- [X] T010 [US2] Add failing frontend component tests to `AdminPage.test.tsx`: submitting the create-employee form with a mocked successful `createEmployee()` call refreshes the roster to include the new employee; a mocked duplicate-username rejection shows a clear conflict message and does not add a row
 
 ### Implementation for User Story 2
 
-- [ ] T011 [US2] Add a `CreateEmployeeRequest` type and `createEmployee(username, displayName, initialPin, role)` function to `adminApi.ts`, calling `POST /api/employees` and handling the `409 username_taken`/`400 invalid_request` responses with typed errors (mirroring `ordersApi.ts`'s typed-error-class pattern)
-- [ ] T012 [US2] Add a "Create Employee" form to `AdminPage.tsx` (username, display name, initial PIN, role fields), calling `createEmployee`, refreshing the roster on success, and showing the duplicate-username error inline
+- [X] T011 [US2] Add a `CreateEmployeeRequest` type and `createEmployee(username, displayName, initialPin, role)` function to `adminApi.ts`, calling `POST /api/employees` and handling the `409 username_taken`/`400 invalid_request` responses with typed errors (mirroring `ordersApi.ts`'s typed-error-class pattern). Note: implemented as typed `UsernameTakenError`/`InvalidEmployeeRequestError` classes per the mirrored pattern; a standalone `CreateEmployeeRequest` type was not needed since `createEmployee` takes plain positional parameters (matching the task's own function signature) rather than an object.
+- [X] T012 [US2] Add a "Create Employee" form to `AdminPage.tsx` (username, display name, initial PIN, role fields), calling `createEmployee`, refreshing the roster on success, and showing the duplicate-username error inline
 
 **Checkpoint**: User Stories 1 and 2 both work independently.
 
