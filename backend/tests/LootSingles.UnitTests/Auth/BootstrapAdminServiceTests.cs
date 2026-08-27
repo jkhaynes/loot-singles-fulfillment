@@ -135,5 +135,10 @@ public sealed class BootstrapAdminServiceTests
             SaveCount++;
             return Task.CompletedTask;
         }
+
+        public Task<bool> SaveChangesGuardingLastManagerAdminAsync(
+            int excludingEmployeeId,
+            CancellationToken cancellationToken
+        ) => throw new NotSupportedException("Not exercised by these tests.");
     }
 }

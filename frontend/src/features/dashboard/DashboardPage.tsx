@@ -116,6 +116,11 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
           <Link to="/import" className="dashboard-import-action">
             Import Orders
           </Link>
+          {employee.role === 'ManagerAdmin' && (
+            <Link to="/admin" className="dashboard-admin-action">
+              Manage Employees
+            </Link>
+          )}
           <button type="button" className="dashboard-logout" onClick={() => onLogout()}>
             Log out
           </button>

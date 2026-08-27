@@ -6,6 +6,8 @@ import './App.css'
 import { ImportPage } from './features/import/ImportPage'
 import { OrderDetailPage } from './features/orders/OrderDetailPage'
 import { OrdersPage } from './features/orders/OrdersPage'
+import { AdminPage } from './features/admin/AdminPage'
+import { RequireManagerAdmin } from './features/admin/RequireManagerAdmin'
 
 function App() {
   const { employee, isLoading, login, logout } = useAuth()
@@ -24,6 +26,14 @@ function App() {
       <Route path="/import" element={<ImportPage />} />
       <Route path="/orders" element={<OrdersPage />} />
       <Route path="/orders/:orderId" element={<OrderDetailPage />} />
+      <Route
+        path="/admin"
+        element={
+          <RequireManagerAdmin>
+            <AdminPage />
+          </RequireManagerAdmin>
+        }
+      />
     </Routes>
   )
 }

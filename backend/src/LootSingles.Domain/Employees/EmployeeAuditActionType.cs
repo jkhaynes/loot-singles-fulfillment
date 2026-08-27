@@ -12,4 +12,5 @@ public enum EmployeeAuditActionType
     Reactivated = 4,
     PinReset = 5,
     Unlocked = 6,
+    RoleChanged = 7,
 }

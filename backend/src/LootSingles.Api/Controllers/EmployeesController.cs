@@ -82,7 +82,23 @@ public sealed class EmployeesController(EmployeeManagementService managementServ
             id,
             cancellationToken
         );
-        return result.Outcome == EmployeeManagementOutcome.NotFound ? NotFound() : NoContent();
+
+        if (result.Outcome == EmployeeManagementOutcome.NotFound)
+        {
+            return NotFound();
+        }
+
+        if (result.Outcome == EmployeeManagementOutcome.WouldRemoveLastManagerAdmin)
+        {
+            return Conflict(
+                new ErrorResponse(
+                    "would_remove_last_manager_admin",
+                    "Deactivating this employee would leave zero active Manager/Admin employees."
+                )
+            );
+        }
+
+        return NoContent();
     }
 
     [HttpPost("{id:int}/reactivate")]
@@ -127,6 +143,43 @@ public sealed class EmployeesController(EmployeeManagementService managementServ
         return result.Outcome == EmployeeManagementOutcome.NotFound ? NotFound() : NoContent();
     }
 
+    [HttpPost("{id:int}/change-role")]
+    public async Task<IActionResult> ChangeRole(
+        int id,
+        [FromBody] ChangeRoleRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        if (!Enum.TryParse<EmployeeRole>(request.Role, ignoreCase: false, out var role))
+        {
+            return BadRequest(new ErrorResponse("invalid_request", "A valid role is required."));
+        }
+
+        var result = await managementService.ChangeRoleAsync(
+            ActorEmployeeId(),
+            id,
+            role,
+            cancellationToken
+        );
+
+        if (result.Outcome == EmployeeManagementOutcome.NotFound)
+        {
+            return NotFound();
+        }
+
+        if (result.Outcome == EmployeeManagementOutcome.WouldRemoveLastManagerAdmin)
+        {
+            return Conflict(
+                new ErrorResponse(
+                    "would_remove_last_manager_admin",
+                    "Changing this employee's role would leave zero active Manager/Admin employees."
+                )
+            );
+        }
+
+        return Ok(new ChangeRoleResponse(result.Employee!.Id, result.Employee.Role.ToString()));
+    }
+
     [HttpGet("{id:int}/audit-events")]
     public async Task<IActionResult> AuditEvents(int id, CancellationToken cancellationToken)
     {
@@ -157,6 +210,10 @@ public sealed record CreateEmployeeRequest(
 );
 
 public sealed record ResetPinRequest(string? NewPin);
+
+public sealed record ChangeRoleRequest(string? Role);
+
+public sealed record ChangeRoleResponse(int EmployeeId, string Role);
 
 public sealed record CreatedEmployeeResponse(int EmployeeId);
 

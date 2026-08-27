@@ -59,6 +59,51 @@ public class SessionInvalidationTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public async Task RoleChange_ViaRealEndpoint_InvalidatesAlreadyActiveSessionOnNextRequest()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var target = await SeedEmployeeAsync(factory, "roletarget", "1234", EmployeeRole.Picker);
+        await SeedEmployeeAsync(factory, "rolemanager", "1234", EmployeeRole.ManagerAdmin);
+
+        using var targetClient = factory.CreateAuthenticatedClient();
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (
+                await targetClient.PostAsJsonAsync(
+                    "/api/auth/login",
+                    new LoginRequest("roletarget", "1234")
+                )
+            ).StatusCode
+        );
+        Assert.Equal(HttpStatusCode.OK, (await targetClient.GetAsync("/api/auth/me")).StatusCode);
+
+        using var managerClient = factory.CreateAuthenticatedClient();
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (
+                await managerClient.PostAsJsonAsync(
+                    "/api/auth/login",
+                    new LoginRequest("rolemanager", "1234")
+                )
+            ).StatusCode
+        );
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (
+                await managerClient.PostAsJsonAsync(
+                    $"/api/employees/{target.Id}/change-role",
+                    new { role = "ManagerAdmin" }
+                )
+            ).StatusCode
+        );
+
+        var response = await targetClient.GetAsync("/api/auth/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     private static async Task<Employee> SeedEmployeeAsync(
         AuthWebApplicationFactory factory,
         string username,
@@ -96,7 +141,7 @@ public class SessionInvalidationTests
         context.Employees.Add(employee);
         await context.SaveChangesAsync();
 
-        var result = await ValidateAsync(context, employee.Id);
+        var result = await ValidateAsync(context, employee.Id, EmployeeRole.Picker);
 
         Assert.Null(result.Principal);
     }
@@ -111,14 +156,45 @@ public class SessionInvalidationTests
         context.Employees.Add(employee);
         await context.SaveChangesAsync();
 
-        var result = await ValidateAsync(context, employee.Id);
+        var result = await ValidateAsync(context, employee.Id, EmployeeRole.Picker);
+
+        Assert.NotNull(result.Principal);
+    }
+
+    [Fact]
+    public async Task ValidatePrincipal_EmployeeRoleChangedSinceIssuance_RejectsThePrincipal()
+    {
+        await using var lease = await SqlServerContainerFixture.CreateSharedDatabaseLeaseAsync();
+        await using var context = lease.CreateDbContext();
+
+        var employee = NewEmployee(isActive: true, role: EmployeeRole.ManagerAdmin);
+        context.Employees.Add(employee);
+        await context.SaveChangesAsync();
+
+        var result = await ValidateAsync(context, employee.Id, EmployeeRole.Picker);
+
+        Assert.Null(result.Principal);
+    }
+
+    [Fact]
+    public async Task ValidatePrincipal_EmployeeRoleUnchanged_AcceptsThePrincipal()
+    {
+        await using var lease = await SqlServerContainerFixture.CreateSharedDatabaseLeaseAsync();
+        await using var context = lease.CreateDbContext();
+
+        var employee = NewEmployee(isActive: true, role: EmployeeRole.ManagerAdmin);
+        context.Employees.Add(employee);
+        await context.SaveChangesAsync();
+
+        var result = await ValidateAsync(context, employee.Id, EmployeeRole.ManagerAdmin);
 
         Assert.NotNull(result.Principal);
     }
 
     private static async Task<CookieValidatePrincipalContext> ValidateAsync(
         LootSinglesDbContext context,
-        int employeeId
+        int employeeId,
+        EmployeeRole roleClaim
     )
     {
         var services = new ServiceCollection();
@@ -130,7 +206,10 @@ public class SessionInvalidationTests
 
         var principal = new ClaimsPrincipal(
             new ClaimsIdentity(
-                [new Claim(ClaimTypes.NameIdentifier, employeeId.ToString())],
+                [
+                    new Claim(ClaimTypes.NameIdentifier, employeeId.ToString()),
+                    new Claim(ClaimTypes.Role, roleClaim.ToString()),
+                ],
                 CookieAuthenticationDefaults.AuthenticationScheme
             )
         );
@@ -154,14 +233,14 @@ public class SessionInvalidationTests
         return validateContext;
     }
 
-    private static Employee NewEmployee(bool isActive) =>
+    private static Employee NewEmployee(bool isActive, EmployeeRole role = EmployeeRole.Picker) =>
         new()
         {
             Username = "jsmith",
             NormalizedUsername = "JSMITH",
             DisplayName = "Jamie Smith",
             PinHash = "hash",
-            Role = EmployeeRole.Picker,
+            Role = role,
             IsActive = isActive,
             CreatedAt = DateTimeOffset.UtcNow,
         };

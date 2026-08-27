@@ -8,6 +8,7 @@ public enum EmployeeManagementOutcome
     NotFound,
     UsernameTaken,
     InvalidRequest,
+    WouldRemoveLastManagerAdmin,
 }
 
 public sealed record EmployeeManagementResult(
@@ -28,5 +29,9 @@ public sealed record EmployeeManagementResult(
 
     public static readonly EmployeeManagementResult InvalidRequest = new(
         EmployeeManagementOutcome.InvalidRequest
+    );
+
+    public static readonly EmployeeManagementResult WouldRemoveLastManagerAdmin = new(
+        EmployeeManagementOutcome.WouldRemoveLastManagerAdmin
     );
 }
