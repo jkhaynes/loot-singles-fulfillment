@@ -34,7 +34,7 @@ V1 replaces the printed invoice for the **picking** portion of fulfillment with 
 
 ## Current Status
 
-The project is currently in product definition and technical discovery. Application implementation has not begun.
+V1 implementation is underway, following the Spec Kit workflow described in [`CLAUDE.md`](CLAUDE.md). The [`specs/`](specs/) directory is the living source of truth for what's built, in progress, or planned: each feature has its own numbered folder with a specification, technical plan, and task breakdown, and a feature's `tasks.md` reflects its actual, real-time completion state. Merged features live on `main`; anything not yet merged is visible as an open pull request on GitHub.
 
 ## Approved Technology Stack
 
