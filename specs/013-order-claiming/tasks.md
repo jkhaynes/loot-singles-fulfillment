@@ -168,16 +168,16 @@ and the original claimant no longer holds it. A non-manager's attempt is rejecte
 
 ### Tests for User Story 5 ⚠️ Write first, confirm failing before implementing
 
-- [ ] T039 [P] [US5] Add failing unit tests for `OrderClaimService.ForceReleaseAsync` (`Success`, `OrderNotFound`, `OrderNotClaimed`) in `OrderClaimServiceTests.cs`
-- [ ] T040 [P] [US5] Add failing integration tests for `POST /api/orders/{orderId}/force-release` (200, 404, 409 `order_not_claimed`, 403 for a non-Manager/Admin caller) in `OrdersControllerClaimingTests.cs`
+- [X] T039 [P] [US5] Add failing unit tests for `OrderClaimService.ForceReleaseAsync` (`Success`, `OrderNotFound`, `OrderNotClaimed`) in `OrderClaimServiceTests.cs`
+- [X] T040 [P] [US5] Add failing integration tests for `POST /api/orders/{orderId}/force-release` (200, 404, 409 `order_not_claimed`, 403 for a non-Manager/Admin caller) in `OrdersControllerClaimingTests.cs`
 
 ### Implementation for User Story 5
 
 - [X] T041 [US5] Add `ForceReleaseAsync(int orderId, CancellationToken)` to `IOrderRepository`/`OrderRepository`: conditional `ExecuteUpdateAsync` (`WHERE Id == orderId && ClaimedByEmployeeId != null`, clearing claim fields, setting `Status = Ready`); on 0-rows-affected, load the order to distinguish "doesn't exist" from "not currently claimed" — already implemented in T034 (Phase 6), ahead of schedule, as a dependency of T033's concurrency test; nothing further needed here
-- [ ] T042 [US5] Implement `OrderClaimService.ForceReleaseAsync(int orderId, CancellationToken)` mapping outcomes per `contracts/order-claiming-api.md` — depends on T041
-- [ ] T043 [US5] Add `POST /api/orders/{orderId}/force-release` to `OrdersController.cs` with `[Authorize(Roles = nameof(EmployeeRole.ManagerAdmin))]` on the action, mirroring `EmployeesController` — depends on T042
-- [ ] T044 [US5] Add logging for force-release outcomes in `OrderClaimService.cs`, including which manager force-released which employee's claim
-- [ ] T045 [P] [US5] Frontend: add a Manager/Admin-only "Force-Release" action to `frontend/src/features/orders/OrderDetailPage.tsx`, visible only when the signed-in employee's role is `ManagerAdmin` and the order is claimed by someone else, calling a new `forceReleaseOrder` function in `frontend/src/features/orders/ordersApi.ts`
+- [X] T042 [US5] Implement `OrderClaimService.ForceReleaseAsync(int orderId, int actorEmployeeId, CancellationToken)` mapping outcomes per `contracts/order-claiming-api.md` — depends on T041. `actorEmployeeId` (the manager) is used for logging only, not passed to the repository, since force-release's WHERE clause is intentionally not actor-scoped (any Manager/Admin may force-release any claim)
+- [X] T043 [US5] Add `POST /api/orders/{orderId}/force-release` to `OrdersController.cs` with `[Authorize(Roles = nameof(EmployeeRole.ManagerAdmin))]` on the action, mirroring `EmployeesController` — depends on T042
+- [X] T044 [US5] Add logging for force-release outcomes in `OrderClaimService.cs` (order id + acting manager id per event); the previously-claiming employee's identity is not additionally captured for the log line — it was already visible to the manager via the US3 claim-visibility badge before they chose to force-release, so re-fetching it here for the log alone was judged disproportionate (constitution Principle XIII)
+- [X] T045 [P] [US5] Frontend: add a Manager/Admin-only "Force-Release" action to `frontend/src/features/orders/OrderDetailPage.tsx`, visible only when the signed-in employee's role is `ManagerAdmin` and the order is claimed by someone else, calling a new `forceReleaseOrder` function in `frontend/src/features/orders/ordersApi.ts`
 
 **Checkpoint**: All 5 user stories are independently functional. Feature is complete per spec.md.
 

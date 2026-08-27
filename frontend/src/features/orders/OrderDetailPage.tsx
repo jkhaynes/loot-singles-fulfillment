@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getOrderDetail, releaseOrder, OrderNotFoundError } from './ordersApi'
+import { getOrderDetail, releaseOrder, forceReleaseOrder, OrderNotFoundError } from './ordersApi'
 import type { OrderDetail } from './ordersApi'
 import { useAuth } from '../auth/AuthContext'
 import './OrderDetailPage.css'
@@ -14,6 +14,7 @@ export function OrderDetailPage() {
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [releaseError, setReleaseError] = useState<string | null>(null)
   const [isReleasing, setIsReleasing] = useState(false)
+  const [isForceReleasing, setIsForceReleasing] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -56,8 +57,34 @@ export function OrderDetailPage() {
     }
   }
 
+  async function handleForceRelease() {
+    if (!order) return
+
+    setIsForceReleasing(true)
+    setReleaseError(null)
+    try {
+      const updated = await forceReleaseOrder(order.orderId)
+      setOrder({
+        ...order,
+        status: updated.status,
+        claimedByEmployeeId: updated.claimedByEmployeeId,
+        claimedByEmployeeName: updated.claimedByEmployeeName,
+      })
+    } catch {
+      setReleaseError("Couldn't force-release this order. Try refreshing the page.")
+    } finally {
+      setIsForceReleasing(false)
+    }
+  }
+
   const canRelease =
     order !== null && employee !== null && order.claimedByEmployeeId === employee.employeeId
+  const canForceRelease =
+    order !== null &&
+    employee !== null &&
+    employee.role === 'ManagerAdmin' &&
+    order.claimedByEmployeeId !== null &&
+    order.claimedByEmployeeId !== employee.employeeId
 
   return (
     <main className="order-detail-page">
@@ -82,6 +109,11 @@ export function OrderDetailPage() {
           {canRelease && (
             <button type="button" onClick={handleRelease} disabled={isReleasing}>
               {isReleasing ? 'Releasing…' : 'Release'}
+            </button>
+          )}
+          {canForceRelease && (
+            <button type="button" onClick={handleForceRelease} disabled={isForceReleasing}>
+              {isForceReleasing ? 'Force-releasing…' : 'Force-Release'}
             </button>
           )}
           <Link to="/orders">Browse Orders</Link>

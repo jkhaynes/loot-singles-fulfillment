@@ -291,6 +291,122 @@ public sealed class OrdersControllerClaimingTests
     }
 
     [Fact]
+    public async Task ForceRelease_ByManager_ReturnsOrderToReadyAndReturns200()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (pickerClient, _) = await LoginAsync(factory, "forcereleasepicker");
+        var (managerClient, _) = await LoginAsync(
+            factory,
+            "forcereleasemanager",
+            EmployeeRole.ManagerAdmin
+        );
+        var target = NewOrder("FORCE-RELEASE-ORDER", DateTimeOffset.UtcNow);
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.Add(target);
+            return Task.CompletedTask;
+        });
+        var claim = await pickerClient.PostAsync($"/api/orders/{target.Id}/claim", content: null);
+        Assert.Equal(HttpStatusCode.OK, claim.StatusCode);
+
+        var response = await managerClient.PostAsync(
+            $"/api/orders/{target.Id}/force-release",
+            content: null
+        );
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("ready", document.RootElement.GetProperty("status").GetString());
+        Assert.Equal(
+            JsonValueKind.Null,
+            document.RootElement.GetProperty("claimedByEmployeeId").ValueKind
+        );
+
+        var reclaim = await pickerClient.PostAsync($"/api/orders/{target.Id}/claim", content: null);
+        Assert.Equal(HttpStatusCode.OK, reclaim.StatusCode);
+    }
+
+    [Fact]
+    public async Task ForceRelease_OrderDoesNotExist_Returns404()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (managerClient, _) = await LoginAsync(
+            factory,
+            "forcereleasemanagertwo",
+            EmployeeRole.ManagerAdmin
+        );
+
+        var response = await managerClient.PostAsync(
+            "/api/orders/2147483647/force-release",
+            content: null
+        );
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("order_not_found", document.RootElement.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task ForceRelease_OrderNotCurrentlyClaimed_Returns409OrderNotClaimed()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (managerClient, _) = await LoginAsync(
+            factory,
+            "forcereleasemanagerthree",
+            EmployeeRole.ManagerAdmin
+        );
+        var unclaimed = NewOrder("UNCLAIMED-FORCE-RELEASE-ORDER", DateTimeOffset.UtcNow);
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.Add(unclaimed);
+            return Task.CompletedTask;
+        });
+
+        var response = await managerClient.PostAsync(
+            $"/api/orders/{unclaimed.Id}/force-release",
+            content: null
+        );
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("order_not_claimed", document.RootElement.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task ForceRelease_ByNonManager_Returns403()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (pickerClient, _) = await LoginAsync(factory, "forcereleasenonmanager");
+        var target = NewOrder("NON-MANAGER-TARGET-ORDER", DateTimeOffset.UtcNow);
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.Add(target);
+            return Task.CompletedTask;
+        });
+        var claim = await pickerClient.PostAsync($"/api/orders/{target.Id}/claim", content: null);
+        Assert.Equal(HttpStatusCode.OK, claim.StatusCode);
+
+        var response = await pickerClient.PostAsync(
+            $"/api/orders/{target.Id}/force-release",
+            content: null
+        );
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ForceRelease_WithoutSession_Returns401()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        await factory.EnsureDatabaseCreatedAsync();
+        using var client = factory.CreateAuthenticatedClient();
+
+        var response = await client.PostAsync("/api/orders/1/force-release", content: null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task PickNext_WithoutSession_Returns401()
     {
         await using var factory = new AuthWebApplicationFactory();
@@ -316,7 +432,8 @@ public sealed class OrdersControllerClaimingTests
 
     private static async Task<(HttpClient Client, Employee Employee)> LoginAsync(
         AuthWebApplicationFactory factory,
-        string username
+        string username,
+        EmployeeRole role = EmployeeRole.Picker
     )
     {
         var employee = new Employee
@@ -325,7 +442,7 @@ public sealed class OrdersControllerClaimingTests
             NormalizedUsername = username.ToUpperInvariant(),
             DisplayName = username,
             PinHash = new Pbkdf2PinHasher().Hash("1234"),
-            Role = EmployeeRole.Picker,
+            Role = role,
             CreatedAt = DateTimeOffset.UtcNow,
         };
         await factory.SeedAsync(context =>

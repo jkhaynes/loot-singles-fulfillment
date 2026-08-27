@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using LootSingles.Application.Orders;
+using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -86,6 +87,27 @@ public sealed class OrdersController(
             OrderClaimOutcome.NotYourClaim => Conflict(new { error = "not_your_claim" }),
             _ => throw new InvalidOperationException(
                 $"Unexpected outcome {result.Outcome} for Release."
+            ),
+        };
+    }
+
+    [HttpPost("{orderId:int}/force-release")]
+    [Authorize(Roles = nameof(EmployeeRole.ManagerAdmin))]
+    public async Task<IActionResult> ForceRelease(int orderId, CancellationToken cancellationToken)
+    {
+        var result = await orderClaimService.ForceReleaseAsync(
+            orderId,
+            ActorEmployeeId(),
+            cancellationToken
+        );
+
+        return result.Outcome switch
+        {
+            OrderClaimOutcome.Success => Ok(ToClaimResponse(result.Order!)),
+            OrderClaimOutcome.OrderNotFound => NotFound(new { error = "order_not_found" }),
+            OrderClaimOutcome.OrderNotClaimed => Conflict(new { error = "order_not_claimed" }),
+            _ => throw new InvalidOperationException(
+                $"Unexpected outcome {result.Outcome} for ForceRelease."
             ),
         };
     }

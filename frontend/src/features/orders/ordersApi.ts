@@ -50,6 +50,13 @@ export class NotYourClaimError extends Error {
   }
 }
 
+export class OrderNotClaimedError extends Error {
+  constructor() {
+    super('This order is no longer claimed by anyone')
+    this.name = 'OrderNotClaimedError'
+  }
+}
+
 export async function getOrders(): Promise<OrderListItem[]> {
   const response = await fetch('/api/orders', { credentials: 'include' })
 
@@ -90,6 +97,27 @@ export async function releaseOrder(orderId: number): Promise<OrderClaimUpdate> {
 
   if (!response.ok) {
     throw new Error(`Failed to release order (status ${response.status})`)
+  }
+
+  return (await response.json()) as OrderClaimUpdate
+}
+
+export async function forceReleaseOrder(orderId: number): Promise<OrderClaimUpdate> {
+  const response = await fetch(`/api/orders/${orderId}/force-release`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+
+  if (response.status === 404) {
+    throw new OrderNotFoundError()
+  }
+
+  if (response.status === 409) {
+    throw new OrderNotClaimedError()
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to force-release order (status ${response.status})`)
   }
 
   return (await response.json()) as OrderClaimUpdate

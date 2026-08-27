@@ -203,6 +203,57 @@ public sealed class OrderClaimServiceTests
         Assert.Equal(OrderClaimOutcome.NotYourClaim, result.Outcome);
     }
 
+    [Fact]
+    public async Task ForceReleaseAsync_OrderClaimed_ReturnsSuccessWithReleasedOrder()
+    {
+        var releasedOrder = NewOrder(5, "ORDER-5");
+        var repository = new FakeOrderRepository { ForceReleaseResult = new(true, releasedOrder) };
+        var service = NewService(repository);
+
+        var result = await service.ForceReleaseAsync(
+            orderId: 5,
+            actorEmployeeId: 9,
+            CancellationToken.None
+        );
+
+        Assert.Equal(OrderClaimOutcome.Success, result.Outcome);
+        Assert.Same(releasedOrder, result.Order);
+    }
+
+    [Fact]
+    public async Task ForceReleaseAsync_OrderDoesNotExist_ReturnsOrderNotFound()
+    {
+        var repository = new FakeOrderRepository { ForceReleaseResult = new(false, null) };
+        var service = NewService(repository);
+
+        var result = await service.ForceReleaseAsync(
+            orderId: 999,
+            actorEmployeeId: 9,
+            CancellationToken.None
+        );
+
+        Assert.Equal(OrderClaimOutcome.OrderNotFound, result.Outcome);
+    }
+
+    [Fact]
+    public async Task ForceReleaseAsync_OrderNotCurrentlyClaimed_ReturnsOrderNotClaimed()
+    {
+        var unclaimedOrder = NewOrder(5, "ORDER-5");
+        var repository = new FakeOrderRepository
+        {
+            ForceReleaseResult = new(false, unclaimedOrder),
+        };
+        var service = NewService(repository);
+
+        var result = await service.ForceReleaseAsync(
+            orderId: 5,
+            actorEmployeeId: 9,
+            CancellationToken.None
+        );
+
+        Assert.Equal(OrderClaimOutcome.OrderNotClaimed, result.Outcome);
+    }
+
     private static OrderClaimService NewService(IOrderRepository repository) =>
         new(repository, NullLogger<OrderClaimService>.Instance);
 

@@ -164,4 +164,35 @@ public sealed class OrderClaimService(
         );
         return OrderClaimResult.NotYourClaim;
     }
+
+    public async Task<OrderClaimResult> ForceReleaseAsync(
+        int orderId,
+        int actorEmployeeId,
+        CancellationToken cancellationToken
+    )
+    {
+        var attempt = await repository.ForceReleaseAsync(orderId, cancellationToken);
+
+        if (attempt.Succeeded)
+        {
+            logger.LogInformation(
+                "Manager {ManagerId} force-released order {OrderId}.",
+                actorEmployeeId,
+                orderId
+            );
+            return OrderClaimResult.Success(attempt.Order!);
+        }
+
+        if (attempt.Order is null)
+        {
+            return OrderClaimResult.OrderNotFound;
+        }
+
+        logger.LogInformation(
+            "Manager {ManagerId} attempted to force-release order {OrderId} but it is not currently claimed.",
+            actorEmployeeId,
+            orderId
+        );
+        return OrderClaimResult.OrderNotClaimed;
+    }
 }
