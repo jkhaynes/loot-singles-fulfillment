@@ -9,9 +9,11 @@ namespace LootSingles.Infrastructure.Auth;
 
 /// <summary>
 /// Rejects an otherwise-valid session cookie the moment the owning employee's account is no
-/// longer active, so deactivation takes effect on the very next request rather than waiting for
-/// the cookie's own expiry (FR-012, research.md §3). Runs on every authenticated request — the
-/// cookie authentication handler raises <see cref="ValidatePrincipal"/> on each one by default.
+/// longer active, or its role no longer matches the cookie's role claim, so deactivation
+/// (FR-012, research.md §3) and role changes (014-manager-admin-screen FR-010, research.md §2)
+/// both take effect on the very next request rather than waiting for the cookie's own expiry.
+/// Runs on every authenticated request — the cookie authentication handler raises
+/// <see cref="ValidatePrincipal"/> on each one by default.
 /// </summary>
 public class EmployeeSessionCookieEvents : CookieAuthenticationEvents
 {
@@ -48,6 +50,13 @@ public class EmployeeSessionCookieEvents : CookieAuthenticationEvents
         );
 
         if (employee is null || !employee.IsActive)
+        {
+            context.RejectPrincipal();
+            return;
+        }
+
+        var roleClaim = context.Principal?.FindFirstValue(ClaimTypes.Role);
+        if (roleClaim != employee.Role.ToString())
         {
             context.RejectPrincipal();
         }

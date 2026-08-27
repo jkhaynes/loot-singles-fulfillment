@@ -233,6 +233,81 @@ public class EmployeeManagementServiceTests
     }
 
     [Fact]
+    public async Task ChangeRoleAsync_ValidPromotion_UpdatesRoleAndRecordsAudit()
+    {
+        var repository = new FakeEmployeeRepository();
+        var picker = NewEmployee(1, "picker", "hash");
+        repository.Employees.Add(picker);
+        var service = new EmployeeManagementService(repository, new Pbkdf2PinHasher());
+
+        var result = await service.ChangeRoleAsync(9, 1, EmployeeRole.ManagerAdmin, default);
+
+        Assert.Equal(EmployeeManagementOutcome.Success, result.Outcome);
+        Assert.Equal(EmployeeRole.ManagerAdmin, picker.Role);
+        AssertAudit(repository, EmployeeAuditActionType.RoleChanged, 9, 1);
+    }
+
+    [Fact]
+    public async Task ChangeRoleAsync_ValidDemotionWithAnotherManagerAdminRemaining_UpdatesRole()
+    {
+        var repository = new FakeEmployeeRepository();
+        var manager = NewEmployee(1, "manager", "hash");
+        manager.Role = EmployeeRole.ManagerAdmin;
+        var otherManager = NewEmployee(2, "othermanager", "hash");
+        otherManager.Role = EmployeeRole.ManagerAdmin;
+        repository.Employees.Add(manager);
+        repository.Employees.Add(otherManager);
+        var service = new EmployeeManagementService(repository, new Pbkdf2PinHasher());
+
+        var result = await service.ChangeRoleAsync(9, 1, EmployeeRole.Picker, default);
+
+        Assert.Equal(EmployeeManagementOutcome.Success, result.Outcome);
+        Assert.Equal(EmployeeRole.Picker, manager.Role);
+    }
+
+    [Fact]
+    public async Task ChangeRoleAsync_MissingEmployee_ReturnsNotFoundWithoutAuditEvent()
+    {
+        var repository = new FakeEmployeeRepository();
+        var service = new EmployeeManagementService(repository, new Pbkdf2PinHasher());
+
+        var result = await service.ChangeRoleAsync(9, 404, EmployeeRole.Picker, default);
+
+        Assert.Equal(EmployeeManagementOutcome.NotFound, result.Outcome);
+        Assert.Empty(repository.AuditEvents);
+    }
+
+    [Fact]
+    public async Task ChangeRoleAsync_DemotingLastActiveManagerAdmin_ReturnsWouldRemoveLastManagerAdminAndLeavesRoleUnchanged()
+    {
+        var repository = new FakeEmployeeRepository();
+        var manager = NewEmployee(1, "manager", "hash");
+        manager.Role = EmployeeRole.ManagerAdmin;
+        repository.Employees.Add(manager);
+        var service = new EmployeeManagementService(repository, new Pbkdf2PinHasher());
+
+        var result = await service.ChangeRoleAsync(9, 1, EmployeeRole.Picker, default);
+
+        Assert.Equal(EmployeeManagementOutcome.WouldRemoveLastManagerAdmin, result.Outcome);
+        Assert.Equal(EmployeeRole.ManagerAdmin, manager.Role);
+    }
+
+    [Fact]
+    public async Task ChangeRoleAsync_RoleMatchesCurrentRole_IsNoOpSuccessButStillRecordsAudit()
+    {
+        var repository = new FakeEmployeeRepository();
+        var picker = NewEmployee(1, "picker", "hash");
+        repository.Employees.Add(picker);
+        var service = new EmployeeManagementService(repository, new Pbkdf2PinHasher());
+
+        var result = await service.ChangeRoleAsync(9, 1, EmployeeRole.Picker, default);
+
+        Assert.Equal(EmployeeManagementOutcome.Success, result.Outcome);
+        Assert.Equal(EmployeeRole.Picker, picker.Role);
+        AssertAudit(repository, EmployeeAuditActionType.RoleChanged, 9, 1);
+    }
+
+    [Fact]
     public async Task StateChangeForMissingEmployee_ReturnsNotFoundWithoutAuditEvent()
     {
         var repository = new FakeEmployeeRepository();

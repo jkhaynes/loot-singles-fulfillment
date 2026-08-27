@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  changeEmployeeRole,
   createEmployee,
   deactivateEmployee,
   listEmployees,
@@ -110,6 +111,25 @@ export function AdminPage() {
     }
   }
 
+  async function handleChangeRole(employeeId: number, newRole: string) {
+    setActingEmployeeId(employeeId)
+    setRowActionError(null)
+    try {
+      await changeEmployeeRole(employeeId, newRole)
+      await refreshEmployees()
+    } catch (error) {
+      if (error instanceof WouldRemoveLastManagerAdminError) {
+        setRowActionError(
+          "Changing this employee's role would leave zero active Manager/Admin employees.",
+        )
+      } else {
+        setRowActionError("Couldn't change this employee's role. Try again.")
+      }
+    } finally {
+      setActingEmployeeId(null)
+    }
+  }
+
   return (
     <main className="admin-page">
       <header className="admin-header">
@@ -200,6 +220,7 @@ export function AdminPage() {
               <th scope="col">Display Name</th>
               <th scope="col">Role</th>
               <th scope="col">Status</th>
+              <th scope="col">Change Role</th>
               <th scope="col">Actions</th>
             </tr>
           </thead>
@@ -212,6 +233,17 @@ export function AdminPage() {
                 <td>
                   {employee.isActive ? 'Active' : 'Inactive'}
                   {employee.isLocked ? ' · Locked' : ''}
+                </td>
+                <td>
+                  <select
+                    aria-label="Change role"
+                    value={employee.role}
+                    onChange={(event) => handleChangeRole(employee.employeeId, event.target.value)}
+                    disabled={actingEmployeeId === employee.employeeId}
+                  >
+                    <option value="Picker">Picker</option>
+                    <option value="ManagerAdmin">Manager/Admin</option>
+                  </select>
                 </td>
                 <td>
                   {employee.isActive ? (

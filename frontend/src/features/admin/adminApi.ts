@@ -89,3 +89,20 @@ export async function reactivateEmployee(id: number): Promise<void> {
     throw new Error(`Failed to reactivate employee (status ${response.status})`)
   }
 }
+
+export async function changeEmployeeRole(id: number, role: string): Promise<void> {
+  const response = await fetch(`/api/employees/${id}/change-role`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ role }),
+  })
+
+  if (response.status === 409) {
+    throw new WouldRemoveLastManagerAdminError()
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to change employee role (status ${response.status})`)
+  }
+}

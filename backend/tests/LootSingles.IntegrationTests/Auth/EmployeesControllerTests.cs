@@ -221,6 +221,80 @@ public class EmployeesControllerTests
             HttpStatusCode.NotFound,
             (await client.GetAsync("/api/employees/404/audit-events")).StatusCode
         );
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (
+                await client.PostAsJsonAsync(
+                    "/api/employees/404/change-role",
+                    new { role = "Picker" }
+                )
+            ).StatusCode
+        );
+    }
+
+    [Fact]
+    public async Task ChangeRole_ValidRequest_ReturnsUpdatedRoleAndInvalidatesTargetSession()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsAsync(factory, EmployeeRole.ManagerAdmin);
+        var target = await SeedEmployeeAsync(factory, "target", "1234", EmployeeRole.Picker);
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/employees/{target.Id}/change-role",
+            new { role = "ManagerAdmin" }
+        );
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ChangeRoleResponse>();
+        Assert.Equal(target.Id, body?.EmployeeId);
+        Assert.Equal("ManagerAdmin", body?.Role);
+        await AssertEmployeeRoleAsync(factory, target.Id, EmployeeRole.ManagerAdmin);
+    }
+
+    [Fact]
+    public async Task ChangeRole_MissingOrInvalidRole_ReturnsBadRequest()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsAsync(factory, EmployeeRole.ManagerAdmin);
+        var target = await SeedEmployeeAsync(factory, "target", "1234", EmployeeRole.Picker);
+
+        var missing = await client.PostAsJsonAsync(
+            $"/api/employees/{target.Id}/change-role",
+            new { }
+        );
+        var invalid = await client.PostAsJsonAsync(
+            $"/api/employees/{target.Id}/change-role",
+            new { role = "SuperAdmin" }
+        );
+
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+    }
+
+    [Fact]
+    public async Task ChangeRole_WouldRemoveLastManagerAdmin_ReturnsConflictAndLeavesRoleUnchanged()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var manager = await SeedEmployeeAsync(
+            factory,
+            "manager",
+            "1234",
+            EmployeeRole.ManagerAdmin
+        );
+        using var client = factory.CreateAuthenticatedClient();
+        await client.PostAsJsonAsync("/api/auth/login", new LoginRequest("manager", "1234"));
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/employees/{manager.Id}/change-role",
+            new { role = "Picker" }
+        );
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(
+            "would_remove_last_manager_admin",
+            (await response.Content.ReadFromJsonAsync<ErrorResponse>())?.Error
+        );
+        await AssertEmployeeRoleAsync(factory, manager.Id, EmployeeRole.ManagerAdmin);
     }
 
     [Fact]
@@ -251,6 +325,10 @@ public class EmployeesControllerTests
             },
             new HttpRequestMessage(HttpMethod.Post, "/api/employees/1/unlock"),
             new HttpRequestMessage(HttpMethod.Get, "/api/employees/1/audit-events"),
+            new HttpRequestMessage(HttpMethod.Post, "/api/employees/1/change-role")
+            {
+                Content = JsonContent.Create(new { role = "Picker" }),
+            },
         };
 
         foreach (var request in requests)
@@ -329,7 +407,23 @@ public class EmployeesControllerTests
         Assert.Equal(failedCount, employee.FailedAttemptCount);
     }
 
+    private static async Task AssertEmployeeRoleAsync(
+        AuthWebApplicationFactory factory,
+        int employeeId,
+        EmployeeRole role
+    )
+    {
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
+        var employee = await context
+            .Employees.AsNoTracking()
+            .SingleAsync(item => item.Id == employeeId);
+        Assert.Equal(role, employee.Role);
+    }
+
     private sealed record CreatedEmployeeResponse(int EmployeeId);
+
+    private sealed record ChangeRoleResponse(int EmployeeId, string Role);
 
     private sealed record EmployeeListResponse(
         int EmployeeId,

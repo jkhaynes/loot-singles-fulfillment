@@ -118,6 +118,57 @@ public sealed class EmployeeManagementService(IEmployeeRepository repository, IP
         return EmployeeManagementResult.Success(employee);
     }
 
+    public async Task<EmployeeManagementResult> ChangeRoleAsync(
+        int actorEmployeeId,
+        int targetEmployeeId,
+        EmployeeRole newRole,
+        CancellationToken cancellationToken
+    )
+    {
+        var employee = await repository.GetByIdAsync(targetEmployeeId, cancellationToken);
+        if (employee is null)
+        {
+            return EmployeeManagementResult.NotFound;
+        }
+
+        var originalRole = employee.Role;
+        // A no-op (setting the role an employee already holds) can never reduce the active
+        // Manager/Admin count, so it never needs the guard — matching contracts/
+        // employee-management-api.md's idempotent-success behavior for that case.
+        var requiresLastManagerAdminGuard =
+            newRole != originalRole && originalRole == EmployeeRole.ManagerAdmin;
+
+        employee.Role = newRole;
+        repository.AddAuditEvent(
+            new EmployeeAuditEvent
+            {
+                ActorEmployeeId = actorEmployeeId,
+                TargetEmployeeId = targetEmployeeId,
+                ActionType = EmployeeAuditActionType.RoleChanged,
+                OccurredAt = DateTimeOffset.UtcNow,
+            }
+        );
+
+        if (!requiresLastManagerAdminGuard)
+        {
+            await repository.SaveChangesAsync(cancellationToken);
+            return EmployeeManagementResult.Success(employee);
+        }
+
+        if (
+            !await repository.SaveChangesGuardingLastManagerAdminAsync(
+                targetEmployeeId,
+                cancellationToken
+            )
+        )
+        {
+            employee.Role = originalRole;
+            return EmployeeManagementResult.WouldRemoveLastManagerAdmin;
+        }
+
+        return EmployeeManagementResult.Success(employee);
+    }
+
     public Task<EmployeeManagementResult> ReactivateAsync(
         int actorEmployeeId,
         int targetEmployeeId,

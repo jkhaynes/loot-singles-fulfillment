@@ -15,6 +15,7 @@ vi.mock('../../src/features/admin/adminApi', async (original) => ({
   createEmployee: vi.fn(),
   deactivateEmployee: vi.fn(),
   reactivateEmployee: vi.fn(),
+  changeEmployeeRole: vi.fn(),
 }))
 
 function renderPage() {
@@ -57,7 +58,9 @@ describe('AdminPage', () => {
 
     const pickerRow = screen.getByRole('row', { name: /ppicker/i })
     expect(within(pickerRow).getByText('Percy Picker')).toBeInTheDocument()
-    expect(within(pickerRow).getByText('Picker')).toBeInTheDocument()
+    // The Role cell's text ("Picker") also matches the row's role-change <select>'s "Picker"
+    // option, so this one assertion targets the Role cell by position rather than by text.
+    expect(within(pickerRow).getAllByRole('cell')[2]).toHaveTextContent('Picker')
     expect(within(pickerRow).getByText(/inactive/i)).toBeInTheDocument()
     expect(within(pickerRow).getByText(/locked/i)).toBeInTheDocument()
   })
@@ -220,6 +223,64 @@ describe('AdminPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/manager/i)
     expect(
       within(screen.getByRole('row', { name: /lastmanager/i })).getByText(/^active$/i),
+    ).toBeInTheDocument()
+  })
+
+  it("changes an employee's role and shows the new role afterward", async () => {
+    vi.mocked(adminApi.listEmployees)
+      .mockResolvedValueOnce([
+        {
+          employeeId: 8,
+          username: 'promoteme',
+          displayName: 'Promote Me',
+          role: 'Picker',
+          isActive: true,
+          isLocked: false,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          employeeId: 8,
+          username: 'promoteme',
+          displayName: 'Promote Me',
+          role: 'ManagerAdmin',
+          isActive: true,
+          isLocked: false,
+        },
+      ])
+    vi.mocked(adminApi.changeEmployeeRole).mockResolvedValue(undefined)
+    const user = userEvent.setup()
+
+    renderPage()
+    const row = await screen.findByRole('row', { name: /promoteme/i })
+    await user.selectOptions(within(row).getByLabelText(/change role/i), 'ManagerAdmin')
+
+    expect(adminApi.changeEmployeeRole).toHaveBeenCalledWith(8, 'ManagerAdmin')
+    const updatedRow = await screen.findByRole('row', { name: /promoteme/i })
+    expect(within(updatedRow).getByText('ManagerAdmin')).toBeInTheDocument()
+  })
+
+  it('shows a clear message and leaves the role unchanged when the change is blocked', async () => {
+    vi.mocked(adminApi.listEmployees).mockResolvedValue([
+      {
+        employeeId: 9,
+        username: 'lastmanagerrole',
+        displayName: 'Last Manager Role',
+        role: 'ManagerAdmin',
+        isActive: true,
+        isLocked: false,
+      },
+    ])
+    vi.mocked(adminApi.changeEmployeeRole).mockRejectedValue(new WouldRemoveLastManagerAdminError())
+    const user = userEvent.setup()
+
+    renderPage()
+    const row = await screen.findByRole('row', { name: /lastmanagerrole/i })
+    await user.selectOptions(within(row).getByLabelText(/change role/i), 'Picker')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/manager/i)
+    expect(
+      within(screen.getByRole('row', { name: /lastmanagerrole/i })).getByText('ManagerAdmin'),
     ).toBeInTheDocument()
   })
 })
