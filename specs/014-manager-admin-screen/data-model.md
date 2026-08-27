@@ -28,10 +28,12 @@ public enum EmployeeAuditActionType
 }
 ```
 
-`RoleChanged` is the only addition. Since this is an `int`-backed enum persisted as its integer
-value (confirmed: no `HasConversion<string>()` on this column), appending a new value at the end
-is a purely additive change — no migration touches existing `EmployeeAuditEvents` rows, and no
-existing `MigrationTests.cs`/schema assertions reference this enum's value set.
+`RoleChanged` is the only addition. `ActionType` is actually persisted via
+`.HasConversion<string>()` into an `nvarchar(max)` column (corrected here — an earlier draft of
+this section wrongly assumed a raw `int` column); since the column is unbounded and EF Core writes
+the enum member's name as the string, adding a new value is still a purely additive change with no
+migration required. No existing `MigrationTests.cs`/schema assertions reference this enum's value
+set (confirmed by inspection during T001).
 
 ## EmployeeManagementOutcome (existing enum, `backend/src/LootSingles.Application/Auth/EmployeeManagementResult.cs`)
 

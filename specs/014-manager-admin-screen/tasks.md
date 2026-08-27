@@ -31,7 +31,7 @@ independently implementable, testable, and demonstrable.
 
 ## Phase 1: Setup
 
-- [ ] T001 Confirm no new dependencies or database migration are needed: `EmployeeAuditActionType.RoleChanged` and `EmployeeManagementOutcome.WouldRemoveLastManagerAdmin` are both additive `int`-backed enum values with no schema impact (data-model.md), and `sp_getapplock` (research.md §1) is already used in this codebase via `EmployeeRepository.TryAddFirstEmployeeAsync` — no new package references required
+- [X] T001 Confirm no new dependencies or database migration are needed: `EmployeeManagementOutcome.WouldRemoveLastManagerAdmin` has no schema impact at all; `EmployeeAuditActionType.RoleChanged` is stored via the existing `.HasConversion<string>()` into an unbounded `nvarchar(max)` `ActionType` column (verified in the migration/designer files — corrected in data-model.md, which had wrongly assumed a raw `int` column), so a new value needs no migration; `sp_getapplock` (research.md §1) is already used in this codebase via `EmployeeRepository.TryAddFirstEmployeeAsync` — no new package references required. Also confirmed no test hardcodes the exhaustive set of `ActionType` values (checked `SqlServerQueryTranslationTests.cs` and `MigrationTests.cs`).
 
 ---
 
