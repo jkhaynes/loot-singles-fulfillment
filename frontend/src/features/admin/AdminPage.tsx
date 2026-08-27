@@ -180,23 +180,24 @@ export function AdminPage() {
           <h1>Manage Employees</h1>
           <p>View and manage picker and manager accounts.</p>
         </div>
-        <nav aria-label="Admin navigation">
+        <nav className="admin-navigation" aria-label="Admin navigation">
           <Link to="/">Dashboard</Link>
         </nav>
       </header>
 
-      <section className="admin-create-employee" aria-label="Create Employee">
+      <section className="admin-panel" aria-label="Create Employee">
         <h2>Create Employee</h2>
-        {createError && (
-          <p role="alert" className="admin-state admin-state--error">
-            {createError}
-          </p>
-        )}
-        <form onSubmit={handleCreateEmployee}>
+        <form className="admin-create-form" onSubmit={handleCreateEmployee}>
+          {createError && (
+            <p role="alert" className="admin-banner admin-banner--error">
+              {createError}
+            </p>
+          )}
           <div className="admin-form-field">
             <label htmlFor="create-employee-username">Username</label>
             <input
               id="create-employee-username"
+              className="admin-input"
               type="text"
               value={username}
               onChange={(event) => setUsername(event.target.value)}
@@ -207,6 +208,7 @@ export function AdminPage() {
             <label htmlFor="create-employee-display-name">Display Name</label>
             <input
               id="create-employee-display-name"
+              className="admin-input"
               type="text"
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
@@ -217,6 +219,7 @@ export function AdminPage() {
             <label htmlFor="create-employee-initial-pin">Initial PIN</label>
             <input
               id="create-employee-initial-pin"
+              className="admin-input"
               type="password"
               inputMode="numeric"
               value={initialPin}
@@ -228,6 +231,7 @@ export function AdminPage() {
             <label htmlFor="create-employee-role">Role</label>
             <select
               id="create-employee-role"
+              className="admin-select"
               value={role}
               onChange={(event) => setRole(event.target.value)}
             >
@@ -235,115 +239,139 @@ export function AdminPage() {
               <option value="ManagerAdmin">Manager/Admin</option>
             </select>
           </div>
-          <button type="submit" disabled={isCreating}>
+          <button
+            type="submit"
+            className="admin-button admin-button--primary"
+            disabled={isCreating}
+          >
             {isCreating ? 'Creating…' : 'Create Employee'}
           </button>
         </form>
       </section>
 
       {rowActionError && (
-        <p role="alert" className="admin-state admin-state--error">
+        <p role="alert" className="admin-banner admin-banner--error">
           {rowActionError}
         </p>
       )}
-      {rowActionSuccess && <p className="admin-state admin-state--success">{rowActionSuccess}</p>}
+      {rowActionSuccess && <p className="admin-banner admin-banner--success">{rowActionSuccess}</p>}
 
-      {isLoading ? (
-        <p className="admin-state">Loading employees…</p>
-      ) : hasError ? (
-        <p role="alert" className="admin-state admin-state--error">
-          Couldn't load employees. Try refreshing the page.
-        </p>
-      ) : employees.length === 0 ? (
-        <p className="admin-state">No employees yet.</p>
-      ) : (
-        <table className="admin-employee-table">
-          <thead>
-            <tr>
-              <th scope="col">Username</th>
-              <th scope="col">Display Name</th>
-              <th scope="col">Role</th>
-              <th scope="col">Status</th>
-              <th scope="col">Change Role</th>
-              <th scope="col">Reset PIN</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {employees.map((employee) => (
-              <tr key={employee.employeeId}>
-                <td>{employee.username}</td>
-                <td>{employee.displayName}</td>
-                <td>{employee.role}</td>
-                <td>
-                  {employee.isActive ? 'Active' : 'Inactive'}
-                  {employee.isLocked ? ' · Locked' : ''}
-                </td>
-                <td>
-                  <select
-                    aria-label="Change role"
-                    value={employee.role}
-                    onChange={(event) => handleChangeRole(employee.employeeId, event.target.value)}
-                    disabled={actingEmployeeId === employee.employeeId}
-                  >
-                    <option value="Picker">Picker</option>
-                    <option value="ManagerAdmin">Manager/Admin</option>
-                  </select>
-                </td>
-                <td>
-                  <input
-                    aria-label="New PIN"
-                    type="password"
-                    inputMode="numeric"
-                    value={pinDrafts[employee.employeeId] ?? ''}
-                    onChange={(event) =>
-                      setPinDrafts((previous) => ({
-                        ...previous,
-                        [employee.employeeId]: event.target.value,
-                      }))
-                    }
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleResetPin(employee.employeeId)}
-                    disabled={actingEmployeeId === employee.employeeId}
-                  >
-                    Reset PIN
-                  </button>
-                </td>
-                <td>
-                  {employee.isActive ? (
-                    <button
-                      type="button"
-                      onClick={() => handleDeactivate(employee.employeeId)}
-                      disabled={actingEmployeeId === employee.employeeId}
-                    >
-                      Remove
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleReactivate(employee.employeeId)}
-                      disabled={actingEmployeeId === employee.employeeId}
-                    >
-                      Restore
-                    </button>
-                  )}
-                  {employee.isLocked && (
-                    <button
-                      type="button"
-                      onClick={() => handleUnlock(employee.employeeId)}
-                      disabled={actingEmployeeId === employee.employeeId}
-                    >
-                      Unlock
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <section className="admin-panel">
+        <h2>Employee Roster</h2>
+        {isLoading ? (
+          <p className="admin-state">Loading employees…</p>
+        ) : hasError ? (
+          <p role="alert" className="admin-state admin-state--error">
+            Couldn't load employees. Try refreshing the page.
+          </p>
+        ) : employees.length === 0 ? (
+          <p className="admin-state">No employees yet.</p>
+        ) : (
+          <div className="admin-table-wrapper">
+            <table className="admin-employee-table">
+              <thead>
+                <tr>
+                  <th scope="col">Username</th>
+                  <th scope="col">Display Name</th>
+                  <th scope="col">Role</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Manage</th>
+                </tr>
+              </thead>
+              <tbody>
+                {employees.map((employee) => (
+                  <tr key={employee.employeeId}>
+                    <td className="admin-employee-table__username">{employee.username}</td>
+                    <td>{employee.displayName}</td>
+                    <td>{employee.role}</td>
+                    <td>
+                      <span
+                        className="admin-badge"
+                        data-status={employee.isActive ? 'active' : 'inactive'}
+                      >
+                        {employee.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                      {employee.isLocked && (
+                        <span className="admin-badge admin-badge--locked">Locked</span>
+                      )}
+                    </td>
+                    <td>
+                      <div className="admin-row-actions">
+                        <select
+                          aria-label="Change role"
+                          className="admin-select admin-select--compact"
+                          value={employee.role}
+                          onChange={(event) =>
+                            handleChangeRole(employee.employeeId, event.target.value)
+                          }
+                          disabled={actingEmployeeId === employee.employeeId}
+                        >
+                          <option value="Picker">Picker</option>
+                          <option value="ManagerAdmin">Manager/Admin</option>
+                        </select>
+
+                        <div className="admin-pin-reset">
+                          <input
+                            aria-label="New PIN"
+                            className="admin-input admin-input--compact"
+                            type="password"
+                            inputMode="numeric"
+                            value={pinDrafts[employee.employeeId] ?? ''}
+                            onChange={(event) =>
+                              setPinDrafts((previous) => ({
+                                ...previous,
+                                [employee.employeeId]: event.target.value,
+                              }))
+                            }
+                          />
+                          <button
+                            type="button"
+                            className="admin-button admin-button--ghost"
+                            onClick={() => handleResetPin(employee.employeeId)}
+                            disabled={actingEmployeeId === employee.employeeId}
+                          >
+                            Reset PIN
+                          </button>
+                        </div>
+
+                        {employee.isActive ? (
+                          <button
+                            type="button"
+                            className="admin-button admin-button--ghost"
+                            onClick={() => handleDeactivate(employee.employeeId)}
+                            disabled={actingEmployeeId === employee.employeeId}
+                          >
+                            Remove
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="admin-button admin-button--ghost"
+                            onClick={() => handleReactivate(employee.employeeId)}
+                            disabled={actingEmployeeId === employee.employeeId}
+                          >
+                            Restore
+                          </button>
+                        )}
+                        {employee.isLocked && (
+                          <button
+                            type="button"
+                            className="admin-button admin-button--ghost"
+                            onClick={() => handleUnlock(employee.employeeId)}
+                            disabled={actingEmployeeId === employee.employeeId}
+                          >
+                            Unlock
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </main>
   )
 }

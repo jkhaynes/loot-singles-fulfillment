@@ -44,6 +44,7 @@
   flex-wrap: wrap;
 }
 
+.dashboard-admin-action,
 .dashboard-import-action,
 .dashboard-orders-action,
 .dashboard-pick-next-action {
@@ -78,6 +79,7 @@
   opacity: 0.6;
 }
 
+.dashboard-admin-action,
 .dashboard-orders-action {
   border: 1px solid var(--color-border);
   background: var(--color-surface-elevated);
@@ -93,6 +95,7 @@
   outline-offset: 2px;
 }
 
+.dashboard-admin-action:focus-visible,
 .dashboard-orders-action:focus-visible {
   outline: 2px solid var(--color-brand-primary);
   outline-offset: 2px;
@@ -266,6 +269,7 @@
     width: 100%;
   }
 
+  .dashboard-admin-action,
   .dashboard-import-action,
   .dashboard-orders-action,
   .dashboard-pick-next-action,
