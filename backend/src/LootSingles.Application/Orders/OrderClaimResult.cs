@@ -30,7 +30,7 @@ public sealed record OrderClaimResult(
         OrderClaimOutcome.NoOrdersAvailable
     );
 
-    public static OrderClaimResult EmployeeHasActiveClaim(int conflictingOrderId) =>
+    public static OrderClaimResult EmployeeHasActiveClaim(int? conflictingOrderId) =>
         new(OrderClaimOutcome.EmployeeHasActiveClaim, ConflictingOrderId: conflictingOrderId);
 
     public static readonly OrderClaimResult NotYourClaim = new(OrderClaimOutcome.NotYourClaim);

@@ -256,3 +256,17 @@ Task: "Integration tests for POST /api/orders/pick-next in backend/tests/LootSin
 - Every write path (pick-next, claim, release, force-release) is a single conditional
   `ExecuteUpdateAsync`, never a load-track-`SaveChangesAsync` — per the constitution's EF Core
   Engineering Standards and research.md §1.
+
+---
+
+## Phase 9: Code and Design Review Remediation
+
+Findings from the first `/code-design-review` pass. See that review's report for full detail.
+
+- [X] T050 **[Must Fix M1]** Fix a read-after-write race in `OrderRepository.cs`: each of `ClaimNextAvailableAsync`/`ClaimSpecificAsync`/`ReleaseAsync`/`ForceReleaseAsync` ran its conditional `ExecuteUpdateAsync` and its follow-up "what does the order look like now" read as two separate, unguarded round trips, so a third concurrent write could land in between and make the response reflect a later state than the one this call actually produced — most visibly, a `Claim` response could report `order_already_claimed` with a null claimant. Fixed by extracting a shared `ExecuteConditionalUpdateAsync` helper that wraps the update + re-read in one explicit transaction, so the row's exclusive lock (held until commit) prevents any interleaving write. Strengthened `Concurrent_claim_of_the_same_specific_order_yields_exactly_one_winner` in `OrderClaimConcurrencyTests.cs` to assert the losing side's claimant is never null.
+- [X] T051 **[Advisory A1]** Resolved automatically by T050 — `ReleaseAsync`/`ForceReleaseAsync` no longer duplicate the update-then-reread plumbing, only the few lines of predicate/setters that must legitimately differ remain.
+- [X] T052 **[Advisory A2]** Removed the `conflictingOrderId ?? 0` sentinel fallback in `OrderClaimService.cs` (both `PickNextAsync` and `ClaimAsync`'s race-backstop catch blocks) and the matching `?? 0` on the frontend (`ordersApi.ts`'s `pickNextOrder`/`claimOrder`). `OrderClaimResult.EmployeeHasActiveClaim`/`EmployeeHasActiveClaimError.claimedOrderId` are now genuinely nullable end-to-end instead of ever fabricating order id `0`.
+- [X] T053 **[Advisory A3]** `DashboardPage.tsx`/`OrdersPage.tsx`'s `EmployeeHasActiveClaimError` handling now renders a link to the employee's already-claimed order (falling back to the old plain-text message in the rare case `claimedOrderId` is null, per T052).
+
+Full validation after remediation: 341/341 backend tests (including the strengthened concurrency
+assertion), 50/50 frontend unit tests, 14/14 Playwright E2E tests, `csharpier`/lint/format all clean.

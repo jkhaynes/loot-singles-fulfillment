@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   getOrders,
@@ -20,7 +21,7 @@ export function OrdersPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [claimingOrderId, setClaimingOrderId] = useState<number | null>(null)
-  const [claimError, setClaimError] = useState<string | null>(null)
+  const [claimError, setClaimError] = useState<ReactNode | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -55,7 +56,16 @@ export function OrdersPage() {
             : 'This order is already claimed.',
         )
       } else if (error instanceof EmployeeHasActiveClaimError) {
-        setClaimError('You already have an order claimed. Release it before claiming another.')
+        setClaimError(
+          error.claimedOrderId !== null ? (
+            <>
+              You already have <Link to={`/orders/${error.claimedOrderId}`}>an order claimed</Link>{' '}
+              — release it before claiming another.
+            </>
+          ) : (
+            'You already have an order claimed. Release it before claiming another.'
+          ),
+        )
       } else {
         setClaimError("Couldn't claim this order. Try again.")
       }

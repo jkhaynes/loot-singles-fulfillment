@@ -63,7 +63,7 @@ public sealed class OrderClaimService(
                 actorEmployeeId,
                 conflictingOrderId
             );
-            return OrderClaimResult.EmployeeHasActiveClaim(conflictingOrderId ?? 0);
+            return OrderClaimResult.EmployeeHasActiveClaim(conflictingOrderId);
         }
     }
 
@@ -130,7 +130,7 @@ public sealed class OrderClaimService(
                 actorEmployeeId,
                 conflictingOrderId
             );
-            return OrderClaimResult.EmployeeHasActiveClaim(conflictingOrderId ?? 0);
+            return OrderClaimResult.EmployeeHasActiveClaim(conflictingOrderId);
         }
     }
 

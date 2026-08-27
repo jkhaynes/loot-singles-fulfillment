@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { AuthenticatedEmployee } from '../auth/authApi'
 import { getDashboard } from './dashboardApi'
@@ -28,7 +29,7 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [isPickingNext, setIsPickingNext] = useState(false)
-  const [pickNextError, setPickNextError] = useState<string | null>(null)
+  const [pickNextError, setPickNextError] = useState<ReactNode | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -68,7 +69,16 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
       if (error instanceof NoOrdersAvailableError) {
         setPickNextError('No orders are currently available to pick.')
       } else if (error instanceof EmployeeHasActiveClaimError) {
-        setPickNextError('You already have an order claimed. Release it before picking another.')
+        setPickNextError(
+          error.claimedOrderId !== null ? (
+            <>
+              You already have <Link to={`/orders/${error.claimedOrderId}`}>an order claimed</Link>{' '}
+              — release it before picking another.
+            </>
+          ) : (
+            'You already have an order claimed. Release it before picking another.'
+          ),
+        )
       } else {
         setPickNextError("Couldn't pick the next order. Try again.")
       }

@@ -65,9 +65,9 @@ export class NoOrdersAvailableError extends Error {
 }
 
 export class EmployeeHasActiveClaimError extends Error {
-  claimedOrderId: number
+  claimedOrderId: number | null
 
-  constructor(claimedOrderId: number) {
+  constructor(claimedOrderId: number | null) {
     super('You already have an order claimed')
     this.name = 'EmployeeHasActiveClaimError'
     this.claimedOrderId = claimedOrderId
@@ -110,7 +110,7 @@ export async function getOrderDetail(orderId: number): Promise<OrderDetail> {
 
 interface ClaimConflictBody {
   error: string
-  claimedOrderId?: number
+  claimedOrderId?: number | null
   claimedByEmployeeName?: string | null
 }
 
@@ -125,7 +125,7 @@ export async function pickNextOrder(): Promise<OrderClaimUpdate> {
     if (body.error === 'no_orders_available') {
       throw new NoOrdersAvailableError()
     }
-    throw new EmployeeHasActiveClaimError(body.claimedOrderId ?? 0)
+    throw new EmployeeHasActiveClaimError(body.claimedOrderId ?? null)
   }
 
   if (!response.ok) {
@@ -150,7 +150,7 @@ export async function claimOrder(orderId: number): Promise<OrderClaimUpdate> {
     if (body.error === 'order_already_claimed') {
       throw new OrderAlreadyClaimedError(body.claimedByEmployeeName ?? null)
     }
-    throw new EmployeeHasActiveClaimError(body.claimedOrderId ?? 0)
+    throw new EmployeeHasActiveClaimError(body.claimedOrderId ?? null)
   }
 
   if (!response.ok) {

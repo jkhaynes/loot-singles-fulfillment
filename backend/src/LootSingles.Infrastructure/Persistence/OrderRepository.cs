@@ -38,18 +38,30 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                 return null;
             }
 
-            var rowsAffected = await TryClaimAsync(
+            var attemptResult = await ExecuteConditionalUpdateAsync(
                 candidateId.Value,
-                actorEmployeeId,
+                ct =>
+                    context
+                        .Orders.Where(order =>
+                            order.Id == candidateId && order.ClaimedByEmployeeId == null
+                        )
+                        .ExecuteUpdateAsync(
+                            setters =>
+                                setters
+                                    .SetProperty(
+                                        order => order.ClaimedByEmployeeId,
+                                        actorEmployeeId
+                                    )
+                                    .SetProperty(order => order.ClaimedAt, DateTimeOffset.UtcNow)
+                                    .SetProperty(order => order.Status, OrderStatus.InProgress),
+                            ct
+                        ),
                 cancellationToken
             );
 
-            if (rowsAffected == 1)
+            if (attemptResult.Succeeded)
             {
-                return await context
-                    .Orders.AsNoTracking()
-                    .Include(order => order.ClaimedByEmployee)
-                    .SingleAsync(order => order.Id == candidateId, cancellationToken);
+                return attemptResult.Order;
             }
 
             excludedOrderIds.Add(candidateId.Value);
@@ -58,72 +70,69 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
         return null;
     }
 
-    public async Task<ClaimAttemptResult> ClaimSpecificAsync(
+    public Task<ClaimAttemptResult> ClaimSpecificAsync(
         int orderId,
         int actorEmployeeId,
         CancellationToken cancellationToken
-    )
-    {
-        var rowsAffected = await TryClaimAsync(orderId, actorEmployeeId, cancellationToken);
+    ) =>
+        ExecuteConditionalUpdateAsync(
+            orderId,
+            ct =>
+                context
+                    .Orders.Where(order => order.Id == orderId && order.ClaimedByEmployeeId == null)
+                    .ExecuteUpdateAsync(
+                        setters =>
+                            setters
+                                .SetProperty(order => order.ClaimedByEmployeeId, actorEmployeeId)
+                                .SetProperty(order => order.ClaimedAt, DateTimeOffset.UtcNow)
+                                .SetProperty(order => order.Status, OrderStatus.InProgress),
+                        ct
+                    ),
+            cancellationToken
+        );
 
-        var currentOrder = await context
-            .Orders.AsNoTracking()
-            .Include(order => order.ClaimedByEmployee)
-            .SingleOrDefaultAsync(order => order.Id == orderId, cancellationToken);
-
-        return new ClaimAttemptResult(rowsAffected == 1, currentOrder);
-    }
-
-    public async Task<ClaimAttemptResult> ReleaseAsync(
+    public Task<ClaimAttemptResult> ReleaseAsync(
         int orderId,
         int actorEmployeeId,
         CancellationToken cancellationToken
-    )
-    {
-        var rowsAffected = await context
-            .Orders.Where(order =>
-                order.Id == orderId && order.ClaimedByEmployeeId == actorEmployeeId
-            )
-            .ExecuteUpdateAsync(
-                setters =>
-                    setters
-                        .SetProperty(order => order.ClaimedByEmployeeId, (int?)null)
-                        .SetProperty(order => order.ClaimedAt, (DateTimeOffset?)null)
-                        .SetProperty(order => order.Status, OrderStatus.Ready),
-                cancellationToken
-            );
+    ) =>
+        ExecuteConditionalUpdateAsync(
+            orderId,
+            ct =>
+                context
+                    .Orders.Where(order =>
+                        order.Id == orderId && order.ClaimedByEmployeeId == actorEmployeeId
+                    )
+                    .ExecuteUpdateAsync(
+                        setters =>
+                            setters
+                                .SetProperty(order => order.ClaimedByEmployeeId, (int?)null)
+                                .SetProperty(order => order.ClaimedAt, (DateTimeOffset?)null)
+                                .SetProperty(order => order.Status, OrderStatus.Ready),
+                        ct
+                    ),
+            cancellationToken
+        );
 
-        var currentOrder = await context
-            .Orders.AsNoTracking()
-            .Include(order => order.ClaimedByEmployee)
-            .SingleOrDefaultAsync(order => order.Id == orderId, cancellationToken);
-
-        return new ClaimAttemptResult(rowsAffected == 1, currentOrder);
-    }
-
-    public async Task<ClaimAttemptResult> ForceReleaseAsync(
+    public Task<ClaimAttemptResult> ForceReleaseAsync(
         int orderId,
         CancellationToken cancellationToken
-    )
-    {
-        var rowsAffected = await context
-            .Orders.Where(order => order.Id == orderId && order.ClaimedByEmployeeId != null)
-            .ExecuteUpdateAsync(
-                setters =>
-                    setters
-                        .SetProperty(order => order.ClaimedByEmployeeId, (int?)null)
-                        .SetProperty(order => order.ClaimedAt, (DateTimeOffset?)null)
-                        .SetProperty(order => order.Status, OrderStatus.Ready),
-                cancellationToken
-            );
-
-        var currentOrder = await context
-            .Orders.AsNoTracking()
-            .Include(order => order.ClaimedByEmployee)
-            .SingleOrDefaultAsync(order => order.Id == orderId, cancellationToken);
-
-        return new ClaimAttemptResult(rowsAffected == 1, currentOrder);
-    }
+    ) =>
+        ExecuteConditionalUpdateAsync(
+            orderId,
+            ct =>
+                context
+                    .Orders.Where(order => order.Id == orderId && order.ClaimedByEmployeeId != null)
+                    .ExecuteUpdateAsync(
+                        setters =>
+                            setters
+                                .SetProperty(order => order.ClaimedByEmployeeId, (int?)null)
+                                .SetProperty(order => order.ClaimedAt, (DateTimeOffset?)null)
+                                .SetProperty(order => order.Status, OrderStatus.Ready),
+                        ct
+                    ),
+            cancellationToken
+        );
 
     public Task<int?> GetActiveClaimedOrderIdAsync(
         int employeeId,
@@ -136,27 +145,28 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
             .FirstOrDefaultAsync(cancellationToken);
 
     /// <summary>
-    /// The conditional compare-and-swap claim primitive (research.md §1): only succeeds while the
-    /// target order is still unclaimed. Reused by both "Pick Next Order" and "Choose Order."
+    /// The shared conditional compare-and-swap primitive (research.md §1) behind every claim,
+    /// release, and force-release write. Runs the caller's conditional <c>ExecuteUpdateAsync</c> and
+    /// a follow-up "what does the order look like now" read inside one explicit transaction, so the
+    /// row's exclusive lock (held from the UPDATE until COMMIT) prevents any other request from
+    /// mutating it in between — the returned <see cref="ClaimAttemptResult.Order"/> is guaranteed to
+    /// reflect exactly the state this call itself produced (or found), never a later interleaved
+    /// write from someone else (code-design-review M1).
     /// </summary>
-    private async Task<int> TryClaimAsync(
+    private async Task<ClaimAttemptResult> ExecuteConditionalUpdateAsync(
         int orderId,
-        int actorEmployeeId,
+        Func<CancellationToken, Task<int>> executeUpdate,
         CancellationToken cancellationToken
     )
     {
+        await using var transaction = await context.Database.BeginTransactionAsync(
+            cancellationToken
+        );
+
+        int rowsAffected;
         try
         {
-            return await context
-                .Orders.Where(order => order.Id == orderId && order.ClaimedByEmployeeId == null)
-                .ExecuteUpdateAsync(
-                    setters =>
-                        setters
-                            .SetProperty(order => order.ClaimedByEmployeeId, actorEmployeeId)
-                            .SetProperty(order => order.ClaimedAt, DateTimeOffset.UtcNow)
-                            .SetProperty(order => order.Status, OrderStatus.InProgress),
-                    cancellationToken
-                );
+            rowsAffected = await executeUpdate(cancellationToken);
         }
         catch (Exception exception) when (DuplicateKeyDetector.IsDuplicateKeyViolation(exception))
         {
@@ -165,6 +175,15 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                 exception
             );
         }
+
+        var currentOrder = await context
+            .Orders.AsNoTracking()
+            .Include(order => order.ClaimedByEmployee)
+            .SingleOrDefaultAsync(order => order.Id == orderId, cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
+
+        return new ClaimAttemptResult(rowsAffected == 1, currentOrder);
     }
 
     public async Task<IReadOnlyList<OrderListItem>> GetAllAsync(CancellationToken cancellationToken)

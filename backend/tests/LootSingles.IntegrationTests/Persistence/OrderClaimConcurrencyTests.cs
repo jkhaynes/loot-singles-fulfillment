@@ -61,7 +61,13 @@ public sealed class OrderClaimConcurrencyTests(SqlServerContainerFixture fixture
         );
 
         Assert.Single(results, result => result.Outcome == OrderClaimOutcome.Success);
-        Assert.Single(results, result => result.Outcome == OrderClaimOutcome.AlreadyClaimed);
+        var loser = Assert.Single(
+            results,
+            result => result.Outcome == OrderClaimOutcome.AlreadyClaimed
+        );
+        // Guards against a read-after-write race (code-design-review M1): the losing side's
+        // response must always attribute the claim to a real employee, never a stale/null read.
+        Assert.NotNull(loser.Order!.ClaimedByEmployeeId);
     }
 
     [Fact]
