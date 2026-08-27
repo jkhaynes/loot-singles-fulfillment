@@ -10,14 +10,17 @@ patterns.
 
 **Decision**: Reuse the exact `sp_getapplock`-based cross-process serialization technique already
 established in `EmployeeRepository.TryAddFirstEmployeeAsync` for the analogous "exactly one
-first-employee bootstrap" invariant. A new repository method (e.g.
-`Task<bool> TryGuardLastManagerAdminAsync(int excludingEmployeeId, CancellationToken)`, exact
-shape decided during implementation) begins a transaction, acquires a named application lock
-(e.g. `"LootSingles.Employees.LastManagerAdminGuard"`), counts active Manager/Admin employees
-excluding the one being acted on, and returns whether at least one other active Manager/Admin
-would remain. `EmployeeManagementService.DeactivateAsync` and the new `ChangeRoleAsync` both call
-this guard before applying their change, inside the same transaction, so the count and the
-subsequent write are atomic with respect to any other concurrent admin action.
+first-employee bootstrap" invariant. The new repository method
+`Task<bool> SaveChangesGuardingLastManagerAdminAsync(int excludingEmployeeId, CancellationToken)`
+begins a transaction, acquires the named application lock
+`"LootSingles.Employees.LastManagerAdminGuard"`, counts active Manager/Admin employees excluding
+the one being acted on, and — only if at least one other active Manager/Admin would remain —
+saves whatever pending changes are already tracked on the context and commits, returning whether
+it did so. `EmployeeManagementService.DeactivateAsync` and the new `ChangeRoleAsync` both apply
+their mutation to the tracked entity first, then call this method instead of the plain
+`SaveChangesAsync`, so the count and the write are atomic with respect to any other concurrent
+admin action — the count-then-save is a single guarded operation, not two separate calls (see the
+Alternatives below for why a split "check" + "save" shape was rejected).
 
 **Rationale**: This is the same class of problem this codebase has already solved once — "ensure
 at most/at least N of something exists, race-free, across processes" — and `sp_getapplock` is
@@ -31,6 +34,11 @@ concurrency-control technique for a structurally identical problem (constitution
   feature 013's `/code-design-review` already caught and fixed once this session (a read and a
   later write as two separate, unguarded round trips) — repeating that mistake here was rejected
   outright.
+- *A standalone `bool`-returning guard-check method, called before a separate `SaveChangesAsync()`*:
+  this was the original plan, but it reintroduces the same TOCTOU shape one level up — nothing
+  stops a second concurrent call's guard-check from running between the first call's check and its
+  save. Discovered and corrected during implementation (T003): the guard and the save must be one
+  method, one transaction, one held lock.
 - *A compare-and-swap `ExecuteUpdateAsync` with a subquery predicate (feature 013's Order-claiming
   technique)*: would work, but `EmployeeManagementService` doesn't use the load-track-`SaveChangesAsync`-avoiding
   `ExecuteUpdateAsync` style anywhere today — introducing it here for one guard, while every other

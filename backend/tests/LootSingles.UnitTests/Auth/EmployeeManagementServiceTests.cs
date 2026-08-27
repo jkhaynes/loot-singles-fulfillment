@@ -285,5 +285,25 @@ public class EmployeeManagementServiceTests
 
             return Task.CompletedTask;
         }
+
+        public async Task<bool> SaveChangesGuardingLastManagerAdminAsync(
+            int excludingEmployeeId,
+            CancellationToken token
+        )
+        {
+            var remainingActiveManagerAdmins = Employees.Count(employee =>
+                employee.Id != excludingEmployeeId
+                && employee.IsActive
+                && employee.Role == EmployeeRole.ManagerAdmin
+            );
+
+            if (remainingActiveManagerAdmins < 1)
+            {
+                return false;
+            }
+
+            await SaveChangesAsync(token);
+            return true;
+        }
     }
 }

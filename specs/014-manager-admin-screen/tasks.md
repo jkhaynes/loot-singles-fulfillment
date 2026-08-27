@@ -42,11 +42,12 @@ change) depend on.
 
 **⚠️ CRITICAL**: No user story task may begin until this phase is complete.
 
-- [ ] T002 [P] Add `WouldRemoveLastManagerAdmin` to `EmployeeManagementOutcome` and a matching `public static readonly EmployeeManagementResult WouldRemoveLastManagerAdmin` factory in `backend/src/LootSingles.Application/Auth/EmployeeManagementResult.cs` (data-model.md), mirroring the existing `NotFound`/`UsernameTaken`/`InvalidRequest` pattern
-- [ ] T003 Add `Task<bool> TryGuardLastManagerAdminAsync(int excludingEmployeeId, CancellationToken)` to `IEmployeeRepository` (`backend/src/LootSingles.Application/Auth/IEmployeeRepository.cs`) and implement it in `EmployeeRepository` (`backend/src/LootSingles.Infrastructure/Persistence/EmployeeRepository.cs`): begin a transaction, acquire a named `sp_getapplock` resource (e.g. `"LootSingles.Employees.LastManagerAdminGuard"`), count active Manager/Admin employees excluding `excludingEmployeeId`, return whether at least one would remain — reusing the exact technique already in `TryAddFirstEmployeeAsync` (research.md §1)
+- [X] T002 [P] Add `WouldRemoveLastManagerAdmin` to `EmployeeManagementOutcome` and a matching `public static readonly EmployeeManagementResult WouldRemoveLastManagerAdmin` factory in `backend/src/LootSingles.Application/Auth/EmployeeManagementResult.cs` (data-model.md), mirroring the existing `NotFound`/`UsernameTaken`/`InvalidRequest` pattern
+- [X] T003 Add `Task<bool> SaveChangesGuardingLastManagerAdminAsync(int excludingEmployeeId, CancellationToken)` to `IEmployeeRepository` (`backend/src/LootSingles.Application/Auth/IEmployeeRepository.cs`) and implement it in `EmployeeRepository` (`backend/src/LootSingles.Infrastructure/Persistence/EmployeeRepository.cs`): begin a transaction, acquire the named `sp_getapplock` resource `"LootSingles.Employees.LastManagerAdminGuard"`, count active Manager/Admin employees excluding `excludingEmployeeId`, and — only if at least one would remain — save pending changes and commit, returning whether it saved. **Renamed and reshaped from the originally-planned standalone bool-returning guard check**: a separate "check" call followed by a separate `SaveChangesAsync()` call would reopen the exact TOCTOU race feature 013's `/code-design-review` (M1) already found and fixed once this session — the count and the save must happen inside the same held lock/transaction to be genuinely race-free, so the guard method now performs both. Also added a fake implementation to the three existing `FakeEmployeeRepository` test doubles (`EmployeeManagementServiceTests.cs` gets a real in-memory guard simulation since it will exercise this in US3/US4; `BootstrapAdminServiceTests.cs`/`AuthenticationServiceTests.cs` get a `NotSupportedException` stub since they never call it).
 
 **Checkpoint**: Outcome type and guard primitive exist — user story phases can begin. (The guard
-has no dedicated test yet — it is exercised and tested via its first real caller in US3.)
+has no dedicated *behavioral* test yet — it is exercised and tested via its first real caller in
+US3; full backend suite re-run clean at 341/341 after this phase.)
 
 ---
 

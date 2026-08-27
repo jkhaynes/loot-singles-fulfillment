@@ -41,4 +41,19 @@ public interface IEmployeeRepository
     /// Persists all pending changes (additions and modifications to tracked entities).
     /// </summary>
     Task SaveChangesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Persists all pending changes, but only if doing so would not leave zero active
+    /// Manager/Admin employees once <paramref name="excludingEmployeeId"/> is excluded from the
+    /// count (014-manager-admin-screen FR-007) — that employee is excluded because the pending
+    /// change being saved is what's being guarded (a deactivation or a role change away from
+    /// Manager/Admin). The count and the save happen inside one serialized transaction
+    /// (research.md §1), so this is race-free against a concurrent call with a different excluded
+    /// employee. Returns <see langword="false"/>, without saving anything, if the guard would be
+    /// violated.
+    /// </summary>
+    Task<bool> SaveChangesGuardingLastManagerAdminAsync(
+        int excludingEmployeeId,
+        CancellationToken cancellationToken
+    );
 }

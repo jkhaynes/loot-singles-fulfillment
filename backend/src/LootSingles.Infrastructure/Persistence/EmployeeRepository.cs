@@ -17,6 +17,14 @@ public class EmployeeRepository(LootSinglesDbContext context) : IEmployeeReposit
     /// </summary>
     private const string BootstrapLockResource = "LootSingles.Employees.Bootstrap";
 
+    /// <summary>
+    /// Resource name for the SQL Server application lock guarding the "at least one active
+    /// Manager/Admin must remain" invariant (014-manager-admin-screen FR-007, research.md §1) —
+    /// the same technique as <see cref="BootstrapLockResource"/>, applied to a different invariant.
+    /// </summary>
+    private const string LastManagerAdminGuardLockResource =
+        "LootSingles.Employees.LastManagerAdminGuard";
+
     public async Task<bool> TryAddFirstEmployeeAsync(
         Employee employee,
         CancellationToken cancellationToken
@@ -105,5 +113,49 @@ END",
         {
             throw new UniqueConstraintViolationException("Username is already in use.", exception);
         }
+    }
+
+    public async Task<bool> SaveChangesGuardingLastManagerAdminAsync(
+        int excludingEmployeeId,
+        CancellationToken cancellationToken
+    )
+    {
+        await using var transaction = await context.Database.BeginTransactionAsync(
+            cancellationToken
+        );
+
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $@"
+DECLARE @lockResult int;
+EXEC @lockResult = sp_getapplock
+    @Resource = {LastManagerAdminGuardLockResource},
+    @LockMode = 'Exclusive',
+    @LockOwner = 'Transaction',
+    @LockTimeout = 30000;
+IF @lockResult < 0
+BEGIN
+    THROW 51000, 'Could not acquire the exclusive last-Manager/Admin guard lock.', 1;
+END",
+            cancellationToken
+        );
+
+        var remainingActiveManagerAdmins = await context
+            .Employees.AsNoTracking()
+            .CountAsync(
+                employee =>
+                    employee.Id != excludingEmployeeId
+                    && employee.IsActive
+                    && employee.Role == EmployeeRole.ManagerAdmin,
+                cancellationToken
+            );
+
+        if (remainingActiveManagerAdmins < 1)
+        {
+            return false;
+        }
+
+        await SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return true;
     }
 }
