@@ -35,4 +35,20 @@ public interface IOrderRepository
         int actorEmployeeId,
         CancellationToken cancellationToken
     );
+
+    /// <summary>
+    /// Atomically releases <paramref name="orderId"/> if it is currently claimed by
+    /// <paramref name="actorEmployeeId"/> (013-order-claiming FR-008).
+    /// </summary>
+    Task<ClaimAttemptResult> ReleaseAsync(
+        int orderId,
+        int actorEmployeeId,
+        CancellationToken cancellationToken
+    );
+
+    /// <summary>
+    /// Atomically releases <paramref name="orderId"/> if it is currently claimed by anyone
+    /// (013-order-claiming FR-010, Manager/Admin only — enforced by the caller).
+    /// </summary>
+    Task<ClaimAttemptResult> ForceReleaseAsync(int orderId, CancellationToken cancellationToken);
 }

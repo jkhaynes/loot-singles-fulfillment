@@ -98,6 +98,53 @@ public sealed class OrderClaimConcurrencyTests(SqlServerContainerFixture fixture
         );
     }
 
+    [Fact]
+    public async Task Concurrent_release_and_force_release_of_the_same_order_succeeds_exactly_once()
+    {
+        // The manager side calls IOrderRepository.ForceReleaseAsync directly rather than through
+        // OrderClaimService.ForceReleaseAsync, since that service method belongs to a later
+        // implementation phase (US5) — this exercises the same underlying conditional-update
+        // primitive the eventual service method will call, so the race guarantee proven here holds.
+        await using var lease = await fixture.CreateDatabaseLeaseAsync();
+        await using var firstContext = lease.CreateDbContext();
+        await using var secondContext = lease.CreateDbContext();
+
+        var claimant = NewEmployee("releaseracer");
+        var claimedOrder = NewOrder("RELEASE-RACE-ORDER");
+        firstContext.Employees.Add(claimant);
+        firstContext.Orders.Add(claimedOrder);
+        await firstContext.SaveChangesAsync();
+        var claimResult = await NewService(firstContext)
+            .ClaimAsync(claimedOrder.Id, claimant.Id, CancellationToken.None);
+        Assert.Equal(OrderClaimOutcome.Success, claimResult.Outcome);
+
+        var releaseService = NewService(firstContext);
+        var forceReleaseRepository = new OrderRepository(secondContext);
+
+        var releaseTask = releaseService.ReleaseAsync(
+            claimedOrder.Id,
+            claimant.Id,
+            CancellationToken.None
+        );
+        var forceReleaseTask = forceReleaseRepository.ForceReleaseAsync(
+            claimedOrder.Id,
+            CancellationToken.None
+        );
+        await Task.WhenAll(releaseTask, forceReleaseTask);
+        var releaseResult = await releaseTask;
+        var forceReleaseAttempt = await forceReleaseTask;
+
+        // Exactly one of the two conditional updates wins the race — never both, never neither.
+        Assert.NotEqual(
+            releaseResult.Outcome == OrderClaimOutcome.Success,
+            forceReleaseAttempt.Succeeded
+        );
+        if (releaseResult.Outcome != OrderClaimOutcome.Success)
+        {
+            Assert.Equal(OrderClaimOutcome.NotYourClaim, releaseResult.Outcome);
+        }
+    }
+
     private static OrderClaimService NewService(LootSinglesDbContext context) =>
         new(new OrderRepository(context), NullLogger<OrderClaimService>.Instance);
 

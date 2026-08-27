@@ -194,6 +194,103 @@ public sealed class OrdersControllerClaimingTests
     }
 
     [Fact]
+    public async Task Release_ClaimantReleases_ReturnsOrderToReadyAndReturns200()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (client, _) = await LoginAsync(factory, "releaserone");
+        var target = NewOrder("RELEASE-ORDER", DateTimeOffset.UtcNow);
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.Add(target);
+            return Task.CompletedTask;
+        });
+        var claim = await client.PostAsync($"/api/orders/{target.Id}/claim", content: null);
+        Assert.Equal(HttpStatusCode.OK, claim.StatusCode);
+
+        var response = await client.PostAsync($"/api/orders/{target.Id}/release", content: null);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("ready", document.RootElement.GetProperty("status").GetString());
+        Assert.Equal(
+            JsonValueKind.Null,
+            document.RootElement.GetProperty("claimedByEmployeeId").ValueKind
+        );
+
+        var reclaim = await client.PostAsync($"/api/orders/{target.Id}/claim", content: null);
+        Assert.Equal(HttpStatusCode.OK, reclaim.StatusCode);
+    }
+
+    [Fact]
+    public async Task Release_OrderDoesNotExist_Returns404()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (client, _) = await LoginAsync(factory, "releasertwo");
+
+        var response = await client.PostAsync("/api/orders/2147483647/release", content: null);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("order_not_found", document.RootElement.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task Release_OrderNotClaimedByCaller_Returns409NotYourClaim()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (client, _) = await LoginAsync(factory, "releaserthree");
+        var unclaimed = NewOrder("UNCLAIMED-RELEASE-ORDER", DateTimeOffset.UtcNow);
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.Add(unclaimed);
+            return Task.CompletedTask;
+        });
+
+        var response = await client.PostAsync($"/api/orders/{unclaimed.Id}/release", content: null);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("not_your_claim", document.RootElement.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task Release_OrderClaimedByAnotherEmployee_Returns409NotYourClaim()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (firstClient, _) = await LoginAsync(factory, "releaserfour");
+        var (secondClient, _) = await LoginAsync(factory, "releaserfive");
+        var target = NewOrder("OTHERS-CLAIM-ORDER", DateTimeOffset.UtcNow);
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.Add(target);
+            return Task.CompletedTask;
+        });
+        var claim = await firstClient.PostAsync($"/api/orders/{target.Id}/claim", content: null);
+        Assert.Equal(HttpStatusCode.OK, claim.StatusCode);
+
+        var response = await secondClient.PostAsync(
+            $"/api/orders/{target.Id}/release",
+            content: null
+        );
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("not_your_claim", document.RootElement.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task Release_WithoutSession_Returns401()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        await factory.EnsureDatabaseCreatedAsync();
+        using var client = factory.CreateAuthenticatedClient();
+
+        var response = await client.PostAsync("/api/orders/1/release", content: null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task PickNext_WithoutSession_Returns401()
     {
         await using var factory = new AuthWebApplicationFactory();

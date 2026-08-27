@@ -35,13 +35,20 @@
   letter-spacing: 0.08em;
 }
 
+.order-detail-header__error {
+  margin: var(--space-1) 0 0;
+  color: var(--color-danger);
+  font-size: var(--font-size-body-small);
+}
+
 .order-detail-navigation {
   display: flex;
   gap: var(--space-3);
   flex-wrap: wrap;
 }
 
-.order-detail-navigation a {
+.order-detail-navigation a,
+.order-detail-navigation button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -55,11 +62,18 @@
   font-size: var(--font-size-body-small);
   font-weight: 600;
   text-decoration: none;
+  cursor: pointer;
 }
 
-.order-detail-navigation a:focus-visible {
+.order-detail-navigation a:focus-visible,
+.order-detail-navigation button:focus-visible {
   outline: 2px solid var(--color-brand-primary);
   outline-offset: 2px;
+}
+
+.order-detail-navigation button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .order-detail-state,

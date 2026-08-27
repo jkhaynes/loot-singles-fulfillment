@@ -133,4 +133,35 @@ public sealed class OrderClaimService(
             return OrderClaimResult.EmployeeHasActiveClaim(conflictingOrderId ?? 0);
         }
     }
+
+    public async Task<OrderClaimResult> ReleaseAsync(
+        int orderId,
+        int actorEmployeeId,
+        CancellationToken cancellationToken
+    )
+    {
+        var attempt = await repository.ReleaseAsync(orderId, actorEmployeeId, cancellationToken);
+
+        if (attempt.Succeeded)
+        {
+            logger.LogInformation(
+                "Employee {EmployeeId} released order {OrderId}.",
+                actorEmployeeId,
+                orderId
+            );
+            return OrderClaimResult.Success(attempt.Order!);
+        }
+
+        if (attempt.Order is null)
+        {
+            return OrderClaimResult.OrderNotFound;
+        }
+
+        logger.LogInformation(
+            "Employee {EmployeeId} attempted to release order {OrderId} but does not hold its claim.",
+            actorEmployeeId,
+            orderId
+        );
+        return OrderClaimResult.NotYourClaim;
+    }
 }

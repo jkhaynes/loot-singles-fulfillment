@@ -70,6 +70,26 @@ public sealed class OrdersController(
         };
     }
 
+    [HttpPost("{orderId:int}/release")]
+    public async Task<IActionResult> Release(int orderId, CancellationToken cancellationToken)
+    {
+        var result = await orderClaimService.ReleaseAsync(
+            orderId,
+            ActorEmployeeId(),
+            cancellationToken
+        );
+
+        return result.Outcome switch
+        {
+            OrderClaimOutcome.Success => Ok(ToClaimResponse(result.Order!)),
+            OrderClaimOutcome.OrderNotFound => NotFound(new { error = "order_not_found" }),
+            OrderClaimOutcome.NotYourClaim => Conflict(new { error = "not_your_claim" }),
+            _ => throw new InvalidOperationException(
+                $"Unexpected outcome {result.Outcome} for Release."
+            ),
+        };
+    }
+
     private static OrderClaimResponse ToClaimResponse(Order order) =>
         new(
             order.Id,

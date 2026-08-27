@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getOrderDetail, OrderNotFoundError } from './ordersApi'
+import { getOrderDetail, releaseOrder, OrderNotFoundError } from './ordersApi'
 import type { OrderDetail } from './ordersApi'
+import { useAuth } from '../auth/AuthContext'
 import './OrderDetailPage.css'
 
 type LoadState = 'loading' | 'loaded' | 'not-found' | 'error'
 
 export function OrderDetailPage() {
   const { orderId } = useParams()
+  const { employee } = useAuth()
   const [order, setOrder] = useState<OrderDetail | null>(null)
   const [loadState, setLoadState] = useState<LoadState>('loading')
+  const [releaseError, setReleaseError] = useState<string | null>(null)
+  const [isReleasing, setIsReleasing] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -32,6 +36,29 @@ export function OrderDetailPage() {
     }
   }, [orderId])
 
+  async function handleRelease() {
+    if (!order) return
+
+    setIsReleasing(true)
+    setReleaseError(null)
+    try {
+      const updated = await releaseOrder(order.orderId)
+      setOrder({
+        ...order,
+        status: updated.status,
+        claimedByEmployeeId: updated.claimedByEmployeeId,
+        claimedByEmployeeName: updated.claimedByEmployeeName,
+      })
+    } catch {
+      setReleaseError("Couldn't release this order. Try refreshing the page.")
+    } finally {
+      setIsReleasing(false)
+    }
+  }
+
+  const canRelease =
+    order !== null && employee !== null && order.claimedByEmployeeId === employee.employeeId
+
   return (
     <main className="order-detail-page">
       <header className="order-detail-header">
@@ -45,8 +72,18 @@ export function OrderDetailPage() {
                 : order.status}
             </p>
           )}
+          {releaseError && (
+            <p role="alert" className="order-detail-header__error">
+              {releaseError}
+            </p>
+          )}
         </div>
         <nav className="order-detail-navigation" aria-label="Order detail navigation">
+          {canRelease && (
+            <button type="button" onClick={handleRelease} disabled={isReleasing}>
+              {isReleasing ? 'Releasing…' : 'Release'}
+            </button>
+          )}
           <Link to="/orders">Browse Orders</Link>
           <Link to="/">Dashboard</Link>
         </nav>

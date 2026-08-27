@@ -139,6 +139,70 @@ public sealed class OrderClaimServiceTests
         Assert.False(repository.ClaimSpecificCalled);
     }
 
+    [Fact]
+    public async Task ReleaseAsync_ClaimantReleases_ReturnsSuccessWithReleasedOrder()
+    {
+        var releasedOrder = NewOrder(5, "ORDER-5");
+        var repository = new FakeOrderRepository { ReleaseResult = new(true, releasedOrder) };
+        var service = NewService(repository);
+
+        var result = await service.ReleaseAsync(
+            orderId: 5,
+            actorEmployeeId: 1,
+            CancellationToken.None
+        );
+
+        Assert.Equal(OrderClaimOutcome.Success, result.Outcome);
+        Assert.Same(releasedOrder, result.Order);
+    }
+
+    [Fact]
+    public async Task ReleaseAsync_OrderDoesNotExist_ReturnsOrderNotFound()
+    {
+        var repository = new FakeOrderRepository { ReleaseResult = new(false, null) };
+        var service = NewService(repository);
+
+        var result = await service.ReleaseAsync(
+            orderId: 999,
+            actorEmployeeId: 1,
+            CancellationToken.None
+        );
+
+        Assert.Equal(OrderClaimOutcome.OrderNotFound, result.Outcome);
+    }
+
+    [Fact]
+    public async Task ReleaseAsync_OrderNotCurrentlyClaimed_ReturnsNotYourClaim()
+    {
+        var unclaimedOrder = NewOrder(5, "ORDER-5");
+        var repository = new FakeOrderRepository { ReleaseResult = new(false, unclaimedOrder) };
+        var service = NewService(repository);
+
+        var result = await service.ReleaseAsync(
+            orderId: 5,
+            actorEmployeeId: 1,
+            CancellationToken.None
+        );
+
+        Assert.Equal(OrderClaimOutcome.NotYourClaim, result.Outcome);
+    }
+
+    [Fact]
+    public async Task ReleaseAsync_OrderClaimedByAnotherEmployee_ReturnsNotYourClaim()
+    {
+        var claimedByOther = NewOrder(5, "ORDER-5");
+        var repository = new FakeOrderRepository { ReleaseResult = new(false, claimedByOther) };
+        var service = NewService(repository);
+
+        var result = await service.ReleaseAsync(
+            orderId: 5,
+            actorEmployeeId: 1,
+            CancellationToken.None
+        );
+
+        Assert.Equal(OrderClaimOutcome.NotYourClaim, result.Outcome);
+    }
+
     private static OrderClaimService NewService(IOrderRepository repository) =>
         new(repository, NullLogger<OrderClaimService>.Instance);
 
@@ -160,6 +224,8 @@ public sealed class OrderClaimServiceTests
         public bool ClaimNextAvailableCalled { get; private set; }
         public ClaimAttemptResult ClaimSpecificResult { get; set; } = new(false, null);
         public bool ClaimSpecificCalled { get; private set; }
+        public ClaimAttemptResult ReleaseResult { get; set; } = new(false, null);
+        public ClaimAttemptResult ForceReleaseResult { get; set; } = new(false, null);
 
         public Task<IReadOnlyList<OrderListItem>> GetAllAsync(
             CancellationToken cancellationToken
@@ -204,5 +270,16 @@ public sealed class OrderClaimServiceTests
             ClaimSpecificCalled = true;
             return Task.FromResult(ClaimSpecificResult);
         }
+
+        public Task<ClaimAttemptResult> ReleaseAsync(
+            int orderId,
+            int actorEmployeeId,
+            CancellationToken cancellationToken
+        ) => Task.FromResult(ReleaseResult);
+
+        public Task<ClaimAttemptResult> ForceReleaseAsync(
+            int orderId,
+            CancellationToken cancellationToken
+        ) => Task.FromResult(ForceReleaseResult);
     }
 }

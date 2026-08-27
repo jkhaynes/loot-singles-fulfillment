@@ -196,6 +196,17 @@ public sealed class OrdersServiceTests
             int actorEmployeeId,
             CancellationToken cancellationToken
         ) => throw new NotSupportedException("Not exercised by these tests.");
+
+        public Task<ClaimAttemptResult> ReleaseAsync(
+            int orderId,
+            int actorEmployeeId,
+            CancellationToken cancellationToken
+        ) => throw new NotSupportedException("Not exercised by these tests.");
+
+        public Task<ClaimAttemptResult> ForceReleaseAsync(
+            int orderId,
+            CancellationToken cancellationToken
+        ) => throw new NotSupportedException("Not exercised by these tests.");
     }
 
     private sealed class FakeOrderRepository(IReadOnlyList<OrderListItem> orders) : IOrderRepository
@@ -220,6 +231,17 @@ public sealed class OrdersServiceTests
         public Task<ClaimAttemptResult> ClaimSpecificAsync(
             int orderId,
             int actorEmployeeId,
+            CancellationToken cancellationToken
+        ) => throw new NotSupportedException("Not exercised by these tests.");
+
+        public Task<ClaimAttemptResult> ReleaseAsync(
+            int orderId,
+            int actorEmployeeId,
+            CancellationToken cancellationToken
+        ) => throw new NotSupportedException("Not exercised by these tests.");
+
+        public Task<ClaimAttemptResult> ForceReleaseAsync(
+            int orderId,
             CancellationToken cancellationToken
         ) => throw new NotSupportedException("Not exercised by these tests.");
     }

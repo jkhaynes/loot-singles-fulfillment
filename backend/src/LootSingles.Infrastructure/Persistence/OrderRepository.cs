@@ -74,6 +74,57 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
         return new ClaimAttemptResult(rowsAffected == 1, currentOrder);
     }
 
+    public async Task<ClaimAttemptResult> ReleaseAsync(
+        int orderId,
+        int actorEmployeeId,
+        CancellationToken cancellationToken
+    )
+    {
+        var rowsAffected = await context
+            .Orders.Where(order =>
+                order.Id == orderId && order.ClaimedByEmployeeId == actorEmployeeId
+            )
+            .ExecuteUpdateAsync(
+                setters =>
+                    setters
+                        .SetProperty(order => order.ClaimedByEmployeeId, (int?)null)
+                        .SetProperty(order => order.ClaimedAt, (DateTimeOffset?)null)
+                        .SetProperty(order => order.Status, OrderStatus.Ready),
+                cancellationToken
+            );
+
+        var currentOrder = await context
+            .Orders.AsNoTracking()
+            .Include(order => order.ClaimedByEmployee)
+            .SingleOrDefaultAsync(order => order.Id == orderId, cancellationToken);
+
+        return new ClaimAttemptResult(rowsAffected == 1, currentOrder);
+    }
+
+    public async Task<ClaimAttemptResult> ForceReleaseAsync(
+        int orderId,
+        CancellationToken cancellationToken
+    )
+    {
+        var rowsAffected = await context
+            .Orders.Where(order => order.Id == orderId && order.ClaimedByEmployeeId != null)
+            .ExecuteUpdateAsync(
+                setters =>
+                    setters
+                        .SetProperty(order => order.ClaimedByEmployeeId, (int?)null)
+                        .SetProperty(order => order.ClaimedAt, (DateTimeOffset?)null)
+                        .SetProperty(order => order.Status, OrderStatus.Ready),
+                cancellationToken
+            );
+
+        var currentOrder = await context
+            .Orders.AsNoTracking()
+            .Include(order => order.ClaimedByEmployee)
+            .SingleOrDefaultAsync(order => order.Id == orderId, cancellationToken);
+
+        return new ClaimAttemptResult(rowsAffected == 1, currentOrder);
+    }
+
     public Task<int?> GetActiveClaimedOrderIdAsync(
         int employeeId,
         CancellationToken cancellationToken

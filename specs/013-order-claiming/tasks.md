@@ -141,17 +141,17 @@ a different picker.
 
 ### Tests for User Story 4 ⚠️ Write first, confirm failing before implementing
 
-- [ ] T031 [P] [US4] Add failing unit tests for `OrderClaimService.ReleaseAsync` (`Success`, `OrderNotFound`, `NotYourClaim` for both "unclaimed" and "claimed by someone else") in `OrderClaimServiceTests.cs`
-- [ ] T032 [P] [US4] Add failing integration tests for `POST /api/orders/{orderId}/release` (200, 404, 409 `not_your_claim`) in `OrdersControllerClaimingTests.cs`
-- [ ] T033 [US4] Add a failing real-database concurrency test in `OrderClaimConcurrencyTests.cs`: simultaneous `ReleaseAsync` (by the claimant) and `ForceReleaseAsync` (by a manager) against the same claimed order — exactly one succeeds, the order ends released exactly once, the other gets a "no longer claimed" outcome (spec.md Edge Cases §4)
+- [X] T031 [P] [US4] Add failing unit tests for `OrderClaimService.ReleaseAsync` (`Success`, `OrderNotFound`, `NotYourClaim` for both "unclaimed" and "claimed by someone else") in `OrderClaimServiceTests.cs`
+- [X] T032 [P] [US4] Add failing integration tests for `POST /api/orders/{orderId}/release` (200, 404, 409 `not_your_claim`) in `OrdersControllerClaimingTests.cs`
+- [X] T033 [US4] Add a failing real-database concurrency test in `OrderClaimConcurrencyTests.cs`: simultaneous `ReleaseAsync` (by the claimant) and `ForceReleaseAsync` (by a manager) against the same claimed order — exactly one succeeds, the order ends released exactly once, the other gets a "no longer claimed" outcome (spec.md Edge Cases §4). The manager side calls `IOrderRepository.ForceReleaseAsync` directly (added in T034, ahead of its formal T041 slot) rather than through `OrderClaimService.ForceReleaseAsync`, since that service method belongs to US5 — this exercises the identical conditional-update primitive the eventual service will call, so the race guarantee proven here still holds; T041 only needs the service-layer wrapper when reached
 
 ### Implementation for User Story 4
 
-- [ ] T034 [US4] Add `ReleaseAsync(int orderId, int actorEmployeeId, CancellationToken)` to `IOrderRepository`/`OrderRepository`: conditional `ExecuteUpdateAsync` (`WHERE Id == orderId && ClaimedByEmployeeId == actorEmployeeId`, clearing `ClaimedByEmployeeId`/`ClaimedAt`, setting `Status = Ready`); on 0-rows-affected, load the order to distinguish "doesn't exist" from "not your claim"
-- [ ] T035 [US4] Implement `OrderClaimService.ReleaseAsync(int orderId, int actorEmployeeId, CancellationToken)` mapping outcomes per `contracts/order-claiming-api.md` — depends on T034
-- [ ] T036 [US4] Add `POST /api/orders/{orderId}/release` to `OrdersController.cs` — depends on T035
-- [ ] T037 [US4] Add logging for release success/rejected outcomes in `OrderClaimService.cs`
-- [ ] T038 [P] [US4] Frontend: add a "Release" action to `frontend/src/features/orders/OrderDetailPage.tsx`, visible only when `claimedByEmployeeId` matches the signed-in employee, calling a new `releaseOrder` function in `frontend/src/features/orders/ordersApi.ts`
+- [X] T034 [US4] Add `ReleaseAsync(int orderId, int actorEmployeeId, CancellationToken)` to `IOrderRepository`/`OrderRepository`: conditional `ExecuteUpdateAsync` (`WHERE Id == orderId && ClaimedByEmployeeId == actorEmployeeId`, clearing `ClaimedByEmployeeId`/`ClaimedAt`, setting `Status = Ready`); on 0-rows-affected, load the order to distinguish "doesn't exist" from "not your claim". Also adds the repository-level `ForceReleaseAsync(int orderId, CancellationToken)` (WHERE `ClaimedByEmployeeId != null`) as its natural sibling, needed early by T033 — see that task's note
+- [X] T035 [US4] Implement `OrderClaimService.ReleaseAsync(int orderId, int actorEmployeeId, CancellationToken)` mapping outcomes per `contracts/order-claiming-api.md` — depends on T034
+- [X] T036 [US4] Add `POST /api/orders/{orderId}/release` to `OrdersController.cs` — depends on T035
+- [X] T037 [US4] Add logging for release success/rejected outcomes in `OrderClaimService.cs`
+- [X] T038 [P] [US4] Frontend: add a "Release" action to `frontend/src/features/orders/OrderDetailPage.tsx`, visible only when `claimedByEmployeeId` matches the signed-in employee, calling a new `releaseOrder` function in `frontend/src/features/orders/ordersApi.ts`
 
 **Checkpoint**: User Stories 1–4 all work independently; the claim lifecycle is fully usable by a
 picker end-to-end.
@@ -173,7 +173,7 @@ and the original claimant no longer holds it. A non-manager's attempt is rejecte
 
 ### Implementation for User Story 5
 
-- [ ] T041 [US5] Add `ForceReleaseAsync(int orderId, CancellationToken)` to `IOrderRepository`/`OrderRepository`: conditional `ExecuteUpdateAsync` (`WHERE Id == orderId && ClaimedByEmployeeId != null`, clearing claim fields, setting `Status = Ready`); on 0-rows-affected, load the order to distinguish "doesn't exist" from "not currently claimed"
+- [X] T041 [US5] Add `ForceReleaseAsync(int orderId, CancellationToken)` to `IOrderRepository`/`OrderRepository`: conditional `ExecuteUpdateAsync` (`WHERE Id == orderId && ClaimedByEmployeeId != null`, clearing claim fields, setting `Status = Ready`); on 0-rows-affected, load the order to distinguish "doesn't exist" from "not currently claimed" — already implemented in T034 (Phase 6), ahead of schedule, as a dependency of T033's concurrency test; nothing further needed here
 - [ ] T042 [US5] Implement `OrderClaimService.ForceReleaseAsync(int orderId, CancellationToken)` mapping outcomes per `contracts/order-claiming-api.md` — depends on T041
 - [ ] T043 [US5] Add `POST /api/orders/{orderId}/force-release` to `OrdersController.cs` with `[Authorize(Roles = nameof(EmployeeRole.ManagerAdmin))]` on the action, mirroring `EmployeesController` — depends on T042
 - [ ] T044 [US5] Add logging for force-release outcomes in `OrderClaimService.cs`, including which manager force-released which employee's claim
