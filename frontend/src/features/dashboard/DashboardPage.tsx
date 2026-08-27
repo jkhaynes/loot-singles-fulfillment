@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { AuthenticatedEmployee } from '../auth/authApi'
 import { getDashboard } from './dashboardApi'
 import type { DashboardData } from './dashboardApi'
+import {
+  pickNextOrder,
+  NoOrdersAvailableError,
+  EmployeeHasActiveClaimError,
+} from '../orders/ordersApi'
 import { AlertTriangleIcon, CheckCircleIcon, ClockIcon, ShoppingBagIcon } from './icons'
 import './DashboardPage.css'
 
@@ -18,9 +23,12 @@ function greetingForHour(hour: number): string {
 }
 
 export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
+  const navigate = useNavigate()
   const [data, setData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
+  const [isPickingNext, setIsPickingNext] = useState(false)
+  const [pickNextError, setPickNextError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -50,6 +58,25 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
   const firstName = employee.displayName.split(' ')[0]
   const readyCount = data?.ready.count ?? 0
 
+  async function handlePickNext() {
+    setIsPickingNext(true)
+    setPickNextError(null)
+    try {
+      const claimed = await pickNextOrder()
+      navigate(`/orders/${claimed.orderId}`)
+    } catch (error) {
+      if (error instanceof NoOrdersAvailableError) {
+        setPickNextError('No orders are currently available to pick.')
+      } else if (error instanceof EmployeeHasActiveClaimError) {
+        setPickNextError('You already have an order claimed. Release it before picking another.')
+      } else {
+        setPickNextError("Couldn't pick the next order. Try again.")
+      }
+    } finally {
+      setIsPickingNext(false)
+    }
+  }
+
   return (
     <div className="dashboard-page">
       <header className="dashboard-header">
@@ -58,8 +85,21 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
             {greetingForHour(new Date().getHours())}, {firstName}
           </h1>
           <p className="dashboard-header__subtitle">Ready to pick some orders?</p>
+          {pickNextError && (
+            <p role="alert" className="dashboard-header__error">
+              {pickNextError}
+            </p>
+          )}
         </div>
         <div className="dashboard-header__actions">
+          <button
+            type="button"
+            className="dashboard-pick-next-action"
+            onClick={handlePickNext}
+            disabled={isPickingNext}
+          >
+            {isPickingNext ? 'Picking…' : 'Pick Next Order'}
+          </button>
           <Link to="/orders" className="dashboard-orders-action">
             Browse Orders
           </Link>
