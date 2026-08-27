@@ -195,6 +195,35 @@ with their existing PIN.
 
 ---
 
+## Phase 9: Code and Design Review Remediation
+
+`/code-design-review` findings (1 Must Fix, 3 Advisory). Advisory #2 (ILogger parity with
+`OrderClaimService` for the guard's blocked outcome) was explicitly deferred — not implemented,
+given its ripple effect across ~15-20 direct `EmployeeManagementService` constructions in test
+files, for an advisory-only nicety.
+
+- [X] T037 [MUST FIX] Consolidate the duplicated "guarded conditional save + revert" shape between
+  `EmployeeManagementService.DeactivateAsync` and `ChangeRoleAsync`
+  (`backend/src/LootSingles.Application/Auth/EmployeeManagementService.cs`) into a shared private
+  `ApplyGuardingLastManagerAdminAsync` helper, per constitution Principle XIII's "second concrete
+  use case" consolidation rule. Pure refactor, no behavior change — full backend suite re-run clean
+  (216/216 unit, 141/141 integration) after the change.
+- [X] T038 [ADVISORY] Collapse `AdminPage.tsx`'s five near-identical row-action handlers
+  (`handleDeactivate`/`handleReactivate`/`handleChangeRole`/`handleResetPin`/`handleUnlock`) into a
+  shared `runRowAction` helper. Pure refactor, no behavior change — 66/66 frontend tests re-run
+  clean.
+- [X] T039 [ADVISORY] Extend `Deactivate_LastActiveManagerAdmin_ReturnsConflictAndLeavesAccountActive`
+  and `ChangeRole_WouldRemoveLastManagerAdmin_ReturnsConflictAndLeavesRoleUnchanged`
+  (`backend/tests/LootSingles.IntegrationTests/Auth/EmployeesControllerTests.cs`) to assert no
+  `Deactivated`/`RoleChanged` audit event is persisted for a blocked action — test-only, no
+  production code change (the correct behavior already existed). Caught a test-writing mistake in
+  the first pass: `Assert.Empty` failed because the acting manager's own `Login` event is
+  legitimately present in their own audit history (an employee's audit-events list includes events
+  where they're either actor or target); fixed to `Assert.DoesNotContain` for the specific blocked
+  action type.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

@@ -86,91 +86,80 @@ export function AdminPage() {
     }
   }
 
-  async function handleDeactivate(employeeId: number) {
+  async function runRowAction(
+    employeeId: number,
+    action: () => Promise<void>,
+    options: {
+      onSuccess?: () => void
+      successMessage?: string
+      refresh?: boolean
+      mapError: (error: unknown) => string
+    },
+  ) {
     setActingEmployeeId(employeeId)
     setRowActionError(null)
     setRowActionSuccess(null)
     try {
-      await deactivateEmployee(employeeId)
-      await refreshEmployees()
-    } catch (error) {
-      if (error instanceof WouldRemoveLastManagerAdminError) {
-        setRowActionError('Removing this employee would leave zero active Manager/Admin employees.')
-      } else {
-        setRowActionError("Couldn't remove this employee. Try again.")
+      await action()
+      if (options.refresh) {
+        await refreshEmployees()
       }
-    } finally {
-      setActingEmployeeId(null)
-    }
-  }
-
-  async function handleReactivate(employeeId: number) {
-    setActingEmployeeId(employeeId)
-    setRowActionError(null)
-    setRowActionSuccess(null)
-    try {
-      await reactivateEmployee(employeeId)
-      await refreshEmployees()
-    } catch {
-      setRowActionError("Couldn't restore this employee. Try again.")
-    } finally {
-      setActingEmployeeId(null)
-    }
-  }
-
-  async function handleChangeRole(employeeId: number, newRole: string) {
-    setActingEmployeeId(employeeId)
-    setRowActionError(null)
-    setRowActionSuccess(null)
-    try {
-      await changeEmployeeRole(employeeId, newRole)
-      await refreshEmployees()
-    } catch (error) {
-      if (error instanceof WouldRemoveLastManagerAdminError) {
-        setRowActionError(
-          "Changing this employee's role would leave zero active Manager/Admin employees.",
-        )
-      } else {
-        setRowActionError("Couldn't change this employee's role. Try again.")
+      options.onSuccess?.()
+      if (options.successMessage) {
+        setRowActionSuccess(options.successMessage)
       }
+    } catch (error) {
+      setRowActionError(options.mapError(error))
     } finally {
       setActingEmployeeId(null)
     }
   }
 
-  async function handleResetPin(employeeId: number) {
+  function handleDeactivate(employeeId: number) {
+    return runRowAction(employeeId, () => deactivateEmployee(employeeId), {
+      refresh: true,
+      mapError: (error) =>
+        error instanceof WouldRemoveLastManagerAdminError
+          ? 'Removing this employee would leave zero active Manager/Admin employees.'
+          : "Couldn't remove this employee. Try again.",
+    })
+  }
+
+  function handleReactivate(employeeId: number) {
+    return runRowAction(employeeId, () => reactivateEmployee(employeeId), {
+      refresh: true,
+      mapError: () => "Couldn't restore this employee. Try again.",
+    })
+  }
+
+  function handleChangeRole(employeeId: number, newRole: string) {
+    return runRowAction(employeeId, () => changeEmployeeRole(employeeId, newRole), {
+      refresh: true,
+      mapError: (error) =>
+        error instanceof WouldRemoveLastManagerAdminError
+          ? "Changing this employee's role would leave zero active Manager/Admin employees."
+          : "Couldn't change this employee's role. Try again.",
+    })
+  }
+
+  function handleResetPin(employeeId: number) {
     const newPin = pinDrafts[employeeId] ?? ''
-    setActingEmployeeId(employeeId)
-    setRowActionError(null)
-    setRowActionSuccess(null)
-    try {
-      await resetPin(employeeId, newPin)
-      setPinDrafts((previous) => ({ ...previous, [employeeId]: '' }))
-      setRowActionSuccess('PIN reset.')
-    } catch (error) {
-      if (error instanceof InvalidPinError) {
-        setRowActionError('A 4-digit numeric PIN is required.')
-      } else {
-        setRowActionError("Couldn't reset this employee's PIN. Try again.")
-      }
-    } finally {
-      setActingEmployeeId(null)
-    }
+    return runRowAction(employeeId, () => resetPin(employeeId, newPin), {
+      onSuccess: () => setPinDrafts((previous) => ({ ...previous, [employeeId]: '' })),
+      successMessage: 'PIN reset.',
+      mapError: (error) =>
+        error instanceof InvalidPinError
+          ? 'A 4-digit numeric PIN is required.'
+          : "Couldn't reset this employee's PIN. Try again.",
+    })
   }
 
-  async function handleUnlock(employeeId: number) {
-    setActingEmployeeId(employeeId)
-    setRowActionError(null)
-    setRowActionSuccess(null)
-    try {
-      await unlockEmployee(employeeId)
-      await refreshEmployees()
-      setRowActionSuccess('Account unlocked.')
-    } catch {
-      setRowActionError("Couldn't unlock this employee. Try again.")
-    } finally {
-      setActingEmployeeId(null)
-    }
+  function handleUnlock(employeeId: number) {
+    return runRowAction(employeeId, () => unlockEmployee(employeeId), {
+      refresh: true,
+      successMessage: 'Account unlocked.',
+      mapError: () => "Couldn't unlock this employee. Try again.",
+    })
   }
 
   return (

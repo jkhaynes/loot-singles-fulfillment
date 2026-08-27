@@ -64,64 +64,74 @@ public sealed class EmployeeManagementService(IEmployeeRepository repository, IP
         return EmployeeManagementResult.Success(employee);
     }
 
-    public async Task<EmployeeManagementResult> DeactivateAsync(
+    public Task<EmployeeManagementResult> DeactivateAsync(
         int actorEmployeeId,
         int targetEmployeeId,
         CancellationToken cancellationToken
-    )
-    {
-        var employee = await repository.GetByIdAsync(targetEmployeeId, cancellationToken);
-        if (employee is null)
-        {
-            return EmployeeManagementResult.NotFound;
-        }
-
+    ) =>
         // Only an active Manager/Admin can threaten the "at least one active Manager/Admin"
         // invariant; guarding a Picker's deactivation would incorrectly block it whenever the
         // store happens to have zero Manager/Admin employees for unrelated reasons (the guard's
         // count excludes this employee unconditionally — it has no way to know their current
         // role on its own, since it must query the database rather than this pending change).
-        var requiresLastManagerAdminGuard = employee.Role == EmployeeRole.ManagerAdmin;
-
-        employee.IsActive = false;
-        repository.AddAuditEvent(
-            new EmployeeAuditEvent
+        ApplyGuardingLastManagerAdminAsync(
+            actorEmployeeId,
+            targetEmployeeId,
+            EmployeeAuditActionType.Deactivated,
+            requiresGuard: employee => employee.Role == EmployeeRole.ManagerAdmin,
+            applyAndGetRevert: employee =>
             {
-                ActorEmployeeId = actorEmployeeId,
-                TargetEmployeeId = targetEmployeeId,
-                ActionType = EmployeeAuditActionType.Deactivated,
-                OccurredAt = DateTimeOffset.UtcNow,
-            }
+                employee.IsActive = false;
+                return reverted => reverted.IsActive = true;
+            },
+            cancellationToken
         );
 
-        if (!requiresLastManagerAdminGuard)
-        {
-            await repository.SaveChangesAsync(cancellationToken);
-            return EmployeeManagementResult.Success(employee);
-        }
-
-        // The mutation and the audit event above must be saved together with the guard's count
-        // check, inside the guard's single held lock/transaction (research.md §1) — a separate
-        // "check, then save" pair here would reopen the exact TOCTOU race feature 013's
-        // code-design-review already found and fixed once this session.
-        if (
-            !await repository.SaveChangesGuardingLastManagerAdminAsync(
-                targetEmployeeId,
-                cancellationToken
-            )
-        )
-        {
-            employee.IsActive = true;
-            return EmployeeManagementResult.WouldRemoveLastManagerAdmin;
-        }
-
-        return EmployeeManagementResult.Success(employee);
-    }
-
-    public async Task<EmployeeManagementResult> ChangeRoleAsync(
+    public Task<EmployeeManagementResult> ChangeRoleAsync(
         int actorEmployeeId,
         int targetEmployeeId,
         EmployeeRole newRole,
+        CancellationToken cancellationToken
+    ) =>
+        // A no-op (setting the role an employee already holds) can never reduce the active
+        // Manager/Admin count, so it never needs the guard — matching contracts/
+        // employee-management-api.md's idempotent-success behavior for that case.
+        ApplyGuardingLastManagerAdminAsync(
+            actorEmployeeId,
+            targetEmployeeId,
+            EmployeeAuditActionType.RoleChanged,
+            requiresGuard: employee =>
+                newRole != employee.Role && employee.Role == EmployeeRole.ManagerAdmin,
+            applyAndGetRevert: employee =>
+            {
+                var originalRole = employee.Role;
+                employee.Role = newRole;
+                return reverted => reverted.Role = originalRole;
+            },
+            cancellationToken
+        );
+
+    /// <summary>
+    /// Loads the target employee, applies a mutation, records its audit event, and saves — through
+    /// the last-Manager/Admin guard (research.md §1) when <paramref name="requiresGuard"/> says the
+    /// mutation could threaten that invariant, or a plain save otherwise. Shared by
+    /// <see cref="DeactivateAsync"/> and <see cref="ChangeRoleAsync"/>, the two mutations that can
+    /// reduce the active Manager/Admin count.
+    ///
+    /// <paramref name="requiresGuard"/> is evaluated against the employee's state as loaded, before
+    /// <paramref name="applyAndGetRevert"/> mutates it. <paramref name="applyAndGetRevert"/> applies
+    /// the mutation and returns the action that undoes it — used only if the guard rejects the
+    /// change, so the mutation and the audit event above are saved together with the guard's count
+    /// check, inside its single held lock/transaction. A separate "check, then save" pair here would
+    /// reopen the exact TOCTOU race feature 013's code-design-review already found and fixed once
+    /// this session.
+    /// </summary>
+    private async Task<EmployeeManagementResult> ApplyGuardingLastManagerAdminAsync(
+        int actorEmployeeId,
+        int targetEmployeeId,
+        EmployeeAuditActionType actionType,
+        Func<Employee, bool> requiresGuard,
+        Func<Employee, Action<Employee>> applyAndGetRevert,
         CancellationToken cancellationToken
     )
     {
@@ -131,25 +141,19 @@ public sealed class EmployeeManagementService(IEmployeeRepository repository, IP
             return EmployeeManagementResult.NotFound;
         }
 
-        var originalRole = employee.Role;
-        // A no-op (setting the role an employee already holds) can never reduce the active
-        // Manager/Admin count, so it never needs the guard — matching contracts/
-        // employee-management-api.md's idempotent-success behavior for that case.
-        var requiresLastManagerAdminGuard =
-            newRole != originalRole && originalRole == EmployeeRole.ManagerAdmin;
-
-        employee.Role = newRole;
+        var guardNeeded = requiresGuard(employee);
+        var revert = applyAndGetRevert(employee);
         repository.AddAuditEvent(
             new EmployeeAuditEvent
             {
                 ActorEmployeeId = actorEmployeeId,
                 TargetEmployeeId = targetEmployeeId,
-                ActionType = EmployeeAuditActionType.RoleChanged,
+                ActionType = actionType,
                 OccurredAt = DateTimeOffset.UtcNow,
             }
         );
 
-        if (!requiresLastManagerAdminGuard)
+        if (!guardNeeded)
         {
             await repository.SaveChangesAsync(cancellationToken);
             return EmployeeManagementResult.Success(employee);
@@ -162,7 +166,7 @@ public sealed class EmployeeManagementService(IEmployeeRepository repository, IP
             )
         )
         {
-            employee.Role = originalRole;
+            revert(employee);
             return EmployeeManagementResult.WouldRemoveLastManagerAdmin;
         }
 

@@ -188,6 +188,10 @@ public class EmployeesControllerTests
             isLocked: false,
             failedCount: 0
         );
+        var auditEvents = await client.GetFromJsonAsync<List<AuditEventResponse>>(
+            $"/api/employees/{manager.Id}/audit-events"
+        );
+        Assert.DoesNotContain(auditEvents!, item => item.ActionType == "Deactivated");
     }
 
     [Fact]
@@ -295,6 +299,10 @@ public class EmployeesControllerTests
             (await response.Content.ReadFromJsonAsync<ErrorResponse>())?.Error
         );
         await AssertEmployeeRoleAsync(factory, manager.Id, EmployeeRole.ManagerAdmin);
+        var auditEvents = await client.GetFromJsonAsync<List<AuditEventResponse>>(
+            $"/api/employees/{manager.Id}/audit-events"
+        );
+        Assert.DoesNotContain(auditEvents!, item => item.ActionType == "RoleChanged");
     }
 
     [Fact]
