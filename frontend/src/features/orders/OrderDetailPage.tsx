@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   getOrderDetail,
   releaseOrder,
@@ -113,6 +113,7 @@ function ReportIssueForm({
 
 export function OrderDetailPage() {
   const { orderId } = useParams()
+  const navigate = useNavigate()
   const { employee } = useAuth()
   const [order, setOrder] = useState<OrderDetail | null>(null)
   const [loadState, setLoadState] = useState<LoadState>('loading')
@@ -149,13 +150,9 @@ export function OrderDetailPage() {
     setIsReleasing(true)
     setReleaseError(null)
     try {
-      const updated = await releaseOrder(order.orderId)
-      setOrder({
-        ...order,
-        status: updated.status,
-        claimedByEmployeeId: updated.claimedByEmployeeId,
-        claimedByEmployeeName: updated.claimedByEmployeeName,
-      })
+      await releaseOrder(order.orderId)
+      // Back to the list so the picker can claim the next order (PO decision 2026-09-19).
+      navigate('/orders')
     } catch {
       setReleaseError("Couldn't release this order. Try refreshing the page.")
     } finally {

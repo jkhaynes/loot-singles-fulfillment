@@ -90,10 +90,9 @@ test('a reported issue survives release and re-claim, then resolves to Picked on
     releaseButton.click(),
   ])
   expect(releaseResponse.status()).toBe(200)
-  await expect(releaseButton).toHaveCount(0)
+  // Releasing returns the picker straight to the order list (PO decision 2026-09-19).
+  await expect(page).toHaveURL(/\/orders$/)
   await expect(page.getByRole('alert')).toHaveCount(0)
-  await expect(page.getByLabel(/Order status: Needs Attention/)).toBeVisible()
-  await page.goto('/orders')
   await expect(page.getByRole('article', { name: /E2E-ORDER-00005/i })).toContainText(
     'Needs Attention',
   )

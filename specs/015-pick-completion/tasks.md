@@ -331,15 +331,31 @@ tiles and the order list's status display are both fully accurate and closed out
       line → confirm the rest → release → re-claim → resolve → Picked), at both a desktop and a
       simulated mobile (375px) viewport, in `frontend/e2e/pick-completion.spec.ts` (SC-001, SC-007,
       SC-008; mirrors the multi-context Playwright pattern from feature 013's claiming E2E tests).
-- [ ] T047 Run every scenario in `specs/015-pick-completion/quickstart.md` manually against
+- [X] T047 Run every scenario in `specs/015-pick-completion/quickstart.md` manually against
       `scripts/start-dev.ps1`-started servers and record results (Definition of Done: Playwright
       validation performed for critical user flows; manual quickstart validation).
+      **Result (2026-09-19, Product Owner):** all quickstart scenarios pass. The run required
+      applying the `AddPickCompletion` migration to the dev database first (`dotnet ef database
+      update`), since this project does not migrate on startup. One flow correction came out of
+      the run and is tracked as T050 below.
 - [X] T048 Run the full backend (`dotnet test`) and frontend (`npm test`) suites and confirm 100%
       pass, with no regression against the T001 baseline count.
 - [X] T049 Review every new/changed operation in `PickingService` and `DashboardService` against
       Constitution Principle XI's logging standard (ILogger<T>, Information-level, proportional,
       no PII) and confirm each warranted event is actually logged — this was designed into T022/
       T032 but must be re-verified against the finished code, not assumed from the design.
+
+---
+
+## Phase 7: Product Owner Flow Corrections (found during manual validation)
+
+- [X] T050 Return the picker to the order list after they release a claimed order, so they can
+      claim the next one without navigating back by hand, in
+      `frontend/src/features/orders/OrderDetailPage.tsx` (Product Owner decision 2026-09-19,
+      during T047 manual validation). A Manager/Admin force-release stays on the order, since
+      they are not picking it. Failing component tests written first in
+      `frontend/tests/orders/OrderDetailPage.test.tsx`; `frontend/e2e/pick-completion.spec.ts`
+      updated to expect the redirect.
 
 ---
 

@@ -12,6 +12,8 @@ vi.mock('../../src/features/orders/ordersApi', async (original) => ({
   getOrderDetail: vi.fn(),
   recordPicked: vi.fn(),
   reportIssue: vi.fn(),
+  releaseOrder: vi.fn(),
+  forceReleaseOrder: vi.fn(),
 }))
 
 vi.mock('../../src/features/auth/authApi', async (original) => ({
@@ -57,6 +59,7 @@ function renderPage(orderId = 42) {
       <MemoryRouter initialEntries={[`/orders/${orderId}`]}>
         <Routes>
           <Route path="/orders/:orderId" element={<OrderDetailPage />} />
+          <Route path="/orders" element={<p>Browse Orders list</p>} />
         </Routes>
       </MemoryRouter>
     </AuthProvider>,
@@ -375,6 +378,63 @@ describe('OrderDetailPage', () => {
 
     await screen.findByRole('article', { name: /Pikachu/i })
     expect(screen.queryByRole('button', { name: 'Report Issue' })).not.toBeInTheDocument()
+  })
+
+  // 015-pick-completion T050 (PO decision 2026-09-19): releasing returns the picker to the order
+  // list so they can pick up the next one without navigating back by hand.
+  it('returns the picker to the order list after releasing', async () => {
+    const order = claimedOrder([line(1, 'Pikachu', null)])
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(order)
+    vi.mocked(ordersApi.releaseOrder).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'ready',
+      claimedByEmployeeId: null,
+      claimedByEmployeeName: null,
+    })
+
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Release' }))
+
+    expect(ordersApi.releaseOrder).toHaveBeenCalledWith(42)
+    expect(await screen.findByText('Browse Orders list')).toBeInTheDocument()
+  })
+
+  it('stays on the order and shows an error when releasing fails', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder([line(1, 'Pikachu', null)]))
+    vi.mocked(ordersApi.releaseOrder).mockRejectedValue(new ordersApi.NotYourClaimError())
+
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Release' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/couldn.?t release/i)
+    expect(screen.queryByText('Browse Orders list')).not.toBeInTheDocument()
+  })
+
+  it('keeps a manager on the order after a force-release', async () => {
+    vi.mocked(authApi.me).mockResolvedValue({
+      employeeId: 2,
+      displayName: 'Test Manager',
+      role: 'ManagerAdmin',
+    })
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder([line(1, 'Pikachu', null)]))
+    vi.mocked(ordersApi.forceReleaseOrder).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'ready',
+      claimedByEmployeeId: null,
+      claimedByEmployeeName: null,
+    })
+
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Force-Release' }))
+
+    expect(ordersApi.forceReleaseOrder).toHaveBeenCalledWith(42)
+    expect(screen.queryByText('Browse Orders list')).not.toBeInTheDocument()
+    expect(await screen.findByLabelText('Order status: Ready')).toBeInTheDocument()
   })
 
   it('shows a distinct not-found state', async () => {
