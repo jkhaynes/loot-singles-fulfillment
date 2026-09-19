@@ -326,7 +326,7 @@ tiles and the order list's status display are both fully accurate and closed out
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T046 [P] Write and confirm a Playwright E2E test covering the full happy path (claim → confirm
+- [X] T046 [P] Write and confirm a Playwright E2E test covering the full happy path (claim → confirm
       every line → Picked) and the needs-attention-then-resolve path (claim → report issue on one
       line → confirm the rest → release → re-claim → resolve → Picked), at both a desktop and a
       simulated mobile (375px) viewport, in `frontend/e2e/pick-completion.spec.ts` (SC-001, SC-007,
@@ -334,9 +334,9 @@ tiles and the order list's status display are both fully accurate and closed out
 - [ ] T047 Run every scenario in `specs/015-pick-completion/quickstart.md` manually against
       `scripts/start-dev.ps1`-started servers and record results (Definition of Done: Playwright
       validation performed for critical user flows; manual quickstart validation).
-- [ ] T048 Run the full backend (`dotnet test`) and frontend (`npm test`) suites and confirm 100%
+- [X] T048 Run the full backend (`dotnet test`) and frontend (`npm test`) suites and confirm 100%
       pass, with no regression against the T001 baseline count.
-- [ ] T049 Review every new/changed operation in `PickingService` and `DashboardService` against
+- [X] T049 Review every new/changed operation in `PickingService` and `DashboardService` against
       Constitution Principle XI's logging standard (ILogger<T>, Information-level, proportional,
       no PII) and confirm each warranted event is actually logged — this was designed into T022/
       T032 but must be re-verified against the finished code, not assumed from the design.
