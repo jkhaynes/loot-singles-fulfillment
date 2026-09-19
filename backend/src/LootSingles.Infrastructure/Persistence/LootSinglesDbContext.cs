@@ -53,6 +53,11 @@ public class LootSinglesDbContext : DbContext
     public DbSet<EmployeeAuditEvent> EmployeeAuditEvents => Set<EmployeeAuditEvent>();
 
     /// <summary>
+    /// DbSet for PickingIssue entities (015-pick-completion).
+    /// </summary>
+    public DbSet<PickingIssue> PickingIssues => Set<PickingIssue>();
+
+    /// <summary>
     /// Configures the model using the Fluent API.
     /// Applies entity type configurations from the assembly automatically.
     /// </summary>

@@ -430,6 +430,173 @@ public sealed class OrdersControllerClaimingTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    // 015-pick-completion T011: release/force-release derive status from line outcomes instead of
+    // hardcoding Ready (research.md §5, FR-005).
+    [Fact]
+    public async Task Release_OrderWithUnresolvedIssueLine_StaysNeedsAttention()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (client, employee) = await LoginAsync(factory, "issuereleaser");
+        var target = ClaimedOrder("ISSUE-RELEASE-ORDER", employee, PickOutcome.HasIssue, null);
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.Add(target);
+            return Task.CompletedTask;
+        });
+
+        var response = await client.PostAsync($"/api/orders/{target.Id}/release", content: null);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("needsAttention", document.RootElement.GetProperty("status").GetString());
+        Assert.Equal(
+            JsonValueKind.Null,
+            document.RootElement.GetProperty("claimedByEmployeeId").ValueKind
+        );
+    }
+
+    [Fact]
+    public async Task ForceRelease_OrderWithUnresolvedIssueLine_StaysNeedsAttention()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (_, picker) = await LoginAsync(factory, "issueforcepicker");
+        var (managerClient, _) = await LoginAsync(
+            factory,
+            "issueforcemanager",
+            EmployeeRole.ManagerAdmin
+        );
+        var target = ClaimedOrder("ISSUE-FORCE-ORDER", picker, PickOutcome.HasIssue, null);
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.Add(target);
+            return Task.CompletedTask;
+        });
+
+        var response = await managerClient.PostAsync(
+            $"/api/orders/{target.Id}/force-release",
+            content: null
+        );
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("needsAttention", document.RootElement.GetProperty("status").GetString());
+    }
+
+    // Product Owner decision 2026-09-19: a Picked order keeps its claim, and releasing it leaves
+    // it Picked — never back to Ready.
+    [Fact]
+    public async Task Release_FullyPickedOrder_StaysPicked()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (client, employee) = await LoginAsync(factory, "pickedreleaser");
+        var target = ClaimedOrder(
+            "PICKED-RELEASE-ORDER",
+            employee,
+            PickOutcome.Picked,
+            PickOutcome.Picked
+        );
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.Add(target);
+            return Task.CompletedTask;
+        });
+
+        var response = await client.PostAsync($"/api/orders/{target.Id}/release", content: null);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("picked", document.RootElement.GetProperty("status").GetString());
+    }
+
+    // 015-pick-completion T012: re-claiming via Choose Order keeps an unresolved issue visible,
+    // and Pick Next never hands out a Needs Attention order (FR-005).
+    [Fact]
+    public async Task Claim_ReleasedOrderWithUnresolvedIssueLine_StaysNeedsAttention()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (client, _) = await LoginAsync(factory, "issuereclaimer");
+        var target = UnclaimedNeedsAttentionOrder("ISSUE-RECLAIM-ORDER");
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.Add(target);
+            return Task.CompletedTask;
+        });
+
+        var response = await client.PostAsync($"/api/orders/{target.Id}/claim", content: null);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("needsAttention", document.RootElement.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task PickNext_ReadyAndNeedsAttentionOrders_ClaimsOnlyTheReadyOne()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (client, _) = await LoginAsync(factory, "picknextissue");
+        var flagged = UnclaimedNeedsAttentionOrder("FLAGGED-OLDEST-ORDER");
+        flagged.ImportedAt = DateTimeOffset.Parse("2026-08-01T00:00:00Z");
+        var ready = NewOrder("READY-NEWER-ORDER", DateTimeOffset.Parse("2026-08-02T00:00:00Z"));
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.AddRange(flagged, ready);
+            return Task.CompletedTask;
+        });
+
+        var first = await client.PostAsync("/api/orders/pick-next", content: null);
+        using var firstDocument = JsonDocument.Parse(await first.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(ready.Id, firstDocument.RootElement.GetProperty("orderId").GetInt32());
+
+        // Only the flagged order is left unclaimed; a second picker's Pick Next must not take it.
+        var (otherClient, _) = await LoginAsync(factory, "picknextissuetwo");
+        var second = await otherClient.PostAsync("/api/orders/pick-next", content: null);
+        using var secondDocument = JsonDocument.Parse(await second.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        Assert.Equal(
+            "no_orders_available",
+            secondDocument.RootElement.GetProperty("error").GetString()
+        );
+    }
+
+    private static Order ClaimedOrder(
+        string tcgplayerOrderId,
+        Employee claimant,
+        PickOutcome? firstLineOutcome,
+        PickOutcome? secondLineOutcome
+    )
+    {
+        var order = NewOrder(tcgplayerOrderId, DateTimeOffset.UtcNow);
+        order.Status = OrderStatus.InProgress;
+        order.ClaimedByEmployeeId = claimant.Id;
+        order.ClaimedAt = DateTimeOffset.UtcNow;
+        order.OrderLines.Add(NewLine("First Card", firstLineOutcome));
+        order.OrderLines.Add(NewLine("Second Card", secondLineOutcome));
+        return order;
+    }
+
+    private static Order UnclaimedNeedsAttentionOrder(string tcgplayerOrderId)
+    {
+        var order = NewOrder(tcgplayerOrderId, DateTimeOffset.UtcNow);
+        order.Status = OrderStatus.NeedsAttention;
+        order.OrderLines.Add(NewLine("Missing Card", PickOutcome.HasIssue));
+        order.OrderLines.Add(NewLine("Found Card", PickOutcome.Picked));
+        return order;
+    }
+
+    private static OrderLine NewLine(string productName, PickOutcome? outcome) =>
+        new()
+        {
+            RawDescription = productName,
+            ProductLine = "Magic",
+            ProductName = productName,
+            Set = "Alpha",
+            CollectorNumber = "#1",
+            Condition = "Near Mint",
+            Quantity = 1,
+            PickOutcome = outcome,
+        };
+
     private static async Task<(HttpClient Client, Employee Employee)> LoginAsync(
         AuthWebApplicationFactory factory,
         string username,

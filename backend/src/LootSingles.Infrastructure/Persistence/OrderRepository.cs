@@ -85,7 +85,10 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                             setters
                                 .SetProperty(order => order.ClaimedByEmployeeId, actorEmployeeId)
                                 .SetProperty(order => order.ClaimedAt, DateTimeOffset.UtcNow)
-                                .SetProperty(order => order.Status, OrderStatus.InProgress),
+                                .SetProperty(
+                                    order => order.Status,
+                                    OrderStatusComputation.FromCurrentLines(claimedAfterWrite: true)
+                                ),
                         ct
                     ),
             cancellationToken
@@ -108,7 +111,10 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                             setters
                                 .SetProperty(order => order.ClaimedByEmployeeId, (int?)null)
                                 .SetProperty(order => order.ClaimedAt, (DateTimeOffset?)null)
-                                .SetProperty(order => order.Status, OrderStatus.Ready),
+                                .SetProperty(
+                                    order => order.Status,
+                                    OrderStatusComputation.FromCurrentLines(claimedAfterWrite: false)
+                                ),
                         ct
                     ),
             cancellationToken
@@ -128,7 +134,10 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                             setters
                                 .SetProperty(order => order.ClaimedByEmployeeId, (int?)null)
                                 .SetProperty(order => order.ClaimedAt, (DateTimeOffset?)null)
-                                .SetProperty(order => order.Status, OrderStatus.Ready),
+                                .SetProperty(
+                                    order => order.Status,
+                                    OrderStatusComputation.FromCurrentLines(claimedAfterWrite: false)
+                                ),
                         ct
                     ),
             cancellationToken

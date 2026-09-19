@@ -23,6 +23,15 @@
   scratch afterward: still Needs Attention if the other line remains unresolved, or Picked once
   neither does (and every other line is already confirmed).
 
+### Session 2026-09-19 (during `/speckit-implement`)
+
+- Q: When the last line is confirmed and an order becomes Picked, what happens to the picker's
+  claim? → A: The claim is kept. The picker may still revise lines while holding it, and releases
+  it through the normal feature-013 release action. Because status is always derived from the
+  lines (FR-006), releasing a Picked order leaves it Picked — it never reverts to Ready. The one
+  derivation, applied at every write: any line has an unresolved issue → Needs Attention; else
+  every line confirmed picked → Picked; else claimed → In Progress; else Ready.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Picker Confirms a Product Line as Successfully Picked (Priority: P1)

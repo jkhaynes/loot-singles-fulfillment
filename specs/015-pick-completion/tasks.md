@@ -32,7 +32,7 @@ Existing web-app layout (unchanged): `backend/src/`, `backend/tests/`, `frontend
 
 ## Phase 1: Setup
 
-- [ ] T001 Confirm `dotnet build` (backend/LootSingles.sln) and `npm run build` (frontend/) both
+- [X] T001 Confirm `dotnet build` (backend/LootSingles.sln) and `npm run build` (frontend/) both
       succeed on a clean checkout of `015-pick-completion` before any change, and record the
       current full test-suite pass count as a baseline (backend: `dotnet test`; frontend:
       `npm test`) — establishes the "existing tests pass" starting point required by the
@@ -47,46 +47,46 @@ handling — both US1 and US2 depend on these; neither can be completed independ
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T002 [P] Extend `OrderStatus` enum with `Picked = 2` and `NeedsAttention = 3` in
+- [X] T002 [P] Extend `OrderStatus` enum with `Picked = 2` and `NeedsAttention = 3` in
       `backend/src/LootSingles.Domain/Orders/OrderStatus.cs` (data-model.md).
-- [ ] T003 [P] Add new `PickOutcome` enum (`Picked = 0`, `HasIssue = 1`) in
+- [X] T003 [P] Add new `PickOutcome` enum (`Picked = 0`, `HasIssue = 1`) in
       `backend/src/LootSingles.Domain/Orders/PickOutcome.cs` (research.md §4, data-model.md).
-- [ ] T004 [P] Add new `PickingIssueType` enum (`CardNotFound`, `InsufficientQuantity`,
+- [X] T004 [P] Add new `PickingIssueType` enum (`CardNotFound`, `InsufficientQuantity`,
       `WrongCardInLocation`, `WrongVariant`, `WrongCondition`, `Damaged`,
       `InventoryDiscrepancy`, `InformationIncorrect`, `Other`) in
       `backend/src/LootSingles.Domain/Orders/PickingIssueType.cs` (data-model.md).
-- [ ] T005 Add new `PickingIssue` entity (`Id`, `OrderLineId`, `IssueType`, `RequiredQuantity?`,
+- [X] T005 Add new `PickingIssue` entity (`Id`, `OrderLineId`, `IssueType`, `RequiredQuantity?`,
       `FoundQuantity?`, `Note?`, `ReportedByEmployeeId`, `ReportedAt`) in
       `backend/src/LootSingles.Domain/Orders/PickingIssue.cs` (data-model.md) — depends on T003
       not existing at all; independent of T002-T004 otherwise but keep after T004 for review
       clarity.
-- [ ] T006 Extend `OrderLine` entity with `PickOutcome?`, `PickOutcomeRecordedByEmployeeId?`,
+- [X] T006 Extend `OrderLine` entity with `PickOutcome?`, `PickOutcomeRecordedByEmployeeId?`,
       `PickOutcomeRecordedAt?`, `CurrentPickingIssueId?` in
       `backend/src/LootSingles.Domain/Orders/OrderLine.cs` (data-model.md; depends on T003, T005).
-- [ ] T007 [P] Add `PickingIssueConfiguration.cs` (EF configuration: PK, FK to `OrderLine`,
+- [X] T007 [P] Add `PickingIssueConfiguration.cs` (EF configuration: PK, FK to `OrderLine`,
       `.HasConversion<string>()` on `IssueType`) in
       `backend/src/LootSingles.Infrastructure/Persistence/Configurations/PickingIssueConfiguration.cs`
       (research.md §4; depends on T005).
-- [ ] T008 Extend `OrderLineConfiguration.cs` with the four new `OrderLine` column mappings and the
+- [X] T008 Extend `OrderLineConfiguration.cs` with the four new `OrderLine` column mappings and the
       `CurrentPickingIssueId` FK to `PickingIssue` in
       `backend/src/LootSingles.Infrastructure/Persistence/Configurations/OrderLineConfiguration.cs`
       (depends on T006, T007).
-- [ ] T009 Add shared `OrderStatusComputation.FromCurrentLines` static helper building the reusable
+- [X] T009 Add shared `OrderStatusComputation.FromCurrentLines` static helper building the reusable
       `Expression<Func<Order, OrderStatus>>` (order has an unresolved-issue line → NeedsAttention;
       else Ready/InProgress per caller context) in
       `backend/src/LootSingles.Infrastructure/Persistence/OrderStatusComputation.cs` (research.md
       §1, §5; Constitution Principle XIII — extracted because it is about to have its second
       concrete use case; depends on T002, T006).
-- [ ] T010 Add EF Core migration `AddPickCompletion` (new `PickingIssues` table, four new
+- [X] T010 Add EF Core migration `AddPickCompletion` (new `PickingIssues` table, four new
       `OrderLines` columns, `CurrentPickingIssueId` FK) via `dotnet ef migrations add
       AddPickCompletion` in `backend/src/LootSingles.Infrastructure/Persistence/Migrations/`
       (depends on T007, T008; naming convention per plan.md).
-- [ ] T011 [P] Write failing integration test asserting `OrderRepository.ReleaseAsync` and
+- [X] T011 [P] Write failing integration test asserting `OrderRepository.ReleaseAsync` and
       `ForceReleaseAsync` leave `Order.Status` as `NeedsAttention` (not reset to `Ready`) when the
       order has a line with `PickOutcome.HasIssue` at release time, in
       `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerClaimingTests.cs`
       (research.md §5; run and confirm it fails for the expected reason before T013).
-- [ ] T012 [P] Write failing integration test asserting `OrderRepository.ClaimSpecificAsync`
+- [X] T012 [P] Write failing integration test asserting `OrderRepository.ClaimSpecificAsync`
       (re-claiming via Choose Order) sets `Order.Status` to `NeedsAttention` — not `InProgress` —
       when the order still has a line with `PickOutcome.HasIssue`, in the same test file as T011
       (research.md §5, data-model.md state-transition table; run and confirm it fails before T013);
@@ -94,7 +94,7 @@ handling — both US1 and US2 depend on these; neither can be completed independ
       (`ClaimNextAvailableAsync`) returns only the Ready one, never the NeedsAttention one (FR-005 —
       closes a gap flagged by `/speckit-analyze`: this exclusion is structurally guaranteed by the
       existing Ready-only filter per research.md §5 but was previously unverified by any test).
-- [ ] T013 Update `OrderRepository.ClaimSpecificAsync`, `ReleaseAsync`, and `ForceReleaseAsync` in
+- [X] T013 Update `OrderRepository.ClaimSpecificAsync`, `ReleaseAsync`, and `ForceReleaseAsync` in
       `backend/src/LootSingles.Infrastructure/Persistence/OrderRepository.cs` to compute `Status`
       via `OrderStatusComputation.FromCurrentLines` instead of hardcoding `InProgress`/`Ready`
       (research.md §5; makes T011, T012 pass; depends on T009, T011, T012).

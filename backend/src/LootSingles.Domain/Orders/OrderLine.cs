@@ -74,4 +74,28 @@ public class OrderLine
     /// Preserved exactly as imported, no rounding or capping.
     /// </summary>
     public required int Quantity { get; set; }
+
+    /// <summary>
+    /// The line's current pick outcome, or null if not yet recorded (015-pick-completion).
+    /// Only the employee holding the parent order's claim may write it (FR-010).
+    /// </summary>
+    public PickOutcome? PickOutcome { get; set; }
+
+    /// <summary>
+    /// Who last recorded <see cref="PickOutcome"/>.
+    /// </summary>
+    public int? PickOutcomeRecordedByEmployeeId { get; set; }
+
+    /// <summary>
+    /// When <see cref="PickOutcome"/> was last recorded.
+    /// </summary>
+    public DateTimeOffset? PickOutcomeRecordedAt { get; set; }
+
+    /// <summary>
+    /// The line's current picking issue when <see cref="PickOutcome"/> is
+    /// <see cref="Orders.PickOutcome.HasIssue"/>; null otherwise.
+    /// </summary>
+    public int? CurrentPickingIssueId { get; set; }
+
+    public PickingIssue? CurrentPickingIssue { get; set; }
 }

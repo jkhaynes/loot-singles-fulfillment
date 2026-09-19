@@ -1,3 +1,4 @@
+using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -18,5 +19,18 @@ public class OrderLineConfiguration : IEntityTypeConfiguration<OrderLine>
             .WithMany(order => order.OrderLines)
             .HasForeignKey(orderLine => orderLine.OrderId)
             .IsRequired();
+
+        builder
+            .HasOne<Employee>()
+            .WithMany()
+            .HasForeignKey(orderLine => orderLine.PickOutcomeRecordedByEmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // NoAction: PickingIssue -> OrderLine already cascades, and SQL Server rejects a cycle.
+        builder
+            .HasOne(orderLine => orderLine.CurrentPickingIssue)
+            .WithMany()
+            .HasForeignKey(orderLine => orderLine.CurrentPickingIssueId)
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }
