@@ -7,6 +7,7 @@ using LootSingles.Application.CardCatalog;
 using LootSingles.Application.Dashboard;
 using LootSingles.Application.Import;
 using LootSingles.Application.Orders;
+using LootSingles.Application.Picking;
 using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.CardCatalog;
 using LootSingles.Infrastructure.Import;
@@ -66,6 +67,7 @@ builder.Services.AddScoped<EmployeeSessionCookieEvents>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IPickingRepository, PickingRepository>();
 builder.Services.AddHttpClient<TcgdexCardCatalogProvider>(client =>
 {
     client.BaseAddress = new Uri("https://api.tcgdex.net/v2/en/");
@@ -115,6 +117,7 @@ builder.Services.AddScoped<ICardCatalogProvider>(sp =>
 builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();
 builder.Services.AddScoped<OrderClaimService>();
+builder.Services.AddScoped<PickingService>();
 builder
     .Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

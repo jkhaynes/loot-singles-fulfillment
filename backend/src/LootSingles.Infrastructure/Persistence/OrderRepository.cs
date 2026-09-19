@@ -224,6 +224,8 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                 order
                     .OrderLines.OrderBy(line => line.Id)
                     .Select(line => new OrderLineDetail(
+                        line.Id,
+                        line.PickOutcome,
                         line.ProductName,
                         line.ProductLine,
                         line.Set,

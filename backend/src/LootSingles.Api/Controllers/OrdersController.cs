@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using LootSingles.Application.Orders;
+using LootSingles.Application.Picking;
 using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
 using Microsoft.AspNetCore.Authorization;
@@ -12,9 +13,47 @@ namespace LootSingles.Api.Controllers;
 [Authorize]
 public sealed class OrdersController(
     OrdersService ordersService,
-    OrderClaimService orderClaimService
+    OrderClaimService orderClaimService,
+    PickingService pickingService
 ) : ControllerBase
 {
+    [HttpPost("{orderId:int}/lines/{lineId:int}/pick")]
+    public async Task<IActionResult> Pick(
+        int orderId,
+        int lineId,
+        CancellationToken cancellationToken
+    )
+    {
+        var result = await pickingService.RecordPickedAsync(
+            orderId,
+            lineId,
+            ActorEmployeeId(),
+            cancellationToken
+        );
+
+        return await ToPickingResponseAsync(result, orderId, cancellationToken);
+    }
+
+    private async Task<IActionResult> ToPickingResponseAsync(
+        PickingResult result,
+        int orderId,
+        CancellationToken cancellationToken
+    ) =>
+        result.Outcome switch
+        {
+            // Re-read through OrdersService so the response carries the same enriched detail
+            // (card images) as GET /api/orders/{id}.
+            PickingOutcome.Success => Ok(
+                ToDetailResponse((await ordersService.GetByIdAsync(orderId, cancellationToken))!)
+            ),
+            PickingOutcome.OrderNotFound => NotFound(new { error = "order_not_found" }),
+            PickingOutcome.LineNotFound => NotFound(new { error = "line_not_found" }),
+            PickingOutcome.NotYourClaim => Conflict(new { error = "not_your_claim" }),
+            _ => throw new InvalidOperationException(
+                $"Unexpected outcome {result.Outcome} for recording a pick outcome."
+            ),
+        };
+
     [HttpPost("pick-next")]
     public async Task<IActionResult> PickNext(CancellationToken cancellationToken)
     {
@@ -152,29 +191,32 @@ public sealed class OrdersController(
             return NotFound(new { error = "order_not_found" });
         }
 
-        return Ok(
-            new OrderDetailResponse(
-                order.OrderId,
-                order.TcgplayerOrderId,
-                order.Status,
-                order
-                    .Lines.Select(line => new OrderLineDetailResponse(
-                        line.ProductName,
-                        line.ProductLine,
-                        line.Set,
-                        line.CollectorNumber,
-                        line.Rarity,
-                        line.Variant,
-                        line.Condition,
-                        line.Quantity,
-                        line.ImageUrl
-                    ))
-                    .ToList(),
-                order.ClaimedByEmployeeId,
-                order.ClaimedByEmployeeName
-            )
-        );
+        return Ok(ToDetailResponse(order));
     }
+
+    private static OrderDetailResponse ToDetailResponse(OrderDetail order) =>
+        new(
+            order.OrderId,
+            order.TcgplayerOrderId,
+            order.Status,
+            order
+                .Lines.Select(line => new OrderLineDetailResponse(
+                    line.Id,
+                    line.PickOutcome,
+                    line.ProductName,
+                    line.ProductLine,
+                    line.Set,
+                    line.CollectorNumber,
+                    line.Rarity,
+                    line.Variant,
+                    line.Condition,
+                    line.Quantity,
+                    line.ImageUrl
+                ))
+                .ToList(),
+            order.ClaimedByEmployeeId,
+            order.ClaimedByEmployeeName
+        );
 }
 
 public sealed record OrderResponse(
@@ -204,6 +246,8 @@ public sealed record OrderClaimResponse(
 );
 
 public sealed record OrderLineDetailResponse(
+    int Id,
+    PickOutcome? PickOutcome,
     string ProductName,
     string ProductLine,
     string Set,

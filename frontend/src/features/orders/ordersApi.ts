@@ -7,7 +7,27 @@ export interface OrderListItem {
   claimedByEmployeeName: string | null
 }
 
+export type PickOutcome = 'picked' | 'hasIssue'
+
+/** Human-readable label for an order status, so no screen renders the raw enum value. */
+export function orderStatusLabel(status: string): string {
+  switch (status) {
+    case 'ready':
+      return 'Ready'
+    case 'inProgress':
+      return 'In Progress'
+    case 'picked':
+      return 'Picked'
+    case 'needsAttention':
+      return 'Needs Attention'
+    default:
+      return status
+  }
+}
+
 export interface OrderLineDetail {
+  id: number
+  pickOutcome: PickOutcome | null
   productName: string
   productLine: string
   set: string
@@ -103,6 +123,27 @@ export async function getOrderDetail(orderId: number): Promise<OrderDetail> {
 
   if (!response.ok) {
     throw new Error(`Failed to load order (status ${response.status})`)
+  }
+
+  return (await response.json()) as OrderDetail
+}
+
+export async function recordPicked(orderId: number, lineId: number): Promise<OrderDetail> {
+  const response = await fetch(`/api/orders/${orderId}/lines/${lineId}/pick`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+
+  if (response.status === 404) {
+    throw new OrderNotFoundError()
+  }
+
+  if (response.status === 409) {
+    throw new NotYourClaimError()
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to record pick (status ${response.status})`)
   }
 
   return (await response.json()) as OrderDetail

@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getOrderDetail, releaseOrder, forceReleaseOrder, OrderNotFoundError } from './ordersApi'
+import {
+  getOrderDetail,
+  releaseOrder,
+  forceReleaseOrder,
+  recordPicked,
+  orderStatusLabel,
+  OrderNotFoundError,
+} from './ordersApi'
 import type { OrderDetail } from './ordersApi'
 import { useAuth } from '../auth/AuthContext'
 import './OrderDetailPage.css'
@@ -15,6 +22,7 @@ export function OrderDetailPage() {
   const [releaseError, setReleaseError] = useState<string | null>(null)
   const [isReleasing, setIsReleasing] = useState(false)
   const [isForceReleasing, setIsForceReleasing] = useState(false)
+  const [recordingLineId, setRecordingLineId] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -77,6 +85,20 @@ export function OrderDetailPage() {
     }
   }
 
+  async function handlePicked(lineId: number) {
+    if (!order) return
+
+    setRecordingLineId(lineId)
+    setReleaseError(null)
+    try {
+      setOrder(await recordPicked(order.orderId, lineId))
+    } catch {
+      setReleaseError("Couldn't record that pick. Try refreshing the page.")
+    } finally {
+      setRecordingLineId(null)
+    }
+  }
+
   const canRelease =
     order !== null && employee !== null && order.claimedByEmployeeId === employee.employeeId
   const canForceRelease =
@@ -85,6 +107,9 @@ export function OrderDetailPage() {
     employee.role === 'ManagerAdmin' &&
     order.claimedByEmployeeId !== null &&
     order.claimedByEmployeeId !== employee.employeeId
+  const canRecordOutcome = canRelease
+  const confirmedLineCount =
+    order?.lines.filter((line) => line.pickOutcome === 'picked').length ?? 0
 
   return (
     <main className="order-detail-page">
@@ -93,10 +118,18 @@ export function OrderDetailPage() {
           <p className="order-detail-header__eyebrow">Order picking detail</p>
           <h1>{order ? `Order ${order.tcgplayerOrderId}` : 'Order detail'}</h1>
           {order && (
-            <p className="order-detail-header__status" aria-label={`Order status: ${order.status}`}>
+            <p
+              className="order-detail-header__status"
+              aria-label={`Order status: ${orderStatusLabel(order.status)}`}
+            >
               {order.claimedByEmployeeName
-                ? `In Progress · Picking by ${order.claimedByEmployeeName}`
-                : order.status}
+                ? `${orderStatusLabel(order.status)} · Picking by ${order.claimedByEmployeeName}`
+                : orderStatusLabel(order.status)}
+            </p>
+          )}
+          {order && (
+            <p className="order-detail-header__progress">
+              {`${confirmedLineCount} of ${order.lines.length} lines confirmed`}
             </p>
           )}
           {releaseError && (
@@ -133,9 +166,9 @@ export function OrderDetailPage() {
         </p>
       ) : (
         <section className="order-detail-lines" aria-label="Products to pick">
-          {order?.lines.map((line, index) => (
+          {order?.lines.map((line) => (
             <article
-              key={`${line.productName}-${line.set}-${line.condition}-${index}`}
+              key={line.id}
               className="order-detail-line"
               aria-label={`Product ${line.productName}`}
             >
@@ -192,6 +225,19 @@ export function OrderDetailPage() {
                     </dd>
                   </div>
                 </dl>
+                {canRecordOutcome && (
+                  <div className="order-detail-line__actions">
+                    <button
+                      type="button"
+                      className="order-detail-line__picked"
+                      aria-pressed={line.pickOutcome === 'picked'}
+                      disabled={recordingLineId === line.id}
+                      onClick={() => handlePicked(line.id)}
+                    >
+                      Picked
+                    </button>
+                  </div>
+                )}
               </div>
             </article>
           ))}

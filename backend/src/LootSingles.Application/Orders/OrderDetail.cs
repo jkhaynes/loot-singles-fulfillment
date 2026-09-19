@@ -12,6 +12,8 @@ public sealed record OrderDetail(
 );
 
 public sealed record OrderLineDetail(
+    int Id,
+    PickOutcome? PickOutcome,
     string ProductName,
     string ProductLine,
     string Set,

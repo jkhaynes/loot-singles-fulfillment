@@ -115,62 +115,62 @@ every line is confirmed with no reported issues, the order's status becomes Pick
 
 ### Tests for User Story 1
 
-- [ ] T014 [P] [US1] Write failing unit test for `PickingService.RecordPickedAsync` — success case
+- [X] T014 [P] [US1] Write failing unit test for `PickingService.RecordPickedAsync` — success case
       (returns updated order/line state) and `NotYourClaim` case (actor doesn't hold the claim) —
       in `backend/tests/LootSingles.UnitTests/Picking/PickingServiceTests.cs` (FR-001, FR-010).
-- [ ] T015 [P] [US1] Write failing integration test for `POST
+- [X] T015 [P] [US1] Write failing integration test for `POST
       /api/orders/{orderId}/lines/{lineId}/pick`: success (200, order status recomputed per
       FR-007), line-not-found (404), not-your-claim (409), and — critically — the order becomes
       `Picked` only once every line is confirmed and stays `InProgress` until then (US1 AC2), in
       `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs`
       (contracts/picking-api.md); include a case using a 1-line order, asserting the single confirm
       immediately sets status to Picked (spec.md Edge Cases — gap flagged by `/speckit-analyze`).
-- [ ] T016 [P] [US1] Write failing integration test for a concurrent "two employees attempt to
+- [X] T016 [P] [US1] Write failing integration test for a concurrent "two employees attempt to
       record an outcome on the same line's order without holding its claim" race, mirroring
       feature 013's exclusive-claim concurrency test shape, in
       `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs` (FR-010,
       Constitution Principle VI — concurrency-safe server enforcement).
-- [ ] T017 [P] [US1] Write failing component test for a per-line "Picked" button and a position
+- [X] T017 [P] [US1] Write failing component test for a per-line "Picked" button and a position
       indicator ("3 of 5 lines confirmed") on `OrderDetailPage` in
       `frontend/tests/orders/OrderDetailPage.test.tsx` (US1 AC1, AC3; FR-012).
-- [ ] T018 [P] [US1] Write failing component test confirming a picker can revise an already-picked
+- [X] T018 [P] [US1] Write failing component test confirming a picker can revise an already-picked
       line's outcome before finishing the order, in the same file as T017 (US1 AC4, FR-004).
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] Add `IPickingRepository` (`RecordOutcomeAsync(int orderLineId, int
+- [X] T019 [US1] Add `IPickingRepository` (`RecordOutcomeAsync(int orderLineId, int
       actorEmployeeId, PickOutcomeChange change, CancellationToken)`) and `PickOutcomeChange`
       (discriminated input: `Picked` | `IssueReport(...)` — Picked case only wired through in this
       story) in `backend/src/LootSingles.Application/Picking/IPickingRepository.cs` and
       `backend/src/LootSingles.Application/Picking/PickOutcomeChange.cs` (depends on Phase 2).
-- [ ] T020 [US1] Add `PickingOutcome` enum and `PickingResult` record (static factories:
+- [X] T020 [US1] Add `PickingOutcome` enum and `PickingResult` record (static factories:
       `Success(order)`, `OrderNotFound`, `LineNotFound`, `NotYourClaim`) mirroring
       `OrderClaimResult`'s pattern, in
       `backend/src/LootSingles.Application/Picking/PickingResult.cs`.
-- [ ] T021 [US1] Implement `PickingRepository.RecordOutcomeAsync` for the `Picked` case: one
+- [X] T021 [US1] Implement `PickingRepository.RecordOutcomeAsync` for the `Picked` case: one
       explicit transaction — conditional `ExecuteUpdateAsync` on `OrderLine` gated on
       `Order.ClaimedByEmployeeId == actorEmployeeId` (rows-affected check for `NotYourClaim`),
       then `ExecuteUpdateAsync` the parent `Order.Status` via `OrderStatusComputation`, re-read,
       commit — in `backend/src/LootSingles.Infrastructure/Persistence/PickingRepository.cs`
       (research.md §2; makes T014-T016's Picked-path assertions pass; depends on T009, T019, T020).
-- [ ] T022 [US1] Implement `PickingService.RecordPickedAsync(int orderLineId, int
+- [X] T022 [US1] Implement `PickingService.RecordPickedAsync(int orderLineId, int
       actorEmployeeId, CancellationToken)` — constructor-injects `IPickingRepository` and
       `ILogger<PickingService>`, logs the outcome at Information level (Constitution Principle XI)
       — in `backend/src/LootSingles.Application/Picking/PickingService.cs` (mirrors
       `OrderClaimService`'s shape; depends on T021).
-- [ ] T023 [US1] Extend `OrderLineDetail` record with the new `Id` field (closes the
+- [X] T023 [US1] Extend `OrderLineDetail` record with the new `Id` field (closes the
       no-stable-line-identifier gap) in `backend/src/LootSingles.Application/Orders/OrderDetail.cs`,
       and update `OrderRepository.GetByIdAsync`'s projection to populate it, in
       `backend/src/LootSingles.Infrastructure/Persistence/OrderRepository.cs`
       (contracts/picking-api.md).
-- [ ] T024 [US1] Add `POST /api/orders/{orderId}/lines/{lineId}/pick` action to
+- [X] T024 [US1] Add `POST /api/orders/{orderId}/lines/{lineId}/pick` action to
       `OrdersController`, mapping `PickingOutcome` to HTTP results per contracts/picking-api.md's
       table, and extend `OrderLineDetailResponse` with `id` and `pickOutcome` fields, in
       `backend/src/LootSingles.Api/Controllers/OrdersController.cs` (makes T015, T016 pass;
       depends on T022, T023).
-- [ ] T025 [US1] Add `recordPicked(orderId, lineId)` to `frontend/src/features/orders/ordersApi.ts`
+- [X] T025 [US1] Add `recordPicked(orderId, lineId)` to `frontend/src/features/orders/ordersApi.ts`
       and extend its `OrderLineDetail` type with `id`/`pickOutcome` (contracts/picking-api.md).
-- [ ] T026 [US1] Add a per-line "Picked" button and a "N of M lines confirmed" position indicator
+- [X] T026 [US1] Add a per-line "Picked" button and a "N of M lines confirmed" position indicator
       to `frontend/src/features/orders/OrderDetailPage.tsx`, wired to `recordPicked`, allowing
       re-recording an already-picked line (US1 AC4) — no confirmation dialog, one tap/click per
       FR-001/SC-008 — with supporting styles in

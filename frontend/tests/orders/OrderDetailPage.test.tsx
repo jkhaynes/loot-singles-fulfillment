@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OrderDetailPage } from '../../src/features/orders/OrderDetailPage'
@@ -9,12 +10,44 @@ import * as authApi from '../../src/features/auth/authApi'
 vi.mock('../../src/features/orders/ordersApi', async (original) => ({
   ...(await original<typeof import('../../src/features/orders/ordersApi')>()),
   getOrderDetail: vi.fn(),
+  recordPicked: vi.fn(),
 }))
 
 vi.mock('../../src/features/auth/authApi', async (original) => ({
   ...(await original<typeof import('../../src/features/auth/authApi')>()),
   me: vi.fn(),
 }))
+
+function line(
+  id: number,
+  productName: string,
+  pickOutcome: ordersApi.PickOutcome | null,
+): ordersApi.OrderLineDetail {
+  return {
+    id,
+    pickOutcome,
+    productName,
+    productLine: 'Pokemon',
+    set: 'Base Set',
+    collectorNumber: `#${id}`,
+    rarity: null,
+    variant: null,
+    condition: 'Near Mint',
+    quantity: 1,
+    imageUrl: null,
+  }
+}
+
+function claimedOrder(lines: ordersApi.OrderLineDetail[]): ordersApi.OrderDetail {
+  return {
+    orderId: 42,
+    tcgplayerOrderId: 'ORDER-DETAIL-42',
+    status: 'inProgress',
+    lines,
+    claimedByEmployeeId: 1,
+    claimedByEmployeeName: 'Test Picker',
+  }
+}
 
 function renderPage(orderId = 42) {
   return render(
@@ -159,8 +192,95 @@ describe('OrderDetailPage', () => {
     const heading = await screen.findByRole('heading', { name: /ORDER-DETAIL-42/i })
     const header = heading.closest('header')
     expect(header).not.toBeNull()
-    expect(within(header as HTMLElement).getByText('ready')).toBeInTheDocument()
-    expect(screen.getByLabelText('Order status: ready')).toBeInTheDocument()
+    expect(within(header as HTMLElement).getByText('Ready')).toBeInTheDocument()
+    expect(screen.getByLabelText('Order status: Ready')).toBeInTheDocument()
+  })
+
+  // 015-pick-completion T017: per-line Picked action and position indicator (US1 AC1, AC3).
+  it('shows how many lines are confirmed and records a pick for the claim holder', async () => {
+    const order = claimedOrder([
+      line(1, 'Genesect ex', 'picked'),
+      line(2, 'Pikachu', null),
+      line(3, 'Charizard', null),
+    ])
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(order)
+    vi.mocked(ordersApi.recordPicked).mockResolvedValue({
+      ...order,
+      lines: [order.lines[0], { ...order.lines[1], pickOutcome: 'picked' }, order.lines[2]],
+    })
+
+    renderPage()
+
+    expect(await screen.findByText('1 of 3 lines confirmed')).toBeInTheDocument()
+    const pikachu = screen.getByRole('article', { name: /Pikachu/i })
+    await userEvent.click(within(pikachu).getByRole('button', { name: 'Picked' }))
+
+    expect(ordersApi.recordPicked).toHaveBeenCalledWith(42, 2)
+    expect(await screen.findByText('2 of 3 lines confirmed')).toBeInTheDocument()
+    expect(within(pikachu).getByRole('button', { name: 'Picked' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  it('shows Picked in the header once the last line is confirmed', async () => {
+    const order = claimedOrder([line(1, 'Pikachu', null)])
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(order)
+    vi.mocked(ordersApi.recordPicked).mockResolvedValue({
+      ...order,
+      status: 'picked',
+      lines: [{ ...order.lines[0], pickOutcome: 'picked' }],
+    })
+
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Picked' }))
+
+    expect(await screen.findByLabelText('Order status: Picked')).toBeInTheDocument()
+    expect(screen.queryByText(/In Progress/)).not.toBeInTheDocument()
+  })
+
+  it('does not offer the Picked action to someone who does not hold the claim', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      ...claimedOrder([line(1, 'Pikachu', null)]),
+      claimedByEmployeeId: 99,
+      claimedByEmployeeName: 'Someone Else',
+    })
+
+    renderPage()
+
+    await screen.findByRole('article', { name: /Pikachu/i })
+    expect(screen.queryByRole('button', { name: 'Picked' })).not.toBeInTheDocument()
+  })
+
+  // 015-pick-completion T018: a confirmed line stays revisable while the claim is held (US1 AC4).
+  it('lets the claim holder re-record an already-picked line', async () => {
+    const order = claimedOrder([line(1, 'Pikachu', 'picked'), line(2, 'Charizard', null)])
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(order)
+    vi.mocked(ordersApi.recordPicked).mockResolvedValue(order)
+
+    renderPage()
+
+    const pikachu = await screen.findByRole('article', { name: /Pikachu/i })
+    const button = within(pikachu).getByRole('button', { name: 'Picked' })
+    expect(button).toBeEnabled()
+    await userEvent.click(button)
+
+    expect(ordersApi.recordPicked).toHaveBeenCalledWith(42, 1)
+  })
+
+  it('shows an error and keeps the line unconfirmed when recording a pick fails', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      claimedOrder([line(1, 'Pikachu', null)]),
+    )
+    vi.mocked(ordersApi.recordPicked).mockRejectedValue(new ordersApi.NotYourClaimError())
+
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Picked' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/couldn.?t record/i)
+    expect(screen.getByText('0 of 1 lines confirmed')).toBeInTheDocument()
   })
 
   it('shows a distinct not-found state', async () => {

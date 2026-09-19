@@ -9,6 +9,7 @@ using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Persistence;
 using LootSingles.IntegrationTests.Auth;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -441,6 +442,205 @@ public sealed class OrdersControllerTests
         Assert.DoesNotContain("customer", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("address", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("importAttempt", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // 015-pick-completion T015: POST /api/orders/{orderId}/lines/{lineId}/pick.
+    [Fact]
+    public async Task Pick_ClaimHolderConfirmsEveryLine_OrderBecomesPickedOnlyAfterTheLast()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "PICK-TWO-LINES", 2);
+        await ClaimAsync(client, order.Id);
+        var first = order.OrderLines.First();
+        var second = order.OrderLines.Last();
+
+        var firstResponse = await client.PostAsync(PickUrl(order.Id, first.Id), null);
+        using var firstDocument = JsonDocument.Parse(
+            await firstResponse.Content.ReadAsStringAsync()
+        );
+
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+        Assert.Equal("inProgress", firstDocument.RootElement.GetProperty("status").GetString());
+        var lines = firstDocument.RootElement.GetProperty("lines").EnumerateArray().ToArray();
+        Assert.Equal(first.Id, lines[0].GetProperty("id").GetInt32());
+        Assert.Equal("picked", lines[0].GetProperty("pickOutcome").GetString());
+        Assert.Equal(JsonValueKind.Null, lines[1].GetProperty("pickOutcome").ValueKind);
+
+        var secondResponse = await client.PostAsync(PickUrl(order.Id, second.Id), null);
+        using var secondDocument = JsonDocument.Parse(
+            await secondResponse.Content.ReadAsStringAsync()
+        );
+
+        Assert.Equal(HttpStatusCode.OK, secondResponse.StatusCode);
+        Assert.Equal("picked", secondDocument.RootElement.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task Pick_RecordsWhoPickedTheLineAndWhen()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "PICK-ATTRIBUTION", 1);
+        await ClaimAsync(client, order.Id);
+        var line = order.OrderLines.Single();
+        var before = DateTimeOffset.UtcNow.AddSeconds(-5);
+
+        var response = await client.PostAsync(PickUrl(order.Id, line.Id), null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await factory.SeedAsync(async context =>
+        {
+            var picker = await context.Employees.SingleAsync(e => e.Username == "ordersuser");
+            var stored = await context.OrderLines.AsNoTracking().SingleAsync(l => l.Id == line.Id);
+            Assert.Equal(PickOutcome.Picked, stored.PickOutcome);
+            Assert.Equal(picker.Id, stored.PickOutcomeRecordedByEmployeeId);
+            Assert.True(stored.PickOutcomeRecordedAt >= before);
+            Assert.Null(stored.CurrentPickingIssueId);
+        });
+    }
+
+    [Fact]
+    public async Task Pick_SingleLineOrder_ImmediatelyBecomesPicked()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "PICK-ONE-LINE", 1);
+        await ClaimAsync(client, order.Id);
+
+        var response = await client.PostAsync(
+            PickUrl(order.Id, order.OrderLines.Single().Id),
+            null
+        );
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("picked", document.RootElement.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task Pick_LineNotInThisOrder_Returns404LineNotFound()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "PICK-OWN-ORDER", 1);
+        var otherOrder = await SeedOrderWithLinesAsync(factory, "PICK-OTHER-ORDER", 1);
+        await ClaimAsync(client, order.Id);
+
+        var response = await client.PostAsync(
+            PickUrl(order.Id, otherOrder.OrderLines.Single().Id),
+            null
+        );
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("line_not_found", document.RootElement.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task Pick_OrderDoesNotExist_Returns404OrderNotFound()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+
+        var response = await client.PostAsync(PickUrl(2147483647, 1), null);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("order_not_found", document.RootElement.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task Pick_OrderClaimedBySomeoneElse_Returns409AndLeavesLineUnrecorded()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "PICK-OTHERS-CLAIM", 1);
+        await factory.SeedAsync(async context =>
+        {
+            var claimant = new Employee
+            {
+                Username = "otherclaimant",
+                NormalizedUsername = "OTHERCLAIMANT",
+                DisplayName = "Other Claimant",
+                PinHash = "hash",
+                Role = EmployeeRole.Picker,
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+            context.Employees.Add(claimant);
+            await context.SaveChangesAsync();
+            var stored = await context.Orders.SingleAsync(o => o.Id == order.Id);
+            stored.ClaimedByEmployeeId = claimant.Id;
+            stored.ClaimedAt = DateTimeOffset.UtcNow;
+            stored.Status = OrderStatus.InProgress;
+        });
+        var line = order.OrderLines.Single();
+
+        var response = await client.PostAsync(PickUrl(order.Id, line.Id), null);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("not_your_claim", document.RootElement.GetProperty("error").GetString());
+        await factory.SeedAsync(async context =>
+        {
+            var stored = await context.OrderLines.AsNoTracking().SingleAsync(l => l.Id == line.Id);
+            Assert.Null(stored.PickOutcome);
+        });
+    }
+
+    [Fact]
+    public async Task Pick_UnclaimedOrder_Returns409NotYourClaim()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "PICK-UNCLAIMED", 1);
+
+        var response = await client.PostAsync(
+            PickUrl(order.Id, order.OrderLines.Single().Id),
+            null
+        );
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Pick_WithoutSession_Returns401()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        await factory.EnsureDatabaseCreatedAsync();
+        using var client = factory.CreateAuthenticatedClient();
+
+        var response = await client.PostAsync(PickUrl(1, 1), null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    private static string PickUrl(int orderId, int lineId) =>
+        $"/api/orders/{orderId}/lines/{lineId}/pick";
+
+    private static async Task ClaimAsync(HttpClient client, int orderId)
+    {
+        var claim = await client.PostAsync($"/api/orders/{orderId}/claim", null);
+        Assert.Equal(HttpStatusCode.OK, claim.StatusCode);
+    }
+
+    private static async Task<Order> SeedOrderWithLinesAsync(
+        AuthWebApplicationFactory factory,
+        string tcgplayerOrderId,
+        int lineCount
+    )
+    {
+        var order = NewOrder(tcgplayerOrderId, DateTimeOffset.UtcNow);
+        for (var i = 1; i <= lineCount; i++)
+        {
+            order.OrderLines.Add(NewOrderLine($"Card {i}", "Base Set", null, "Near Mint", 1));
+        }
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.Add(order);
+            return Task.CompletedTask;
+        });
+        return order;
     }
 
     private static async Task<HttpClient> LoginAsync(AuthWebApplicationFactory factory)

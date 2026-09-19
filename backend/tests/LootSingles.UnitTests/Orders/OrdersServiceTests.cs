@@ -139,7 +139,7 @@ public sealed class OrdersServiceTests
     }
 
     private static OrderLineDetail NewLine(string productLine, string productName) =>
-        new(productName, productLine, "Set", "#1", null, null, "Near Mint", 1);
+        new(0, null, productName, productLine, "Set", "#1", null, null, "Near Mint", 1);
 
     private static CardImageEnrichmentService NewEnrichmentService() =>
         new([], NullLogger<CardImageEnrichmentService>.Instance);
