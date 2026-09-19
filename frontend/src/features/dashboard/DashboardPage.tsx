@@ -59,6 +59,10 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
   const firstName = employee.displayName.split(' ')[0]
   const readyCount = data?.ready.count ?? 0
 
+  function statValue(count: number | undefined) {
+    return isLoading ? '…' : hasError ? '—' : (count ?? 0)
+  }
+
   async function handlePickNext() {
     setIsPickingNext(true)
     setPickNextError(null)
@@ -128,49 +132,49 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
       </header>
 
       <div className="dashboard-stats">
-        <article className="dashboard-stat">
+        <article className="dashboard-stat" aria-label="Ready to Pick">
           <span className="dashboard-stat__icon" data-status="ready">
             <ShoppingBagIcon />
           </span>
           <div>
             <p className="dashboard-stat__label">Ready to Pick</p>
-            <p className="dashboard-stat__value">{isLoading ? '…' : hasError ? '—' : readyCount}</p>
+            <p className="dashboard-stat__value">{statValue(readyCount)}</p>
           </div>
         </article>
 
-        <article className="dashboard-stat">
-          <span className="dashboard-stat__icon" data-status="unavailable">
+        <article className="dashboard-stat" aria-label="In Progress">
+          <span className="dashboard-stat__icon" data-status="in-progress">
             <ClockIcon />
           </span>
           <div>
             <p className="dashboard-stat__label">In Progress</p>
-            <p className="dashboard-stat__value dashboard-stat__value--unavailable">
-              Not yet available
-            </p>
+            <p className="dashboard-stat__value">{statValue(data?.inProgress.count)}</p>
           </div>
         </article>
 
-        <article className="dashboard-stat">
-          <span className="dashboard-stat__icon" data-status="unavailable">
+        <article className="dashboard-stat" aria-label="Needs Attention">
+          <span className="dashboard-stat__icon" data-status="needs-attention">
             <AlertTriangleIcon />
           </span>
           <div>
             <p className="dashboard-stat__label">Needs Attention</p>
-            <p className="dashboard-stat__value dashboard-stat__value--unavailable">
-              Not yet available
-            </p>
+            <p className="dashboard-stat__value">{statValue(data?.needsAttention.count)}</p>
+            {data?.needsAttention.orders.map((order) => (
+              <p key={order.orderId} className="dashboard-stat__detail">
+                <Link to={`/orders/${order.orderId}`}>{order.tcgplayerOrderId}</Link>
+                {` · ${order.flaggedProductNames.join(', ')}`}
+              </p>
+            ))}
           </div>
         </article>
 
-        <article className="dashboard-stat">
-          <span className="dashboard-stat__icon" data-status="unavailable">
+        <article className="dashboard-stat" aria-label="Picked">
+          <span className="dashboard-stat__icon" data-status="picked">
             <CheckCircleIcon />
           </span>
           <div>
             <p className="dashboard-stat__label">Picked</p>
-            <p className="dashboard-stat__value dashboard-stat__value--unavailable">
-              Not yet available
-            </p>
+            <p className="dashboard-stat__value">{statValue(data?.picked.count)}</p>
           </div>
         </article>
       </div>

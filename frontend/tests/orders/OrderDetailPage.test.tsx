@@ -272,9 +272,7 @@ describe('OrderDetailPage', () => {
   })
 
   it('shows an error and keeps the line unconfirmed when recording a pick fails', async () => {
-    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
-      claimedOrder([line(1, 'Pikachu', null)]),
-    )
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder([line(1, 'Pikachu', null)]))
     vi.mocked(ordersApi.recordPicked).mockRejectedValue(new ordersApi.NotYourClaimError())
 
     renderPage()

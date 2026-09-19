@@ -271,46 +271,46 @@ Independent Test).
 
 ### Tests for User Story 3
 
-- [ ] T037 [P] [US3] Write failing unit test for new `DashboardService` methods
+- [X] T037 [P] [US3] Write failing unit test for new `DashboardService` methods
       (`GetInProgressOrderSummariesAsync`, `GetNeedsAttentionOrderSummariesAsync` including
       `flaggedProductNames`, `GetPickedOrderSummariesAsync`/count) in
       `backend/tests/LootSingles.UnitTests/Dashboard/DashboardServiceTests.cs` (FR-013, FR-014).
-- [ ] T038 [P] [US3] Write failing integration test for `GET /api/dashboard` asserting the three
+- [X] T038 [P] [US3] Write failing integration test for `GET /api/dashboard` asserting the three
       new sections (`inProgress`, `needsAttention` with `flaggedProductNames`, `picked`) reflect
       real order state created via US1/US2 flows, in
       `backend/tests/LootSingles.IntegrationTests/Dashboard/DashboardControllerTests.cs`
       (contracts/picking-api.md, US3 AC1, AC2).
-- [ ] T039 [P] [US3] Write failing component test asserting `DashboardPage` renders live counts
+- [X] T039 [P] [US3] Write failing component test asserting `DashboardPage` renders live counts
       (not "Not yet available" placeholders) for the three tiles, and shows a Needs Attention
       order's flagged product name(s), in `frontend/tests/dashboard/DashboardPage.test.tsx`.
 
 ### Implementation for User Story 3
 
-- [ ] T040 [US3] Add `GetInProgressOrderSummariesAsync`, `GetNeedsAttentionOrderSummariesAsync`
+- [X] T040 [US3] Add `GetInProgressOrderSummariesAsync`, `GetNeedsAttentionOrderSummariesAsync`
       (returning a new `NeedsAttentionOrderSummary` extending `OrderSummary` with
       `FlaggedProductNames`), and `GetPickedOrderSummariesAsync`/count to `IDashboardRepository`
       and `DashboardRepository`, mirroring the existing `GetReadyOrderSummariesAsync` shape, in
       `backend/src/LootSingles.Application/Dashboard/IDashboardRepository.cs` and
       `backend/src/LootSingles.Infrastructure/Persistence/DashboardRepository.cs` (data-model.md;
       makes T037 pass).
-- [ ] T041 [US3] Add matching pass-through methods to `DashboardService` in
+- [X] T041 [US3] Add matching pass-through methods to `DashboardService` in
       `backend/src/LootSingles.Application/Dashboard/DashboardService.cs` (depends on T040).
-- [ ] T042 [US3] Extend `DashboardController`'s response with `inProgress`, `needsAttention`
+- [X] T042 [US3] Extend `DashboardController`'s response with `inProgress`, `needsAttention`
       (including `flaggedProductNames`), and `picked` sections, replacing the frontend-only
       placeholder values, in `backend/src/LootSingles.Api/Controllers/DashboardController.cs`
       (contracts/picking-api.md; makes T038 pass; depends on T041).
-- [ ] T043 [US3] Extend `frontend/src/features/dashboard/dashboardApi.ts`'s `DashboardData` type
+- [X] T043 [US3] Extend `frontend/src/features/dashboard/dashboardApi.ts`'s `DashboardData` type
       with the three new sections, and wire `DashboardPage.tsx`'s three stub tiles
       (`frontend/src/features/dashboard/DashboardPage.tsx`) to the real data, showing flagged
       product names on the Needs Attention tile (makes T039 pass; depends on T042).
-- [ ] T044 [US3] Write failing component test asserting a claimed order with status
+- [X] T044 [US3] Write failing component test asserting a claimed order with status
       `needsAttention` renders distinctly as "Needs Attention" — not
       `"In Progress · Picking by {name}"` — and that Ready/InProgress/Picked statuses render
       human-readable labels rather than raw camelCase enum strings, in the existing
       `frontend/tests/orders/OrdersPage.test.tsx` (FR-006, FR-008, FR-013 — gap flagged by
       `/speckit-analyze`: this file already exists but was previously unreferenced by any task; run
       and confirm it fails for the expected reason before T045).
-- [ ] T045 [US3] Fix `frontend/src/features/orders/OrdersPage.tsx`'s status column: check
+- [X] T045 [US3] Fix `frontend/src/features/orders/OrdersPage.tsx`'s status column: check
       `order.status === 'needsAttention'` first (rendering it distinctly, e.g. "Needs Attention")
       before falling back to `"In Progress · Picking by {name}"` when claimed and otherwise picked;
       add a shared status→label map (Ready, In Progress, Needs Attention, Picked) in

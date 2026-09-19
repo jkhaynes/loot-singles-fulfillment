@@ -5,13 +5,25 @@ export interface OrderSummary {
   totalQuantity: number
 }
 
-export interface ReadySection {
+export interface NeedsAttentionOrderSummary extends OrderSummary {
+  flaggedProductNames: string[]
+}
+
+export interface OrderSection {
   count: number
   orders: OrderSummary[]
 }
 
+export interface NeedsAttentionSection {
+  count: number
+  orders: NeedsAttentionOrderSummary[]
+}
+
 export interface DashboardData {
-  ready: ReadySection
+  ready: OrderSection
+  inProgress: OrderSection
+  needsAttention: NeedsAttentionSection
+  picked: OrderSection
 }
 
 export async function getDashboard(): Promise<DashboardData> {

@@ -5,9 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace LootSingles.Api.Controllers;
 
 /// <summary>
-/// The Dashboard's live data (contracts/dashboard-api.md, US2). Ready-only for now — the other
-/// three sections have no backing data yet and are rendered as static placeholders entirely on
-/// the frontend (data-model.md).
+/// The Dashboard's live data (contracts/dashboard-api.md; 015-pick-completion US3) — one section
+/// per order status, each derived from real order state.
 /// </summary>
 [ApiController]
 [Route("api/dashboard")]
@@ -18,32 +17,74 @@ public sealed class DashboardController(DashboardService dashboardService) : Con
     public async Task<IActionResult> Get(CancellationToken cancellationToken)
     {
         var readyOrders = await dashboardService.GetReadyOrderSummariesAsync(cancellationToken);
+        var inProgressOrders = await dashboardService.GetInProgressOrderSummariesAsync(
+            cancellationToken
+        );
+        var needsAttentionOrders = await dashboardService.GetNeedsAttentionOrderSummariesAsync(
+            cancellationToken
+        );
+        var pickedOrders = await dashboardService.GetPickedOrderSummariesAsync(cancellationToken);
 
         return Ok(
             new DashboardResponse(
-                new ReadySectionResponse(
-                    readyOrders.Count,
-                    readyOrders
-                        .Select(order => new OrderSummaryResponse(
+                ToSection(readyOrders),
+                ToSection(inProgressOrders),
+                new NeedsAttentionSectionResponse(
+                    needsAttentionOrders.Count,
+                    needsAttentionOrders
+                        .Select(order => new NeedsAttentionOrderSummaryResponse(
                             order.OrderId,
                             order.TcgplayerOrderId,
                             order.ProductCount,
-                            order.TotalQuantity
+                            order.TotalQuantity,
+                            order.FlaggedProductNames
                         ))
                         .ToList()
-                )
+                ),
+                ToSection(pickedOrders)
             )
         );
     }
+
+    private static OrderSectionResponse ToSection(IReadOnlyList<OrderSummary> orders) =>
+        new(
+            orders.Count,
+            orders
+                .Select(order => new OrderSummaryResponse(
+                    order.OrderId,
+                    order.TcgplayerOrderId,
+                    order.ProductCount,
+                    order.TotalQuantity
+                ))
+                .ToList()
+        );
 }
 
-public sealed record DashboardResponse(ReadySectionResponse Ready);
+public sealed record DashboardResponse(
+    OrderSectionResponse Ready,
+    OrderSectionResponse InProgress,
+    NeedsAttentionSectionResponse NeedsAttention,
+    OrderSectionResponse Picked
+);
 
-public sealed record ReadySectionResponse(int Count, IReadOnlyList<OrderSummaryResponse> Orders);
+public sealed record OrderSectionResponse(int Count, IReadOnlyList<OrderSummaryResponse> Orders);
+
+public sealed record NeedsAttentionSectionResponse(
+    int Count,
+    IReadOnlyList<NeedsAttentionOrderSummaryResponse> Orders
+);
 
 public sealed record OrderSummaryResponse(
     int OrderId,
     string TcgplayerOrderId,
     int ProductCount,
     int TotalQuantity
+);
+
+public sealed record NeedsAttentionOrderSummaryResponse(
+    int OrderId,
+    string TcgplayerOrderId,
+    int ProductCount,
+    int TotalQuantity,
+    IReadOnlyList<string> FlaggedProductNames
 );

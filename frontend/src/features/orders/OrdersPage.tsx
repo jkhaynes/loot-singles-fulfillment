@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   getOrders,
   claimOrder,
+  orderStatusLabel,
   OrderAlreadyClaimedError,
   EmployeeHasActiveClaimError,
 } from './ordersApi'
@@ -124,9 +125,9 @@ export function OrdersPage() {
               <div>
                 <span className="order-list-item__label">Status</span>
                 <span className="order-list-item__status">
-                  {order.claimedByEmployeeName
+                  {order.status === 'inProgress' && order.claimedByEmployeeName
                     ? `In Progress · Picking by ${order.claimedByEmployeeName}`
-                    : order.status}
+                    : orderStatusLabel(order.status)}
                 </span>
               </div>
               <div>

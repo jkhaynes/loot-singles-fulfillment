@@ -49,10 +49,61 @@ describe('OrdersPage', () => {
     renderPage()
 
     const firstOrder = await screen.findByRole('article', { name: /ORDER-100/i })
-    expect(within(firstOrder).getByText('ready')).toBeInTheDocument()
+    expect(within(firstOrder).getByText('Ready')).toBeInTheDocument()
     expect(within(firstOrder).getByText(/Aug/)).toBeInTheDocument()
     const secondOrder = screen.getByRole('article', { name: /ORDER-200/i })
-    expect(within(secondOrder).getByText('picked')).toBeInTheDocument()
+    expect(within(secondOrder).getByText('Picked')).toBeInTheDocument()
+  })
+
+  // 015-pick-completion T044: a claimed Needs Attention order must not read as plain In Progress
+  // (FR-006, FR-008, FR-013) — that would hide an unresolved problem on the main order list.
+  it('shows a claimed needs-attention order as Needs Attention, not In Progress', async () => {
+    vi.mocked(ordersApi.getOrders).mockResolvedValue([
+      {
+        orderId: 1,
+        tcgplayerOrderId: 'FLAGGED-ORDER',
+        status: 'needsAttention',
+        importedAt: '2026-08-22T15:00:00Z',
+        claimedByEmployeeId: 7,
+        claimedByEmployeeName: 'Sam',
+      },
+      {
+        orderId: 2,
+        tcgplayerOrderId: 'WORKING-ORDER',
+        status: 'inProgress',
+        importedAt: '2026-08-22T15:00:00Z',
+        claimedByEmployeeId: 7,
+        claimedByEmployeeName: 'Sam',
+      },
+    ])
+
+    renderPage()
+
+    const flagged = await screen.findByRole('article', { name: /FLAGGED-ORDER/i })
+    expect(within(flagged).getByText(/Needs Attention/)).toBeInTheDocument()
+    expect(within(flagged).queryByText(/In Progress/)).not.toBeInTheDocument()
+
+    const working = screen.getByRole('article', { name: /WORKING-ORDER/i })
+    expect(within(working).getByText('In Progress · Picking by Sam')).toBeInTheDocument()
+  })
+
+  it('shows an unclaimed needs-attention order with a readable label', async () => {
+    vi.mocked(ordersApi.getOrders).mockResolvedValue([
+      {
+        orderId: 1,
+        tcgplayerOrderId: 'RELEASED-FLAGGED',
+        status: 'needsAttention',
+        importedAt: '2026-08-22T15:00:00Z',
+        claimedByEmployeeId: null,
+        claimedByEmployeeName: null,
+      },
+    ])
+
+    renderPage()
+
+    const order = await screen.findByRole('article', { name: /RELEASED-FLAGGED/i })
+    expect(within(order).getByText('Needs Attention')).toBeInTheDocument()
+    expect(within(order).queryByText('needsAttention')).not.toBeInTheDocument()
   })
 
   it('links each order to its detail route', async () => {
