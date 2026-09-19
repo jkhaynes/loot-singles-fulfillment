@@ -24,7 +24,7 @@ public class PickingIssueConfiguration : IEntityTypeConfiguration<PickingIssue>
             .IsRequired();
 
         builder
-            .HasOne<Employee>()
+            .HasOne(issue => issue.ReportedByEmployee)
             .WithMany()
             .HasForeignKey(issue => issue.ReportedByEmployeeId)
             .OnDelete(DeleteBehavior.Restrict);

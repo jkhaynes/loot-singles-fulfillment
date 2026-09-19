@@ -5,14 +5,111 @@ import {
   releaseOrder,
   forceReleaseOrder,
   recordPicked,
+  reportIssue,
   orderStatusLabel,
+  pickingIssueTypes,
+  pickingIssueTypeLabel,
   OrderNotFoundError,
 } from './ordersApi'
-import type { OrderDetail } from './ordersApi'
+import type { OrderDetail, PickingIssueType, ReportIssueRequest } from './ordersApi'
 import { useAuth } from '../auth/AuthContext'
 import './OrderDetailPage.css'
 
 type LoadState = 'loading' | 'loaded' | 'not-found' | 'error'
+
+function ReportIssueForm({
+  lineId,
+  isSubmitting,
+  onCancel,
+  onSubmit,
+}: {
+  lineId: number
+  isSubmitting: boolean
+  onCancel: () => void
+  onSubmit: (request: ReportIssueRequest) => void
+}) {
+  const [issueType, setIssueType] = useState<PickingIssueType>(pickingIssueTypes[0].value)
+  const [requiredQuantity, setRequiredQuantity] = useState('')
+  const [foundQuantity, setFoundQuantity] = useState('')
+  const [note, setNote] = useState('')
+
+  function toQuantity(value: string): number | null {
+    const trimmed = value.trim()
+    return trimmed === '' ? null : Number(trimmed)
+  }
+
+  return (
+    <form
+      className="order-detail-line__issue-form"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit({
+          issueType,
+          requiredQuantity: toQuantity(requiredQuantity),
+          foundQuantity: toQuantity(foundQuantity),
+          note: note.trim() === '' ? null : note.trim(),
+        })
+      }}
+    >
+      <div>
+        <label htmlFor={`issue-type-${lineId}`}>Issue type</label>
+        <select
+          id={`issue-type-${lineId}`}
+          value={issueType}
+          onChange={(event) => setIssueType(event.target.value as PickingIssueType)}
+        >
+          {pickingIssueTypes.map((type) => (
+            <option key={type.value} value={type.value}>
+              {type.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="order-detail-line__issue-quantities">
+        <div>
+          <label htmlFor={`required-quantity-${lineId}`}>Quantity required</label>
+          <input
+            id={`required-quantity-${lineId}`}
+            type="number"
+            min="0"
+            inputMode="numeric"
+            value={requiredQuantity}
+            onChange={(event) => setRequiredQuantity(event.target.value)}
+          />
+        </div>
+        <div>
+          <label htmlFor={`found-quantity-${lineId}`}>Quantity found</label>
+          <input
+            id={`found-quantity-${lineId}`}
+            type="number"
+            min="0"
+            inputMode="numeric"
+            value={foundQuantity}
+            onChange={(event) => setFoundQuantity(event.target.value)}
+          />
+        </div>
+      </div>
+      <div>
+        <label htmlFor={`issue-note-${lineId}`}>Note (optional)</label>
+        <textarea
+          id={`issue-note-${lineId}`}
+          rows={2}
+          maxLength={500}
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+        />
+      </div>
+      <div className="order-detail-line__issue-actions">
+        <button type="submit" disabled={isSubmitting}>
+          Submit Issue
+        </button>
+        <button type="button" onClick={onCancel} disabled={isSubmitting}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  )
+}
 
 export function OrderDetailPage() {
   const { orderId } = useParams()
@@ -23,6 +120,7 @@ export function OrderDetailPage() {
   const [isReleasing, setIsReleasing] = useState(false)
   const [isForceReleasing, setIsForceReleasing] = useState(false)
   const [recordingLineId, setRecordingLineId] = useState<number | null>(null)
+  const [issueFormLineId, setIssueFormLineId] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -92,8 +190,24 @@ export function OrderDetailPage() {
     setReleaseError(null)
     try {
       setOrder(await recordPicked(order.orderId, lineId))
+      setIssueFormLineId(null)
     } catch {
       setReleaseError("Couldn't record that pick. Try refreshing the page.")
+    } finally {
+      setRecordingLineId(null)
+    }
+  }
+
+  async function handleReportIssue(lineId: number, request: ReportIssueRequest) {
+    if (!order) return
+
+    setRecordingLineId(lineId)
+    setReleaseError(null)
+    try {
+      setOrder(await reportIssue(order.orderId, lineId, request))
+      setIssueFormLineId(null)
+    } catch {
+      setReleaseError("Couldn't report that issue. Try refreshing the page.")
     } finally {
       setRecordingLineId(null)
     }
@@ -225,6 +339,19 @@ export function OrderDetailPage() {
                     </dd>
                   </div>
                 </dl>
+                {line.currentIssue && (
+                  <p className="order-detail-line__issue" role="status">
+                    <strong data-emphasis="high">
+                      {pickingIssueTypeLabel(line.currentIssue.issueType)}
+                    </strong>
+                    {line.currentIssue.requiredQuantity !== null &&
+                      line.currentIssue.foundQuantity !== null &&
+                      ` · found ${line.currentIssue.foundQuantity} of ${line.currentIssue.requiredQuantity}`}
+                    {line.currentIssue.note && ` · ${line.currentIssue.note}`}
+                    {line.currentIssue.reportedByEmployeeName &&
+                      ` · reported by ${line.currentIssue.reportedByEmployeeName}`}
+                  </p>
+                )}
                 {canRecordOutcome && (
                   <div className="order-detail-line__actions">
                     <button
@@ -236,7 +363,25 @@ export function OrderDetailPage() {
                     >
                       Picked
                     </button>
+                    {issueFormLineId !== line.id && (
+                      <button
+                        type="button"
+                        className="order-detail-line__report"
+                        disabled={recordingLineId === line.id}
+                        onClick={() => setIssueFormLineId(line.id)}
+                      >
+                        Report Issue
+                      </button>
+                    )}
                   </div>
+                )}
+                {canRecordOutcome && issueFormLineId === line.id && (
+                  <ReportIssueForm
+                    lineId={line.id}
+                    isSubmitting={recordingLineId === line.id}
+                    onCancel={() => setIssueFormLineId(null)}
+                    onSubmit={(request) => handleReportIssue(line.id, request)}
+                  />
                 )}
               </div>
             </article>

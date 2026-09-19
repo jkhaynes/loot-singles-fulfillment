@@ -46,6 +46,82 @@ public sealed class PickingServiceTests
         Assert.Null(result.OrderStatus);
     }
 
+    // 015-pick-completion T027: reporting an issue instead of a false confirmation (US2).
+    [Fact]
+    public async Task ReportIssueAsync_ClaimHolder_RecordsTheIssueAndReturnsNeedsAttention()
+    {
+        var repository = new FakePickingRepository
+        {
+            Result = PickingResult.Success(OrderStatus.NeedsAttention),
+        };
+        var service = NewService(repository);
+
+        var result = await service.ReportIssueAsync(
+            orderId: 3,
+            orderLineId: 7,
+            actorEmployeeId: 1,
+            PickingIssueType.CardNotFound,
+            requiredQuantity: 2,
+            foundQuantity: 1,
+            note: "Only one copy in the bin",
+            CancellationToken.None
+        );
+
+        Assert.Equal(PickingOutcome.Success, result.Outcome);
+        Assert.Equal(OrderStatus.NeedsAttention, result.OrderStatus);
+        var report = Assert.IsType<PickOutcomeChange.IssueReport>(
+            Assert.Single(repository.Calls).Change
+        );
+        Assert.Equal(PickingIssueType.CardNotFound, report.IssueType);
+        Assert.Equal(2, report.RequiredQuantity);
+        Assert.Equal(1, report.FoundQuantity);
+        Assert.Equal("Only one copy in the bin", report.Note);
+    }
+
+    [Fact]
+    public async Task ReportIssueAsync_UnrecognizedIssueType_ReturnsInvalidIssueTypeWithoutWriting()
+    {
+        var repository = new FakePickingRepository
+        {
+            Result = PickingResult.Success(OrderStatus.NeedsAttention),
+        };
+        var service = NewService(repository);
+
+        var result = await service.ReportIssueAsync(
+            orderId: 3,
+            orderLineId: 7,
+            actorEmployeeId: 1,
+            (PickingIssueType)999,
+            requiredQuantity: null,
+            foundQuantity: null,
+            note: null,
+            CancellationToken.None
+        );
+
+        Assert.Equal(PickingOutcome.InvalidIssueType, result.Outcome);
+        Assert.Empty(repository.Calls);
+    }
+
+    [Fact]
+    public async Task ReportIssueAsync_ActorDoesNotHoldClaim_ReturnsNotYourClaim()
+    {
+        var repository = new FakePickingRepository { Result = PickingResult.NotYourClaim };
+        var service = NewService(repository);
+
+        var result = await service.ReportIssueAsync(
+            orderId: 3,
+            orderLineId: 7,
+            actorEmployeeId: 2,
+            PickingIssueType.Damaged,
+            requiredQuantity: null,
+            foundQuantity: null,
+            note: null,
+            CancellationToken.None
+        );
+
+        Assert.Equal(PickingOutcome.NotYourClaim, result.Outcome);
+    }
+
     private static PickingService NewService(IPickingRepository repository) =>
         new(repository, NullLogger<PickingService>.Instance);
 

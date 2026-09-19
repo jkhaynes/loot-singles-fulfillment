@@ -8,6 +8,7 @@ public enum PickingOutcome
     OrderNotFound,
     LineNotFound,
     NotYourClaim,
+    InvalidIssueType,
 }
 
 /// <param name="OrderStatus">The order's status as derived by the recording write; set on success.</param>
@@ -21,4 +22,6 @@ public sealed record PickingResult(PickingOutcome Outcome, OrderStatus? OrderSta
     public static readonly PickingResult LineNotFound = new(PickingOutcome.LineNotFound);
 
     public static readonly PickingResult NotYourClaim = new(PickingOutcome.NotYourClaim);
+
+    public static readonly PickingResult InvalidIssueType = new(PickingOutcome.InvalidIssueType);
 }

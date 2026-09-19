@@ -31,5 +31,10 @@ public class PickingIssue
 
     public int ReportedByEmployeeId { get; set; }
 
+    /// <summary>
+    /// Navigation to the reporting employee, for surfacing who raised the issue.
+    /// </summary>
+    public Employees.Employee? ReportedByEmployee { get; set; }
+
     public DateTimeOffset ReportedAt { get; set; }
 }

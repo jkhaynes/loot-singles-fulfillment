@@ -24,6 +24,7 @@ public sealed class PickingRepository(LootSinglesDbContext context) : IPickingRe
         var pickOutcome = change switch
         {
             PickOutcomeChange.Picked => PickOutcome.Picked,
+            PickOutcomeChange.IssueReport => PickOutcome.HasIssue,
             _ => throw new ArgumentOutOfRangeException(nameof(change), change, null),
         };
         var recordedAt = DateTimeOffset.UtcNow;
@@ -47,6 +48,37 @@ public sealed class PickingRepository(LootSinglesDbContext context) : IPickingRe
             return await ClassifyRejectionAsync(orderId, orderLineId, cancellationToken);
         }
 
+        // Inside the same transaction: a rejected or failed recording rolls the issue row back too.
+        int? currentPickingIssueId = null;
+        if (change is PickOutcomeChange.IssueReport report)
+        {
+            if (
+                !await context.OrderLines.AnyAsync(
+                    line => line.Id == orderLineId && line.OrderId == orderId,
+                    cancellationToken
+                )
+            )
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return PickingResult.LineNotFound;
+            }
+
+            var issue = new PickingIssue
+            {
+                OrderLineId = orderLineId,
+                IssueType = report.IssueType,
+                RequiredQuantity = report.RequiredQuantity,
+                FoundQuantity = report.FoundQuantity,
+                Note = report.Note,
+                ReportedByEmployeeId = actorEmployeeId,
+                ReportedAt = recordedAt,
+            };
+            context.PickingIssues.Add(issue);
+            await context.SaveChangesAsync(cancellationToken);
+            context.Entry(issue).State = EntityState.Detached;
+            currentPickingIssueId = issue.Id;
+        }
+
         var linesUpdated = await context
             .OrderLines.Where(line => line.Id == orderLineId && line.OrderId == orderId)
             .ExecuteUpdateAsync(
@@ -58,7 +90,7 @@ public sealed class PickingRepository(LootSinglesDbContext context) : IPickingRe
                             (int?)actorEmployeeId
                         )
                         .SetProperty(line => line.PickOutcomeRecordedAt, (DateTimeOffset?)recordedAt)
-                        .SetProperty(line => line.CurrentPickingIssueId, (int?)null),
+                        .SetProperty(line => line.CurrentPickingIssueId, currentPickingIssueId),
                 cancellationToken
             );
 

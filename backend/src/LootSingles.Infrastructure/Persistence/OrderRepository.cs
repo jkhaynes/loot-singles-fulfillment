@@ -233,7 +233,20 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                         line.Rarity,
                         line.Variant,
                         line.Condition,
-                        line.Quantity
+                        line.Quantity,
+                        null,
+                        line.CurrentPickingIssue == null
+                            ? null
+                            : new PickingIssueDetail(
+                                line.CurrentPickingIssue.IssueType,
+                                line.CurrentPickingIssue.RequiredQuantity,
+                                line.CurrentPickingIssue.FoundQuantity,
+                                line.CurrentPickingIssue.Note,
+                                line.CurrentPickingIssue.ReportedByEmployee == null
+                                    ? null
+                                    : line.CurrentPickingIssue.ReportedByEmployee.DisplayName,
+                                line.CurrentPickingIssue.ReportedAt
+                            )
                     ))
                     .ToList(),
                 order.ClaimedByEmployeeId,

@@ -1,3 +1,4 @@
+using LootSingles.Domain.Orders;
 using Microsoft.Extensions.Logging;
 
 namespace LootSingles.Application.Picking;
@@ -36,6 +37,61 @@ public sealed class PickingService(IPickingRepository repository, ILogger<Pickin
         {
             logger.LogInformation(
                 "Employee {EmployeeId} could not confirm line {OrderLineId} of order {OrderId}: {Outcome}.",
+                actorEmployeeId,
+                orderLineId,
+                orderId,
+                result.Outcome
+            );
+        }
+
+        return result;
+    }
+
+    public async Task<PickingResult> ReportIssueAsync(
+        int orderId,
+        int orderLineId,
+        int actorEmployeeId,
+        PickingIssueType issueType,
+        int? requiredQuantity,
+        int? foundQuantity,
+        string? note,
+        CancellationToken cancellationToken
+    )
+    {
+        if (!Enum.IsDefined(issueType))
+        {
+            logger.LogInformation(
+                "Employee {EmployeeId} reported an unrecognized issue type on line {OrderLineId} of order {OrderId}.",
+                actorEmployeeId,
+                orderLineId,
+                orderId
+            );
+            return PickingResult.InvalidIssueType;
+        }
+
+        var result = await repository.RecordOutcomeAsync(
+            orderId,
+            orderLineId,
+            actorEmployeeId,
+            new PickOutcomeChange.IssueReport(issueType, requiredQuantity, foundQuantity, note),
+            cancellationToken
+        );
+
+        if (result.Outcome == PickingOutcome.Success)
+        {
+            logger.LogInformation(
+                "Employee {EmployeeId} reported a {IssueType} issue on line {OrderLineId} of order {OrderId}; order is now {OrderStatus}.",
+                actorEmployeeId,
+                issueType,
+                orderLineId,
+                orderId,
+                result.OrderStatus
+            );
+        }
+        else
+        {
+            logger.LogInformation(
+                "Employee {EmployeeId} could not report an issue on line {OrderLineId} of order {OrderId}: {Outcome}.",
                 actorEmployeeId,
                 orderLineId,
                 orderId,

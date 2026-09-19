@@ -11,6 +11,7 @@ vi.mock('../../src/features/orders/ordersApi', async (original) => ({
   ...(await original<typeof import('../../src/features/orders/ordersApi')>()),
   getOrderDetail: vi.fn(),
   recordPicked: vi.fn(),
+  reportIssue: vi.fn(),
 }))
 
 vi.mock('../../src/features/auth/authApi', async (original) => ({
@@ -35,6 +36,7 @@ function line(
     condition: 'Near Mint',
     quantity: 1,
     imageUrl: null,
+    currentIssue: null,
   }
 }
 
@@ -281,6 +283,100 @@ describe('OrderDetailPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/couldn.?t record/i)
     expect(screen.getByText('0 of 1 lines confirmed')).toBeInTheDocument()
+  })
+
+  // 015-pick-completion T030: inline report-issue form per line (US2 AC1).
+  it('reports an issue from an inline form and shows the order needing attention', async () => {
+    const order = claimedOrder([line(1, 'Pikachu', null), line(2, 'Charizard', null)])
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(order)
+    vi.mocked(ordersApi.reportIssue).mockResolvedValue({
+      ...order,
+      status: 'needsAttention',
+      lines: [
+        {
+          ...order.lines[0],
+          pickOutcome: 'hasIssue',
+          currentIssue: {
+            issueType: 'insufficientQuantity',
+            requiredQuantity: 3,
+            foundQuantity: 1,
+            note: 'Only one left',
+            reportedByEmployeeName: 'Test Picker',
+            reportedAt: '2026-09-19T12:00:00Z',
+          },
+        },
+        order.lines[1],
+      ],
+    })
+
+    renderPage()
+
+    const pikachu = await screen.findByRole('article', { name: /Pikachu/i })
+    await userEvent.click(within(pikachu).getByRole('button', { name: 'Report Issue' }))
+
+    await userEvent.selectOptions(
+      within(pikachu).getByLabelText('Issue type'),
+      'insufficientQuantity',
+    )
+    await userEvent.type(within(pikachu).getByLabelText('Quantity required'), '3')
+    await userEvent.type(within(pikachu).getByLabelText('Quantity found'), '1')
+    await userEvent.type(within(pikachu).getByLabelText('Note (optional)'), 'Only one left')
+    await userEvent.click(within(pikachu).getByRole('button', { name: 'Submit Issue' }))
+
+    expect(ordersApi.reportIssue).toHaveBeenCalledWith(42, 1, {
+      issueType: 'insufficientQuantity',
+      requiredQuantity: 3,
+      foundQuantity: 1,
+      note: 'Only one left',
+    })
+    expect(await screen.findByLabelText(/Order status: Needs Attention/)).toBeInTheDocument()
+    expect(within(pikachu).getByText(/Insufficient Quantity/)).toBeInTheDocument()
+    expect(within(pikachu).getByText(/Only one left/)).toBeInTheDocument()
+  })
+
+  it('sends no quantities or note when the picker leaves them blank', async () => {
+    const order = claimedOrder([line(1, 'Pikachu', null)])
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(order)
+    vi.mocked(ordersApi.reportIssue).mockResolvedValue(order)
+
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Report Issue' }))
+    await userEvent.selectOptions(screen.getByLabelText('Issue type'), 'cardNotFound')
+    await userEvent.click(screen.getByRole('button', { name: 'Submit Issue' }))
+
+    expect(ordersApi.reportIssue).toHaveBeenCalledWith(42, 1, {
+      issueType: 'cardNotFound',
+      requiredQuantity: null,
+      foundQuantity: null,
+      note: null,
+    })
+  })
+
+  it('closes the issue form without reporting when cancelled', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder([line(1, 'Pikachu', null)]))
+
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Report Issue' }))
+    expect(screen.getByLabelText('Issue type')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByLabelText('Issue type')).not.toBeInTheDocument()
+    expect(ordersApi.reportIssue).not.toHaveBeenCalled()
+  })
+
+  it('does not offer the Report Issue action to someone who does not hold the claim', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      ...claimedOrder([line(1, 'Pikachu', null)]),
+      claimedByEmployeeId: 99,
+      claimedByEmployeeName: 'Someone Else',
+    })
+
+    renderPage()
+
+    await screen.findByRole('article', { name: /Pikachu/i })
+    expect(screen.queryByRole('button', { name: 'Report Issue' })).not.toBeInTheDocument()
   })
 
   it('shows a distinct not-found state', async () => {

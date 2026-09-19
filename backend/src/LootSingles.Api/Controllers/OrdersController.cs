@@ -34,6 +34,28 @@ public sealed class OrdersController(
         return await ToPickingResponseAsync(result, orderId, cancellationToken);
     }
 
+    [HttpPost("{orderId:int}/lines/{lineId:int}/report-issue")]
+    public async Task<IActionResult> ReportIssue(
+        int orderId,
+        int lineId,
+        [FromBody] ReportIssueRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        var result = await pickingService.ReportIssueAsync(
+            orderId,
+            lineId,
+            ActorEmployeeId(),
+            request.IssueType,
+            request.RequiredQuantity,
+            request.FoundQuantity,
+            request.Note,
+            cancellationToken
+        );
+
+        return await ToPickingResponseAsync(result, orderId, cancellationToken);
+    }
+
     private async Task<IActionResult> ToPickingResponseAsync(
         PickingResult result,
         int orderId,
@@ -49,6 +71,7 @@ public sealed class OrdersController(
             PickingOutcome.OrderNotFound => NotFound(new { error = "order_not_found" }),
             PickingOutcome.LineNotFound => NotFound(new { error = "line_not_found" }),
             PickingOutcome.NotYourClaim => Conflict(new { error = "not_your_claim" }),
+            PickingOutcome.InvalidIssueType => BadRequest(new { error = "invalid_issue_type" }),
             _ => throw new InvalidOperationException(
                 $"Unexpected outcome {result.Outcome} for recording a pick outcome."
             ),
@@ -211,7 +234,17 @@ public sealed class OrdersController(
                     line.Variant,
                     line.Condition,
                     line.Quantity,
-                    line.ImageUrl
+                    line.ImageUrl,
+                    line.CurrentIssue is null
+                        ? null
+                        : new PickingIssueResponse(
+                            line.CurrentIssue.IssueType,
+                            line.CurrentIssue.RequiredQuantity,
+                            line.CurrentIssue.FoundQuantity,
+                            line.CurrentIssue.Note,
+                            line.CurrentIssue.ReportedByEmployeeName,
+                            line.CurrentIssue.ReportedAt
+                        )
                 ))
                 .ToList(),
             order.ClaimedByEmployeeId,
@@ -256,5 +289,22 @@ public sealed record OrderLineDetailResponse(
     string? Variant,
     string Condition,
     int Quantity,
-    string? ImageUrl
+    string? ImageUrl,
+    PickingIssueResponse? CurrentIssue
+);
+
+public sealed record PickingIssueResponse(
+    PickingIssueType IssueType,
+    int? RequiredQuantity,
+    int? FoundQuantity,
+    string? Note,
+    string? ReportedByEmployeeName,
+    DateTimeOffset ReportedAt
+);
+
+public sealed record ReportIssueRequest(
+    PickingIssueType IssueType,
+    int? RequiredQuantity,
+    int? FoundQuantity,
+    string? Note
 );

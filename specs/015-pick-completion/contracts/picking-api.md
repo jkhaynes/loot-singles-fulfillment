@@ -30,7 +30,7 @@ Records the line as having an unresolved picking issue.
 
 ```json
 {
-  "issueType": "CardNotFound",
+  "issueType": "cardNotFound",
   "requiredQuantity": 2,
   "foundQuantity": 1,
   "note": "Only one copy in the bin"
@@ -55,7 +55,7 @@ Records the line as having an unresolved picking issue.
   "id": 42,
   "pickOutcome": "HasIssue",
   "currentIssue": {
-    "issueType": "CardNotFound",
+    "issueType": "cardNotFound",
     "requiredQuantity": 2,
     "foundQuantity": 1,
     "note": "Only one copy in the bin",

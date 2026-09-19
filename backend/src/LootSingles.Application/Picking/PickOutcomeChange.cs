@@ -1,3 +1,5 @@
+using LootSingles.Domain.Orders;
+
 namespace LootSingles.Application.Picking;
 
 /// <summary>
@@ -11,4 +13,15 @@ public abstract record PickOutcomeChange
     /// The line was successfully picked (FR-001).
     /// </summary>
     public sealed record Picked : PickOutcomeChange;
+
+    /// <summary>
+    /// The line could not be picked as ordered (FR-002). Each report is recorded as its own
+    /// <see cref="PickingIssue"/> row, so earlier reports survive a later revision (FR-011).
+    /// </summary>
+    public sealed record IssueReport(
+        PickingIssueType IssueType,
+        int? RequiredQuantity,
+        int? FoundQuantity,
+        string? Note
+    ) : PickOutcomeChange;
 }

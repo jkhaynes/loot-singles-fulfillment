@@ -615,6 +615,228 @@ public sealed class OrdersControllerTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    // 015-pick-completion T028: POST /api/orders/{orderId}/lines/{lineId}/report-issue.
+    [Fact]
+    public async Task ReportIssue_WithEveryOtherLineConfirmed_StillMakesTheOrderNeedAttention()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "ISSUE-AMONG-PICKED", 3);
+        await ClaimAsync(client, order.Id);
+        var lines = order.OrderLines.ToArray();
+        foreach (var picked in lines.Take(2))
+        {
+            Assert.Equal(
+                HttpStatusCode.OK,
+                (await client.PostAsync(PickUrl(order.Id, picked.Id), null)).StatusCode
+            );
+        }
+
+        var response = await ReportIssueAsync(
+            client,
+            order.Id,
+            lines[2].Id,
+            new { issueType = "CardNotFound", note = "Not in the bin" }
+        );
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("needsAttention", document.RootElement.GetProperty("status").GetString());
+        var flagged = document.RootElement.GetProperty("lines").EnumerateArray().Last();
+        Assert.Equal("hasIssue", flagged.GetProperty("pickOutcome").GetString());
+        var issue = flagged.GetProperty("currentIssue");
+        Assert.Equal("cardNotFound", issue.GetProperty("issueType").GetString());
+        Assert.Equal("Not in the bin", issue.GetProperty("note").GetString());
+        Assert.Equal("Orders User", issue.GetProperty("reportedByEmployeeName").GetString());
+    }
+
+    [Fact]
+    public async Task ReportIssue_TwoFlaggedLines_OrderIsPickedOnlyAfterBothAreResolved()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "TWO-FLAGGED-LINES", 10);
+        await ClaimAsync(client, order.Id);
+        var lines = order.OrderLines.ToArray();
+        foreach (var picked in lines.Take(8))
+        {
+            await client.PostAsync(PickUrl(order.Id, picked.Id), null);
+        }
+        await ReportIssueAsync(client, order.Id, lines[8].Id, new { issueType = "CardNotFound" });
+        await ReportIssueAsync(client, order.Id, lines[9].Id, new { issueType = "Damaged" });
+
+        var afterFirstResolved = await client.PostAsync(PickUrl(order.Id, lines[8].Id), null);
+        using var firstDocument = JsonDocument.Parse(
+            await afterFirstResolved.Content.ReadAsStringAsync()
+        );
+        Assert.Equal(
+            "needsAttention",
+            firstDocument.RootElement.GetProperty("status").GetString()
+        );
+
+        var afterBothResolved = await client.PostAsync(PickUrl(order.Id, lines[9].Id), null);
+        using var secondDocument = JsonDocument.Parse(
+            await afterBothResolved.Content.ReadAsStringAsync()
+        );
+        Assert.Equal("picked", secondDocument.RootElement.GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task ReportIssue_SingleLineOrder_ImmediatelyNeedsAttention()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "ISSUE-ONE-LINE", 1);
+        await ClaimAsync(client, order.Id);
+
+        var response = await ReportIssueAsync(
+            client,
+            order.Id,
+            order.OrderLines.Single().Id,
+            new
+            {
+                issueType = "InsufficientQuantity",
+                requiredQuantity = 3,
+                foundQuantity = 1,
+            }
+        );
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("needsAttention", document.RootElement.GetProperty("status").GetString());
+        var issue = document
+            .RootElement.GetProperty("lines")
+            .EnumerateArray()
+            .Single()
+            .GetProperty("currentIssue");
+        Assert.Equal(3, issue.GetProperty("requiredQuantity").GetInt32());
+        Assert.Equal(1, issue.GetProperty("foundQuantity").GetInt32());
+        Assert.Equal(JsonValueKind.Null, issue.GetProperty("note").ValueKind);
+    }
+
+    [Fact]
+    public async Task ReportIssue_UnrecognizedIssueType_Returns400()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "ISSUE-BAD-TYPE", 1);
+        await ClaimAsync(client, order.Id);
+
+        var response = await ReportIssueAsync(
+            client,
+            order.Id,
+            order.OrderLines.Single().Id,
+            new { issueType = "NotARealIssueType" }
+        );
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ReportIssue_OrderClaimedBySomeoneElse_Returns409()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "ISSUE-OTHERS-CLAIM", 1);
+
+        var response = await ReportIssueAsync(
+            client,
+            order.Id,
+            order.OrderLines.Single().Id,
+            new { issueType = "CardNotFound" }
+        );
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    // 015-pick-completion T029: a superseded report stays queryable (FR-011).
+    [Fact]
+    public async Task ReportIssue_SupersededByALaterOutcome_KeepsTheEarlierReportOnRecord()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "ISSUE-HISTORY", 1);
+        await ClaimAsync(client, order.Id);
+        var line = order.OrderLines.Single();
+
+        await ReportIssueAsync(
+            client,
+            order.Id,
+            line.Id,
+            new { issueType = "CardNotFound", note = "First report" }
+        );
+        await ReportIssueAsync(
+            client,
+            order.Id,
+            line.Id,
+            new { issueType = "Damaged", note = "Second report" }
+        );
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.PostAsync(PickUrl(order.Id, line.Id), null)).StatusCode
+        );
+
+        await factory.SeedAsync(async context =>
+        {
+            var issues = await context
+                .PickingIssues.AsNoTracking()
+                .Where(issue => issue.OrderLineId == line.Id)
+                .OrderBy(issue => issue.Id)
+                .ToListAsync();
+            Assert.Equal(2, issues.Count);
+            Assert.Equal(PickingIssueType.CardNotFound, issues[0].IssueType);
+            Assert.Equal("First report", issues[0].Note);
+            Assert.Equal(PickingIssueType.Damaged, issues[1].IssueType);
+            var stored = await context.OrderLines.AsNoTracking().SingleAsync(l => l.Id == line.Id);
+            Assert.Equal(PickOutcome.Picked, stored.PickOutcome);
+            Assert.Null(stored.CurrentPickingIssueId);
+        });
+    }
+
+    // 015-pick-completion T036: the full release -> re-claim -> revise flow (US1 AC5, SC-007).
+    [Fact]
+    public async Task FlaggedOrder_SurvivesReleaseAndReclaim_ThenReachesPickedWhenResolved()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "FLAGGED-ROUNDTRIP", 3);
+        await ClaimAsync(client, order.Id);
+        var lines = order.OrderLines.ToArray();
+
+        await ReportIssueAsync(client, order.Id, lines[0].Id, new { issueType = "CardNotFound" });
+        await client.PostAsync(PickUrl(order.Id, lines[1].Id), null);
+        await client.PostAsync(PickUrl(order.Id, lines[2].Id), null);
+
+        var release = await client.PostAsync($"/api/orders/{order.Id}/release", null);
+        using var releaseDocument = JsonDocument.Parse(await release.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, release.StatusCode);
+        Assert.Equal(
+            "needsAttention",
+            releaseDocument.RootElement.GetProperty("status").GetString()
+        );
+
+        var reclaim = await client.PostAsync($"/api/orders/{order.Id}/claim", null);
+        using var reclaimDocument = JsonDocument.Parse(await reclaim.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, reclaim.StatusCode);
+        Assert.Equal(
+            "needsAttention",
+            reclaimDocument.RootElement.GetProperty("status").GetString()
+        );
+
+        var resolve = await client.PostAsync(PickUrl(order.Id, lines[0].Id), null);
+        using var resolveDocument = JsonDocument.Parse(await resolve.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.OK, resolve.StatusCode);
+        Assert.Equal("picked", resolveDocument.RootElement.GetProperty("status").GetString());
+    }
+
+    private static Task<HttpResponseMessage> ReportIssueAsync(
+        HttpClient client,
+        int orderId,
+        int lineId,
+        object request
+    ) =>
+        client.PostAsJsonAsync($"/api/orders/{orderId}/lines/{lineId}/report-issue", request);
+
     private static string PickUrl(int orderId, int lineId) =>
         $"/api/orders/{orderId}/lines/{lineId}/pick";
 

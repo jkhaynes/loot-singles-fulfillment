@@ -192,11 +192,11 @@ US2 Independent Test).
 
 ### Tests for User Story 2
 
-- [ ] T027 [P] [US2] Write failing unit test for `PickingService.ReportIssueAsync` — success case
+- [X] T027 [P] [US2] Write failing unit test for `PickingService.ReportIssueAsync` — success case
       (creates a `PickingIssue`, line's `CurrentPickingIssueId` points to it), `InvalidIssueType`,
       and `NotYourClaim` — in `backend/tests/LootSingles.UnitTests/Picking/PickingServiceTests.cs`
       (FR-002, FR-003, FR-010).
-- [ ] T028 [P] [US2] Write failing integration test for `POST
+- [X] T028 [P] [US2] Write failing integration test for `POST
       /api/orders/{orderId}/lines/{lineId}/report-issue`: success (200, order status becomes
       `NeedsAttention` per FR-008 even with every other line confirmed — spec.md US2 AC2/AC3), and
       the exact 10-line/2-issue scenario from FR-008/spec.md US2 AC4 (order stays NeedsAttention
@@ -204,17 +204,17 @@ US2 Independent Test).
       `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs`; include a case
       using a 1-line order, asserting the single issue report immediately sets status to
       NeedsAttention (spec.md Edge Cases — gap flagged by `/speckit-analyze`).
-- [ ] T029 [P] [US2] Write failing integration test asserting a superseded `PickingIssue` remains
+- [X] T029 [P] [US2] Write failing integration test asserting a superseded `PickingIssue` remains
       queryable after its line's outcome is later revised (FR-011 — history is retained, not
       erased), in the same file as T028.
-- [ ] T030 [P] [US2] Write failing component test for a "Report Issue" inline reveal-form (issue
+- [X] T030 [P] [US2] Write failing component test for a "Report Issue" inline reveal-form (issue
       type select, optional required/found quantity, optional note) per line on `OrderDetailPage`,
       in `frontend/tests/orders/OrderDetailPage.test.tsx` (US2 AC1; mirrors the PIN-reset
       inline-form pattern from feature 014 per research.md §6).
 
 ### Implementation for User Story 2
 
-- [ ] T031 [US2] Extend `PickOutcomeChange`'s `IssueReport` case (issue type, optional required/
+- [X] T031 [US2] Extend `PickOutcomeChange`'s `IssueReport` case (issue type, optional required/
       found quantity, optional note) to be fully consumed, and extend
       `PickingRepository.RecordOutcomeAsync` to, inside the same transaction as T021's Picked path,
       insert a new `PickingIssue` row first, then point the line's `CurrentPickingIssueId` at it
@@ -222,20 +222,20 @@ US2 Independent Test).
       `backend/src/LootSingles.Application/Picking/PickOutcomeChange.cs` and
       `backend/src/LootSingles.Infrastructure/Persistence/PickingRepository.cs` (research.md §2;
       makes T027-T029 pass; depends on T021).
-- [ ] T032 [US2] Add `PickingService.ReportIssueAsync(int orderLineId, int actorEmployeeId,
+- [X] T032 [US2] Add `PickingService.ReportIssueAsync(int orderLineId, int actorEmployeeId,
       PickingIssueType issueType, int? requiredQuantity, int? foundQuantity, string? note,
       CancellationToken)`, validating `issueType` and returning `InvalidIssueType` for an
       unrecognized value, logging the outcome at Information level, in
       `backend/src/LootSingles.Application/Picking/PickingService.cs` (depends on T031).
-- [ ] T033 [US2] Add `POST /api/orders/{orderId}/lines/{lineId}/report-issue` action to
+- [X] T033 [US2] Add `POST /api/orders/{orderId}/lines/{lineId}/report-issue` action to
       `OrdersController` (request/response per contracts/picking-api.md), and extend
       `OrderLineDetailResponse` with the nested `currentIssue` object, in
       `backend/src/LootSingles.Api/Controllers/OrdersController.cs` (makes T028 pass; depends on
       T032).
-- [ ] T034 [US2] Add `reportIssue(orderId, lineId, request)` to
+- [X] T034 [US2] Add `reportIssue(orderId, lineId, request)` to
       `frontend/src/features/orders/ordersApi.ts` and extend `OrderLineDetail`'s type with
       `currentIssue` (contracts/picking-api.md).
-- [ ] T035 [US2] Add the "Report Issue" inline reveal-form to
+- [X] T035 [US2] Add the "Report Issue" inline reveal-form to
       `frontend/src/features/orders/OrderDetailPage.tsx` (issue type select, optional
       required/found quantity fields, optional note, submit), wired to `reportIssue`, with
       supporting styles in `frontend/src/features/orders/OrderDetailPage.css` (makes T030 pass;
@@ -243,7 +243,7 @@ US2 Independent Test).
 
 ### Cross-Story Verification for User Story 1 + User Story 2
 
-- [ ] T036 [US1] Write and confirm an integration test for the full release→re-claim→revise
+- [X] T036 [US1] Write and confirm an integration test for the full release→re-claim→revise
       cross-story flow (also exercises User Story 2's report-issue endpoint as part of the setup):
       claim a Ready order → report an issue on one line → confirm the remaining lines → release
       (status stays NeedsAttention, per T011) → re-claim via Choose Order (status stays
