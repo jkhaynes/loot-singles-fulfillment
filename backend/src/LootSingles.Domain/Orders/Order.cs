@@ -37,8 +37,10 @@ public class Order
     public ICollection<OrderLine> OrderLines { get; set; } = new List<OrderLine>();
 
     /// <summary>
-    /// The employee currently claiming this order, if any. Null iff <see cref="Status"/> is
-    /// <see cref="OrderStatus.Ready"/>; set iff <see cref="OrderStatus.InProgress"/> (013-order-claiming).
+    /// The employee currently claiming this order, if any (013-order-claiming). A claimed order is
+    /// never <see cref="OrderStatus.Ready"/>; an unclaimed one is never
+    /// <see cref="OrderStatus.InProgress"/>. Picked and NeedsAttention orders may be either
+    /// (015-pick-completion).
     /// </summary>
     public int? ClaimedByEmployeeId { get; set; }
 

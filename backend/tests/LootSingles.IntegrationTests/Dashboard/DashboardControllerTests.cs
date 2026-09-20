@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using LootSingles.Api.Controllers;
 using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
@@ -52,6 +53,117 @@ public class DashboardControllerTests
         Assert.Equal("F0000001-ABC001-00001", order.TcgplayerOrderId);
         Assert.Equal(2, order.ProductCount);
         Assert.Equal(5, order.TotalQuantity);
+    }
+
+    // 015-pick-completion T038: the three sections reflect real order state (US3 AC1, AC2).
+    [Fact]
+    public async Task GetDashboard_ReflectsRealInProgressNeedsAttentionAndPickedOrders()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsAsync(factory, EmployeeRole.Picker);
+        await SeedReadyOrderAsync(factory, "READY-ORDER", quantities: [1]);
+        var inProgress = await SeedClaimableOrderAsync(factory, "IN-PROGRESS-ORDER", 2);
+        var flagged = await SeedClaimableOrderAsync(factory, "FLAGGED-ORDER", 2);
+
+        // Drive the states through the real picking endpoints rather than seeding them directly.
+        await client.PostAsync($"/api/orders/{flagged.Id}/claim", null);
+        await client.PostAsJsonAsync(
+            $"/api/orders/{flagged.Id}/lines/{flagged.OrderLines.First().Id}/report-issue",
+            new { issueType = "cardNotFound" }
+        );
+        await client.PostAsync($"/api/orders/{flagged.Id}/release", null);
+        await client.PostAsync($"/api/orders/{inProgress.Id}/claim", null);
+
+        var response = await client.GetAsync("/api/dashboard");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var root = document.RootElement;
+        Assert.Equal(1, root.GetProperty("ready").GetProperty("count").GetInt32());
+        Assert.Equal(1, root.GetProperty("inProgress").GetProperty("count").GetInt32());
+        Assert.Equal(
+            "IN-PROGRESS-ORDER",
+            root.GetProperty("inProgress")
+                .GetProperty("orders")
+                .EnumerateArray()
+                .Single()
+                .GetProperty("tcgplayerOrderId")
+                .GetString()
+        );
+        var needsAttention = root.GetProperty("needsAttention");
+        Assert.Equal(1, needsAttention.GetProperty("count").GetInt32());
+        var flaggedSummary = needsAttention.GetProperty("orders").EnumerateArray().Single();
+        Assert.Equal("FLAGGED-ORDER", flaggedSummary.GetProperty("tcgplayerOrderId").GetString());
+        Assert.Equal(
+            ["Pikachu"],
+            flaggedSummary
+                .GetProperty("flaggedProductNames")
+                .EnumerateArray()
+                .Select(name => name.GetString()!)
+                .ToArray()
+        );
+        Assert.Equal(0, root.GetProperty("picked").GetProperty("count").GetInt32());
+    }
+
+    [Fact]
+    public async Task GetDashboard_CountsAFullyConfirmedOrderAsPicked()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsAsync(factory, EmployeeRole.Picker);
+        var order = await SeedClaimableOrderAsync(factory, "PICKED-ORDER", 2);
+        await client.PostAsync($"/api/orders/{order.Id}/claim", null);
+        foreach (var line in order.OrderLines)
+        {
+            Assert.Equal(
+                HttpStatusCode.OK,
+                (
+                    await client.PostAsync(
+                        $"/api/orders/{order.Id}/lines/{line.Id}/pick",
+                        content: null
+                    )
+                ).StatusCode
+            );
+        }
+
+        var response = await client.GetAsync("/api/dashboard");
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        var picked = document.RootElement.GetProperty("picked");
+        Assert.Equal(1, picked.GetProperty("count").GetInt32());
+        Assert.Equal(
+            "PICKED-ORDER",
+            picked
+                .GetProperty("orders")
+                .EnumerateArray()
+                .Single()
+                .GetProperty("tcgplayerOrderId")
+                .GetString()
+        );
+        Assert.Equal(
+            0,
+            document.RootElement.GetProperty("inProgress").GetProperty("count").GetInt32()
+        );
+    }
+
+    private static async Task<Order> SeedClaimableOrderAsync(
+        AuthWebApplicationFactory factory,
+        string tcgplayerOrderId,
+        int lineCount
+    )
+    {
+        var order = new Order
+        {
+            TcgplayerOrderId = tcgplayerOrderId,
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow,
+            OrderLines = Enumerable.Range(1, lineCount).Select(_ => NewLine(1)).ToList(),
+        };
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.Add(order);
+            return Task.CompletedTask;
+        });
+        return order;
     }
 
     private static async Task<HttpClient> LoginAsAsync(

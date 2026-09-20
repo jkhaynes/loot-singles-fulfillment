@@ -11,15 +11,40 @@ namespace LootSingles.Infrastructure.Persistence;
 /// </summary>
 public sealed class DashboardRepository(LootSinglesDbContext context) : IDashboardRepository
 {
-    public async Task<IReadOnlyList<OrderSummary>> GetReadyOrderSummariesAsync(
+    public Task<IReadOnlyList<OrderSummary>> GetReadyOrderSummariesAsync(
         CancellationToken cancellationToken
-    )
-    {
-        return await context
-            .Orders.AsNoTracking()
-            .Where(order => order.Status == OrderStatus.Ready)
-            .OrderBy(order => order.ImportedAt)
-            .ThenBy(order => order.TcgplayerOrderId)
+    ) => SummariesWithStatusAsync(OrderStatus.Ready, cancellationToken);
+
+    public Task<IReadOnlyList<OrderSummary>> GetInProgressOrderSummariesAsync(
+        CancellationToken cancellationToken
+    ) => SummariesWithStatusAsync(OrderStatus.InProgress, cancellationToken);
+
+    public Task<IReadOnlyList<OrderSummary>> GetPickedOrderSummariesAsync(
+        CancellationToken cancellationToken
+    ) => SummariesWithStatusAsync(OrderStatus.Picked, cancellationToken);
+
+    public async Task<
+        IReadOnlyList<NeedsAttentionOrderSummary>
+    > GetNeedsAttentionOrderSummariesAsync(CancellationToken cancellationToken) =>
+        await OrderedOrdersWithStatus(OrderStatus.NeedsAttention)
+            .Select(order => new NeedsAttentionOrderSummary(
+                order.Id,
+                order.TcgplayerOrderId,
+                order.OrderLines.Count,
+                order.OrderLines.Sum(line => line.Quantity),
+                order
+                    .OrderLines.Where(line => line.PickOutcome == PickOutcome.HasIssue)
+                    .OrderBy(line => line.Id)
+                    .Select(line => line.ProductName)
+                    .ToList()
+            ))
+            .ToListAsync(cancellationToken);
+
+    private async Task<IReadOnlyList<OrderSummary>> SummariesWithStatusAsync(
+        OrderStatus status,
+        CancellationToken cancellationToken
+    ) =>
+        await OrderedOrdersWithStatus(status)
             .Select(order => new OrderSummary(
                 order.Id,
                 order.TcgplayerOrderId,
@@ -27,5 +52,11 @@ public sealed class DashboardRepository(LootSinglesDbContext context) : IDashboa
                 order.OrderLines.Sum(line => line.Quantity)
             ))
             .ToListAsync(cancellationToken);
-    }
+
+    private IQueryable<Order> OrderedOrdersWithStatus(OrderStatus status) =>
+        context
+            .Orders.AsNoTracking()
+            .Where(order => order.Status == status)
+            .OrderBy(order => order.ImportedAt)
+            .ThenBy(order => order.TcgplayerOrderId);
 }

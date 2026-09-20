@@ -105,13 +105,13 @@ for (const viewport of [
     await expect(page.getByRole('heading', { name: /browse orders/i })).toBeVisible()
 
     const seededOrder = page.getByRole('article', { name: /E2E-ORDER-00001/i })
-    await expect(seededOrder).toContainText('ready')
+    await expect(seededOrder).toContainText('Ready')
     await expect(seededOrder.getByRole('time')).toBeVisible()
 
     const importedOrder = page.getByRole('article', {
       name: /PARTIAL-BATCH-VALID-1/i,
     })
-    await expect(importedOrder).toContainText('ready')
+    await expect(importedOrder).toContainText('Ready')
     await expect(importedOrder.getByRole('time')).toBeVisible()
     await expect(page.getByText(/customer|shipping address/i)).toHaveCount(0)
     expect(

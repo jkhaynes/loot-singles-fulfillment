@@ -79,6 +79,20 @@ Use the configured value with EF Core tooling:
 dotnet ef database update --project backend/src/LootSingles.Infrastructure --startup-project backend/src/LootSingles.Api
 ```
 
+### Local ports: development and end-to-end are separate
+
+The two stacks are deliberately isolated so the Playwright suite can run while you are doing
+manual testing — separate servers and separate databases, nothing shared:
+
+| Stack | API | Web | Database |
+|---|---|---|---|
+| Development (`scripts/start-dev.ps1`) | 7166 (https) and 5098 (http) | 5173 | Your configured Azure SQL |
+| End-to-end (`npx playwright test`) | 5199 (`LootSingles.E2EHost`) | 5174 | Disposable SQL Server container |
+
+The E2E stack starts and seeds itself, so run the suite without starting anything first. It never
+reuses a dev server: if 5174 is already taken the run fails rather than silently proxying to the
+development API.
+
 ### Bootstrap the first Manager/Admin
 
 An empty database has no default credentials. Configure the first manager through temporary Secret

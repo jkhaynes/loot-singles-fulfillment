@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using LootSingles.Application.Orders;
+using LootSingles.Application.Picking;
 using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
 using Microsoft.AspNetCore.Authorization;
@@ -12,9 +13,68 @@ namespace LootSingles.Api.Controllers;
 [Authorize]
 public sealed class OrdersController(
     OrdersService ordersService,
-    OrderClaimService orderClaimService
+    OrderClaimService orderClaimService,
+    PickingService pickingService
 ) : ControllerBase
 {
+    [HttpPost("{orderId:int}/lines/{lineId:int}/pick")]
+    public async Task<IActionResult> Pick(
+        int orderId,
+        int lineId,
+        CancellationToken cancellationToken
+    )
+    {
+        var result = await pickingService.RecordPickedAsync(
+            orderId,
+            lineId,
+            ActorEmployeeId(),
+            cancellationToken
+        );
+
+        return ToPickingResponse(result);
+    }
+
+    [HttpPost("{orderId:int}/lines/{lineId:int}/report-issue")]
+    public async Task<IActionResult> ReportIssue(
+        int orderId,
+        int lineId,
+        [FromBody] ReportIssueRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        var result = await pickingService.ReportIssueAsync(
+            orderId,
+            lineId,
+            ActorEmployeeId(),
+            request.IssueType,
+            request.RequiredQuantity,
+            request.FoundQuantity,
+            request.Note,
+            cancellationToken
+        );
+
+        return ToPickingResponse(result);
+    }
+
+    private IActionResult ToPickingResponse(PickingResult result) =>
+        result.Outcome switch
+        {
+            // The detail the recording transaction committed (branch review BR-002/BR-003). Card
+            // images are not re-resolved here: a pick cannot change them, and the client keeps the
+            // ones it already loaded.
+            PickingOutcome.Success => Ok(ToDetailResponse(result.Order!)),
+            PickingOutcome.OrderNotFound => NotFound(new { error = "order_not_found" }),
+            PickingOutcome.LineNotFound => NotFound(new { error = "line_not_found" }),
+            PickingOutcome.NotYourClaim => Conflict(new { error = "not_your_claim" }),
+            PickingOutcome.InvalidIssueType => BadRequest(new { error = "invalid_issue_type" }),
+            PickingOutcome.InvalidIssueDetails => BadRequest(
+                new { error = "invalid_issue_details" }
+            ),
+            _ => throw new InvalidOperationException(
+                $"Unexpected outcome {result.Outcome} for recording a pick outcome."
+            ),
+        };
+
     [HttpPost("pick-next")]
     public async Task<IActionResult> PickNext(CancellationToken cancellationToken)
     {
@@ -152,29 +212,42 @@ public sealed class OrdersController(
             return NotFound(new { error = "order_not_found" });
         }
 
-        return Ok(
-            new OrderDetailResponse(
-                order.OrderId,
-                order.TcgplayerOrderId,
-                order.Status,
-                order
-                    .Lines.Select(line => new OrderLineDetailResponse(
-                        line.ProductName,
-                        line.ProductLine,
-                        line.Set,
-                        line.CollectorNumber,
-                        line.Rarity,
-                        line.Variant,
-                        line.Condition,
-                        line.Quantity,
-                        line.ImageUrl
-                    ))
-                    .ToList(),
-                order.ClaimedByEmployeeId,
-                order.ClaimedByEmployeeName
-            )
-        );
+        return Ok(ToDetailResponse(order));
     }
+
+    private static OrderDetailResponse ToDetailResponse(OrderDetail order) =>
+        new(
+            order.OrderId,
+            order.TcgplayerOrderId,
+            order.Status,
+            order
+                .Lines.Select(line => new OrderLineDetailResponse(
+                    line.Id,
+                    line.PickOutcome,
+                    line.ProductName,
+                    line.ProductLine,
+                    line.Set,
+                    line.CollectorNumber,
+                    line.Rarity,
+                    line.Variant,
+                    line.Condition,
+                    line.Quantity,
+                    line.ImageUrl,
+                    line.CurrentIssue is null
+                        ? null
+                        : new PickingIssueResponse(
+                            line.CurrentIssue.IssueType,
+                            line.CurrentIssue.RequiredQuantity,
+                            line.CurrentIssue.FoundQuantity,
+                            line.CurrentIssue.Note,
+                            line.CurrentIssue.ReportedByEmployeeName,
+                            line.CurrentIssue.ReportedAt
+                        )
+                ))
+                .ToList(),
+            order.ClaimedByEmployeeId,
+            order.ClaimedByEmployeeName
+        );
 }
 
 public sealed record OrderResponse(
@@ -204,6 +277,8 @@ public sealed record OrderClaimResponse(
 );
 
 public sealed record OrderLineDetailResponse(
+    int Id,
+    PickOutcome? PickOutcome,
     string ProductName,
     string ProductLine,
     string Set,
@@ -212,5 +287,22 @@ public sealed record OrderLineDetailResponse(
     string? Variant,
     string Condition,
     int Quantity,
-    string? ImageUrl
+    string? ImageUrl,
+    PickingIssueResponse? CurrentIssue
+);
+
+public sealed record PickingIssueResponse(
+    PickingIssueType IssueType,
+    int? RequiredQuantity,
+    int? FoundQuantity,
+    string? Note,
+    string? ReportedByEmployeeName,
+    DateTimeOffset ReportedAt
+);
+
+public sealed record ReportIssueRequest(
+    PickingIssueType IssueType,
+    int? RequiredQuantity,
+    int? FoundQuantity,
+    string? Note
 );

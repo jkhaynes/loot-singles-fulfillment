@@ -10,3 +10,15 @@ public sealed record OrderSummary(
     int ProductCount,
     int TotalQuantity
 );
+
+/// <summary>
+/// A Needs Attention row, which also names the flagged product(s) so the problem is visible
+/// without opening the order (015-pick-completion FR-014).
+/// </summary>
+public sealed record NeedsAttentionOrderSummary(
+    int OrderId,
+    string TcgplayerOrderId,
+    int ProductCount,
+    int TotalQuantity,
+    IReadOnlyList<string> FlaggedProductNames
+);

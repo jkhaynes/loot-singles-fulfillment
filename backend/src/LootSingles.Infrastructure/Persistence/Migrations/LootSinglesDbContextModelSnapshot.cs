@@ -212,7 +212,19 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("CurrentPickingIssueId")
+                        .HasColumnType("int");
+
                     b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PickOutcome")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("PickOutcomeRecordedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("PickOutcomeRecordedByEmployeeId")
                         .HasColumnType("int");
 
                     b.Property<string>("ProductLine")
@@ -242,9 +254,54 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CurrentPickingIssueId");
+
                     b.HasIndex("OrderId");
 
+                    b.HasIndex("PickOutcomeRecordedByEmployeeId");
+
                     b.ToTable("OrderLines");
+                });
+
+            modelBuilder.Entity("LootSingles.Domain.Orders.PickingIssue", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("FoundQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IssueType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("OrderLineId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("ReportedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("ReportedByEmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RequiredQuantity")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderLineId");
+
+                    b.HasIndex("ReportedByEmployeeId");
+
+                    b.ToTable("PickingIssues");
                 });
 
             modelBuilder.Entity("LootSingles.Application.Import.ImportOrderResult", b =>
@@ -271,10 +328,37 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("LootSingles.Domain.Orders.OrderLine", b =>
                 {
+                    b.HasOne("LootSingles.Domain.Orders.PickingIssue", "CurrentPickingIssue")
+                        .WithMany()
+                        .HasForeignKey("CurrentPickingIssueId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("LootSingles.Domain.Orders.Order", null)
                         .WithMany("OrderLines")
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LootSingles.Domain.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("PickOutcomeRecordedByEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CurrentPickingIssue");
+                });
+
+            modelBuilder.Entity("LootSingles.Domain.Orders.PickingIssue", b =>
+                {
+                    b.HasOne("LootSingles.Domain.Orders.OrderLine", null)
+                        .WithMany()
+                        .HasForeignKey("OrderLineId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LootSingles.Domain.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("ReportedByEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

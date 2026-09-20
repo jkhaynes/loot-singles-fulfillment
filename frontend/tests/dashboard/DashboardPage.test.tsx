@@ -19,6 +19,17 @@ vi.mock('../../src/features/orders/ordersApi', async (importOriginal) => {
 
 const employee = { employeeId: 1, displayName: 'Jamie', role: 'Picker' }
 
+/** Fills in whichever sections a test doesn't care about (015-pick-completion). */
+function dashboardData(sections: Partial<dashboardApi.DashboardData>): dashboardApi.DashboardData {
+  return {
+    ready: { count: 0, orders: [] },
+    inProgress: { count: 0, orders: [] },
+    needsAttention: { count: 0, orders: [] },
+    picked: { count: 0, orders: [] },
+    ...sections,
+  }
+}
+
 function renderDashboard(onLogout = vi.fn()) {
   return render(
     <MemoryRouter initialEntries={['/']}>
@@ -36,19 +47,21 @@ describe('DashboardPage', () => {
   })
 
   it('renders Ready orders from live data', async () => {
-    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({
-      ready: {
-        count: 1,
-        orders: [
-          {
-            orderId: 42,
-            tcgplayerOrderId: 'F0000001-ABC001-00001',
-            productCount: 2,
-            totalQuantity: 5,
-          },
-        ],
-      },
-    })
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({
+        ready: {
+          count: 1,
+          orders: [
+            {
+              orderId: 42,
+              tcgplayerOrderId: 'F0000001-ABC001-00001',
+              productCount: 2,
+              totalQuantity: 5,
+            },
+          ],
+        },
+      }),
+    )
 
     renderDashboard()
 
@@ -58,26 +71,87 @@ describe('DashboardPage', () => {
     expect(screen.getByText('1')).toBeInTheDocument() // Ready stat tile count
   })
 
+  // 015-pick-completion T039: the three placeholder tiles now show live counts (US3 AC1, AC2).
+  it('shows live counts for In Progress, Needs Attention and Picked instead of placeholders', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({
+        ready: { count: 1, orders: [] },
+        inProgress: { count: 2, orders: [] },
+        needsAttention: {
+          count: 1,
+          orders: [
+            {
+              orderId: 77,
+              tcgplayerOrderId: 'FLAGGED-ORDER',
+              productCount: 3,
+              totalQuantity: 4,
+              flaggedProductNames: ['Lightning Bolt (Foil)'],
+            },
+          ],
+        },
+        picked: { count: 5, orders: [] },
+      }),
+    )
+
+    renderDashboard()
+
+    const inProgressTile = await screen.findByRole('article', { name: 'In Progress' })
+    expect(within(inProgressTile).getByText('2')).toBeInTheDocument()
+    const needsAttentionTile = screen.getByRole('article', { name: 'Needs Attention' })
+    expect(within(needsAttentionTile).getByText('1')).toBeInTheDocument()
+    const pickedTile = screen.getByRole('article', { name: 'Picked' })
+    expect(within(pickedTile).getByText('5')).toBeInTheDocument()
+    expect(screen.queryByText('Not yet available')).not.toBeInTheDocument()
+  })
+
+  it('names the flagged product on a needs-attention order', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({
+        needsAttention: {
+          count: 1,
+          orders: [
+            {
+              orderId: 77,
+              tcgplayerOrderId: 'FLAGGED-ORDER',
+              productCount: 3,
+              totalQuantity: 4,
+              flaggedProductNames: ['Lightning Bolt (Foil)', 'Black Lotus'],
+            },
+          ],
+        },
+      }),
+    )
+
+    renderDashboard()
+
+    const tile = await screen.findByRole('article', { name: 'Needs Attention' })
+    expect(within(tile).getByText(/FLAGGED-ORDER/)).toBeInTheDocument()
+    expect(within(tile).getByText(/Lightning Bolt \(Foil\)/)).toBeInTheDocument()
+    expect(within(tile).getByText(/Black Lotus/)).toBeInTheDocument()
+  })
+
   it('links each available order to its detail route', async () => {
-    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({
-      ready: {
-        count: 2,
-        orders: [
-          {
-            orderId: 42,
-            tcgplayerOrderId: 'F0000001-ABC001-00001',
-            productCount: 2,
-            totalQuantity: 5,
-          },
-          {
-            orderId: 77,
-            tcgplayerOrderId: 'F0000002-ABC002-00002',
-            productCount: 1,
-            totalQuantity: 1,
-          },
-        ],
-      },
-    })
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({
+        ready: {
+          count: 2,
+          orders: [
+            {
+              orderId: 42,
+              tcgplayerOrderId: 'F0000001-ABC001-00001',
+              productCount: 2,
+              totalQuantity: 5,
+            },
+            {
+              orderId: 77,
+              tcgplayerOrderId: 'F0000002-ABC002-00002',
+              productCount: 1,
+              totalQuantity: 1,
+            },
+          ],
+        },
+      }),
+    )
 
     renderDashboard()
 
@@ -92,19 +166,21 @@ describe('DashboardPage', () => {
   })
 
   it('visually emphasizes an order row whose total quantity is greater than one', async () => {
-    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({
-      ready: {
-        count: 1,
-        orders: [
-          {
-            orderId: 42,
-            tcgplayerOrderId: 'F0000001-ABC001-00001',
-            productCount: 2,
-            totalQuantity: 5,
-          },
-        ],
-      },
-    })
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({
+        ready: {
+          count: 1,
+          orders: [
+            {
+              orderId: 42,
+              tcgplayerOrderId: 'F0000001-ABC001-00001',
+              productCount: 2,
+              totalQuantity: 5,
+            },
+          ],
+        },
+      }),
+    )
 
     renderDashboard()
 
@@ -114,19 +190,21 @@ describe('DashboardPage', () => {
   })
 
   it('does not emphasize an order row whose total quantity is exactly one', async () => {
-    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({
-      ready: {
-        count: 1,
-        orders: [
-          {
-            orderId: 43,
-            tcgplayerOrderId: 'F0000002-ABC002-00002',
-            productCount: 1,
-            totalQuantity: 1,
-          },
-        ],
-      },
-    })
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({
+        ready: {
+          count: 1,
+          orders: [
+            {
+              orderId: 43,
+              tcgplayerOrderId: 'F0000002-ABC002-00002',
+              productCount: 1,
+              totalQuantity: 1,
+            },
+          ],
+        },
+      }),
+    )
 
     renderDashboard()
 
@@ -148,27 +226,36 @@ describe('DashboardPage', () => {
   })
 
   it('shows an empty-state message when there are no Ready orders', async () => {
-    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({ ready: { count: 0, orders: [] } })
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({ ready: { count: 0, orders: [] } }),
+    )
 
     renderDashboard()
 
     expect(await screen.findByText(/no orders ready to pick/i)).toBeInTheDocument()
   })
 
-  it('renders the three not-yet-available placeholder sections', async () => {
-    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({ ready: { count: 0, orders: [] } })
+  // 015-pick-completion: the three sections carry live data now; their placeholder assertion was
+  // replaced by the live-count tests above.
+  it('renders all four sections with zero counts when nothing is in flight', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({ ready: { count: 0, orders: [] } }),
+    )
 
     renderDashboard()
     await screen.findByText(/no orders ready to pick/i)
 
-    expect(screen.getByText('In Progress')).toBeInTheDocument()
-    expect(screen.getByText('Needs Attention')).toBeInTheDocument()
-    expect(screen.getByText('Picked')).toBeInTheDocument()
-    expect(screen.getAllByText(/not yet available/i)).toHaveLength(3)
+    for (const label of ['Ready to Pick', 'In Progress', 'Needs Attention', 'Picked']) {
+      const tile = screen.getByRole('article', { name: label })
+      expect(within(tile).getByText('0')).toBeInTheDocument()
+    }
+    expect(screen.queryByText(/not yet available/i)).not.toBeInTheDocument()
   })
 
   it('invokes logout when the logout control is activated', async () => {
-    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({ ready: { count: 0, orders: [] } })
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({ ready: { count: 0, orders: [] } }),
+    )
     const onLogout = vi.fn()
     const user = userEvent.setup()
 
@@ -180,7 +267,9 @@ describe('DashboardPage', () => {
   })
 
   it('provides a prominent Import Orders action targeting the import screen', async () => {
-    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({ ready: { count: 0, orders: [] } })
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({ ready: { count: 0, orders: [] } }),
+    )
 
     renderDashboard()
     await screen.findByText(/no orders ready to pick/i)
@@ -189,7 +278,9 @@ describe('DashboardPage', () => {
   })
 
   it('claims and navigates to the assigned order when Pick Next Order succeeds', async () => {
-    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({ ready: { count: 1, orders: [] } })
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({ ready: { count: 1, orders: [] } }),
+    )
     vi.mocked(ordersApi.pickNextOrder).mockResolvedValue({
       orderId: 42,
       tcgplayerOrderId: 'PICKED-ORDER',
@@ -206,7 +297,9 @@ describe('DashboardPage', () => {
   })
 
   it('shows a clear message when no orders are available to pick', async () => {
-    vi.mocked(dashboardApi.getDashboard).mockResolvedValue({ ready: { count: 0, orders: [] } })
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({ ready: { count: 0, orders: [] } }),
+    )
     vi.mocked(ordersApi.pickNextOrder).mockRejectedValue(new NoOrdersAvailableError())
     const user = userEvent.setup()
 

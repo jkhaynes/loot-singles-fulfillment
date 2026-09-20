@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   getOrders,
   claimOrder,
+  orderStatusLabel,
   OrderAlreadyClaimedError,
   EmployeeHasActiveClaimError,
 } from './ordersApi'
@@ -124,9 +125,11 @@ export function OrdersPage() {
               <div>
                 <span className="order-list-item__label">Status</span>
                 <span className="order-list-item__status">
+                  {/* A claimed order names its claimant whatever its status: a Picked order keeps
+                      its claim, so the status alone would hide who is holding it. */}
                   {order.claimedByEmployeeName
-                    ? `In Progress · Picking by ${order.claimedByEmployeeName}`
-                    : order.status}
+                    ? `${orderStatusLabel(order.status)} · Picking by ${order.claimedByEmployeeName}`
+                    : orderStatusLabel(order.status)}
                 </span>
               </div>
               <div>

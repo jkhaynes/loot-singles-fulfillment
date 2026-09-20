@@ -7,6 +7,7 @@ using LootSingles.Application.CardCatalog;
 using LootSingles.Application.Dashboard;
 using LootSingles.Application.Import;
 using LootSingles.Application.Orders;
+using LootSingles.Application.Picking;
 using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Auth;
@@ -25,7 +26,10 @@ await using var container = new MsSqlBuilder(SqlServerImage).Build();
 await container.StartAsync();
 
 var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseUrls("http://127.0.0.1:5098");
+
+// Dedicated E2E port, deliberately not the dev API's 5098/7166, so the Playwright suite and
+// scripts/start-dev.ps1 can run at the same time against separate servers and databases.
+builder.WebHost.UseUrls("http://127.0.0.1:5199");
 
 builder.Services.AddDbContext<LootSinglesDbContext>(options =>
     options.UseSqlServer(container.GetConnectionString())
@@ -72,6 +76,8 @@ builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvide
 builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();
 builder.Services.AddScoped<OrderClaimService>();
+builder.Services.AddScoped<IPickingRepository, PickingRepository>();
+builder.Services.AddScoped<PickingService>();
 builder
     .Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -248,7 +254,61 @@ static async Task SeedAsync(IServiceProvider services)
             ],
         }
     );
+    // 015-pick-completion: dedicated orders for pick-completion E2E, imported newer than the
+    // others so "Pick Next Order" (FIFO-oldest) never hands them to another spec.
+    context.Employees.Add(
+        new Employee
+        {
+            Username = "e2epickerthree",
+            NormalizedUsername = "E2EPICKERTHREE",
+            DisplayName = "E2E Picker Three",
+            PinHash = pinHasher.Hash("1234"),
+            Role = EmployeeRole.Picker,
+            CreatedAt = DateTimeOffset.UtcNow,
+        }
+    );
+    context.Employees.Add(
+        new Employee
+        {
+            Username = "e2epickerfour",
+            NormalizedUsername = "E2EPICKERFOUR",
+            DisplayName = "E2E Picker Four",
+            PinHash = pinHasher.Hash("1234"),
+            Role = EmployeeRole.Picker,
+            CreatedAt = DateTimeOffset.UtcNow,
+        }
+    );
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00004",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(10),
+            OrderLines = [PickCompletionLine("Charizard", 2), PickCompletionLine("Blastoise", 1)],
+        }
+    );
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00005",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(15),
+            OrderLines = [PickCompletionLine("Venusaur", 1), PickCompletionLine("Mewtwo", 1)],
+        }
+    );
     await context.SaveChangesAsync();
+
+    static OrderLine PickCompletionLine(string productName, int quantity) =>
+        new()
+        {
+            RawDescription = $"{productName} - Base Set - #1/102 - Rare - Near Mint",
+            ProductLine = "Pokemon",
+            ProductName = productName,
+            Set = "Base Set",
+            CollectorNumber = "#1/102",
+            Condition = "Near Mint",
+            Quantity = quantity,
+        };
 }
 
 internal sealed class FakeCardCatalogProvider(

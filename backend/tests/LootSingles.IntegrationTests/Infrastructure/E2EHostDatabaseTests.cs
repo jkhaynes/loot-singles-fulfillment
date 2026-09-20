@@ -18,7 +18,10 @@ public sealed class E2EHostDatabaseTests
                     "run",
                     "--project",
                     Path.Combine(repositoryRoot, "backend", "tests", "LootSingles.E2EHost"),
-                    "--no-build",
+                    // Deliberately no --no-build: this test is worthless against a stale binary,
+                    // which previously reported a 500 defect as a passing 404 (branch review
+                    // BR-013). The host starts a SQL Server container anyway, so a build is cheap
+                    // relative to startup.
                 },
                 WorkingDirectory = repositoryRoot,
                 RedirectStandardOutput = true,
@@ -29,7 +32,7 @@ public sealed class E2EHostDatabaseTests
 
         try
         {
-            using var client = new HttpClient { BaseAddress = new Uri("http://127.0.0.1:5098") };
+            using var client = new HttpClient { BaseAddress = new Uri("http://127.0.0.1:5199") };
             var health = await WaitForHealthAsync(client, process);
             Assert.Equal("Microsoft.EntityFrameworkCore.SqlServer", health.DatabaseProvider);
             Assert.True(health.Seeded);

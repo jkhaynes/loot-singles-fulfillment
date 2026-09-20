@@ -12,6 +12,8 @@ public sealed record OrderDetail(
 );
 
 public sealed record OrderLineDetail(
+    int Id,
+    PickOutcome? PickOutcome,
     string ProductName,
     string ProductLine,
     string Set,
@@ -20,5 +22,15 @@ public sealed record OrderLineDetail(
     string? Variant,
     string Condition,
     int Quantity,
-    string? ImageUrl = null
+    string? ImageUrl = null,
+    PickingIssueDetail? CurrentIssue = null
+);
+
+public sealed record PickingIssueDetail(
+    PickingIssueType IssueType,
+    int? RequiredQuantity,
+    int? FoundQuantity,
+    string? Note,
+    string? ReportedByEmployeeName,
+    DateTimeOffset ReportedAt
 );

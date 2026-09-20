@@ -169,6 +169,32 @@
   background: var(--color-surface-elevated);
 }
 
+.dashboard-stat__icon[data-status='in-progress'] {
+  color: var(--color-info);
+  background: color-mix(in srgb, var(--color-info) 15%, transparent);
+}
+
+.dashboard-stat__icon[data-status='needs-attention'] {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+}
+
+.dashboard-stat__icon[data-status='picked'] {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+}
+
+.dashboard-stat__detail {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}
+
+.dashboard-stat__detail a {
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
 .dashboard-stat__label {
   margin: 0;
   font-size: var(--font-size-body-small);
