@@ -33,10 +33,10 @@ What to actually type, in order:
 → automated build/tests pass →
 
 ```
-/code-design-review
+/branch-review
 ```
 
-→ remediate any Must Fix findings as new tasks in the existing `tasks.md`, via `/speckit-implement`, then re-run `/code-design-review` — repeat until no Must Fix findings remain →
+→ turn findings into tasks with `/review-remediation` (all Required findings, plus whichever Optional ones you approve), resolve them via `/speckit-implement`, then re-run `/branch-review` — repeat until no Required findings remain →
 
 ```
 /speckit-converge
@@ -44,7 +44,7 @@ What to actually type, in order:
 
 → pull request → CI → human review → merge
 
-Repeat `/speckit-implement` → `/speckit-converge` until convergence is reported — that loop, not a single implement pass, is what "done" means for a feature. `/code-design-review` sits inside that loop too: it must be clean (zero Must Fix findings) before `/speckit-converge` runs.
+Repeat `/speckit-implement` → `/speckit-converge` until convergence is reported — that loop, not a single implement pass, is what "done" means for a feature. `/branch-review` sits inside that loop too: it must be clean (zero Required findings) before `/speckit-converge` runs.
 
 The Spec Kit `git` extension branches and commits along the way automatically (branch created before `/speckit-specify`; each planning command offers a confirmed commit after it runs). Config: `.specify/extensions.yml` and `.specify/extensions/git/git-config.yml`.
 
@@ -84,29 +84,32 @@ See the hierarchy defined in [`CLAUDE.md`](../../CLAUDE.md). When artifacts conf
 9.  Human review / approval        (tasks.md is the tracker — no GitHub issue required)
 10. Spec Kit implementation             (/speckit-implement) — strict TDD per constitution Principle IV
 11. Automated build/tests pass
-12. Code and Design Review              (/code-design-review) — evaluates the actual implementation; repeat 10-12 until zero Must Fix findings remain
+12. Branch review                       (/branch-review + /review-remediation) — evaluates the actual implementation; repeat 10-12 until zero Required findings remain
 13. Spec Kit convergence verification   (/speckit-converge) — repeat 10-13 until converged
 14. Pull request, CI, human review, merge
 ```
 
-Spec Kit artifacts (specification, plan, tasks) are the implementation contract for a feature. `/speckit-implement` executes against that contract; it does not originate or silently amend it. If execution or `/code-design-review` surfaces a contradiction, missing rule, or architectural conflict, work returns to Spec Kit clarification/planning rather than being resolved ad hoc during implementation — see the source-of-truth hierarchy in [`CLAUDE.md`](../../CLAUDE.md).
+Spec Kit artifacts (specification, plan, tasks) are the implementation contract for a feature. `/speckit-implement` executes against that contract; it does not originate or silently amend it. If execution or `/branch-review` surfaces a contradiction, missing rule, or architectural conflict, work returns to Spec Kit clarification/planning rather than being resolved ad hoc during implementation — see the source-of-truth hierarchy in [`CLAUDE.md`](../../CLAUDE.md).
 
-## Code and Design Review Gate
+## Branch Review Gate
 
-`/code-design-review` is Spec Kit's post-implementation review gate — it is not a second development methodology, and it does not replace human PR review.
+`/branch-review` is Spec Kit's post-implementation review gate — it is not a second development methodology, and it does not replace human PR review. It reviews the current branch against its base branch, so run it on the feature branch.
 
 | Step | Evaluates | When |
 |---|---|---|
 | Human architecture/changeability review | The *proposed design* | After `/speckit-plan`, before task breakdown |
-| `/code-design-review` | The *actual implementation* | After `/speckit-implement`, once local build/tests pass |
+| `/branch-review` | The *actual implementation* | After `/speckit-implement`, once local build/tests pass |
 | `/speckit-converge` | Final conformance to the approved spec/plan/tasks | After review is clean, before PR |
 
-`/code-design-review` classifies findings as **Must Fix** or **Advisory**:
+`/branch-review` classifies each finding as **Required** or **Optional**, separately from its severity (a Low-severity finding may still be Required), and returns one verdict: PASS, PASS WITH SUGGESTIONS, or CHANGES REQUESTED.
 
-- **Must Fix** findings are added as new tasks to the feature's existing `tasks.md` — never a separate or competing task-tracking system — and are resolved by running `/speckit-implement` again. `/code-design-review` is then re-run; repeat until no Must Fix findings remain.
-- **Advisory** findings (optional improvements, subjective preferences, speculative optimizations) do not block completion.
-- A Must Fix finding that traces back to a flawed technical plan means returning to `/speckit-plan`, not patching around the plan in code.
-- A Must Fix finding that traces back to an unresolved or contradictory requirement means returning to `/speckit-clarify`.
+- **Required** findings block completion.
+- **Optional** findings do not block completion. Each carries an advisory `Recommended: Yes/No`; whether to take one on is the Product Owner's call.
+- `/review-remediation` converts findings into tasks: every unresolved Required finding automatically, plus whichever Optional ones you approve. It appends them to the feature's existing `tasks.md` — never a separate or competing task-tracking system — and plans the work without implementing it. Behavioral fixes are ordered test-first: the regression test that demonstrates the defect comes before the fix.
+- Resolve those tasks with `/speckit-implement`, then re-run `/branch-review`; repeat until no Required findings remain.
+- A Required finding that traces back to a flawed technical plan means returning to `/speckit-plan`, not patching around the plan in code.
+- A Required finding that traces back to an unresolved or contradictory requirement means returning to `/speckit-clarify`.
+- Review rounds have diminishing returns, and remediation can introduce its own defects. A round with no Required findings is the stopping point.
 
 This gate applies to application-code changes and is required before `/speckit-converge`. It does not apply to documentation-only or configuration-only changes.
 

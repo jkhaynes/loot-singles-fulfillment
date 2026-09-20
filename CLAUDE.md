@@ -41,10 +41,10 @@ Spec Kit is this project's sole AI-assisted feature development methodology. It 
 - Task breakdown
 - Artifact analysis (`/speckit-analyze`)
 - Implementation (`/speckit-implement`)
-- Code and Design Review (`/code-design-review`)
+- Branch review (`/branch-review`) and its remediation planning (`/review-remediation`)
 - Convergence verification (`/speckit-converge`)
 
-No second planning or implementation methodology is layered on top of Spec Kit. Strict Test-Driven Development (Red → Green → Refactor) is required for all new or modified application behavior, per the project constitution's Principle IV — this is enforced through the constitution itself, not a separate tool or extension. `/code-design-review` is part of this same Spec Kit lifecycle, not a second methodology — see "Code and Design Review Gate" below for how it fits between implementation and convergence.
+No second planning or implementation methodology is layered on top of Spec Kit. Strict Test-Driven Development (Red → Green → Refactor) is required for all new or modified application behavior, per the project constitution's Principle IV — this is enforced through the constitution itself, not a separate tool or extension. `/branch-review` and `/review-remediation` are part of this same Spec Kit lifecycle, not a second methodology — see "Branch Review Gate" below for how they fit between implementation and convergence.
 
 ## Spec Kit Git Auto-Commit Confirmation
 
@@ -56,24 +56,28 @@ The installed Spec Kit `git` extension checkpoints work by committing after `/sp
 
 Do not originate or replace a product specification or technical plan by improvising when approved Spec Kit artifacts already exist for that feature. If implementation discovers a contradictory requirement, a missing business rule, an unclear workflow, an architectural conflict, or a requirement that cannot reasonably be implemented as specified, **stop and surface the problem** rather than silently redesigning the feature or normalizing the specification to match whatever was implemented. Return to Spec Kit clarification/planning to resolve it.
 
-This applies equally to findings from `/code-design-review`: a finding rooted in a flawed technical plan returns to `/speckit-plan`; a finding rooted in an unresolved or contradictory requirement returns to `/speckit-clarify`. Ordinary implementation-level findings are captured as new tasks in the existing `tasks.md`, not a separate tracker — see "Code and Design Review Gate" below.
+This applies equally to findings from `/branch-review`: a finding rooted in a flawed technical plan returns to `/speckit-plan`; a finding rooted in an unresolved or contradictory requirement returns to `/speckit-clarify`. Ordinary implementation-level findings are captured as new tasks in the existing `tasks.md`, not a separate tracker — see "Branch Review Gate" below.
 
-## Code and Design Review Gate
+## Branch Review Gate
 
-Before a feature's application-code changes proceed to `/speckit-converge`, they MUST pass `/code-design-review` — Spec Kit's post-implementation review gate.
+Before a feature's application-code changes proceed to `/speckit-converge`, they MUST pass `/branch-review` — Spec Kit's post-implementation review gate.
 
 - **Human architecture/changeability review** (after `/speckit-plan`) evaluates the *proposed design* before any implementation exists.
-- **`/code-design-review`** (after `/speckit-implement`, once local build/tests pass) evaluates the *actual implementation* against the approved spec, plan, and constitution.
+- **`/branch-review`** (after `/speckit-implement`, once local build/tests pass) reviews the current branch against its base branch, evaluating the *actual implementation* against the approved spec, plan, and constitution. Run it on the feature branch; it reviews only that branch's changes and issues they directly expose.
 - **`/speckit-converge`** verifies the finished feature against the approved artifacts once review is clean; it does not re-review code quality.
 
-`/code-design-review` classifies findings as **Must Fix** or **Advisory**:
+`/branch-review` classifies each finding as **Required** or **Optional**, separately from its severity, and returns one verdict: PASS, PASS WITH SUGGESTIONS, or CHANGES REQUESTED.
 
-- Must Fix findings are captured as new tasks in the feature's existing `tasks.md` (never a separate or competing task list) and resolved through `/speckit-implement`, then `/code-design-review` is re-run — repeat until no Must Fix findings remain.
-- Advisory findings do not block completion.
-- A Must Fix finding that traces to a flawed technical plan means returning to `/speckit-plan`, not patching around it in code.
-- A Must Fix finding that traces to an unresolved or contradictory requirement means returning to `/speckit-clarify`.
+- Required findings block completion. A Low-severity finding may still be Required.
+- Optional findings do not block completion. Each carries an advisory `Recommended: Yes/No`; the decision to take one on is the Product Owner's, never assumed.
+- `/review-remediation` turns selected findings into tasks: it selects all unresolved Required findings automatically, asks which Optional findings to include, and appends them to the feature's existing `tasks.md` (never a separate or competing task list). It plans the work but does not implement it.
+- Those tasks are then resolved through `/speckit-implement` and `/branch-review` is re-run — repeat until no Required findings remain. Behavioral remediation is test-first: the regression test that demonstrates the defect comes before the fix that resolves it.
+- A Required finding that traces to a flawed technical plan means returning to `/speckit-plan`, not patching around it in code.
+- A Required finding that traces to an unresolved or contradictory requirement means returning to `/speckit-clarify`.
 
 This gate is required for application-code changes before `/speckit-converge`. It does not apply to documentation-only or configuration-only changes.
+
+Review rounds have diminishing returns, and remediation can introduce its own defects. When a round produces no Required findings, treat that as the stopping point rather than looking for another.
 
 ## Product-Specific Safety Rules
 
@@ -108,5 +112,5 @@ A feature is not complete merely because code runs, or because production code e
 - New or materially changed application behavior has been evaluated for whether it warrants production logging (per the constitution's Observability standard); important events and failures are logged via `ILogger<T>` with safe, non-PII structured fields where warranted — logging is not added reflexively for behavior that doesn't need it
 - Documentation is updated where required
 - Code review is complete
-- `/code-design-review` has been run against the implementation with zero remaining Must Fix findings (Advisory findings do not block) — required before `/speckit-converge`
+- `/branch-review` has been run against the implementation with zero remaining Required findings (Optional findings do not block) — required before `/speckit-converge`
 - `/speckit-converge` ultimately reports convergence for the feature
