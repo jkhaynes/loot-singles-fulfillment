@@ -6,6 +6,7 @@ import { OrderDetailPage } from '../../src/features/orders/OrderDetailPage'
 import * as ordersApi from '../../src/features/orders/ordersApi'
 import { AuthProvider } from '../../src/features/auth/AuthContext'
 import * as authApi from '../../src/features/auth/authApi'
+import { buildLine, buildMultiGameLines } from '../support/orderBuilders'
 
 vi.mock('../../src/features/orders/ordersApi', async (original) => ({
   ...(await original<typeof import('../../src/features/orders/ordersApi')>()),
@@ -599,5 +600,51 @@ describe('OrderDetailPage', () => {
     const pikachu = screen.getByRole('article', { name: /Pikachu/i })
     expect(within(pikachu).getByLabelText('Card image unavailable')).toBeInTheDocument()
     expect(within(pikachu).queryByRole('img')).not.toBeInTheDocument()
+  })
+
+  // 016-mobile-picking T009 — set-aware picking in the list view (spec US1, PRD §13).
+  describe('set grouping', () => {
+    it('renders one header per set, ordered by game then set', async () => {
+      vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder(buildMultiGameLines()))
+
+      renderPage()
+
+      const groups = await screen.findAllByRole('group')
+
+      // Magic before Pokemon; within each, sets alphabetical.
+      expect(groups.map((group) => group.getAttribute('aria-label'))).toEqual([
+        'Magic · Aetherdrift',
+        'Magic · Bloomburrow',
+        'Pokemon · Black Bolt',
+        'Pokemon · Surging Sparks',
+      ])
+    })
+
+    it('shows product and physical card counts per set', async () => {
+      vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder(buildMultiGameLines()))
+
+      renderPage()
+
+      const blackBolt = await screen.findByRole('group', { name: 'Pokemon · Black Bolt' })
+
+      // One product line, three physical cards — the distinction the picker needs at the box.
+      expect(within(blackBolt).getByText(/1 product/i)).toBeInTheDocument()
+      expect(within(blackBolt).getByText(/3 cards/i)).toBeInTheDocument()
+    })
+
+    it('keeps every line visible, including one with no recorded set', async () => {
+      const lines = [
+        buildLine({ productLine: 'Pokemon', set: 'Base Set', productName: 'Pikachu ex' }),
+        buildLine({ productLine: 'Pokemon', set: '', productName: 'Mystery Promo' }),
+      ]
+      vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder(lines))
+
+      renderPage()
+
+      // Never grouped out of existence (spec FR-005, Constitution V).
+      expect(await screen.findByRole('article', { name: /Mystery Promo/i })).toBeInTheDocument()
+      expect(screen.getAllByRole('article')).toHaveLength(2)
+      expect(screen.getByRole('group', { name: /Set not recorded/i })).toBeInTheDocument()
+    })
   })
 })

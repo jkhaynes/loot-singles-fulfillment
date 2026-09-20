@@ -30,9 +30,9 @@ Web application, per [plan.md](plan.md): `backend/src/`, `backend/tests/`, `fron
 **Purpose**: the fixtures every story's tests depend on. An order spanning one set exercises
 almost none of this feature, so building the right fixture first is real work, not ceremony.
 
-- [ ] T001 [P] Add an `OrderDetail` / `OrderLineDetail` test builder in `frontend/tests/support/orderBuilders.ts`, supporting multiple games, multiple sets per game, quantity greater than one, missing/blank set values, and each `PickOutcome` state
-- [ ] T002 Extend the E2E seed data in `backend/tests/LootSingles.E2EHost/Program.cs` with an order spanning at least two games and two sets per game, including one line with quantity greater than one
-- [ ] T003 [P] Add a `matchMedia` test helper in `frontend/tests/support/matchMedia.ts` so component tests can drive phone-sized and desktop-sized viewports
+- [X] T001 [P] Add an `OrderDetail` / `OrderLineDetail` test builder in `frontend/tests/support/orderBuilders.ts`, supporting multiple games, multiple sets per game, quantity greater than one, missing/blank set values, and each `PickOutcome` state
+- [X] T002 Extend the E2E seed data in `backend/tests/LootSingles.E2EHost/Program.cs` with an order spanning at least two games and two sets per game, including one line with quantity greater than one
+- [X] T003 [P] Add a `matchMedia` test helper in `frontend/tests/support/matchMedia.ts` so component tests can drive phone-sized and desktop-sized viewports
 
 **Checkpoint**: fixtures exist; story work can begin.
 
@@ -59,21 +59,21 @@ ordering, and that no line has gone missing.
 
 ### Tests for User Story 1 ⚠️ WRITE FIRST, MUST FAIL
 
-- [ ] T004 [P] [US1] Unit tests for `groupOrderLines` totality in `frontend/tests/orders/orderGrouping.test.ts` — every input line appears in exactly one output group, for empty, single-line, and multi-group orders. This is the invariant that a dropped line would break
-- [ ] T005 [P] [US1] Unit tests for game and set ordering in `frontend/tests/orders/orderGrouping.test.ts` — games alphabetical, sets alphabetical within a game, lines keeping their relative order within a set
-- [ ] T006 [P] [US1] Unit tests proving sets with the same name in different games do **not** merge, in `frontend/tests/orders/orderGrouping.test.ts`
-- [ ] T007 [P] [US1] Unit tests for missing, blank and whitespace-only set values in `frontend/tests/orders/orderGrouping.test.ts` — the line stays present, in a group marked not-recorded, sorted last within its game
-- [ ] T008 [P] [US1] Unit tests for `computeProgress` in `frontend/tests/orders/orderGrouping.test.ts` — products resolved out of total, physical cards summing `Quantity` so a line of 3 contributes 3, and a `HasIssue` line counting as accounted for
-- [ ] T009 [P] [US1] Component test in `frontend/tests/orders/OrderDetailPage.test.tsx` asserting the list view renders set headers with per-set product and card counts
+- [X] T004 [P] [US1] Unit tests for `groupOrderLines` totality in `frontend/tests/orders/orderGrouping.test.ts` — every input line appears in exactly one output group, for empty, single-line, and multi-group orders. This is the invariant that a dropped line would break
+- [X] T005 [P] [US1] Unit tests for game and set ordering in `frontend/tests/orders/orderGrouping.test.ts` — games alphabetical, sets alphabetical within a game, lines keeping their relative order within a set
+- [X] T006 [P] [US1] Unit tests proving sets with the same name in different games do **not** merge, in `frontend/tests/orders/orderGrouping.test.ts`
+- [X] T007 [P] [US1] Unit tests for missing, blank and whitespace-only set values in `frontend/tests/orders/orderGrouping.test.ts` — the line stays present, in a group marked not-recorded, sorted last within its game
+- [X] T008 [P] [US1] Unit tests for `computeProgress` in `frontend/tests/orders/orderGrouping.test.ts` — products resolved out of total, physical cards summing `Quantity` so a line of 3 contributes 3, and a `HasIssue` line counting as accounted for
+- [X] T009 [P] [US1] Component test in `frontend/tests/orders/OrderDetailPage.test.tsx` asserting the list view renders set headers with per-set product and card counts
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Implement `groupOrderLines` and the `SetGroup` shape in `frontend/src/features/orders/orderGrouping.ts` per [contracts/order-grouping.md](contracts/order-grouping.md)
-- [ ] T011 [US1] Implement set ordering as its own named comparator function in `frontend/src/features/orders/orderGrouping.ts`, kept separable so release-date ordering (PRD §13.1) is a one-place change later — a named function, **not** an injected strategy interface
-- [ ] T012 [US1] Implement `computeProgress` in `frontend/src/features/orders/orderGrouping.ts`
-- [ ] T013 [US1] Render the grouped order with set headers and counts in `frontend/src/features/orders/OrderDetailPage.tsx`
-- [ ] T014 [P] [US1] Style set headers and group separation in `frontend/src/features/orders/OrderDetailPage.css`
-- [ ] T015 [US1] E2E coverage in `frontend/e2e/order-detail.spec.ts` — open the multi-game seed order, assert game and set grouping and ordering, and assert the rendered line count equals the order's line count
+- [X] T010 [US1] Implement `groupOrderLines` and the `SetGroup` shape in `frontend/src/features/orders/orderGrouping.ts` per [contracts/order-grouping.md](contracts/order-grouping.md)
+- [X] T011 [US1] Implement set ordering as its own named comparator function in `frontend/src/features/orders/orderGrouping.ts`, kept separable so release-date ordering (PRD §13.1) is a one-place change later — a named function, **not** an injected strategy interface
+- [X] T012 [US1] Implement `computeProgress` in `frontend/src/features/orders/orderGrouping.ts`
+- [X] T013 [US1] Render the grouped order with set headers and counts in `frontend/src/features/orders/OrderDetailPage.tsx`
+- [X] T014 [P] [US1] Style set headers and group separation in `frontend/src/features/orders/OrderDetailPage.css`
+- [X] T015 [US1] E2E coverage in `frontend/e2e/order-detail.spec.ts` — open the multi-game seed order, assert game and set grouping and ordering, and assert the rendered line count equals the order's line count
 
 **Checkpoint**: US1 is independently shippable. The existing list view is already more useful.
 

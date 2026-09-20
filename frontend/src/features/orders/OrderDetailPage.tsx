@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   getOrderDetail,
@@ -13,6 +13,7 @@ import {
 } from './ordersApi'
 import type { OrderDetail, PickingIssueType, ReportIssueRequest } from './ordersApi'
 import { useAuth } from '../auth/AuthContext'
+import { groupOrderLines } from './orderGrouping'
 import './OrderDetailPage.css'
 
 type LoadState = 'loading' | 'loaded' | 'not-found' | 'error'
@@ -237,6 +238,8 @@ export function OrderDetailPage() {
   const canRecordOutcome = canRelease
   const confirmedLineCount =
     order?.lines.filter((line) => line.pickOutcome === 'picked').length ?? 0
+  // Set-aware picking (PRD §13): one group per storage box, ordered for the walk.
+  const setGroups = useMemo(() => groupOrderLines(order?.lines ?? []), [order?.lines])
 
   return (
     <main className="order-detail-page">
@@ -293,111 +296,134 @@ export function OrderDetailPage() {
         </p>
       ) : (
         <section className="order-detail-lines" aria-label="Products to pick">
-          {order?.lines.map((line) => (
-            <article
-              key={line.id}
-              className="order-detail-line"
-              aria-label={`Product ${line.productName}`}
+          {setGroups.map((group) => (
+            <div
+              key={`${group.game}\u0000${group.setName}`}
+              className="order-detail-set"
+              role="group"
+              aria-label={`${group.game} · ${group.setName}`}
             >
-              {line.imageUrl !== null ? (
-                <img
-                  className="order-detail-line__image"
-                  src={line.imageUrl}
-                  alt={line.productName}
-                />
-              ) : (
-                <div className="order-detail-line__placeholder" aria-label="Card image unavailable">
-                  <span aria-hidden="true">No image</span>
-                </div>
-              )}
-              <div className="order-detail-line__identity">
-                <h2>{line.productName}</h2>
-                <dl className="order-detail-line__attributes">
-                  <div>
-                    <dt>Product Line</dt>
-                    <dd>{line.productLine}</dd>
-                  </div>
-                  <div>
-                    <dt>Set</dt>
-                    <dd>{line.set}</dd>
-                  </div>
-                  <div>
-                    <dt>Collector Number</dt>
-                    <dd>{line.collectorNumber}</dd>
-                  </div>
-                  {line.rarity !== null && (
-                    <div>
-                      <dt>Rarity</dt>
-                      <dd>{line.rarity}</dd>
-                    </div>
-                  )}
-                  {line.variant !== null && (
-                    <div>
-                      <dt>Variant</dt>
-                      <dd>{line.variant}</dd>
-                    </div>
-                  )}
-                  <div>
-                    <dt>Condition</dt>
-                    <dd>{line.condition}</dd>
-                  </div>
-                  <div className="order-detail-line__quantity">
-                    <dt>Quantity</dt>
-                    <dd>
-                      {line.quantity > 1 ? (
-                        <strong data-emphasis="high">{line.quantity}</strong>
-                      ) : (
-                        <span>{line.quantity}</span>
-                      )}
-                    </dd>
-                  </div>
-                </dl>
-                {line.currentIssue && (
-                  <p className="order-detail-line__issue" role="status">
-                    <strong data-emphasis="high">
-                      {pickingIssueTypeLabel(line.currentIssue.issueType)}
-                    </strong>
-                    {line.currentIssue.requiredQuantity !== null &&
-                      line.currentIssue.foundQuantity !== null &&
-                      ` · found ${line.currentIssue.foundQuantity} of ${line.currentIssue.requiredQuantity}`}
-                    {line.currentIssue.note && ` · ${line.currentIssue.note}`}
-                    {line.currentIssue.reportedByEmployeeName &&
-                      ` · reported by ${line.currentIssue.reportedByEmployeeName}`}
-                  </p>
-                )}
-                {canRecordOutcome && (
-                  <div className="order-detail-line__actions">
-                    <button
-                      type="button"
-                      className="order-detail-line__picked"
-                      aria-pressed={line.pickOutcome === 'picked'}
-                      disabled={recordingLineId === line.id}
-                      onClick={() => handlePicked(line.id)}
+              <header className="order-detail-set__header">
+                <p className="order-detail-set__game">{group.game}</p>
+                <h2 className="order-detail-set__name">{group.setName}</h2>
+                <p className="order-detail-set__counts">
+                  {`${group.productCount} ${group.productCount === 1 ? 'product' : 'products'}`}
+                  {' · '}
+                  <strong data-emphasis={group.cardCount > group.productCount ? 'high' : undefined}>
+                    {`${group.cardCount} ${group.cardCount === 1 ? 'card' : 'cards'}`}
+                  </strong>
+                </p>
+              </header>
+              {group.lines.map((line) => (
+                <article
+                  key={line.id}
+                  className="order-detail-line"
+                  aria-label={`Product ${line.productName}`}
+                >
+                  {line.imageUrl !== null ? (
+                    <img
+                      className="order-detail-line__image"
+                      src={line.imageUrl}
+                      alt={line.productName}
+                    />
+                  ) : (
+                    <div
+                      className="order-detail-line__placeholder"
+                      aria-label="Card image unavailable"
                     >
-                      Picked
-                    </button>
-                    {issueFormLineId !== line.id && (
-                      <button
-                        type="button"
-                        className="order-detail-line__report"
-                        disabled={recordingLineId === line.id}
-                        onClick={() => setIssueFormLineId(line.id)}
-                      >
-                        Report Issue
-                      </button>
+                      <span aria-hidden="true">No image</span>
+                    </div>
+                  )}
+                  <div className="order-detail-line__identity">
+                    <h2>{line.productName}</h2>
+                    <dl className="order-detail-line__attributes">
+                      <div>
+                        <dt>Product Line</dt>
+                        <dd>{line.productLine}</dd>
+                      </div>
+                      <div>
+                        <dt>Set</dt>
+                        <dd>{line.set}</dd>
+                      </div>
+                      <div>
+                        <dt>Collector Number</dt>
+                        <dd>{line.collectorNumber}</dd>
+                      </div>
+                      {line.rarity !== null && (
+                        <div>
+                          <dt>Rarity</dt>
+                          <dd>{line.rarity}</dd>
+                        </div>
+                      )}
+                      {line.variant !== null && (
+                        <div>
+                          <dt>Variant</dt>
+                          <dd>{line.variant}</dd>
+                        </div>
+                      )}
+                      <div>
+                        <dt>Condition</dt>
+                        <dd>{line.condition}</dd>
+                      </div>
+                      <div className="order-detail-line__quantity">
+                        <dt>Quantity</dt>
+                        <dd>
+                          {line.quantity > 1 ? (
+                            <strong data-emphasis="high">{line.quantity}</strong>
+                          ) : (
+                            <span>{line.quantity}</span>
+                          )}
+                        </dd>
+                      </div>
+                    </dl>
+                    {line.currentIssue && (
+                      <p className="order-detail-line__issue" role="status">
+                        <strong data-emphasis="high">
+                          {pickingIssueTypeLabel(line.currentIssue.issueType)}
+                        </strong>
+                        {line.currentIssue.requiredQuantity !== null &&
+                          line.currentIssue.foundQuantity !== null &&
+                          ` · found ${line.currentIssue.foundQuantity} of ${line.currentIssue.requiredQuantity}`}
+                        {line.currentIssue.note && ` · ${line.currentIssue.note}`}
+                        {line.currentIssue.reportedByEmployeeName &&
+                          ` · reported by ${line.currentIssue.reportedByEmployeeName}`}
+                      </p>
+                    )}
+                    {canRecordOutcome && (
+                      <div className="order-detail-line__actions">
+                        <button
+                          type="button"
+                          className="order-detail-line__picked"
+                          aria-pressed={line.pickOutcome === 'picked'}
+                          disabled={recordingLineId === line.id}
+                          onClick={() => handlePicked(line.id)}
+                        >
+                          Picked
+                        </button>
+                        {issueFormLineId !== line.id && (
+                          <button
+                            type="button"
+                            className="order-detail-line__report"
+                            disabled={recordingLineId === line.id}
+                            onClick={() => setIssueFormLineId(line.id)}
+                          >
+                            Report Issue
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {canRecordOutcome && issueFormLineId === line.id && (
+                      <ReportIssueForm
+                        lineId={line.id}
+                        isSubmitting={recordingLineId === line.id}
+                        onCancel={() => setIssueFormLineId(null)}
+                        onSubmit={(request) => handleReportIssue(line.id, request)}
+                      />
                     )}
                   </div>
-                )}
-                {canRecordOutcome && issueFormLineId === line.id && (
-                  <ReportIssueForm
-                    lineId={line.id}
-                    isSubmitting={recordingLineId === line.id}
-                    onCancel={() => setIssueFormLineId(null)}
-                    onSubmit={(request) => handleReportIssue(line.id, request)}
-                  />
-                )}
-              </div>
-            </article>
+                </article>
+              ))}
+            </div>
           ))}
         </section>
       )}

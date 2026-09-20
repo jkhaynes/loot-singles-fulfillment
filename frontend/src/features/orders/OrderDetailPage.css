@@ -99,6 +99,45 @@
   gap: var(--space-3);
 }
 
+/* One storage box's worth of the order (PRD §13). */
+.order-detail-set {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.order-detail-set + .order-detail-set {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  /* A visible seam between boxes: crossing one means walking somewhere else. */
+  border-top: 1px solid var(--color-border);
+}
+
+.order-detail-set__header {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.order-detail-set__game {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.order-detail-set__name {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.order-detail-set__counts {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
 .order-detail-line {
   display: grid;
   grid-template-columns: 10rem minmax(0, 1fr);

@@ -296,7 +296,52 @@ static async Task SeedAsync(IServiceProvider services)
             OrderLines = [PickCompletionLine("Venusaur", 1), PickCompletionLine("Mewtwo", 1)],
         }
     );
+    // 016-mobile-picking T002. Spans two games with two sets each, so set-aware picking can be
+    // exercised end to end: game grouping, set ordering within a game, a line with no recorded
+    // set, and a quantity greater than one.
+    //
+    // The lines are deliberately listed in an order matching neither the expected game order nor
+    // the expected set order, so a grouping test cannot pass by accident of input order.
+    //
+    // Newer than every other seeded order so "Pick Next Order" (FIFO-oldest) never selects it.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00006",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(20),
+            OrderLines =
+            [
+                SetAwareLine("Pokemon", "Surging Sparks", "Pikachu ex", "#238/191", 1),
+                SetAwareLine("Magic", "Bloomburrow", "Mabel", "#213", 1),
+                // Quantity greater than one — the high-risk case (PRD §15).
+                SetAwareLine("Pokemon", "Black Bolt", "Genesect ex", "#067/086", 3),
+                SetAwareLine("Magic", "Aetherdrift", "Hare Apparent", "#124", 1),
+                // No recorded set. Must remain visible and pickable rather than being grouped
+                // out of existence (spec FR-005, Constitution V).
+                SetAwareLine("Pokemon", "", "Mystery Promo", "#PR-01", 1),
+            ],
+        }
+    );
     await context.SaveChangesAsync();
+
+    static OrderLine SetAwareLine(
+        string productLine,
+        string set,
+        string productName,
+        string collectorNumber,
+        int quantity
+    ) =>
+        new()
+        {
+            RawDescription = $"{productName} - {set} - {collectorNumber} - Rare - Near Mint",
+            ProductLine = productLine,
+            ProductName = productName,
+            Set = set,
+            CollectorNumber = collectorNumber,
+            Condition = "Near Mint",
+            Quantity = quantity,
+        };
 
     static OrderLine PickCompletionLine(string productName, int quantity) =>
         new()
