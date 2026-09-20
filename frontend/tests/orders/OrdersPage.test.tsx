@@ -106,6 +106,50 @@ describe('OrdersPage', () => {
     expect(within(order).queryByText('needsAttention')).not.toBeInTheDocument()
   })
 
+  // 015-pick-completion T064 (branch review BR-007, PO decision 2026-09-20): a claimed order
+  // shows who holds it whatever its status — a Picked order keeps its claim (PO decision
+  // 2026-09-19), so without this nobody can see who to ask about it.
+  it('names the claimant on a claimed order whatever its status', async () => {
+    vi.mocked(ordersApi.getOrders).mockResolvedValue([
+      {
+        orderId: 1,
+        tcgplayerOrderId: 'PICKED-CLAIMED',
+        status: 'picked',
+        importedAt: '2026-08-22T15:00:00Z',
+        claimedByEmployeeId: 7,
+        claimedByEmployeeName: 'Sam',
+      },
+      {
+        orderId: 2,
+        tcgplayerOrderId: 'FLAGGED-CLAIMED',
+        status: 'needsAttention',
+        importedAt: '2026-08-22T15:00:00Z',
+        claimedByEmployeeId: 7,
+        claimedByEmployeeName: 'Sam',
+      },
+      {
+        orderId: 3,
+        tcgplayerOrderId: 'PICKED-RELEASED',
+        status: 'picked',
+        importedAt: '2026-08-22T15:00:00Z',
+        claimedByEmployeeId: null,
+        claimedByEmployeeName: null,
+      },
+    ])
+
+    renderPage()
+
+    const claimedPicked = await screen.findByRole('article', { name: /PICKED-CLAIMED/i })
+    expect(within(claimedPicked).getByText('Picked · Picking by Sam')).toBeInTheDocument()
+
+    const claimedFlagged = screen.getByRole('article', { name: /FLAGGED-CLAIMED/i })
+    expect(within(claimedFlagged).getByText('Needs Attention · Picking by Sam')).toBeInTheDocument()
+
+    const released = screen.getByRole('article', { name: /PICKED-RELEASED/i })
+    expect(within(released).getByText('Picked')).toBeInTheDocument()
+    expect(within(released).queryByText(/Picking by/)).not.toBeInTheDocument()
+  })
+
   it('links each order to its detail route', async () => {
     vi.mocked(ordersApi.getOrders).mockResolvedValue([
       {

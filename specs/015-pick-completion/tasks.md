@@ -368,6 +368,116 @@ tiles and the order list's status display are both fully accurate and closed out
 
 ---
 
+## Phase 8: Branch Review Remediation (`branch-review`, 2026-09-20)
+
+Remediates the selected findings from the branch review of `015-pick-completion`. Each behavioral
+finding is fixed test-first: the regression task below must be run and confirmed failing against
+the current implementation before its implementation task (Constitution Principle IV).
+BR-008 (collapse the Dashboard's four sequential queries) was reviewed and declined.
+
+### BR-001 — Missing server-side validation on a reported issue (Required)
+
+- [X] T052 [US2] Write failing unit tests in
+      `backend/tests/LootSingles.UnitTests/Picking/PickingServiceTests.cs` proving
+      `PickingService.ReportIssueAsync` currently accepts a `note` longer than
+      `PickingIssueConfiguration.NoteMaxLength` (500) and negative `requiredQuantity`/
+      `foundQuantity` values, passing them straight to the repository. Assert the intended
+      behavior: a rejection outcome is returned and the repository is never called. Run and
+      confirm they fail for the expected reason before T053.
+- [X] T053 [US2] Validate note length and non-negative quantities in
+      `PickingService.ReportIssueAsync` (`backend/src/LootSingles.Application/Picking/PickingService.cs`),
+      returning a new rejection outcome alongside the existing `InvalidIssueType`; map it to 400
+      in `OrdersController.ToPickingResponseAsync`
+      (`backend/src/LootSingles.Api/Controllers/OrdersController.cs`) and add the outcome to the
+      response table in `specs/015-pick-completion/contracts/picking-api.md`. Makes T052 pass.
+      Without this an over-long note reaches SQL Server and surfaces as an unhandled 500
+      ("String or binary data would be truncated") rather than a typed 400 (Principle V).
+- [X] T054 [US2] Add integration coverage in
+      `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs` asserting
+      `POST /api/orders/{orderId}/lines/{lineId}/report-issue` returns 400 for an over-long note
+      and for a negative quantity, and that no `PickingIssue` row is persisted and the line's
+      `PickOutcome` is unchanged in either case (depends on T053).
+
+### BR-002 + BR-003 — Response re-read after commit, and image enrichment on every write (Required)
+
+These share one fix: return the order detail the recording transaction already read, instead of
+re-reading through `OrdersService` (which also re-runs card-image enrichment) after the commit.
+
+- [X] T055 [US1] Write a failing integration test in
+      `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs` proving that
+      recording a pick re-runs card-image enrichment: register a call-counting
+      `ICardCatalogProvider` (mirroring this file's existing `FakeCardCatalogProvider` and
+      `RecordingProvider` in the unit tests), `GET /api/orders/{id}`, record the provider's call
+      count, `POST .../pick`, and assert the count is unchanged. Run and confirm it fails before
+      T056.
+- [X] T056 [US1] Return the order detail read inside `RecordOutcomeAsync`'s transaction: extend
+      `PickingResult` to carry `OrderDetail`
+      (`backend/src/LootSingles.Application/Picking/PickingResult.cs`), project it in
+      `backend/src/LootSingles.Infrastructure/Persistence/PickingRepository.cs` in place of the
+      status-only read, and have `OrdersController.ToPickingResponseAsync` return it directly —
+      removing both the post-commit `ordersService.GetByIdAsync` call and its null-forgiving `!`.
+      Makes T055 pass. Restores research.md §2 (re-read inside the transaction, as feature 013's
+      code-design-review M1 finding required) and stops every line confirmation issuing one
+      external catalog call per line.
+- [X] T057 [US1] Add integration coverage in
+      `backend/tests/LootSingles.IntegrationTests/Persistence/PickingConcurrencyTests.cs`
+      asserting the `OrderDetail` returned by `RecordOutcomeAsync` matches the committed state
+      exactly — recomputed order status, the recorded line's `PickOutcome`, and `CurrentIssue`
+      for an issue report — so the response, the logged status, and the persisted row come from
+      one observation (depends on T056).
+- [X] T058 [P] [US1] Write a failing component test in
+      `frontend/tests/orders/OrderDetailPage.test.tsx` proving a line's card image survives
+      recording a pick when the response carries `imageUrl: null` (the shape T056 produces). Run
+      and confirm it fails before T059.
+- [X] T059 [US1] Preserve each line's already-loaded `imageUrl` when merging a pick or
+      report-issue response in `frontend/src/features/orders/OrderDetailPage.tsx`, so dropping
+      server-side enrichment on writes does not blank the card images mid-pick. Makes T058 pass
+      (depends on T056, T058).
+- [X] T060 [US1] Extend `frontend/e2e/pick-completion.spec.ts`'s happy-path test to assert the
+      card image is still displayed after confirming a line, covering the full
+      API-to-UI path this change touches (depends on T059).
+
+### BR-004 — No manager-role coverage for the claim gate (Optional, approved)
+
+- [X] T061 [P] [US1] Add integration coverage in
+      `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs` asserting a
+      `ManagerAdmin` who does not hold an order's claim is rejected with 409 by both
+      `.../pick` and `.../report-issue`, and that the line is left unrecorded — pinning spec.md's
+      "no exemption" edge case and FR-010. Non-behavioral (no production change): the rule already
+      holds because the gate is claim-based; this test prevents a future role-based exemption from
+      passing silently. `OrdersControllerClaimingTests.LoginAsync` shows the role-specific login.
+
+### BR-005 — `releaseError` now carries every action's error (Optional, approved)
+
+- [X] T062 [P] Rename `releaseError`/`setReleaseError` to `actionError`/`setActionError` in
+      `frontend/src/features/orders/OrderDetailPage.tsx`, which now also reports pick and
+      report-issue failures. Non-behavioral rename; no new test — the existing error-path
+      component tests must stay green.
+
+### BR-006 — Duplicated line-existence check (Optional, approved)
+
+- [X] T063 Remove the pre-insert line-existence check in `RecordOutcomeAsync`'s issue-report
+      branch (`backend/src/LootSingles.Infrastructure/Persistence/PickingRepository.cs`), letting
+      the shared `linesUpdated != 1` check return `LineNotFound` for both paths; the inserted
+      `PickingIssue` rolls back with the transaction. Non-behavioral: the existing
+      `Pick_LineNotInThisOrder_Returns404LineNotFound` and report-issue tests must stay green, and
+      no new test is warranted since the observable outcome is unchanged.
+
+### BR-007 — Claimant hidden on a claimed Picked order (Optional, approved)
+
+Product Owner decision 2026-09-20: a claimed order shows who holds it regardless of status.
+
+- [X] T064 [P] [US3] Write a failing component test in `frontend/tests/orders/OrdersPage.test.tsx`
+      proving a `picked` order that is still claimed renders without its claimant's name, and
+      assert the intended display (status label plus the claimant). Run and confirm it fails
+      before T065.
+- [X] T065 [US3] Show the claimant for any claimed order in
+      `frontend/src/features/orders/OrdersPage.tsx`, not only `inProgress` ones, so a Picked
+      order that keeps its claim (PO decision 2026-09-19) still shows who holds it. Makes T064
+      pass.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

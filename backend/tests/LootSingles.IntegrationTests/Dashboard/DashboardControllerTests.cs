@@ -93,10 +93,7 @@ public class DashboardControllerTests
         var needsAttention = root.GetProperty("needsAttention");
         Assert.Equal(1, needsAttention.GetProperty("count").GetInt32());
         var flaggedSummary = needsAttention.GetProperty("orders").EnumerateArray().Single();
-        Assert.Equal(
-            "FLAGGED-ORDER",
-            flaggedSummary.GetProperty("tcgplayerOrderId").GetString()
-        );
+        Assert.Equal("FLAGGED-ORDER", flaggedSummary.GetProperty("tcgplayerOrderId").GetString());
         Assert.Equal(
             ["Pikachu"],
             flaggedSummary
@@ -142,7 +139,10 @@ public class DashboardControllerTests
                 .GetProperty("tcgplayerOrderId")
                 .GetString()
         );
-        Assert.Equal(0, document.RootElement.GetProperty("inProgress").GetProperty("count").GetInt32());
+        Assert.Equal(
+            0,
+            document.RootElement.GetProperty("inProgress").GetProperty("count").GetInt32()
+        );
     }
 
     private static async Task<Order> SeedClaimableOrderAsync(

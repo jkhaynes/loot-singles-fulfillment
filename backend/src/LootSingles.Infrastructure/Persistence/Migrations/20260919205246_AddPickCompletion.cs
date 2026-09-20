@@ -15,39 +15,55 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                 name: "CurrentPickingIssueId",
                 table: "OrderLines",
                 type: "int",
-                nullable: true);
+                nullable: true
+            );
 
             migrationBuilder.AddColumn<int>(
                 name: "PickOutcome",
                 table: "OrderLines",
                 type: "int",
-                nullable: true);
+                nullable: true
+            );
 
             migrationBuilder.AddColumn<DateTimeOffset>(
                 name: "PickOutcomeRecordedAt",
                 table: "OrderLines",
                 type: "datetimeoffset",
-                nullable: true);
+                nullable: true
+            );
 
             migrationBuilder.AddColumn<int>(
                 name: "PickOutcomeRecordedByEmployeeId",
                 table: "OrderLines",
                 type: "int",
-                nullable: true);
+                nullable: true
+            );
 
             migrationBuilder.CreateTable(
                 name: "PickingIssues",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
+                    Id = table
+                        .Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     OrderLineId = table.Column<int>(type: "int", nullable: false),
-                    IssueType = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    IssueType = table.Column<string>(
+                        type: "nvarchar(50)",
+                        maxLength: 50,
+                        nullable: false
+                    ),
                     RequiredQuantity = table.Column<int>(type: "int", nullable: true),
                     FoundQuantity = table.Column<int>(type: "int", nullable: true),
-                    Note = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Note = table.Column<string>(
+                        type: "nvarchar(500)",
+                        maxLength: 500,
+                        nullable: true
+                    ),
                     ReportedByEmployeeId = table.Column<int>(type: "int", nullable: false),
-                    ReportedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
+                    ReportedAt = table.Column<DateTimeOffset>(
+                        type: "datetimeoffset",
+                        nullable: false
+                    ),
                 },
                 constraints: table =>
                 {
@@ -57,34 +73,41 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                         column: x => x.ReportedByEmployeeId,
                         principalTable: "Employees",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Restrict
+                    );
                     table.ForeignKey(
                         name: "FK_PickingIssues_OrderLines_OrderLineId",
                         column: x => x.OrderLineId,
                         principalTable: "OrderLines",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
+                        onDelete: ReferentialAction.Cascade
+                    );
+                }
+            );
 
             migrationBuilder.CreateIndex(
                 name: "IX_OrderLines_CurrentPickingIssueId",
                 table: "OrderLines",
-                column: "CurrentPickingIssueId");
+                column: "CurrentPickingIssueId"
+            );
 
             migrationBuilder.CreateIndex(
                 name: "IX_OrderLines_PickOutcomeRecordedByEmployeeId",
                 table: "OrderLines",
-                column: "PickOutcomeRecordedByEmployeeId");
+                column: "PickOutcomeRecordedByEmployeeId"
+            );
 
             migrationBuilder.CreateIndex(
                 name: "IX_PickingIssues_OrderLineId",
                 table: "PickingIssues",
-                column: "OrderLineId");
+                column: "OrderLineId"
+            );
 
             migrationBuilder.CreateIndex(
                 name: "IX_PickingIssues_ReportedByEmployeeId",
                 table: "PickingIssues",
-                column: "ReportedByEmployeeId");
+                column: "ReportedByEmployeeId"
+            );
 
             migrationBuilder.AddForeignKey(
                 name: "FK_OrderLines_Employees_PickOutcomeRecordedByEmployeeId",
@@ -92,14 +115,16 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                 column: "PickOutcomeRecordedByEmployeeId",
                 principalTable: "Employees",
                 principalColumn: "Id",
-                onDelete: ReferentialAction.Restrict);
+                onDelete: ReferentialAction.Restrict
+            );
 
             migrationBuilder.AddForeignKey(
                 name: "FK_OrderLines_PickingIssues_CurrentPickingIssueId",
                 table: "OrderLines",
                 column: "CurrentPickingIssueId",
                 principalTable: "PickingIssues",
-                principalColumn: "Id");
+                principalColumn: "Id"
+            );
         }
 
         /// <inheritdoc />
@@ -107,38 +132,36 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
         {
             migrationBuilder.DropForeignKey(
                 name: "FK_OrderLines_Employees_PickOutcomeRecordedByEmployeeId",
-                table: "OrderLines");
+                table: "OrderLines"
+            );
 
             migrationBuilder.DropForeignKey(
                 name: "FK_OrderLines_PickingIssues_CurrentPickingIssueId",
-                table: "OrderLines");
+                table: "OrderLines"
+            );
 
-            migrationBuilder.DropTable(
-                name: "PickingIssues");
+            migrationBuilder.DropTable(name: "PickingIssues");
 
             migrationBuilder.DropIndex(
                 name: "IX_OrderLines_CurrentPickingIssueId",
-                table: "OrderLines");
+                table: "OrderLines"
+            );
 
             migrationBuilder.DropIndex(
                 name: "IX_OrderLines_PickOutcomeRecordedByEmployeeId",
-                table: "OrderLines");
+                table: "OrderLines"
+            );
 
-            migrationBuilder.DropColumn(
-                name: "CurrentPickingIssueId",
-                table: "OrderLines");
+            migrationBuilder.DropColumn(name: "CurrentPickingIssueId", table: "OrderLines");
 
-            migrationBuilder.DropColumn(
-                name: "PickOutcome",
-                table: "OrderLines");
+            migrationBuilder.DropColumn(name: "PickOutcome", table: "OrderLines");
 
-            migrationBuilder.DropColumn(
-                name: "PickOutcomeRecordedAt",
-                table: "OrderLines");
+            migrationBuilder.DropColumn(name: "PickOutcomeRecordedAt", table: "OrderLines");
 
             migrationBuilder.DropColumn(
                 name: "PickOutcomeRecordedByEmployeeId",
-                table: "OrderLines");
+                table: "OrderLines"
+            );
         }
     }
 }

@@ -30,7 +30,7 @@ public sealed class PickingService(IPickingRepository repository, ILogger<Pickin
                 actorEmployeeId,
                 orderLineId,
                 orderId,
-                result.OrderStatus
+                result.Order?.Status
             );
         }
         else
@@ -69,6 +69,21 @@ public sealed class PickingService(IPickingRepository repository, ILogger<Pickin
             return PickingResult.InvalidIssueType;
         }
 
+        if (
+            note is not null && note.Length > PickingIssue.NoteMaxLength
+            || requiredQuantity < 0
+            || foundQuantity < 0
+        )
+        {
+            logger.LogInformation(
+                "Employee {EmployeeId} reported an issue on line {OrderLineId} of order {OrderId} with an unacceptable note length or quantity.",
+                actorEmployeeId,
+                orderLineId,
+                orderId
+            );
+            return PickingResult.InvalidIssueDetails;
+        }
+
         var result = await repository.RecordOutcomeAsync(
             orderId,
             orderLineId,
@@ -85,7 +100,7 @@ public sealed class PickingService(IPickingRepository repository, ILogger<Pickin
                 issueType,
                 orderLineId,
                 orderId,
-                result.OrderStatus
+                result.Order?.Status
             );
         }
         else

@@ -437,6 +437,75 @@ describe('OrderDetailPage', () => {
     expect(await screen.findByLabelText('Order status: Ready')).toBeInTheDocument()
   })
 
+  // 015-pick-completion T058 (branch review BR-003): the server no longer re-resolves card images
+  // on a write, so the page must keep the ones it already loaded.
+  it('keeps each line card image after recording a pick', async () => {
+    const withImage = {
+      ...line(1, 'Pikachu', null),
+      imageUrl: 'https://example.com/pikachu.png',
+    }
+    const order = claimedOrder([withImage, line(2, 'Charizard', null)])
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(order)
+    vi.mocked(ordersApi.recordPicked).mockResolvedValue({
+      ...order,
+      lines: [
+        { ...withImage, pickOutcome: 'picked', imageUrl: null },
+        { ...order.lines[1], imageUrl: null },
+      ],
+    })
+
+    renderPage()
+
+    const pikachu = await screen.findByRole('article', { name: /Pikachu/i })
+    await userEvent.click(within(pikachu).getByRole('button', { name: 'Picked' }))
+
+    expect(await screen.findByText('1 of 2 lines confirmed')).toBeInTheDocument()
+    expect(within(pikachu).getByRole('img', { name: /Pikachu/i })).toHaveAttribute(
+      'src',
+      'https://example.com/pikachu.png',
+    )
+  })
+
+  it('keeps each line card image after reporting an issue', async () => {
+    const withImage = {
+      ...line(1, 'Pikachu', null),
+      imageUrl: 'https://example.com/pikachu.png',
+    }
+    const order = claimedOrder([withImage])
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(order)
+    vi.mocked(ordersApi.reportIssue).mockResolvedValue({
+      ...order,
+      status: 'needsAttention',
+      lines: [
+        {
+          ...withImage,
+          pickOutcome: 'hasIssue',
+          imageUrl: null,
+          currentIssue: {
+            issueType: 'cardNotFound',
+            requiredQuantity: null,
+            foundQuantity: null,
+            note: null,
+            reportedByEmployeeName: 'Test Picker',
+            reportedAt: '2026-09-20T12:00:00Z',
+          },
+        },
+      ],
+    })
+
+    renderPage()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Report Issue' }))
+    await userEvent.selectOptions(screen.getByLabelText('Issue type'), 'cardNotFound')
+    await userEvent.click(screen.getByRole('button', { name: 'Submit Issue' }))
+
+    expect(await screen.findByLabelText(/Order status: Needs Attention/)).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /Pikachu/i })).toHaveAttribute(
+      'src',
+      'https://example.com/pikachu.png',
+    )
+  })
+
   it('shows a distinct not-found state', async () => {
     vi.mocked(ordersApi.getOrderDetail).mockRejectedValue(new ordersApi.OrderNotFoundError())
 

@@ -1,3 +1,4 @@
+using LootSingles.Application.Orders;
 using LootSingles.Application.Picking;
 using LootSingles.Domain.Orders;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -11,7 +12,7 @@ public sealed class PickingServiceTests
     {
         var repository = new FakePickingRepository
         {
-            Result = PickingResult.Success(OrderStatus.Picked),
+            Result = PickingResult.Success(DetailWithStatus(OrderStatus.Picked)),
         };
         var service = NewService(repository);
 
@@ -23,7 +24,7 @@ public sealed class PickingServiceTests
         );
 
         Assert.Equal(PickingOutcome.Success, result.Outcome);
-        Assert.Equal(OrderStatus.Picked, result.OrderStatus);
+        Assert.Equal(OrderStatus.Picked, result.Order!.Status);
         var call = Assert.Single(repository.Calls);
         Assert.Equal((3, 7, 1), (call.OrderId, call.OrderLineId, call.ActorEmployeeId));
         Assert.IsType<PickOutcomeChange.Picked>(call.Change);
@@ -43,7 +44,7 @@ public sealed class PickingServiceTests
         );
 
         Assert.Equal(PickingOutcome.NotYourClaim, result.Outcome);
-        Assert.Null(result.OrderStatus);
+        Assert.Null(result.Order);
     }
 
     // 015-pick-completion T027: reporting an issue instead of a false confirmation (US2).
@@ -52,7 +53,7 @@ public sealed class PickingServiceTests
     {
         var repository = new FakePickingRepository
         {
-            Result = PickingResult.Success(OrderStatus.NeedsAttention),
+            Result = PickingResult.Success(DetailWithStatus(OrderStatus.NeedsAttention)),
         };
         var service = NewService(repository);
 
@@ -68,7 +69,7 @@ public sealed class PickingServiceTests
         );
 
         Assert.Equal(PickingOutcome.Success, result.Outcome);
-        Assert.Equal(OrderStatus.NeedsAttention, result.OrderStatus);
+        Assert.Equal(OrderStatus.NeedsAttention, result.Order!.Status);
         var report = Assert.IsType<PickOutcomeChange.IssueReport>(
             Assert.Single(repository.Calls).Change
         );
@@ -83,7 +84,7 @@ public sealed class PickingServiceTests
     {
         var repository = new FakePickingRepository
         {
-            Result = PickingResult.Success(OrderStatus.NeedsAttention),
+            Result = PickingResult.Success(DetailWithStatus(OrderStatus.NeedsAttention)),
         };
         var service = NewService(repository);
 
@@ -122,8 +123,90 @@ public sealed class PickingServiceTests
         Assert.Equal(PickingOutcome.NotYourClaim, result.Outcome);
     }
 
+    // 015-pick-completion T052 (branch review BR-001): the note length and quantity bounds are
+    // enforced server-side, not only by the textarea's maxLength and the number inputs' min.
+    [Fact]
+    public async Task ReportIssueAsync_NoteLongerThanTheColumn_ReturnsInvalidIssueDetails()
+    {
+        var repository = new FakePickingRepository
+        {
+            Result = PickingResult.Success(DetailWithStatus(OrderStatus.NeedsAttention)),
+        };
+        var service = NewService(repository);
+
+        var result = await service.ReportIssueAsync(
+            orderId: 3,
+            orderLineId: 7,
+            actorEmployeeId: 1,
+            PickingIssueType.Other,
+            requiredQuantity: null,
+            foundQuantity: null,
+            new string('x', PickingIssue.NoteMaxLength + 1),
+            CancellationToken.None
+        );
+
+        Assert.Equal(PickingOutcome.InvalidIssueDetails, result.Outcome);
+        Assert.Empty(repository.Calls);
+    }
+
+    [Fact]
+    public async Task ReportIssueAsync_NoteExactlyAtTheLimit_IsAccepted()
+    {
+        var repository = new FakePickingRepository
+        {
+            Result = PickingResult.Success(DetailWithStatus(OrderStatus.NeedsAttention)),
+        };
+        var service = NewService(repository);
+
+        var result = await service.ReportIssueAsync(
+            orderId: 3,
+            orderLineId: 7,
+            actorEmployeeId: 1,
+            PickingIssueType.Other,
+            requiredQuantity: null,
+            foundQuantity: null,
+            new string('x', PickingIssue.NoteMaxLength),
+            CancellationToken.None
+        );
+
+        Assert.Equal(PickingOutcome.Success, result.Outcome);
+        Assert.Single(repository.Calls);
+    }
+
+    [Theory]
+    [InlineData(-1, null)]
+    [InlineData(null, -1)]
+    public async Task ReportIssueAsync_NegativeQuantity_ReturnsInvalidIssueDetails(
+        int? requiredQuantity,
+        int? foundQuantity
+    )
+    {
+        var repository = new FakePickingRepository
+        {
+            Result = PickingResult.Success(DetailWithStatus(OrderStatus.NeedsAttention)),
+        };
+        var service = NewService(repository);
+
+        var result = await service.ReportIssueAsync(
+            orderId: 3,
+            orderLineId: 7,
+            actorEmployeeId: 1,
+            PickingIssueType.InsufficientQuantity,
+            requiredQuantity,
+            foundQuantity,
+            note: null,
+            CancellationToken.None
+        );
+
+        Assert.Equal(PickingOutcome.InvalidIssueDetails, result.Outcome);
+        Assert.Empty(repository.Calls);
+    }
+
     private static PickingService NewService(IPickingRepository repository) =>
         new(repository, NullLogger<PickingService>.Instance);
+
+    private static OrderDetail DetailWithStatus(OrderStatus status) =>
+        new(3, "ORDER-3", status, []);
 
     private sealed class FakePickingRepository : IPickingRepository
     {

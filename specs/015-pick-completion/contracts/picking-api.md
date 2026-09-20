@@ -45,6 +45,7 @@ Records the line as having an unresolved picking issue.
 | Outcome | HTTP | Body |
 |---|---|---|
 | `InvalidIssueType` | 400 | problem details — unrecognized `issueType` value |
+| `InvalidIssueDetails` | 400 | problem details — `note` longer than `PickingIssue.NoteMaxLength` (500), or a negative `requiredQuantity`/`foundQuantity` |
 
 ## GET /api/orders/{orderId} (existing endpoint — response extended)
 

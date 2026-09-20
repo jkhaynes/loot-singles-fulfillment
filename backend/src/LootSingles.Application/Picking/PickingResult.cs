@@ -1,4 +1,4 @@
-using LootSingles.Domain.Orders;
+using LootSingles.Application.Orders;
 
 namespace LootSingles.Application.Picking;
 
@@ -9,13 +9,16 @@ public enum PickingOutcome
     LineNotFound,
     NotYourClaim,
     InvalidIssueType,
+    InvalidIssueDetails,
 }
 
-/// <param name="OrderStatus">The order's status as derived by the recording write; set on success.</param>
-public sealed record PickingResult(PickingOutcome Outcome, OrderStatus? OrderStatus = null)
+/// <param name="Order">
+/// On success, the order as the recording transaction itself committed it (branch review BR-002) —
+/// never a later re-read, so the response, the log line, and the persisted row are one observation.
+/// </param>
+public sealed record PickingResult(PickingOutcome Outcome, OrderDetail? Order = null)
 {
-    public static PickingResult Success(OrderStatus orderStatus) =>
-        new(PickingOutcome.Success, orderStatus);
+    public static PickingResult Success(OrderDetail order) => new(PickingOutcome.Success, order);
 
     public static readonly PickingResult OrderNotFound = new(PickingOutcome.OrderNotFound);
 
@@ -24,4 +27,11 @@ public sealed record PickingResult(PickingOutcome Outcome, OrderStatus? OrderSta
     public static readonly PickingResult NotYourClaim = new(PickingOutcome.NotYourClaim);
 
     public static readonly PickingResult InvalidIssueType = new(PickingOutcome.InvalidIssueType);
+
+    /// <summary>
+    /// The issue type is recognized, but the note or quantities it carries are not acceptable.
+    /// </summary>
+    public static readonly PickingResult InvalidIssueDetails = new(
+        PickingOutcome.InvalidIssueDetails
+    );
 }

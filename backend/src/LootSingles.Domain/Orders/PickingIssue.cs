@@ -8,6 +8,12 @@ namespace LootSingles.Domain.Orders;
 /// </summary>
 public class PickingIssue
 {
+    /// <summary>
+    /// Maximum length of <see cref="Note"/>. Governs both the column width and the server-side
+    /// validation, so the two can never drift apart.
+    /// </summary>
+    public const int NoteMaxLength = 500;
+
     public int Id { get; set; }
 
     public int OrderLineId { get; set; }

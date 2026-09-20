@@ -113,7 +113,9 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                                 .SetProperty(order => order.ClaimedAt, (DateTimeOffset?)null)
                                 .SetProperty(
                                     order => order.Status,
-                                    OrderStatusComputation.FromCurrentLines(claimedAfterWrite: false)
+                                    OrderStatusComputation.FromCurrentLines(
+                                        claimedAfterWrite: false
+                                    )
                                 ),
                         ct
                     ),
@@ -136,7 +138,9 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                                 .SetProperty(order => order.ClaimedAt, (DateTimeOffset?)null)
                                 .SetProperty(
                                     order => order.Status,
-                                    OrderStatusComputation.FromCurrentLines(claimedAfterWrite: false)
+                                    OrderStatusComputation.FromCurrentLines(
+                                        claimedAfterWrite: false
+                                    )
                                 ),
                         ct
                     ),
@@ -212,46 +216,10 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
             .ToListAsync(cancellationToken);
     }
 
-    public Task<OrderDetail?> GetByIdAsync(int orderId, CancellationToken cancellationToken)
-    {
-        return context
+    public Task<OrderDetail?> GetByIdAsync(int orderId, CancellationToken cancellationToken) =>
+        context
             .Orders.AsNoTracking()
             .Where(order => order.Id == orderId)
-            .Select(order => new OrderDetail(
-                order.Id,
-                order.TcgplayerOrderId,
-                order.Status,
-                order
-                    .OrderLines.OrderBy(line => line.Id)
-                    .Select(line => new OrderLineDetail(
-                        line.Id,
-                        line.PickOutcome,
-                        line.ProductName,
-                        line.ProductLine,
-                        line.Set,
-                        line.CollectorNumber,
-                        line.Rarity,
-                        line.Variant,
-                        line.Condition,
-                        line.Quantity,
-                        null,
-                        line.CurrentPickingIssue == null
-                            ? null
-                            : new PickingIssueDetail(
-                                line.CurrentPickingIssue.IssueType,
-                                line.CurrentPickingIssue.RequiredQuantity,
-                                line.CurrentPickingIssue.FoundQuantity,
-                                line.CurrentPickingIssue.Note,
-                                line.CurrentPickingIssue.ReportedByEmployee == null
-                                    ? null
-                                    : line.CurrentPickingIssue.ReportedByEmployee.DisplayName,
-                                line.CurrentPickingIssue.ReportedAt
-                            )
-                    ))
-                    .ToList(),
-                order.ClaimedByEmployeeId,
-                order.ClaimedByEmployee != null ? order.ClaimedByEmployee.DisplayName : null
-            ))
+            .Select(OrderDetailProjection.ToDetail)
             .SingleOrDefaultAsync(cancellationToken);
-    }
 }

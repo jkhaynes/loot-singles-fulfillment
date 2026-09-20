@@ -21,13 +21,11 @@ public class DashboardServiceTests
     public async Task GetInProgressOrderSummariesAsync_ReturnsOnlyInProgressOrders()
     {
         var service = new DashboardService(
-            new FakeDashboardRepository(
-                [
-                    NewOrder(1, "READY", OrderStatus.Ready),
-                    NewOrder(2, "IN-PROGRESS", OrderStatus.InProgress),
-                    NewOrder(3, "PICKED", OrderStatus.Picked),
-                ]
-            )
+            new FakeDashboardRepository([
+                NewOrder(1, "READY", OrderStatus.Ready),
+                NewOrder(2, "IN-PROGRESS", OrderStatus.InProgress),
+                NewOrder(3, "PICKED", OrderStatus.Picked),
+            ])
         );
 
         var summaries = await service.GetInProgressOrderSummariesAsync(CancellationToken.None);
@@ -39,12 +37,10 @@ public class DashboardServiceTests
     public async Task GetPickedOrderSummariesAsync_ReturnsOnlyPickedOrders()
     {
         var service = new DashboardService(
-            new FakeDashboardRepository(
-                [
-                    NewOrder(1, "IN-PROGRESS", OrderStatus.InProgress),
-                    NewOrder(2, "PICKED", OrderStatus.Picked),
-                ]
-            )
+            new FakeDashboardRepository([
+                NewOrder(1, "IN-PROGRESS", OrderStatus.InProgress),
+                NewOrder(2, "PICKED", OrderStatus.Picked),
+            ])
         );
 
         var summaries = await service.GetPickedOrderSummariesAsync(CancellationToken.None);
@@ -105,9 +101,9 @@ public class DashboardServiceTests
             CancellationToken cancellationToken
         ) => SummariesForAsync(OrderStatus.Picked);
 
-        public Task<
-            IReadOnlyList<NeedsAttentionOrderSummary>
-        > GetNeedsAttentionOrderSummariesAsync(CancellationToken cancellationToken) =>
+        public Task<IReadOnlyList<NeedsAttentionOrderSummary>> GetNeedsAttentionOrderSummariesAsync(
+            CancellationToken cancellationToken
+        ) =>
             Task.FromResult<IReadOnlyList<NeedsAttentionOrderSummary>>(
                 orders
                     .Where(order => order.Status == OrderStatus.NeedsAttention)

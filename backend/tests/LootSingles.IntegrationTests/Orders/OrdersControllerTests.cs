@@ -669,10 +669,7 @@ public sealed class OrdersControllerTests
         using var firstDocument = JsonDocument.Parse(
             await afterFirstResolved.Content.ReadAsStringAsync()
         );
-        Assert.Equal(
-            "needsAttention",
-            firstDocument.RootElement.GetProperty("status").GetString()
-        );
+        Assert.Equal("needsAttention", firstDocument.RootElement.GetProperty("status").GetString());
 
         var afterBothResolved = await client.PostAsync(PickUrl(order.Id, lines[9].Id), null);
         using var secondDocument = JsonDocument.Parse(
@@ -829,13 +826,313 @@ public sealed class OrdersControllerTests
         Assert.Equal("picked", resolveDocument.RootElement.GetProperty("status").GetString());
     }
 
+    // 015-pick-completion T055 (branch review BR-003): recording an outcome must not re-run card
+    // image enrichment. Images cannot change as a result of a pick, and re-enriching puts one
+    // external catalog call per line on the most repeated action in the product.
+    [Fact]
+    public async Task Pick_DoesNotReRunCardImageEnrichment()
+    {
+        var countingProvider = new CountingCardCatalogProvider("Pokemon");
+        await using var rootFactory = new AuthWebApplicationFactory();
+        await using var factory = rootFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<ICardCatalogProvider>();
+                services.AddScoped<ICardCatalogProvider>(_ => countingProvider);
+            })
+        );
+
+        var (client, order) = await SeedAndLoginAsync(
+            factory,
+            "pickenrichuser",
+            "PICK-NO-REENRICH"
+        );
+        await ClaimAsync(client, order.Id);
+
+        var detail = await client.GetAsync($"/api/orders/{order.Id}");
+        Assert.Equal(HttpStatusCode.OK, detail.StatusCode);
+        var callsAfterOpeningTheOrder = countingProvider.CallCount;
+        Assert.True(callsAfterOpeningTheOrder > 0, "Opening the order should enrich its images.");
+
+        var pick = await client.PostAsync(PickUrl(order.Id, order.OrderLines.First().Id), null);
+        Assert.Equal(HttpStatusCode.OK, pick.StatusCode);
+
+        Assert.Equal(callsAfterOpeningTheOrder, countingProvider.CallCount);
+    }
+
+    [Fact]
+    public async Task ReportIssue_DoesNotReRunCardImageEnrichment()
+    {
+        var countingProvider = new CountingCardCatalogProvider("Pokemon");
+        await using var rootFactory = new AuthWebApplicationFactory();
+        await using var factory = rootFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<ICardCatalogProvider>();
+                services.AddScoped<ICardCatalogProvider>(_ => countingProvider);
+            })
+        );
+
+        var (client, order) = await SeedAndLoginAsync(
+            factory,
+            "issueenrichuser",
+            "ISSUE-NO-REENRICH"
+        );
+        await ClaimAsync(client, order.Id);
+
+        await client.GetAsync($"/api/orders/{order.Id}");
+        var callsAfterOpeningTheOrder = countingProvider.CallCount;
+
+        var reported = await ReportIssueAsync(
+            client,
+            order.Id,
+            order.OrderLines.First().Id,
+            new { issueType = "cardNotFound" }
+        );
+        Assert.Equal(HttpStatusCode.OK, reported.StatusCode);
+
+        Assert.Equal(callsAfterOpeningTheOrder, countingProvider.CallCount);
+    }
+
+    /// <summary>
+    /// Seeds a picker and a two-line order through a factory customized by
+    /// <c>WithWebHostBuilder</c> (which is a plain <see cref="WebApplicationFactory{Program}"/>,
+    /// so this file's AuthWebApplicationFactory helpers do not apply) and returns a logged-in
+    /// client.
+    /// </summary>
+    private static async Task<(HttpClient Client, Order Order)> SeedAndLoginAsync(
+        WebApplicationFactory<Program> factory,
+        string username,
+        string tcgplayerOrderId
+    )
+    {
+        var order = NewOrder(tcgplayerOrderId, DateTimeOffset.UtcNow);
+        order.OrderLines.Add(NewOrderLine("Card 1", "Base Set", null, "Near Mint", 1));
+        order.OrderLines.Add(NewOrderLine("Card 2", "Base Set", null, "Near Mint", 1));
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
+            context.Employees.Add(
+                new Employee
+                {
+                    Username = username,
+                    NormalizedUsername = username.ToUpperInvariant(),
+                    DisplayName = username,
+                    PinHash = new Pbkdf2PinHasher().Hash("1234"),
+                    Role = EmployeeRole.Picker,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                }
+            );
+            context.Orders.Add(order);
+            await context.SaveChangesAsync();
+        }
+
+        var client = factory.CreateClient(
+            new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") }
+        );
+        var login = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest(username, "1234")
+        );
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        return (client, order);
+    }
+
+    private sealed class CountingCardCatalogProvider(string productLine) : ICardCatalogProvider
+    {
+        private int _callCount;
+
+        public string ProductLine { get; } = productLine;
+
+        public int CallCount => Volatile.Read(ref _callCount);
+
+        public Task<string?> TryMatchImageUrlAsync(
+            CardIdentity identity,
+            CancellationToken cancellationToken
+        )
+        {
+            Interlocked.Increment(ref _callCount);
+            return Task.FromResult<string?>($"https://example.com/{identity.ProductName}.png");
+        }
+    }
+
+    // 015-pick-completion T054 (branch review BR-001): oversized or negative issue details are
+    // rejected as a typed 400, not by SQL Server truncating and surfacing a 500.
+    [Fact]
+    public async Task ReportIssue_NoteLongerThanTheColumn_Returns400AndPersistsNothing()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "ISSUE-LONG-NOTE", 1);
+        await ClaimAsync(client, order.Id);
+        var line = order.OrderLines.Single();
+
+        var response = await ReportIssueAsync(
+            client,
+            order.Id,
+            line.Id,
+            new { issueType = "other", note = new string('x', PickingIssue.NoteMaxLength + 1) }
+        );
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "invalid_issue_details",
+            document.RootElement.GetProperty("error").GetString()
+        );
+        await AssertNoIssueRecordedAsync(factory, line.Id);
+    }
+
+    [Fact]
+    public async Task ReportIssue_NegativeQuantity_Returns400AndPersistsNothing()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "ISSUE-NEGATIVE-QTY", 1);
+        await ClaimAsync(client, order.Id);
+        var line = order.OrderLines.Single();
+
+        var response = await ReportIssueAsync(
+            client,
+            order.Id,
+            line.Id,
+            new
+            {
+                issueType = "insufficientQuantity",
+                requiredQuantity = 2,
+                foundQuantity = -1,
+            }
+        );
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            "invalid_issue_details",
+            document.RootElement.GetProperty("error").GetString()
+        );
+        await AssertNoIssueRecordedAsync(factory, line.Id);
+    }
+
+    [Fact]
+    public async Task ReportIssue_NoteExactlyAtTheLimit_IsAccepted()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "ISSUE-LIMIT-NOTE", 1);
+        await ClaimAsync(client, order.Id);
+        var note = new string('x', PickingIssue.NoteMaxLength);
+
+        var response = await ReportIssueAsync(
+            client,
+            order.Id,
+            order.OrderLines.Single().Id,
+            new { issueType = "other", note }
+        );
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("needsAttention", document.RootElement.GetProperty("status").GetString());
+    }
+
+    private static async Task AssertNoIssueRecordedAsync(
+        AuthWebApplicationFactory factory,
+        int orderLineId
+    )
+    {
+        await factory.SeedAsync(async context =>
+        {
+            Assert.False(
+                await context.PickingIssues.AnyAsync(issue => issue.OrderLineId == orderLineId)
+            );
+            var stored = await context
+                .OrderLines.AsNoTracking()
+                .SingleAsync(line => line.Id == orderLineId);
+            Assert.Null(stored.PickOutcome);
+        });
+    }
+
     private static Task<HttpResponseMessage> ReportIssueAsync(
         HttpClient client,
         int orderId,
         int lineId,
         object request
-    ) =>
-        client.PostAsJsonAsync($"/api/orders/{orderId}/lines/{lineId}/report-issue", request);
+    ) => client.PostAsJsonAsync($"/api/orders/{orderId}/lines/{lineId}/report-issue", request);
+
+    // 015-pick-completion T061 (branch review BR-004): spec.md's edge case — a Manager/Admin
+    // performing an action reserved for the assigned picker is rejected, with no exemption
+    // (FR-010). The gate is claim-based rather than role-based; this pins that it stays so.
+    [Fact]
+    public async Task Pick_ByManagerWhoDoesNotHoldTheClaim_Returns409AndLeavesLineUnrecorded()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var pickerClient = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "MANAGER-PICK-DENIED", 1);
+        await ClaimAsync(pickerClient, order.Id);
+        using var managerClient = await LoginAsManagerAsync(factory);
+        var line = order.OrderLines.Single();
+
+        var response = await managerClient.PostAsync(PickUrl(order.Id, line.Id), null);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("not_your_claim", document.RootElement.GetProperty("error").GetString());
+        await factory.SeedAsync(async context =>
+        {
+            var stored = await context.OrderLines.AsNoTracking().SingleAsync(l => l.Id == line.Id);
+            Assert.Null(stored.PickOutcome);
+        });
+    }
+
+    [Fact]
+    public async Task ReportIssue_ByManagerWhoDoesNotHoldTheClaim_Returns409AndPersistsNothing()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var pickerClient = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "MANAGER-ISSUE-DENIED", 1);
+        await ClaimAsync(pickerClient, order.Id);
+        using var managerClient = await LoginAsManagerAsync(factory);
+        var line = order.OrderLines.Single();
+
+        var response = await ReportIssueAsync(
+            managerClient,
+            order.Id,
+            line.Id,
+            new { issueType = "cardNotFound" }
+        );
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("not_your_claim", document.RootElement.GetProperty("error").GetString());
+        await AssertNoIssueRecordedAsync(factory, line.Id);
+    }
+
+    private static async Task<HttpClient> LoginAsManagerAsync(AuthWebApplicationFactory factory)
+    {
+        const string username = "ordersmanager";
+        await factory.SeedAsync(context =>
+        {
+            context.Employees.Add(
+                new Employee
+                {
+                    Username = username,
+                    NormalizedUsername = username.ToUpperInvariant(),
+                    DisplayName = "Orders Manager",
+                    PinHash = new Pbkdf2PinHasher().Hash("1234"),
+                    Role = EmployeeRole.ManagerAdmin,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                }
+            );
+            return Task.CompletedTask;
+        });
+        var client = factory.CreateAuthenticatedClient();
+        var login = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest(username, "1234")
+        );
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        return client;
+    }
 
     private static string PickUrl(int orderId, int lineId) =>
         $"/api/orders/{orderId}/lines/{lineId}/pick";

@@ -31,7 +31,7 @@ public sealed class OrdersController(
             cancellationToken
         );
 
-        return await ToPickingResponseAsync(result, orderId, cancellationToken);
+        return ToPickingResponse(result);
     }
 
     [HttpPost("{orderId:int}/lines/{lineId:int}/report-issue")]
@@ -53,25 +53,23 @@ public sealed class OrdersController(
             cancellationToken
         );
 
-        return await ToPickingResponseAsync(result, orderId, cancellationToken);
+        return ToPickingResponse(result);
     }
 
-    private async Task<IActionResult> ToPickingResponseAsync(
-        PickingResult result,
-        int orderId,
-        CancellationToken cancellationToken
-    ) =>
+    private IActionResult ToPickingResponse(PickingResult result) =>
         result.Outcome switch
         {
-            // Re-read through OrdersService so the response carries the same enriched detail
-            // (card images) as GET /api/orders/{id}.
-            PickingOutcome.Success => Ok(
-                ToDetailResponse((await ordersService.GetByIdAsync(orderId, cancellationToken))!)
-            ),
+            // The detail the recording transaction committed (branch review BR-002/BR-003). Card
+            // images are not re-resolved here: a pick cannot change them, and the client keeps the
+            // ones it already loaded.
+            PickingOutcome.Success => Ok(ToDetailResponse(result.Order!)),
             PickingOutcome.OrderNotFound => NotFound(new { error = "order_not_found" }),
             PickingOutcome.LineNotFound => NotFound(new { error = "line_not_found" }),
             PickingOutcome.NotYourClaim => Conflict(new { error = "not_your_claim" }),
             PickingOutcome.InvalidIssueType => BadRequest(new { error = "invalid_issue_type" }),
+            PickingOutcome.InvalidIssueDetails => BadRequest(
+                new { error = "invalid_issue_details" }
+            ),
             _ => throw new InvalidOperationException(
                 $"Unexpected outcome {result.Outcome} for recording a pick outcome."
             ),

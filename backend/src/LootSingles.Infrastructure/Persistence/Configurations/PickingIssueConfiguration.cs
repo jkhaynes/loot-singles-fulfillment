@@ -10,12 +10,10 @@ namespace LootSingles.Infrastructure.Persistence.Configurations;
 /// </summary>
 public class PickingIssueConfiguration : IEntityTypeConfiguration<PickingIssue>
 {
-    public const int NoteMaxLength = 500;
-
     public void Configure(EntityTypeBuilder<PickingIssue> builder)
     {
         builder.Property(issue => issue.IssueType).HasConversion<string>().HasMaxLength(50);
-        builder.Property(issue => issue.Note).HasMaxLength(NoteMaxLength);
+        builder.Property(issue => issue.Note).HasMaxLength(PickingIssue.NoteMaxLength);
 
         builder
             .HasOne<OrderLine>()

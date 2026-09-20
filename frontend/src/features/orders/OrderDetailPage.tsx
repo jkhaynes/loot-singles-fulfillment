@@ -117,7 +117,7 @@ export function OrderDetailPage() {
   const { employee } = useAuth()
   const [order, setOrder] = useState<OrderDetail | null>(null)
   const [loadState, setLoadState] = useState<LoadState>('loading')
-  const [releaseError, setReleaseError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [isReleasing, setIsReleasing] = useState(false)
   const [isForceReleasing, setIsForceReleasing] = useState(false)
   const [recordingLineId, setRecordingLineId] = useState<number | null>(null)
@@ -148,13 +148,13 @@ export function OrderDetailPage() {
     if (!order) return
 
     setIsReleasing(true)
-    setReleaseError(null)
+    setActionError(null)
     try {
       await releaseOrder(order.orderId)
       // Back to the list so the picker can claim the next order (PO decision 2026-09-19).
       navigate('/orders')
     } catch {
-      setReleaseError("Couldn't release this order. Try refreshing the page.")
+      setActionError("Couldn't release this order. Try refreshing the page.")
     } finally {
       setIsReleasing(false)
     }
@@ -164,7 +164,7 @@ export function OrderDetailPage() {
     if (!order) return
 
     setIsForceReleasing(true)
-    setReleaseError(null)
+    setActionError(null)
     try {
       const updated = await forceReleaseOrder(order.orderId)
       setOrder({
@@ -174,9 +174,25 @@ export function OrderDetailPage() {
         claimedByEmployeeName: updated.claimedByEmployeeName,
       })
     } catch {
-      setReleaseError("Couldn't force-release this order. Try refreshing the page.")
+      setActionError("Couldn't force-release this order. Try refreshing the page.")
     } finally {
       setIsForceReleasing(false)
+    }
+  }
+
+  /**
+   * Card images are resolved only when the order is opened — a recorded outcome cannot change
+   * them, so the server leaves `imageUrl` null on these responses rather than re-resolving every
+   * line against the catalog providers on every tap. Carry over the ones already loaded.
+   */
+  function withLoadedImages(updated: OrderDetail, previous: OrderDetail): OrderDetail {
+    const imageUrlsByLineId = new Map(previous.lines.map((line) => [line.id, line.imageUrl]))
+    return {
+      ...updated,
+      lines: updated.lines.map((line) => ({
+        ...line,
+        imageUrl: line.imageUrl ?? imageUrlsByLineId.get(line.id) ?? null,
+      })),
     }
   }
 
@@ -184,12 +200,12 @@ export function OrderDetailPage() {
     if (!order) return
 
     setRecordingLineId(lineId)
-    setReleaseError(null)
+    setActionError(null)
     try {
-      setOrder(await recordPicked(order.orderId, lineId))
+      setOrder(withLoadedImages(await recordPicked(order.orderId, lineId), order))
       setIssueFormLineId(null)
     } catch {
-      setReleaseError("Couldn't record that pick. Try refreshing the page.")
+      setActionError("Couldn't record that pick. Try refreshing the page.")
     } finally {
       setRecordingLineId(null)
     }
@@ -199,12 +215,12 @@ export function OrderDetailPage() {
     if (!order) return
 
     setRecordingLineId(lineId)
-    setReleaseError(null)
+    setActionError(null)
     try {
-      setOrder(await reportIssue(order.orderId, lineId, request))
+      setOrder(withLoadedImages(await reportIssue(order.orderId, lineId, request), order))
       setIssueFormLineId(null)
     } catch {
-      setReleaseError("Couldn't report that issue. Try refreshing the page.")
+      setActionError("Couldn't report that issue. Try refreshing the page.")
     } finally {
       setRecordingLineId(null)
     }
@@ -243,9 +259,9 @@ export function OrderDetailPage() {
               {`${confirmedLineCount} of ${order.lines.length} lines confirmed`}
             </p>
           )}
-          {releaseError && (
+          {actionError && (
             <p role="alert" className="order-detail-header__error">
-              {releaseError}
+              {actionError}
             </p>
           )}
         </div>

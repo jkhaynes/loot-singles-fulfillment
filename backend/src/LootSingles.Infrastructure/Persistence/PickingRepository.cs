@@ -89,7 +89,10 @@ public sealed class PickingRepository(LootSinglesDbContext context) : IPickingRe
                             line => line.PickOutcomeRecordedByEmployeeId,
                             (int?)actorEmployeeId
                         )
-                        .SetProperty(line => line.PickOutcomeRecordedAt, (DateTimeOffset?)recordedAt)
+                        .SetProperty(
+                            line => line.PickOutcomeRecordedAt,
+                            (DateTimeOffset?)recordedAt
+                        )
                         .SetProperty(line => line.CurrentPickingIssueId, currentPickingIssueId),
                 cancellationToken
             );
@@ -111,15 +114,18 @@ public sealed class PickingRepository(LootSinglesDbContext context) : IPickingRe
                 cancellationToken
             );
 
-        var orderStatus = await context
+        // Read the full detail inside the transaction (research.md §2, branch review BR-002): the
+        // row lock is still held, so this is exactly the state this call produced — never a later
+        // interleaved write, and never a second round trip through image enrichment.
+        var updatedOrder = await context
             .Orders.AsNoTracking()
             .Where(order => order.Id == orderId)
-            .Select(order => order.Status)
+            .Select(OrderDetailProjection.ToDetail)
             .SingleAsync(cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
 
-        return PickingResult.Success(orderStatus);
+        return PickingResult.Success(updatedOrder);
     }
 
     private async Task<PickingResult> ClassifyRejectionAsync(

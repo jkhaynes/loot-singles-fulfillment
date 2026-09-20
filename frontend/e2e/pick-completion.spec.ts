@@ -39,7 +39,14 @@ test('confirming every line takes an order to Picked without a separate complete
   await claimOrder(page, 'E2E-ORDER-00004')
   await expect(page.getByText('0 of 2 lines confirmed')).toBeVisible()
 
+  // The card image is resolved when the order opens and must survive recording an outcome
+  // (015 T060, branch review BR-003) — the write response deliberately carries no image URL.
+  const charizardImage = lineCard(page, 'Charizard').getByRole('img', { name: /Charizard/i })
+  const imageSource = await charizardImage.getAttribute('src')
+  expect(imageSource).toBeTruthy()
+
   await lineCard(page, 'Charizard').getByRole('button', { name: 'Picked' }).click()
+  await expect(charizardImage).toHaveAttribute('src', imageSource!)
   await expect(page.getByText('1 of 2 lines confirmed')).toBeVisible()
   await expect(page.getByLabel(/Order status: In Progress/)).toBeVisible()
 

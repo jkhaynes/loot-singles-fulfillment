@@ -1,3 +1,4 @@
+using LootSingles.Application.Orders;
 using LootSingles.Application.Picking;
 using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
@@ -100,6 +101,94 @@ public sealed class PickingConcurrencyTests(SqlServerContainerFixture fixture)
         await using var verifyContext = lease.CreateDbContext();
         var line = await verifyContext.OrderLines.AsNoTracking().SingleAsync(l => l.Id == lineId);
         Assert.Equal(holder.Id, line.PickOutcomeRecordedByEmployeeId);
+    }
+
+    // 015-pick-completion T057 (branch review BR-002): the detail returned to the caller is the
+    // state the recording transaction itself committed, so the response, the logged status, and
+    // the persisted rows are one observation rather than a later re-read.
+    [Fact]
+    public async Task Recorded_outcome_returns_the_detail_it_committed()
+    {
+        await using var lease = await fixture.CreateDatabaseLeaseAsync();
+        await using var context = lease.CreateDbContext();
+
+        var picker = NewEmployee("detailpicker");
+        var order = NewOrder("RETURNED-DETAIL");
+        order.OrderLines.Add(NewLine("First Card", null));
+        order.OrderLines.Add(NewLine("Second Card", null));
+        context.Employees.Add(picker);
+        context.Orders.Add(order);
+        await context.SaveChangesAsync();
+        order.ClaimedByEmployeeId = picker.Id;
+        order.ClaimedAt = DateTimeOffset.UtcNow;
+        order.Status = OrderStatus.InProgress;
+        await context.SaveChangesAsync();
+        var firstLineId = order.OrderLines.First().Id;
+        var secondLineId = order.OrderLines.Last().Id;
+        var repository = new PickingRepository(context);
+
+        var picked = await repository.RecordOutcomeAsync(
+            order.Id,
+            firstLineId,
+            picker.Id,
+            new PickOutcomeChange.Picked(),
+            CancellationToken.None
+        );
+
+        Assert.Equal(PickingOutcome.Success, picked.Outcome);
+        Assert.Equal(OrderStatus.InProgress, picked.Order!.Status);
+        Assert.Equal(picker.Id, picked.Order.ClaimedByEmployeeId);
+        Assert.Equal(PickOutcome.Picked, LineIn(picked.Order, firstLineId).PickOutcome);
+        Assert.Null(LineIn(picked.Order, secondLineId).PickOutcome);
+        await AssertMatchesPersistedStateAsync(lease, picked.Order!);
+
+        var reported = await repository.RecordOutcomeAsync(
+            order.Id,
+            secondLineId,
+            picker.Id,
+            new PickOutcomeChange.IssueReport(
+                PickingIssueType.CardNotFound,
+                RequiredQuantity: 2,
+                FoundQuantity: 1,
+                Note: "Only one in the bin"
+            ),
+            CancellationToken.None
+        );
+
+        Assert.Equal(PickingOutcome.Success, reported.Outcome);
+        Assert.Equal(OrderStatus.NeedsAttention, reported.Order!.Status);
+        var flaggedLine = LineIn(reported.Order, secondLineId);
+        Assert.Equal(PickOutcome.HasIssue, flaggedLine.PickOutcome);
+        Assert.Equal(PickingIssueType.CardNotFound, flaggedLine.CurrentIssue!.IssueType);
+        Assert.Equal(2, flaggedLine.CurrentIssue.RequiredQuantity);
+        Assert.Equal(1, flaggedLine.CurrentIssue.FoundQuantity);
+        Assert.Equal("Only one in the bin", flaggedLine.CurrentIssue.Note);
+        Assert.Equal(picker.DisplayName, flaggedLine.CurrentIssue.ReportedByEmployeeName);
+        await AssertMatchesPersistedStateAsync(lease, reported.Order!);
+    }
+
+    private static OrderLineDetail LineIn(OrderDetail detail, int lineId) =>
+        detail.Lines.Single(line => line.Id == lineId);
+
+    private static async Task AssertMatchesPersistedStateAsync(
+        SqlServerDatabaseLease lease,
+        OrderDetail returned
+    )
+    {
+        await using var verifyContext = lease.CreateDbContext();
+        var persisted = await verifyContext
+            .Orders.AsNoTracking()
+            .Include(order => order.OrderLines)
+            .SingleAsync(order => order.Id == returned.OrderId);
+
+        Assert.Equal(persisted.Status, returned.Status);
+        Assert.Equal(persisted.ClaimedByEmployeeId, returned.ClaimedByEmployeeId);
+        Assert.Equal(
+            persisted
+                .OrderLines.OrderBy(line => line.Id)
+                .Select(line => (line.Id, line.PickOutcome)),
+            returned.Lines.Select(line => (line.Id, line.PickOutcome))
+        );
     }
 
     private static PickingService NewService(LootSinglesDbContext context) =>
