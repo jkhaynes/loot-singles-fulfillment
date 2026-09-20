@@ -1035,6 +1035,33 @@ public sealed class OrdersControllerTests
         Assert.Equal("needsAttention", document.RootElement.GetProperty("status").GetString());
     }
 
+    // 015-pick-completion T066 (branch review BR-009): a line id that does not exist must be
+    // rejected as 404 before the PickingIssue insert reaches its foreign key. A line belonging to
+    // another order does NOT reproduce this — its FK is valid, so the later rows-affected check
+    // catches it; only a genuinely absent id hits the constraint.
+    [Fact]
+    public async Task ReportIssue_LineDoesNotExist_Returns404AndPersistsNothing()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        using var client = await LoginAsync(factory);
+        var order = await SeedOrderWithLinesAsync(factory, "ISSUE-ABSENT-LINE", 1);
+        await ClaimAsync(client, order.Id);
+
+        var response = await ReportIssueAsync(
+            client,
+            order.Id,
+            int.MaxValue,
+            new { issueType = "cardNotFound" }
+        );
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("line_not_found", document.RootElement.GetProperty("error").GetString());
+        await factory.SeedAsync(async context =>
+            Assert.False(await context.PickingIssues.AnyAsync())
+        );
+    }
+
     private static async Task AssertNoIssueRecordedAsync(
         AuthWebApplicationFactory factory,
         int orderLineId

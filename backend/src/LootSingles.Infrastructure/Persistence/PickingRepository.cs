@@ -48,10 +48,14 @@ public sealed class PickingRepository(LootSinglesDbContext context) : IPickingRe
             return await ClassifyRejectionAsync(orderId, orderLineId, cancellationToken);
         }
 
-        // Inside the same transaction: a rejected or failed recording rolls the issue row back too.
         int? currentPickingIssueId = null;
         if (change is PickOutcomeChange.IssueReport report)
         {
+            // Load-bearing, not duplication of the rows-affected check below (branch review
+            // BR-009): PickingIssue.OrderLineId is a foreign key, so inserting against a line id
+            // that does not exist raises a constraint violation — a 500 — before the later check
+            // can reject it as LineNotFound. A line belonging to a *different* order passes this
+            // guard and is caught below, which is why removing this looked safe.
             if (
                 !await context.OrderLines.AnyAsync(
                     line => line.Id == orderLineId && line.OrderId == orderId,

@@ -20,6 +20,14 @@ existing controller pattern):
 | `LineNotFound` | 404 | problem details |
 | `NotYourClaim` | 409 | problem details — actor does not currently hold this order's claim (FR-010) |
 
+**Card images on write responses**: both write endpoints (`pick` and `report-issue`) always return
+`imageUrl: null` on every line. Card images are supplemental enrichment resolved only by `GET
+/api/orders/{orderId}` — recording an outcome cannot change them, and re-resolving would put one
+external catalog call per line on the most repeated action in the product. Clients keep the images
+they already loaded (see `OrderDetailPage.withLoadedImages`). The success body is otherwise the
+same `OrderDetailResponse`, read inside the recording transaction so it reflects exactly the state
+that call committed.
+
 ## POST /api/orders/{orderId}/lines/{lineId}/report-issue
 
 Records the line as having an unresolved picking issue.

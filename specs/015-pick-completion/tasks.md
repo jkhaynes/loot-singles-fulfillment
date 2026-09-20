@@ -478,6 +478,48 @@ Product Owner decision 2026-09-20: a claimed order shows who holds it regardless
 
 ---
 
+## Phase 9: Branch Review Remediation, Round 2 (`branch-review`, 2026-09-20)
+
+Remediates the second branch review of `015-pick-completion`, which found one regression
+introduced by Phase 8's own remediation. BR-011 (share the note-length limit with the textarea)
+was reviewed and declined: it is a cross-language constant that cannot truly be shared, and the
+server validates authoritatively, so drift produces a clean 400 rather than a defect.
+
+### BR-009 — Reporting an issue on a nonexistent line returns 500 (Required)
+
+T063 removed the pre-insert line-existence check, so the `PickingIssue` row is now inserted before
+anything confirms the line exists. A `lineId` that does not exist violates
+`FK_PickingIssues_OrderLines_OrderLineId` and the `DbUpdateException` escapes as a 500. Verified
+against a running E2E host on 2026-09-20: `POST /api/orders/{id}/lines/999999/report-issue` → 500,
+while the same line id on `.../pick` correctly returns 404, and a line belonging to a *different*
+order also returns 404 (its FK is valid, so the later `linesUpdated != 1` check catches it). That
+asymmetry is why the existing suite stays green.
+
+- [X] T066 [US2] Write a failing integration test in
+      `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs` proving
+      `POST /api/orders/{orderId}/lines/{lineId}/report-issue` with a line id that does not exist
+      returns 500 today rather than the contract's 404 `line_not_found`. Assert the intended
+      behavior — 404 with `line_not_found`, and no `PickingIssue` row persisted. Use a genuinely
+      absent id (e.g. 2147483647), not a line belonging to another order: the foreign-line case
+      already passes and does not reproduce this. Run and confirm it fails for the expected reason
+      before T067.
+- [X] T067 [US2] Restore the line-existence guard before the `PickingIssue` insert in
+      `backend/src/LootSingles.Infrastructure/Persistence/PickingRepository.cs`, reverting T063 so
+      a missing line is rejected as `LineNotFound` instead of reaching the FK constraint. Makes
+      T066 pass. T063 remediated BR-006 from the first review, whose stated rationale (a wasted
+      insert) missed this failure mode; the guard is load-bearing, so record that in the code
+      comment to stop it being removed again as duplication.
+
+### BR-010 — Write responses carry no card images, undocumented (Optional, approved)
+
+- [X] T068 [P] Document in `specs/015-pick-completion/contracts/picking-api.md` that the `pick` and
+      `report-issue` success bodies always return `imageUrl: null` on every line — card images are
+      resolved only by `GET /api/orders/{orderId}`, and clients keep the ones already loaded
+      (see `OrderDetailPage.withLoadedImages`). Documentation only; test-first reproduction is not
+      applicable, and the behavior itself is already covered by T055 and T058.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
