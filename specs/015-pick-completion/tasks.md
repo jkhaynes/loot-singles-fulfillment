@@ -655,7 +655,7 @@ not because a defect is known.
 
 ## Phase 11: Convergence
 
-- [ ] T073 Surface the SC-004 / Assumptions tension for a Product Owner decision via
+- [X] T073 Surface the SC-004 / Assumptions tension for a Product Owner decision via
       `/speckit-clarify` before building anything: SC-004 requires an operator to determine, for
       **every** reported picking issue, who reported it, when, and what it was, without inspecting
       database internals — but superseded issues are currently unreachable from any API or screen
@@ -669,3 +669,9 @@ not because a defect is known.
       Assumptions explicitly place "a dedicated issue queue or dashboard" out of scope for this
       feature, so SC-004 may already be intended to cover only unresolved issues. Do not design an
       issue-history surface until that is settled (SC-004, partial).
+      **Resolved (2026-09-20, Product Owner via `/speckit-clarify`):** SC-004 covers currently
+      unresolved issues only, which the implementation already satisfies. Superseded reports stay
+      retained per FR-011 but are not surfaced by this feature; issue history belongs to a future
+      feature alongside the PRD's open issue-resolution discovery question. `spec.md` records the
+      decision under Clarifications → Session 2026-09-20, and SC-004 was reworded to match. No
+      code change was required.
