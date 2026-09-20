@@ -4,7 +4,7 @@ This file must be usable by Claude Code without requiring knowledge of any prior
 
 ## Project
 
-**Loot Singles Fulfillment** is an internal fulfillment application for Loot Card Shop. V1 replaces the printed TCGplayer invoice for the **picking** portion of order fulfillment with a responsive, set-aware, visual picking experience that strongly emphasizes high-risk information (quantity greater than one, variant, set, card identity), supports multiple concurrent pickers with exclusive order claiming, and represents picking problems explicitly instead of forcing a false happy path. See [`docs/prd/Loot_Singles_Fulfillment_PRD_v0.3.md`](docs/prd/Loot_Singles_Fulfillment_PRD_v0.3.md) for full detail.
+**Loot Singles Fulfillment** is an internal fulfillment application for Loot Card Shop. V1 replaces the printed TCGplayer invoice for the **picking** portion of order fulfillment with a responsive, set-aware, visual picking experience that strongly emphasizes high-risk information (quantity greater than one, variant, set, card identity), supports multiple concurrent pickers with exclusive order claiming, and represents picking problems explicitly instead of forcing a false happy path. See [`docs/prd/Loot_Singles_Fulfillment_PRD_v0.4.md`](docs/prd/Loot_Singles_Fulfillment_PRD_v0.4.md) for full detail.
 
 ## Product Authority
 

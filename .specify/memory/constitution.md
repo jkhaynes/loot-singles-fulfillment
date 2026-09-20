@@ -1,28 +1,18 @@
 <!--
 Sync Impact Report
-Version change: 3.4.0 → 3.4.1
-PATCH — renamed the post-implementation review gate from Code and Design Review
-(`/code-design-review`) to Branch Review (`/branch-review`, with `/review-remediation` for turning
-findings into tasks), and updated its finding vocabulary from Must Fix / Advisory to Required /
-Optional. The governance itself is unchanged: the same class of finding still blocks completion,
-findings still route back to `/speckit-plan` or `/speckit-clarify` by root cause, ordinary defects
-are still captured as tasks in the feature's existing `tasks.md`, and the gate is still required
-for application-code changes before convergence verification. No principle was added, removed, or
-redefined, so this is a terminology and tooling refinement rather than a governance change.
+Version change: 3.4.1 → 3.4.2
+PATCH — updated Principle II's approved-PRD reference from
+`docs/prd/Loot_Singles_Fulfillment_PRD_v0.3.md` to
+`docs/prd/Loot_Singles_Fulfillment_PRD_v0.4.md`. No principle was added, removed, or redefined,
+and the requirement itself is unchanged: every requirement MUST still trace to a confirmed Product
+Owner decision, the approved PRD, or an approved Spec Kit feature specification. Only the document
+that reference resolves to has changed.
 
 Modified principles:
-  None. (Principle numbering and substance are unchanged.)
+  II. No Invented Requirements — approved-PRD path now points at v0.4. Substance unchanged.
 
 Modified sections:
-  Spec Kit as the Development Methodology — lifecycle list item "Code and design review" →
-    "Branch review"; the escalation rule for gate findings now names `/branch-review`,
-    `/review-remediation`, and the Required/Optional vocabulary, and states that acting on an
-    Optional finding is a Product Owner decision.
-  Development Workflow — lifecycle arrow and the paragraph describing the gate now name branch
-    review, note that it reviews the feature branch against its base, and record that Required and
-    Optional are classified separately from severity, so a low-severity finding may still be
-    Required. The remediation loop now terminates on "no Required findings", with an added note
-    that a round surfacing none is the stopping point.
+  None.
 
 Added sections:
   None.
@@ -31,13 +21,13 @@ Removed sections:
   None.
 
 Rationale:
-The Developer switched the project's post-implementation review gate from `/code-design-review` to
-`/branch-review` and removed the former skill, leaving this constitution naming a gate whose tooling
-no longer exists. `CLAUDE.md`, the pull request template, and the AI-assisted development workflow
-doc were updated in commit a8b9797; this amendment brings the governing document in line so the
-source-of-truth hierarchy stays consistent. The vocabulary change is not cosmetic — Required and
-Optional are classified independently of severity — so the gate's wording is restated rather than
-find-and-replaced.
+PRD v0.4 was approved by the Product Owner on 2026-09-20 (PR #30) and supersedes v0.3. It folds in
+amendments A1–A13 arising from the picking experience prototype recorded in
+`docs/discovery/2026-09-20-picking-experience-prototype.md`; three of those changed approved V1
+scope (order lifecycle states, order hand-off and labelling, and removal of the barcode non-goal).
+Leaving this constitution pointing at v0.3 would make the highest governing document cite a
+superseded PRD, so every later feature would trace its requirements through the wrong artifact.
+`CLAUDE.md` and `README.md` were updated in the same change.
 
 Follow-up TODOs: None.
 -->
@@ -60,7 +50,7 @@ When artifacts at different levels conflict, work MUST stop for clarification ra
 
 ### II. No Invented Requirements
 
-Product functionality MUST NOT be added because it seems useful, standard, or convenient. Every requirement MUST trace to a confirmed Product Owner decision, the approved PRD (`docs/prd/Loot_Singles_Fulfillment_PRD_v0.3.md`), or an approved Spec Kit feature specification.
+Product functionality MUST NOT be added because it seems useful, standard, or convenient. Every requirement MUST trace to a confirmed Product Owner decision, the approved PRD (`docs/prd/Loot_Singles_Fulfillment_PRD_v0.4.md`), or an approved Spec Kit feature specification.
 
 Open questions documented in the PRD remain open; they MUST NOT be silently converted into implementation assumptions.
 
@@ -433,4 +423,4 @@ Safety-related principles, including Sections V, VI, and VII, MUST NOT be weaken
 
 Changes to maintainability or simplicity principles MUST preserve the balance between reasonable extensibility and avoiding speculative over-engineering.
 
-**Version**: 3.4.1 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-09-20
+**Version**: 3.4.2 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-09-20
