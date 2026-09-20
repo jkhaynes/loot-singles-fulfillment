@@ -29,7 +29,7 @@ public sealed class E2EHostDatabaseTests
 
         try
         {
-            using var client = new HttpClient { BaseAddress = new Uri("http://127.0.0.1:5098") };
+            using var client = new HttpClient { BaseAddress = new Uri("http://127.0.0.1:5199") };
             var health = await WaitForHealthAsync(client, process);
             Assert.Equal("Microsoft.EntityFrameworkCore.SqlServer", health.DatabaseProvider);
             Assert.True(health.Seeded);

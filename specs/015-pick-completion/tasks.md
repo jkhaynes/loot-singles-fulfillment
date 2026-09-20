@@ -356,6 +356,15 @@ tiles and the order list's status display are both fully accurate and closed out
       they are not picking it. Failing component tests written first in
       `frontend/tests/orders/OrderDetailPage.test.tsx`; `frontend/e2e/pick-completion.spec.ts`
       updated to expect the redirect.
+- [X] T051 Isolate the end-to-end stack from the development stack so both can run at once
+      (Product Owner request 2026-09-19): move `LootSingles.E2EHost` off the dev API's port 5098
+      to 5199, run the E2E Vite server on 5174 with `--strictPort`, and stop Playwright reusing
+      the dev server on 5173 (which proxies to the dev API and made every E2E login hit the wrong
+      backend). Databases were already separate — E2E uses a disposable SQL Server container and
+      never touches the development database. Ports documented in `README.md` and
+      `scripts/start-dev.ps1`. Also scopes `order-claiming.spec.ts`'s post-release assertion to
+      the released order, since T050's redirect lands the picker on a list where parallel specs'
+      orders legitimately read "In Progress".
 
 ---
 

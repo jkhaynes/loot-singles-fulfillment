@@ -26,7 +26,9 @@ await using var container = new MsSqlBuilder(SqlServerImage).Build();
 await container.StartAsync();
 
 var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseUrls("http://127.0.0.1:5098");
+// Dedicated E2E port, deliberately not the dev API's 5098/7166, so the Playwright suite and
+// scripts/start-dev.ps1 can run at the same time against separate servers and databases.
+builder.WebHost.UseUrls("http://127.0.0.1:5199");
 
 builder.Services.AddDbContext<LootSinglesDbContext>(options =>
     options.UseSqlServer(container.GetConnectionString())

@@ -33,7 +33,12 @@ test('Pick Next Order claims exclusively, is visible to another employee, and ca
   await expect(row.getByRole('button', { name: /claim/i })).toHaveCount(0)
 
   await pickerPage.getByRole('button', { name: /^release$/i }).click()
-  await expect(pickerPage.getByText(/in progress/i)).toHaveCount(0)
+  // Releasing returns the picker to the order list (015 T050). Scope the assertion to the row
+  // they just released — other specs run in parallel and their orders may read "In Progress".
+  await expect(pickerPage).toHaveURL(/\/orders$/)
+  const releasedRow = pickerPage.getByRole('article', { name: /E2E-ORDER-00002/i })
+  await expect(releasedRow).not.toContainText(/in progress/i)
+  await expect(releasedRow.getByRole('button', { name: /claim/i })).toBeVisible()
 
   await managerPage.reload()
   await expect(

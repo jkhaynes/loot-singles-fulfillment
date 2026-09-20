@@ -9,6 +9,10 @@ proxy targets https://localhost:7166) and one running the frontend Vite
 dev server (http://localhost:5173). Close either window, or Ctrl+C inside
 it, to stop that server independently.
 
+These are the development ports only. The Playwright end-to-end stack runs
+on its own servers (API 5199, web 5174) against a disposable SQL Server
+container, so `npx playwright test` can run while these windows are open.
+
 Uses whichever database connection string is already configured via
 `dotnet user-secrets` for LootSingles.Api - it is not overridden here, so
 this points at whatever you've set up (e.g. the Azure dev database).
