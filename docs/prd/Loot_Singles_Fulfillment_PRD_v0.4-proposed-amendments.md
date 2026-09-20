@@ -3,8 +3,12 @@
 **Base**: `Loot_Singles_Fulfillment_PRD_v0.3.md`
 **Drafted**: 2026-09-20
 **Source**: [Picking Experience Prototype discovery](../discovery/2026-09-20-picking-experience-prototype.md)
-**Status**: Draft. Nothing here is authoritative until the Product Owner approves it and it is
-folded into a v0.4 of the PRD.
+**Status**: **Applied.** Approved by the Product Owner on 2026-09-20 (PR #30) and folded into
+[`Loot_Singles_Fulfillment_PRD_v0.4.md`](Loot_Singles_Fulfillment_PRD_v0.4.md), which is now the
+authoritative PRD.
+
+This document is kept as the record of *why* each change was made and what it replaced. It is not
+a live proposal and must not be cited as a requirement — cite v0.4.
 
 Every amendment below traces to a decision recorded in that discovery session. Two of them
 **change approved V1 scope** and are marked accordingly — those are the ones needing the closest
