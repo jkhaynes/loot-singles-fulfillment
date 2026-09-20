@@ -1,19 +1,28 @@
 <!--
 Sync Impact Report
-Version change: 3.3.0 → 3.4.0
-MINOR — extended Principle XI (Reliability During Fulfillment) with a durable production-logging
-standard: important events/failures must be evaluated for whether they warrant logging, and where
-warranted, logged via ASP.NET Core's `ILogger<T>` directly (structured, console/stdout only), with
-no third-party/paid logging platform, no custom logging abstraction, no PII/secrets in logs, and
-proportional (not per-step) log volume. This is a material expansion of existing guidance within an
-existing principle, not a new numbered principle or section, and does not remove or weaken any
-existing governance.
+Version change: 3.4.0 → 3.4.1
+PATCH — renamed the post-implementation review gate from Code and Design Review
+(`/code-design-review`) to Branch Review (`/branch-review`, with `/review-remediation` for turning
+findings into tasks), and updated its finding vocabulary from Must Fix / Advisory to Required /
+Optional. The governance itself is unchanged: the same class of finding still blocks completion,
+findings still route back to `/speckit-plan` or `/speckit-clarify` by root cause, ordinary defects
+are still captured as tasks in the feature's existing `tasks.md`, and the gate is still required
+for application-code changes before convergence verification. No principle was added, removed, or
+redefined, so this is a terminology and tooling refinement rather than a governance change.
 
 Modified principles:
-  XI. Reliability During Fulfillment — added a paragraph requiring production logging to be
-    evaluated for important events/failures and, where warranted, implemented via `ILogger<T>`
-    directly with console/stdout-only output, no paid/third-party logging platform, no custom
-    logging abstraction, no PII/secret content, and proportional volume.
+  None. (Principle numbering and substance are unchanged.)
+
+Modified sections:
+  Spec Kit as the Development Methodology — lifecycle list item "Code and design review" →
+    "Branch review"; the escalation rule for gate findings now names `/branch-review`,
+    `/review-remediation`, and the Required/Optional vocabulary, and states that acting on an
+    Optional finding is a Product Owner decision.
+  Development Workflow — lifecycle arrow and the paragraph describing the gate now name branch
+    review, note that it reviews the feature branch against its base, and record that Required and
+    Optional are classified separately from severity, so a low-severity finding may still be
+    Required. The remediation loop now terminates on "no Required findings", with an added note
+    that a round surfacing none is the stopping point.
 
 Added sections:
   None.
@@ -22,14 +31,13 @@ Removed sections:
   None.
 
 Rationale:
-Feature 006-production-logging added basic `ILogger<T>` console logging for order import, decided
-via its own Spec Kit clarification/planning. The Developer asked that this become a standing
-practice future features are evaluated against, not a one-off decision — so the same constraint the
-feature settled on (built-in `ILogger<T>` only, console/stdout only, no paid platform, no custom
-abstraction, no PII/secrets, proportional volume) is now a durable, checkable constitution rule that
-`/speckit-plan`'s Architecture and Changeability Review and `/code-design-review` check on every
-future feature, consistent with Principle XI's existing "failure modes MUST be explicit and
-observable" requirement.
+The Developer switched the project's post-implementation review gate from `/code-design-review` to
+`/branch-review` and removed the former skill, leaving this constitution naming a gate whose tooling
+no longer exists. `CLAUDE.md`, the pull request template, and the AI-assisted development workflow
+doc were updated in commit a8b9797; this amendment brings the governing document in line so the
+source-of-truth hierarchy stays consistent. The vocabulary change is not cosmetic — Required and
+Optional are classified independently of severity — so the gate's wording is restated rather than
+find-and-replaced.
 
 Follow-up TODOs: None.
 -->
@@ -300,7 +308,7 @@ It owns the complete structured feature lifecycle:
 - Task breakdown
 - Artifact analysis
 - Implementation
-- Code and design review
+- Branch review
 - Convergence verification
 
 No second planning or implementation methodology is layered on top of Spec Kit.
@@ -316,7 +324,7 @@ If implementation surfaces:
 
 work MUST stop and return to the appropriate Spec Kit clarification or planning phase.
 
-This rule applies equally to findings surfaced by the Code and Design Review gate (`/code-design-review`): a Must Fix finding rooted in a flawed technical plan returns to `/speckit-plan`; a Must Fix finding rooted in an unresolved or contradictory requirement returns to `/speckit-clarify`. Must Fix findings that are ordinary implementation-level defects are captured as new tasks in the feature's existing `tasks.md` — not a separate or competing task-tracking system — and resolved through `/speckit-implement`. Advisory findings from `/code-design-review` do not block completion.
+This rule applies equally to findings surfaced by the Branch Review gate (`/branch-review`): a Required finding rooted in a flawed technical plan returns to `/speckit-plan`; a Required finding rooted in an unresolved or contradictory requirement returns to `/speckit-clarify`. Required findings that are ordinary implementation-level defects are captured as new tasks in the feature's existing `tasks.md` — not a separate or competing task-tracking system — via `/review-remediation`, and resolved through `/speckit-implement`. Optional findings do not block completion; whether to act on one is the Product Owner's decision.
 
 The specification and plan MUST NOT be silently redesigned during implementation.
 
@@ -361,14 +369,14 @@ Requirement
 → feature branch or worktree  
 → Spec Kit implementation using strict Red → Green → Refactor TDD per Principle IV  
 → automated build/tests  
-→ code and design review (`/code-design-review`)  
+→ branch review (`/branch-review`, with `/review-remediation`)  
 → convergence verification  
 → pull request  
 → CI  
 → human review  
 → merge
 
-Code and design review evaluates the actual implementation against the approved specification, plan, and this constitution; it is distinct from the human architecture and changeability review earlier in this list, which evaluates the proposed design before implementation exists. Must Fix findings are captured as new tasks in the existing `tasks.md` and resolved through implementation; Advisory findings do not block progress. This step is required for application-code changes before convergence verification.
+Branch review evaluates the actual implementation against the approved specification, plan, and this constitution, reviewing the feature branch against its base branch; it is distinct from the human architecture and changeability review earlier in this list, which evaluates the proposed design before implementation exists. Each finding is classified Required or Optional, separately from its severity, so a low-severity finding may still be Required. Required findings are captured as new tasks in the existing `tasks.md` and resolved through implementation; Optional findings do not block progress. This step is required for application-code changes before convergence verification.
 
 If convergence surfaces remaining required work:
 
@@ -376,11 +384,14 @@ Implementation
 → convergence verification  
 → repeat until converged.
 
-If code and design review surfaces remaining Must Fix findings:
+If branch review surfaces remaining Required findings:
 
 Implementation  
-→ code and design review  
-→ repeat until no Must Fix findings remain, before proceeding to convergence verification.
+→ branch review  
+→ repeat until no Required findings remain, before proceeding to convergence verification.
+
+A review round that surfaces no Required findings is the stopping point. Further rounds have
+diminishing returns, and remediation can introduce defects of its own.
 
 The Spec Kit task breakdown (`tasks.md`) is the tracker for in-progress feature work. No GitHub issue is required per feature.
 
@@ -422,4 +433,4 @@ Safety-related principles, including Sections V, VI, and VII, MUST NOT be weaken
 
 Changes to maintainability or simplicity principles MUST preserve the balance between reasonable extensibility and avoiding speculative over-engineering.
 
-**Version**: 3.4.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-23
+**Version**: 3.4.1 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-09-20
