@@ -99,7 +99,7 @@ public class DashboardControllerTests
             flaggedSummary
                 .GetProperty("flaggedProductNames")
                 .EnumerateArray()
-                .Select(name => name.GetString())
+                .Select(name => name.GetString()!)
                 .ToArray()
         );
         Assert.Equal(0, root.GetProperty("picked").GetProperty("count").GetInt32());
