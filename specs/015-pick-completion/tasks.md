@@ -650,3 +650,22 @@ not because a defect is known.
   T012/T015/T028 additions close single-line-order and Pick-Next-exclusion coverage gaps.
 - Commit after each task or logical group, per the standing project convention of asking for
   confirmation before every `git commit` (including local, reversible commits).
+
+---
+
+## Phase 11: Convergence
+
+- [ ] T073 Surface the SC-004 / Assumptions tension for a Product Owner decision via
+      `/speckit-clarify` before building anything: SC-004 requires an operator to determine, for
+      **every** reported picking issue, who reported it, when, and what it was, without inspecting
+      database internals — but superseded issues are currently unreachable from any API or screen
+      (`PickingIssue` rows are written in
+      `backend/src/LootSingles.Infrastructure/Persistence/PickingRepository.cs` and read back only
+      through `OrderLine.CurrentPickingIssue`, which is nulled when a flagged line is re-recorded
+      as picked). FR-011's retention requirement is satisfied — the rows persist and are covered by
+      the history test in
+      `backend/tests/LootSingles.IntegrationTests/Orders/OrdersControllerTests.cs` — so this is an
+      access gap, not a data-loss gap. Resolving it may require no code at all: spec.md's
+      Assumptions explicitly place "a dedicated issue queue or dashboard" out of scope for this
+      feature, so SC-004 may already be intended to cover only unresolved issues. Do not design an
+      issue-history surface until that is settled (SC-004, partial).
