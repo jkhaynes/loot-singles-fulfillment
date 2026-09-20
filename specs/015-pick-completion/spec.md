@@ -32,6 +32,15 @@
   derivation, applied at every write: any line has an unresolved issue → Needs Attention; else
   every line confirmed picked → Picked; else claimed → In Progress; else Ready.
 
+### Session 2026-09-20
+
+- Q: When an operator needs to look up a picking issue that has already been resolved (reported,
+  then the line later re-recorded as picked), should they be able to see that past report in the
+  application? → A: No — SC-004 covers currently unresolved issues only. Superseded reports are
+  retained per FR-011 but are not surfaced by this feature, consistent with the Assumptions section
+  placing a dedicated issue queue or dashboard out of scope. Surfacing issue history belongs to a
+  future feature, alongside the PRD's open issue-resolution discovery question.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Picker Confirms a Product Line as Successfully Picked (Priority: P1)
@@ -205,9 +214,10 @@ state, and that a Needs Attention order surfaces which line has an unresolved is
   Attention, never as Picked, verified across a representative sample.
 - **SC-003**: 100% of orders where every line is confirmed picked with zero unresolved issues
   automatically become Picked with no manual completion action.
-- **SC-004**: For every reported picking issue, an operator can determine which employee reported
-  it, when, and what the issue was, without inspecting application code or database internals
-  directly.
+- **SC-004**: For every picking issue that is **currently unresolved**, an operator can determine
+  which employee reported it, when, and what the issue was, without inspecting application code or
+  database internals directly. A report superseded by a later outcome on the same line is still
+  retained in full (FR-011) but is not surfaced in this feature — see Assumptions.
 - **SC-005**: The Dashboard's In Progress, Needs Attention, and Picked counts always match the
   actual number of orders in each state, replacing today's permanently placeholder values.
 - **SC-006**: An employee who does not currently hold an order's claim is prevented from recording
