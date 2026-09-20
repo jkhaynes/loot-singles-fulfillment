@@ -46,6 +46,16 @@ public sealed class SqlServerDatabaseLease : IAsyncDisposable
                 $"CREATE DATABASE [{databaseName}]",
                 cancellationToken
             );
+            // Match production's isolation level (branch review BR-012). Azure SQL Database has
+            // READ_COMMITTED_SNAPSHOT on by default; the SQL Server container has it off. The
+            // concurrency guarantees these tests exist to prove — claim-gated lock acquisition in
+            // PickingRepository, and OrderStatusComputation evaluated inside an UPDATE ... SET —
+            // depend on lock and snapshot behavior, so proving them under the other setting proves
+            // little about production.
+            await lease.ExecuteMasterCommandAsync(
+                $"ALTER DATABASE [{databaseName}] SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE",
+                cancellationToken
+            );
             if (afterDatabaseCreated is not null)
             {
                 await afterDatabaseCreated(cancellationToken);

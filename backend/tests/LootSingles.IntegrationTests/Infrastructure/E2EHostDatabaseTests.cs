@@ -18,7 +18,10 @@ public sealed class E2EHostDatabaseTests
                     "run",
                     "--project",
                     Path.Combine(repositoryRoot, "backend", "tests", "LootSingles.E2EHost"),
-                    "--no-build",
+                    // Deliberately no --no-build: this test is worthless against a stale binary,
+                    // which previously reported a 500 defect as a passing 404 (branch review
+                    // BR-013). The host starts a SQL Server container anyway, so a build is cheap
+                    // relative to startup.
                 },
                 WorkingDirectory = repositoryRoot,
                 RedirectStandardOutput = true,

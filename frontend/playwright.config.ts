@@ -19,10 +19,12 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
-      command:
-        'dotnet ../backend/tests/LootSingles.E2EHost/bin/Debug/net10.0/LootSingles.E2EHost.dll',
+      // `dotnet run` (not the prebuilt DLL) so the host is always current: running a stale binary
+      // silently tests old backend code, which has twice made a real defect read as a pass.
+      command: 'dotnet run --project ../backend/tests/LootSingles.E2EHost',
       url: `${E2E_API_URL}/health`,
       reuseExistingServer: false,
+      timeout: 180_000,
     },
     {
       // --strictPort so a busy 5174 fails loudly instead of silently landing on another port;

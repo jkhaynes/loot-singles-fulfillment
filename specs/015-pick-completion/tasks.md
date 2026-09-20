@@ -520,6 +520,58 @@ asymmetry is why the existing suite stays green.
 
 ---
 
+## Phase 10: Branch Review Remediation, Round 3 (`branch-review`, 2026-09-20)
+
+### BR-012 — Concurrency guarantees are verified under the wrong isolation level (Required)
+
+`SqlServerDatabaseLease` creates each test database with a bare `CREATE DATABASE` against
+`mcr.microsoft.com/mssql/server:2022-CU26`, where `READ_COMMITTED_SNAPSHOT` is off by default.
+Production is Azure SQL Database (README.md), where RCSI is on by default. Every concurrency
+guarantee this feature adds — the claim-gated lock acquisition in `PickingRepository`, and
+`OrderStatusComputation` evaluated as a correlated subquery inside an `UPDATE ... SET` — depends
+on lock behavior, and is currently proven only under locking read-committed.
+
+**What is proven vs. suspected**: the isolation mismatch is verified from the code. The specific
+risk — that under RCSI a release/force-release queued behind a pick recomputes `Status` from a
+pre-pick snapshot of `OrderLines` and writes a status the lines do not justify (FR-006, FR-009) —
+is a plausible mechanism that has NOT been reproduced. These tasks exist to settle that question,
+not because a defect is known.
+
+- [X] T069 Create test databases with production's isolation level: issue
+      `ALTER DATABASE [{name}] SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE` immediately
+      after `CREATE DATABASE` in
+      `backend/tests/LootSingles.IntegrationTests/Infrastructure/SqlServerDatabaseLease.cs`, so the
+      integration suite exercises the same concurrency semantics as Azure SQL. Test-first
+      reproduction is not applicable here: the finding is an unverified guarantee rather than a
+      known defect, and the existing concurrency tests ARE the probe — they cannot demonstrate the
+      risk until the environment matches production.
+- [X] T070 [P] Add a guard test in
+      `backend/tests/LootSingles.IntegrationTests/Persistence/MigrationTests.cs` (or a sibling
+      infrastructure test) asserting the leased test database reports
+      `DATABASEPROPERTYEX(DB_NAME(), 'IsReadCommittedSnapshotOn') = 1`, so T069 cannot be silently
+      undone and the suite can never drift back to non-production isolation unnoticed
+      (depends on T069).
+- [X] T071 Re-run `backend/tests/LootSingles.IntegrationTests/Persistence/OrderClaimConcurrencyTests.cs`,
+      `PickingConcurrencyTests.cs`, and the full integration suite under RCSI and record the result
+      in this task (depends on T069). **If any concurrency test fails, stop — do not patch the
+      repository to make it pass.** A failure means research.md §1/§2's locking rationale does not
+      hold under production isolation, which is a flawed technical plan rather than an
+      implementation slip, and CLAUDE.md sends that back to `/speckit-plan`. Surface the failure
+      with its interleaving instead of redesigning the status derivation here.
+
+### BR-013 — Stale E2E host binary (Optional, approved)
+
+- [X] T072 [P] Make the suites that launch `LootSingles.E2EHost` build it first: change
+      `frontend/playwright.config.ts`'s backend `webServer.command` to
+      `dotnet run --project ../backend/tests/LootSingles.E2EHost` (which builds) instead of
+      executing the prebuilt DLL, and drop `--no-build` from
+      `backend/tests/LootSingles.IntegrationTests/Infrastructure/E2EHostDatabaseTests.cs`. The host
+      already starts a SQL Server container and seeds it, so a build adds little to startup.
+      Non-behavioral test-infrastructure change; verification is that both suites still pass. A
+      stale binary made BR-009's 500 read as a passing 404 during review — twice.
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
