@@ -15,6 +15,7 @@ vi.mock('../../src/features/orders/ordersApi', async (original) => ({
   recordPicked: vi.fn(),
   reportIssue: vi.fn(),
   releaseOrder: vi.fn(),
+  claimOrder: vi.fn(),
   forceReleaseOrder: vi.fn(),
 }))
 
@@ -709,5 +710,98 @@ describe('OrderDetailPage on a phone', () => {
     await screen.findByRole('article')
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /browse orders/i })).not.toBeInTheDocument()
+  })
+})
+
+// 016-mobile-picking T040-T042 (FR-023, FR-024, FR-027): claiming is an explicit act on the
+// order, so viewing one is always safe. The endpoint has existed since feature 013; until now
+// nothing surfaced it here, so opening an order from the dashboard was a dead end.
+describe('OrderDetailPage — claiming', () => {
+  beforeEach(() => {
+    vi.mocked(authApi.me).mockResolvedValue({
+      employeeId: 1,
+      displayName: 'Test Picker',
+      role: 'Picker',
+    })
+  })
+
+  function unclaimedOrder(): ordersApi.OrderDetail {
+    return {
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'ready',
+      lines: [buildLine({ productName: 'Pikachu ex' })],
+      claimedByEmployeeId: null,
+      claimedByEmployeeName: null,
+    }
+  }
+
+  it('offers to claim an unclaimed order, and claims nothing by being opened', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(unclaimedOrder())
+
+    renderPage()
+
+    expect(await screen.findByRole('button', { name: /^claim/i })).toBeInTheDocument()
+    // Viewing is safe (FR-023).
+    expect(ordersApi.claimOrder).not.toHaveBeenCalled()
+  })
+
+  it('claims the order and makes picking available', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(unclaimedOrder())
+    vi.mocked(ordersApi.claimOrder).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'inProgress',
+      claimedByEmployeeId: 1,
+      claimedByEmployeeName: 'Test Picker',
+    })
+
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^claim/i }))
+
+    expect(ordersApi.claimOrder).toHaveBeenCalledWith(42)
+    expect(await screen.findByRole('button', { name: 'Picked' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^claim/i })).not.toBeInTheDocument()
+  })
+
+  it('names the holder when someone else claimed it first', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(unclaimedOrder())
+    vi.mocked(ordersApi.claimOrder).mockRejectedValue(new ordersApi.OrderAlreadyClaimedError('Sam'))
+
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^claim/i }))
+
+    // The server settles the race; this only reports what it said (FR-025).
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Sam/)
+  })
+
+  it('explains rather than failing when the viewer already holds another order', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(unclaimedOrder())
+    vi.mocked(ordersApi.claimOrder).mockRejectedValue(new ordersApi.EmployeeHasActiveClaimError(7))
+
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^claim/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/already/i)
+    // And offers a way to the order they do hold, rather than a dead end (FR-027).
+    expect(within(alert).getByRole('link')).toHaveAttribute('href', '/orders/7')
+  })
+
+  it('offers no claim action on an order someone else holds', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      ...unclaimedOrder(),
+      status: 'inProgress',
+      claimedByEmployeeId: 2,
+      claimedByEmployeeName: 'Sam',
+    })
+
+    renderPage()
+
+    await screen.findByRole('article')
+    expect(screen.queryByRole('button', { name: /^claim/i })).not.toBeInTheDocument()
   })
 })

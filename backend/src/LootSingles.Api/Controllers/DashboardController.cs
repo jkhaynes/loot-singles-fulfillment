@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using LootSingles.Application.Dashboard;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -24,6 +25,12 @@ public sealed class DashboardController(DashboardService dashboardService) : Con
             cancellationToken
         );
         var pickedOrders = await dashboardService.GetPickedOrderSummariesAsync(cancellationToken);
+        // Only ever the signed-in employee's own order: no other employee's identity is added to
+        // this payload (Constitution VII, PRD §27).
+        var activeClaim = await dashboardService.GetActiveClaimAsync(
+            int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!),
+            cancellationToken
+        );
 
         return Ok(
             new DashboardResponse(
@@ -41,7 +48,15 @@ public sealed class DashboardController(DashboardService dashboardService) : Con
                         ))
                         .ToList()
                 ),
-                ToSection(pickedOrders)
+                ToSection(pickedOrders),
+                activeClaim is null
+                    ? null
+                    : new OrderSummaryResponse(
+                        activeClaim.OrderId,
+                        activeClaim.TcgplayerOrderId,
+                        activeClaim.ProductCount,
+                        activeClaim.TotalQuantity
+                    )
             )
         );
     }
@@ -64,7 +79,12 @@ public sealed record DashboardResponse(
     OrderSectionResponse Ready,
     OrderSectionResponse InProgress,
     NeedsAttentionSectionResponse NeedsAttention,
-    OrderSectionResponse Picked
+    OrderSectionResponse Picked,
+    /// <summary>
+    /// The order the signed-in employee already holds, or <c>null</c>. Never another
+    /// employee's, and never carrying another employee's identity.
+    /// </summary>
+    OrderSummaryResponse? ActiveClaim
 );
 
 public sealed record OrderSectionResponse(int Count, IReadOnlyList<OrderSummaryResponse> Orders);

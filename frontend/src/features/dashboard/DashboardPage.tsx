@@ -106,14 +106,22 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
           )}
         </div>
         <div className="dashboard-header__actions">
-          <button
-            type="button"
-            className="dashboard-pick-next-action"
-            onClick={handlePickNext}
-            disabled={isPickingNext}
-          >
-            {isPickingNext ? 'Picking…' : 'Pick Next Order'}
-          </button>
+          {/* Holding an order is a state to reflect, not an error to report after the fact
+              (FR-026). Offering Pick Next here would produce a request known to fail. */}
+          {data?.activeClaim ? (
+            <Link to={`/orders/${data.activeClaim.orderId}`} className="dashboard-resume-action">
+              {`Resume ${data.activeClaim.tcgplayerOrderId} · ${data.activeClaim.productCount} products · ${data.activeClaim.totalQuantity} cards`}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              className="dashboard-pick-next-action"
+              onClick={handlePickNext}
+              disabled={isPickingNext}
+            >
+              {isPickingNext ? 'Picking…' : 'Pick Next Order'}
+            </button>
+          )}
           <Link to="/orders" className="dashboard-orders-action">
             Browse Orders
           </Link>

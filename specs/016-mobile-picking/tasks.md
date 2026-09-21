@@ -127,25 +127,25 @@ dashboard holding it and confirm it offers to resume.
 
 ### Tests for User Story 3 ⚠️ WRITE FIRST, MUST FAIL
 
-- [ ] T036 [P] [US3] Integration test in `backend/tests/LootSingles.IntegrationTests/Dashboard/ActiveClaimTests.cs` asserting `activeClaim` returns the order the authenticated employee holds, and `null` when they hold none
-- [ ] T037 [US3] Integration test in `backend/tests/LootSingles.IntegrationTests/Dashboard/ActiveClaimTests.cs` asserting `activeClaim` **still returns the order when it sits in Needs Attention** rather than In Progress — the case an In-Progress scan would miss, since reporting an issue retains the claim (feature 015)
-- [ ] T038 [P] [US3] Integration test in `backend/tests/LootSingles.IntegrationTests/Dashboard/ActiveClaimTests.cs` asserting one employee's `activeClaim` never exposes another employee's order or identifier
-- [ ] T039 [P] [US3] Component test in `frontend/tests/dashboard/DashboardPage.test.tsx` asserting the dashboard offers to resume when `activeClaim` is present, and offers to start work when it is null
-- [ ] T040 [P] [US3] Component test in `frontend/tests/orders/OrderDetailPage.test.tsx` asserting an unclaimed order renders a claim action, and that merely rendering the page issues no claim request
-- [ ] T041 [P] [US3] Component test in `frontend/tests/orders/OrderDetailPage.test.tsx` asserting that when the viewer already holds another order, the page explains this instead of offering a claim action
-- [ ] T042 [P] [US3] Component test in `frontend/tests/orders/OrderDetailPage.test.tsx` asserting a claim rejected because another picker holds it names that holder
+- [X] T036 [P] [US3] Integration test in `backend/tests/LootSingles.IntegrationTests/Dashboard/ActiveClaimTests.cs` asserting `activeClaim` returns the order the authenticated employee holds, and `null` when they hold none
+- [X] T037 [US3] Integration test in `backend/tests/LootSingles.IntegrationTests/Dashboard/ActiveClaimTests.cs` asserting `activeClaim` **still returns the order when it sits in Needs Attention** rather than In Progress — the case an In-Progress scan would miss, since reporting an issue retains the claim (feature 015)
+- [X] T038 [P] [US3] Integration test in `backend/tests/LootSingles.IntegrationTests/Dashboard/ActiveClaimTests.cs` asserting one employee's `activeClaim` never exposes another employee's order or identifier
+- [X] T039 [P] [US3] Component test in `frontend/tests/dashboard/DashboardPage.test.tsx` asserting the dashboard offers to resume when `activeClaim` is present, and offers to start work when it is null
+- [X] T040 [P] [US3] Component test in `frontend/tests/orders/OrderDetailPage.test.tsx` asserting an unclaimed order renders a claim action, and that merely rendering the page issues no claim request
+- [X] T041 [P] [US3] Component test in `frontend/tests/orders/OrderDetailPage.test.tsx` asserting that when the viewer already holds another order, the page explains this instead of offering a claim action
+- [X] T042 [P] [US3] Component test in `frontend/tests/orders/OrderDetailPage.test.tsx` asserting a claim rejected because another picker holds it names that holder
 
 ### Implementation for User Story 3
 
-- [ ] T043 [US3] Add the `ActiveClaim` field to the dashboard response shape in `backend/src/LootSingles.Application/Dashboard/OrderSummary.cs`, reusing the existing `OrderSummary` record rather than adding a parallel type
-- [ ] T044 [US3] Add the active-claim read to `backend/src/LootSingles.Application/Dashboard/IDashboardRepository.cs` and `DashboardService.cs`
-- [ ] T045 [US3] Implement the projection in `backend/src/LootSingles.Infrastructure/Persistence/DashboardRepository.cs` — computed from the employee's claim directly, **not** by filtering a status list, so new lifecycle states in features 017 and 018 need no change here. `AsNoTracking`, projected to the DTO
-- [ ] T046 [US3] Return the field from `backend/src/LootSingles.Api/Controllers/DashboardController.cs` for the authenticated employee only
-- [ ] T047 [P] [US3] Add the `activeClaim` type to `frontend/src/features/dashboard/dashboardApi.ts`
-- [ ] T048 [US3] Render the resume affordance in `frontend/src/features/dashboard/DashboardPage.tsx`
-- [ ] T049 [US3] Add the claim action and the already-hold explanation to `frontend/src/features/orders/OrderDetailPage.tsx`, calling the existing `POST /api/orders/{orderId}/claim`
-- [ ] T050 [P] [US3] Add the claim call to `frontend/src/features/orders/ordersApi.ts`
-- [ ] T051 [US3] E2E coverage in `frontend/e2e/order-claiming.spec.ts` — viewing does not claim, claiming from the order works, the dashboard offers to resume while holding, and reporting an issue then returning to the dashboard **still** offers to resume
+- [X] T043 [US3] Add the `ActiveClaim` field to the dashboard response shape in `backend/src/LootSingles.Application/Dashboard/OrderSummary.cs`, reusing the existing `OrderSummary` record rather than adding a parallel type
+- [X] T044 [US3] Add the active-claim read to `backend/src/LootSingles.Application/Dashboard/IDashboardRepository.cs` and `DashboardService.cs`
+- [X] T045 [US3] Implement the projection in `backend/src/LootSingles.Infrastructure/Persistence/DashboardRepository.cs` — computed from the employee's claim directly, **not** by filtering a status list, so new lifecycle states in features 017 and 018 need no change here. `AsNoTracking`, projected to the DTO
+- [X] T046 [US3] Return the field from `backend/src/LootSingles.Api/Controllers/DashboardController.cs` for the authenticated employee only
+- [X] T047 [P] [US3] Add the `activeClaim` type to `frontend/src/features/dashboard/dashboardApi.ts`
+- [X] T048 [US3] Render the resume affordance in `frontend/src/features/dashboard/DashboardPage.tsx`
+- [X] T049 [US3] Add the claim action and the already-hold explanation to `frontend/src/features/orders/OrderDetailPage.tsx`, calling the existing `POST /api/orders/{orderId}/claim`
+- [X] T050 [P] [US3] Add the claim call to `frontend/src/features/orders/ordersApi.ts`
+- [X] T051 [US3] E2E coverage in `frontend/e2e/order-claiming.spec.ts` — viewing does not claim, claiming from the order works, the dashboard offers to resume while holding, and reporting an issue then returning to the dashboard **still** offers to resume
 
 **Checkpoint**: all three stories complete.
 

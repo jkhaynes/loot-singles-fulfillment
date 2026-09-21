@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   getOrderDetail,
   releaseOrder,
+  claimOrder,
+  OrderAlreadyClaimedError,
+  EmployeeHasActiveClaimError,
   forceReleaseOrder,
   recordPicked,
   reportIssue,
@@ -27,7 +31,8 @@ export function OrderDetailPage() {
   const { employee } = useAuth()
   const [order, setOrder] = useState<OrderDetail | null>(null)
   const [loadState, setLoadState] = useState<LoadState>('loading')
-  const [actionError, setActionError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<ReactNode | null>(null)
+  const [isClaiming, setIsClaiming] = useState(false)
   const [isReleasing, setIsReleasing] = useState(false)
   const [isForceReleasing, setIsForceReleasing] = useState(false)
   const [recordingLineId, setRecordingLineId] = useState<number | null>(null)
@@ -67,6 +72,51 @@ export function OrderDetailPage() {
       setActionError("Couldn't release this order. Try refreshing the page.")
     } finally {
       setIsReleasing(false)
+    }
+  }
+
+  /**
+   * Claiming is an explicit act on the order, so viewing one is always safe (FR-023, FR-024).
+   * The endpoint and its exclusivity have existed since feature 013 — nothing here re-implements
+   * the rule, it only surfaces the answer the server gives (Constitution VI).
+   */
+  async function handleClaim() {
+    if (!order) return
+
+    setIsClaiming(true)
+    setActionError(null)
+    try {
+      const claimed = await claimOrder(order.orderId)
+      setOrder({
+        ...order,
+        status: claimed.status,
+        claimedByEmployeeId: claimed.claimedByEmployeeId,
+        claimedByEmployeeName: claimed.claimedByEmployeeName,
+      })
+    } catch (error) {
+      if (error instanceof OrderAlreadyClaimedError) {
+        setActionError(
+          error.claimedByEmployeeName !== null
+            ? `${error.claimedByEmployeeName} claimed this order first.`
+            : 'Someone else claimed this order first.',
+        )
+      } else if (error instanceof EmployeeHasActiveClaimError) {
+        // A dead end otherwise: the picker is told no, with nowhere to go (FR-027).
+        setActionError(
+          error.claimedOrderId !== null ? (
+            <>
+              You already have <Link to={`/orders/${error.claimedOrderId}`}>an order claimed</Link>.
+              Finish or release it before claiming another.
+            </>
+          ) : (
+            'You already have an order claimed. Finish or release it before claiming another.'
+          ),
+        )
+      } else {
+        setActionError("Couldn't claim this order. Try refreshing the page.")
+      }
+    } finally {
+      setIsClaiming(false)
     }
   }
 
@@ -145,6 +195,9 @@ export function OrderDetailPage() {
     order.claimedByEmployeeId !== null &&
     order.claimedByEmployeeId !== employee.employeeId
   const canRecordOutcome = canRelease
+  // Offered only when the order is free: claiming one someone else holds is refused by the
+  // server anyway, and offering a button known to fail is the dead end FR-027 removes.
+  const canClaim = order !== null && employee !== null && order.claimedByEmployeeId === null
   const confirmedLineCount =
     order?.lines.filter((line) => line.pickOutcome === 'picked').length ?? 0
   // Set-aware picking (PRD §13): one group per storage box, ordered for the walk.
@@ -179,7 +232,20 @@ export function OrderDetailPage() {
           </span>
           {/* Labelled, because the band below shows a position and this is a count — two
               "X of Y" numbers on one screen would otherwise read as the same kind of thing. */}
-          <span className="order-detail-bar__progress">{`${confirmedLineCount} picked`}</span>
+          {/* A phone gets the same claim action: the card view is the only view it has, so
+              without this a picker could open an order there and never start it. */}
+          {canClaim ? (
+            <button
+              type="button"
+              className="order-detail-bar__claim"
+              onClick={handleClaim}
+              disabled={isClaiming}
+            >
+              {isClaiming ? 'Claiming…' : 'Claim'}
+            </button>
+          ) : (
+            <span className="order-detail-bar__progress">{`${confirmedLineCount} picked`}</span>
+          )}
         </header>
       ) : (
         <header className="order-detail-header">
@@ -215,6 +281,16 @@ export function OrderDetailPage() {
             )}
           </div>
           <nav className="order-detail-navigation" aria-label="Order detail navigation">
+            {canClaim && (
+              <button
+                type="button"
+                className="order-detail-navigation__claim"
+                onClick={handleClaim}
+                disabled={isClaiming}
+              >
+                {isClaiming ? 'Claiming…' : 'Claim'}
+              </button>
+            )}
             {canRelease && (
               <button type="button" onClick={handleRelease} disabled={isReleasing}>
                 {isReleasing ? 'Releasing…' : 'Release'}

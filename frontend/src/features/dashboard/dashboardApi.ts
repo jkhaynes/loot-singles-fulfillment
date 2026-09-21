@@ -24,6 +24,14 @@ export interface DashboardData {
   inProgress: OrderSection
   needsAttention: NeedsAttentionSection
   picked: OrderSection
+  /**
+   * The order the signed-in employee already holds, or null (016-mobile-picking FR-026).
+   *
+   * Computed server-side from the claim itself, not by filtering a section: an order keeps its
+   * claim when an issue is reported or when it is fully picked, so a held order can be sitting
+   * in Needs Attention or Picked. Never another employee's order.
+   */
+  activeClaim: OrderSummary | null
 }
 
 export async function getDashboard(): Promise<DashboardData> {

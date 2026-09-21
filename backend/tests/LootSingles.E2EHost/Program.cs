@@ -325,6 +325,42 @@ static async Task SeedAsync(IServiceProvider services)
             ],
         }
     );
+    // 016-mobile-picking T051: two more pickers and their own order for the claiming spec, so
+    // it never contends with another spec's claim while workers run in parallel.
+    foreach (
+        var (username, displayName) in new[]
+        {
+            ("e2epickersix", "E2E Picker Six"),
+            ("e2epickerseven", "E2E Picker Seven"),
+        }
+    )
+    {
+        context.Employees.Add(
+            new Employee
+            {
+                Username = username,
+                NormalizedUsername = username.ToUpperInvariant(),
+                DisplayName = displayName,
+                PinHash = pinHasher.Hash("1234"),
+                Role = EmployeeRole.Picker,
+                CreatedAt = DateTimeOffset.UtcNow,
+            }
+        );
+    }
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00008",
+            Status = OrderStatus.Ready,
+            // Newer than every other seeded order so "Pick Next Order" never selects it.
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(30),
+            OrderLines =
+            [
+                SetAwareLine("Pokemon", "Base Set", "Claimable Card", "#001/102", 1),
+                SetAwareLine("Pokemon", "Base Set", "Second Claimable", "#002/102", 2),
+            ],
+        }
+    );
     // 016-mobile-picking T002. Spans two games with two sets each, so set-aware picking can be
     // exercised end to end: game grouping, set ordering within a game, a line with no recorded
     // set, and a quantity greater than one.

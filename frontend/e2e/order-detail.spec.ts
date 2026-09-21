@@ -32,7 +32,11 @@ test('opens an available order and shows its picking details', async ({ page }) 
     'src',
     'https://static.e2e-fixtures.local/pikachu.png',
   )
-  await expect(page.getByRole('button', { name: /claim|pick|complete/i })).toHaveCount(0)
+  // 016-mobile-picking US3 changed this. The assertion was that an unclaimed order offered no
+  // action at all, which is precisely the dead end that feature removed: Claim is now offered
+  // here (FR-024). Picking actions still are not, because the order is not held.
+  await expect(page.getByRole('button', { name: /^claim$/i })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^picked$|report issue|complete/i })).toHaveCount(0)
 
   await page.getByRole('link', { name: 'Dashboard' }).click()
   await page.getByRole('link', { name: /browse orders/i }).click()

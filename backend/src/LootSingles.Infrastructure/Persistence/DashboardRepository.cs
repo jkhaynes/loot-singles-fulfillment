@@ -40,6 +40,32 @@ public sealed class DashboardRepository(LootSinglesDbContext context) : IDashboa
             ))
             .ToListAsync(cancellationToken);
 
+    /// <summary>
+    /// Keyed on <see cref="Order.ClaimedByEmployeeId"/> alone, never on a set of statuses: an
+    /// order keeps its claim when an issue is reported or when it is fully picked, so it may be
+    /// in Needs Attention or Picked while still held. A status-list query would miss exactly the
+    /// picker who most needs sending back to their order, and would need editing for every new
+    /// lifecycle state (PRD §20.1 adds three).
+    ///
+    /// One claim per employee is enforced server-side (013-order-claiming), so at most one row
+    /// can match; <c>SingleOrDefault</c> rather than <c>FirstOrDefault</c> so a violation of
+    /// that rule surfaces instead of being silently hidden by picking an arbitrary order.
+    /// </summary>
+    public async Task<OrderSummary?> GetActiveClaimAsync(
+        int employeeId,
+        CancellationToken cancellationToken
+    ) =>
+        await context
+            .Orders.AsNoTracking()
+            .Where(order => order.ClaimedByEmployeeId == employeeId)
+            .Select(order => new OrderSummary(
+                order.Id,
+                order.TcgplayerOrderId,
+                order.OrderLines.Count,
+                order.OrderLines.Sum(line => line.Quantity)
+            ))
+            .SingleOrDefaultAsync(cancellationToken);
+
     private async Task<IReadOnlyList<OrderSummary>> SummariesWithStatusAsync(
         OrderStatus status,
         CancellationToken cancellationToken
