@@ -89,29 +89,29 @@ go back, record, finish a set, and try to leave a set with work outstanding.
 
 ### Tests for User Story 2 ⚠️ WRITE FIRST, MUST FAIL
 
-- [ ] T016 [P] [US2] Unit tests for the set-transition and guard logic in `frontend/tests/orders/orderGrouping.test.ts` — complete set yields a transition naming the next set with its counts; incomplete set yields the guard carrying its unresolved lines; the last set yields neither
-- [ ] T017 [P] [US2] Unit test proving a set stops reporting as incomplete once its last outstanding line is resolved, in `frontend/tests/orders/orderGrouping.test.ts`
-- [ ] T018 [P] [US2] Component tests for `useViewPreference` in `frontend/tests/orders/useViewPreference.test.ts` — focused is default at phone width, list at desktop width, a stored choice overrides both
-- [ ] T019 [P] [US2] Component test in `frontend/tests/orders/useViewPreference.test.ts` proving that when `localStorage` throws or is unavailable, the view still renders using the size-based default
-- [ ] T020 [US2] Component test in `frontend/tests/orders/FocusedPickView.test.tsx` asserting **positively** that navigating forward and back issues no pick or report-issue request and leaves every line's outcome unchanged (FR-011). Assert on calls not made and state unchanged — never merely that no error appeared
-- [ ] T021 [P] [US2] Component test in `frontend/tests/orders/FocusedPickView.test.tsx` asserting every product is reachable using on-screen controls alone, without a swipe gesture
-- [ ] T022 [P] [US2] Component test in `frontend/tests/orders/FocusedPickView.test.tsx` asserting an explicit confirm records a pick for that product only
-- [ ] T023 [P] [US2] Component tests in `frontend/tests/orders/SetTransition.test.tsx` for both the finished-box panel and the unfinished-box guard, including that the guard offers exactly three choices
-- [ ] T024 [P] [US2] Component test in `frontend/tests/orders/FocusedPickView.test.tsx` asserting quantity greater than one receives strong visual emphasis (PRD §5.3, §15) — the focused view is where a missed "PULL 3 COPIES" costs most
-- [ ] T025 [P] [US2] Component test in `frontend/tests/orders/FocusedPickView.test.tsx` asserting picking actions become unavailable, with an explanation, when the claim is lost mid-pick
+- [X] T016 [P] [US2] Unit tests for the set-transition and guard logic in `frontend/tests/orders/orderGrouping.test.ts` — complete set yields a transition naming the next set with its counts; incomplete set yields the guard carrying its unresolved lines; the last set yields neither
+- [X] T017 [P] [US2] Unit test proving a set stops reporting as incomplete once its last outstanding line is resolved, in `frontend/tests/orders/orderGrouping.test.ts`
+- [X] T018 [P] [US2] Component tests for `useViewPreference` in `frontend/tests/orders/useViewPreference.test.ts` — focused is default at phone width, list at desktop width, a stored choice overrides both
+- [X] T019 [P] [US2] Component test in `frontend/tests/orders/useViewPreference.test.ts` proving that when `localStorage` throws or is unavailable, the view still renders using the size-based default
+- [X] T020 [US2] Component test in `frontend/tests/orders/FocusedPickView.test.tsx` asserting **positively** that navigating forward and back issues no pick or report-issue request and leaves every line's outcome unchanged (FR-011). Assert on calls not made and state unchanged — never merely that no error appeared
+- [X] T021 [P] [US2] Component test in `frontend/tests/orders/FocusedPickView.test.tsx` asserting every product is reachable using on-screen controls alone, without a swipe gesture
+- [X] T022 [P] [US2] Component test in `frontend/tests/orders/FocusedPickView.test.tsx` asserting an explicit confirm records a pick for that product only
+- [X] T023 [P] [US2] Component tests in `frontend/tests/orders/SetTransition.test.tsx` for both the finished-box panel and the unfinished-box guard, including that the guard offers exactly three choices
+- [X] T024 [P] [US2] Component test in `frontend/tests/orders/FocusedPickView.test.tsx` asserting quantity greater than one receives strong visual emphasis (PRD §5.3, §15) — the focused view is where a missed "PULL 3 COPIES" costs most
+- [X] T025 [P] [US2] Component test in `frontend/tests/orders/FocusedPickView.test.tsx` asserting picking actions become unavailable, with an explanation, when the claim is lost mid-pick
 
 ### Implementation for User Story 2
 
-- [ ] T026 [US2] Implement `findNextUnresolved` and the set-guard result shape in `frontend/src/features/orders/orderGrouping.ts`
-- [ ] T027 [P] [US2] Implement `useViewPreference` in `frontend/src/features/orders/useViewPreference.ts` — `matchMedia` for the size default, guarded `localStorage` for the per-device choice, every access wrapped so failure degrades to the default
-- [ ] T028 [US2] Implement `FocusedPickView` in `frontend/src/features/orders/FocusedPickView.tsx` — one product at a time, on-screen navigation, quantity emphasis, reusing the existing pick and report-issue calls from `ordersApi.ts`
-- [ ] T029 [US2] Add swipe navigation to `frontend/src/features/orders/FocusedPickView.tsx` as an **additional** affordance over the on-screen controls, never as the only way to move, and never bound to a recording action
-- [ ] T030 [US2] Implement `SetTransition` in `frontend/src/features/orders/SetTransition.tsx` covering the finished-box panel and the unfinished-box guard
-- [ ] T031 [US2] Wire the view switch into `frontend/src/features/orders/OrderDetailPage.tsx`, including the end-of-order hand-off as a callback so feature 017's completion screen can plug into it
-- [ ] T032 [US2] Render progress — products, physical cards, and position within the current set — in `frontend/src/features/orders/OrderDetailPage.tsx`
-- [ ] T033 [P] [US2] Style the focused view and transitions in `frontend/src/features/orders/OrderDetailPage.css`
-- [ ] T034 [US2] E2E coverage in `frontend/e2e/mobile-picking.spec.ts` at a phone viewport — focused view is default, navigation records nothing (assert the line's outcome is unchanged after navigating away and back), an explicit confirm records, the finished-box transition appears, and the unfinished-box guard blocks a silent exit
-- [ ] T035 [P] [US2] E2E coverage in `frontend/e2e/responsive.spec.ts` asserting the list view is the default at desktop width and no horizontal scroll appears in the focused view at phone width
+- [X] T026 [US2] Implement `findNextUnresolved` and the set-guard result shape in `frontend/src/features/orders/orderGrouping.ts`
+- [X] T027 [P] [US2] Implement `useViewPreference` in `frontend/src/features/orders/useViewPreference.ts` — `matchMedia` for the size default, guarded `localStorage` for the per-device choice, every access wrapped so failure degrades to the default
+- [X] T028 [US2] Implement `FocusedPickView` in `frontend/src/features/orders/FocusedPickView.tsx` — one product at a time, on-screen navigation, quantity emphasis, reusing the existing pick and report-issue calls from `ordersApi.ts`
+- [X] T029 [US2] Add swipe navigation to `frontend/src/features/orders/FocusedPickView.tsx` as an **additional** affordance over the on-screen controls, never as the only way to move, and never bound to a recording action
+- [X] T030 [US2] Implement `SetTransition` in `frontend/src/features/orders/SetTransition.tsx` covering the finished-box panel and the unfinished-box guard
+- [X] T031 [US2] Wire the view switch into `frontend/src/features/orders/OrderDetailPage.tsx`, including the end-of-order hand-off as a callback so feature 017's completion screen can plug into it
+- [X] T032 [US2] Render progress — products, physical cards, and position within the current set — in `frontend/src/features/orders/OrderDetailPage.tsx`
+- [X] T033 [P] [US2] Style the focused view and transitions in `frontend/src/features/orders/OrderDetailPage.css`
+- [X] T034 [US2] E2E coverage in `frontend/e2e/mobile-picking.spec.ts` at a phone viewport — focused view is default, navigation records nothing (assert the line's outcome is unchanged after navigating away and back), an explicit confirm records, the finished-box transition appears, and the unfinished-box guard blocks a silent exit
+- [X] T035 [P] [US2] E2E coverage in `frontend/e2e/responsive.spec.ts` asserting the list view is the default at desktop width and no horizontal scroll appears in the focused view at phone width
 
 **Checkpoint**: US2 shippable. The phone experience is the one the Product Owner asked for.
 

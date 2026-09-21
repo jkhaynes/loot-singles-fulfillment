@@ -21,7 +21,14 @@ export default defineConfig({
     {
       // `dotnet run` (not the prebuilt DLL) so the host is always current: running a stale binary
       // silently tests old backend code, which has twice made a real defect read as a pass.
-      command: 'dotnet run --project ../backend/tests/LootSingles.E2EHost',
+      //
+      // --artifacts-path keeps that build out of backend/src/LootSingles.Api/bin. The E2E host
+      // references the API project, so building it also builds the API — and a running dev server
+      // IS LootSingles.Api.exe holding that folder's DLLs open, which failed the build with
+      // MSB3027 no matter which ports each stack used. Separate ports were never enough on their
+      // own: the contended resource is the build output directory, not a socket.
+      command:
+        'dotnet run --project ../backend/tests/LootSingles.E2EHost --artifacts-path ../backend/artifacts/e2e',
       url: `${E2E_API_URL}/health`,
       reuseExistingServer: false,
       timeout: 180_000,

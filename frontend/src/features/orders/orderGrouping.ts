@@ -129,6 +129,64 @@ export function groupOrderLines(lines: OrderLineDetail[]): SetGroup[] {
 }
 
 /**
+ * What lies past the line the picker just finished with.
+ *
+ * Returned as data rather than acted upon, so the decision of which screen to show stays with
+ * the component and this module keeps its one job. Crucially, asking what comes next records
+ * nothing — advancing is a question, not an outcome (FR-011).
+ */
+export type Advance =
+  /** Another product in the same box. */
+  | { kind: 'line'; line: OrderLineDetail }
+  /** The box is finished. `nextSet` is null only when it was also the last box. */
+  | { kind: 'set-complete'; finishedSet: SetGroup; nextSet: SetGroup | null }
+  /** The box still owes cards. The picker must choose deliberately (FR-016, FR-017). */
+  | {
+      kind: 'set-incomplete'
+      set: SetGroup
+      unresolvedLines: OrderLineDetail[]
+      nextSet: SetGroup | null
+    }
+  /** Nothing left anywhere in the order. */
+  | { kind: 'order-end' }
+
+/**
+ * Where advancing from `fromLineId` leads.
+ *
+ * A set that still has unresolved products never reports as finished (FR-018) — the picker is
+ * told what is outstanding and made to choose, because walking away believing a box is done is
+ * how a card gets missed and the order stalls later.
+ */
+export function advanceFrom(groups: SetGroup[], fromLineId: number): Advance {
+  const groupIndex = groups.findIndex((group) => group.lines.some((line) => line.id === fromLineId))
+  if (groupIndex === -1) return { kind: 'order-end' }
+
+  const group = groups[groupIndex]
+  const lineIndex = group.lines.findIndex((line) => line.id === fromLineId)
+  const nextSet = groups[groupIndex + 1] ?? null
+
+  // Still inside this box.
+  if (lineIndex < group.lines.length - 1) {
+    return { kind: 'line', line: group.lines[lineIndex + 1] }
+  }
+
+  if (!group.isComplete) {
+    return {
+      kind: 'set-incomplete',
+      set: group,
+      unresolvedLines: group.unresolvedLines,
+      nextSet,
+    }
+  }
+
+  // Finished the last box of the order: no next set to name, and no empty panel pretending
+  // otherwise.
+  if (nextSet === null) return { kind: 'order-end' }
+
+  return { kind: 'set-complete', finishedSet: group, nextSet }
+}
+
+/**
  * Progress for the picker: how much of the order is done, and where they are standing.
  *
  * "Accounted for" means resolved, not successfully found — a picker who could not find two of

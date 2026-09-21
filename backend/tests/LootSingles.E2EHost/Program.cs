@@ -296,6 +296,35 @@ static async Task SeedAsync(IServiceProvider services)
             OrderLines = [PickCompletionLine("Venusaur", 1), PickCompletionLine("Mewtwo", 1)],
         }
     );
+    // 016-mobile-picking T034: a dedicated picker and order for the focused-view spec, so it
+    // never contends with another spec's claim while workers run in parallel.
+    context.Employees.Add(
+        new Employee
+        {
+            Username = "e2epickerfive",
+            NormalizedUsername = "E2EPICKERFIVE",
+            DisplayName = "E2E Picker Five",
+            PinHash = pinHasher.Hash("1234"),
+            Role = EmployeeRole.Picker,
+            CreatedAt = DateTimeOffset.UtcNow,
+        }
+    );
+    // Two sets, the first holding two products, so the spec can move within a box, trip the
+    // unfinished-box guard, and then cross a finished-box boundary.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00007",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(25),
+            OrderLines =
+            [
+                SetAwareLine("Pokemon", "Aaa Set", "First Card", "#001/100", 1),
+                SetAwareLine("Pokemon", "Aaa Set", "Second Card", "#002/100", 2),
+                SetAwareLine("Pokemon", "Bbb Set", "Third Card", "#003/100", 1),
+            ],
+        }
+    );
     // 016-mobile-picking T002. Spans two games with two sets each, so set-aware picking can be
     // exercised end to end: game grouping, set ordering within a game, a line with no recorded
     // set, and a quantity greater than one.

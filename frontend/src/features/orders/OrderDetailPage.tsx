@@ -13,104 +13,13 @@ import {
 } from './ordersApi'
 import type { OrderDetail, PickingIssueType, ReportIssueRequest } from './ordersApi'
 import { useAuth } from '../auth/AuthContext'
-import { groupOrderLines } from './orderGrouping'
+import { computeProgress, groupOrderLines } from './orderGrouping'
+import { useViewPreference } from './useViewPreference'
+import { FocusedPickView } from './FocusedPickView'
+import { ReportIssueForm } from './ReportIssueForm'
 import './OrderDetailPage.css'
 
 type LoadState = 'loading' | 'loaded' | 'not-found' | 'error'
-
-function ReportIssueForm({
-  lineId,
-  isSubmitting,
-  onCancel,
-  onSubmit,
-}: {
-  lineId: number
-  isSubmitting: boolean
-  onCancel: () => void
-  onSubmit: (request: ReportIssueRequest) => void
-}) {
-  const [issueType, setIssueType] = useState<PickingIssueType>(pickingIssueTypes[0].value)
-  const [requiredQuantity, setRequiredQuantity] = useState('')
-  const [foundQuantity, setFoundQuantity] = useState('')
-  const [note, setNote] = useState('')
-
-  function toQuantity(value: string): number | null {
-    const trimmed = value.trim()
-    return trimmed === '' ? null : Number(trimmed)
-  }
-
-  return (
-    <form
-      className="order-detail-line__issue-form"
-      onSubmit={(event) => {
-        event.preventDefault()
-        onSubmit({
-          issueType,
-          requiredQuantity: toQuantity(requiredQuantity),
-          foundQuantity: toQuantity(foundQuantity),
-          note: note.trim() === '' ? null : note.trim(),
-        })
-      }}
-    >
-      <div>
-        <label htmlFor={`issue-type-${lineId}`}>Issue type</label>
-        <select
-          id={`issue-type-${lineId}`}
-          value={issueType}
-          onChange={(event) => setIssueType(event.target.value as PickingIssueType)}
-        >
-          {pickingIssueTypes.map((type) => (
-            <option key={type.value} value={type.value}>
-              {type.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="order-detail-line__issue-quantities">
-        <div>
-          <label htmlFor={`required-quantity-${lineId}`}>Quantity required</label>
-          <input
-            id={`required-quantity-${lineId}`}
-            type="number"
-            min="0"
-            inputMode="numeric"
-            value={requiredQuantity}
-            onChange={(event) => setRequiredQuantity(event.target.value)}
-          />
-        </div>
-        <div>
-          <label htmlFor={`found-quantity-${lineId}`}>Quantity found</label>
-          <input
-            id={`found-quantity-${lineId}`}
-            type="number"
-            min="0"
-            inputMode="numeric"
-            value={foundQuantity}
-            onChange={(event) => setFoundQuantity(event.target.value)}
-          />
-        </div>
-      </div>
-      <div>
-        <label htmlFor={`issue-note-${lineId}`}>Note (optional)</label>
-        <textarea
-          id={`issue-note-${lineId}`}
-          rows={2}
-          maxLength={500}
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-        />
-      </div>
-      <div className="order-detail-line__issue-actions">
-        <button type="submit" disabled={isSubmitting}>
-          Submit Issue
-        </button>
-        <button type="button" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
-        </button>
-      </div>
-    </form>
-  )
-}
 
 export function OrderDetailPage() {
   const { orderId } = useParams()
@@ -240,6 +149,14 @@ export function OrderDetailPage() {
     order?.lines.filter((line) => line.pickOutcome === 'picked').length ?? 0
   // Set-aware picking (PRD §13): one group per storage box, ordered for the walk.
   const setGroups = useMemo(() => groupOrderLines(order?.lines ?? []), [order?.lines])
+  const progress = useMemo(() => computeProgress(setGroups, null), [setGroups])
+  const { view, choose } = useViewPreference()
+  const blockedReason =
+    order !== null && !canRecordOutcome
+      ? order.claimedByEmployeeName === null
+        ? 'This order is not claimed, so picks cannot be recorded.'
+        : `${order.claimedByEmployeeName} is picking this order.`
+      : null
 
   return (
     <main className="order-detail-page">
@@ -262,6 +179,13 @@ export function OrderDetailPage() {
               {`${confirmedLineCount} of ${order.lines.length} lines confirmed`}
             </p>
           )}
+          {order && (
+            /* Physical cards as well as products: a line of three is three cards to pull,
+               not one (PRD §18, FR-021). */
+            <p className="order-detail-header__cards">
+              {`${progress.accountedCards} of ${progress.totalCards} cards accounted for`}
+            </p>
+          )}
           {actionError && (
             <p role="alert" className="order-detail-header__error">
               {actionError}
@@ -269,6 +193,17 @@ export function OrderDetailPage() {
           )}
         </div>
         <nav className="order-detail-navigation" aria-label="Order detail navigation">
+          {order && (
+            <button
+              type="button"
+              className="order-detail-navigation__view"
+              onClick={() => choose(view === 'focused' ? 'list' : 'focused')}
+            >
+              {/* Deliberately avoids the words pick/claim/complete: this switches how the order
+                  is displayed and records nothing, so it must not read like an action. */}
+              {view === 'focused' ? 'Whole order' : 'One card at a time'}
+            </button>
+          )}
           {canRelease && (
             <button type="button" onClick={handleRelease} disabled={isReleasing}>
               {isReleasing ? 'Releasing…' : 'Release'}
@@ -294,6 +229,18 @@ export function OrderDetailPage() {
         <p role="alert" className="order-detail-state order-detail-state--error">
           Couldn't load order. Try refreshing the page.
         </p>
+      ) : view === 'focused' ? (
+        <FocusedPickView
+          groups={setGroups}
+          canRecordOutcome={canRecordOutcome}
+          blockedReason={blockedReason}
+          recordingLineId={recordingLineId}
+          onPicked={handlePicked}
+          onReportIssue={handleReportIssue}
+          // Feature 017's pick completion screen plugs in here. Until it exists, running off
+          // the end of the order shows the whole order rather than a dead end.
+          onOrderEnd={() => choose('list')}
+        />
       ) : (
         <section className="order-detail-lines" aria-label="Products to pick">
           {setGroups.map((group) => (

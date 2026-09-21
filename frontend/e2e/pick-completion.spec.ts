@@ -69,6 +69,11 @@ test('a reported issue survives release and re-claim, then resolves to Picked on
   await claimOrder(page, 'E2E-ORDER-00005')
   const orderUrl = page.url()
 
+  // 016-mobile-picking made the focused view the default on a phone-sized screen, so this test
+  // asks for the whole order explicitly. What it checks is unchanged: the same controls work at
+  // a small viewport with no device-specific workaround (SC-008).
+  await page.getByRole('button', { name: /whole order/i }).click()
+
   await lineCard(page, 'Venusaur').getByRole('button', { name: 'Report Issue' }).click()
   await lineCard(page, 'Venusaur').getByLabel('Issue type').selectOption('cardNotFound')
   await lineCard(page, 'Venusaur').getByLabel('Note (optional)').fill('Not in the bin')

@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { computeProgress, groupOrderLines } from '../../src/features/orders/orderGrouping'
+import {
+  advanceFrom,
+  computeProgress,
+  groupOrderLines,
+} from '../../src/features/orders/orderGrouping'
 import {
   buildIssueLine,
   buildLine,
@@ -241,5 +245,134 @@ describe('computeProgress (T008)', () => {
     expect(progress.currentSetName).toBe('Surging Sparks')
     expect(progress.currentSetPosition).toBe(2)
     expect(progress.currentSetSize).toBe(2)
+  })
+})
+
+describe('advanceFrom — set transitions and the guard (T016)', () => {
+  function twoSets() {
+    return [
+      buildLine({ productLine: 'Pokemon', set: 'Alpha', productName: 'A1' }),
+      buildLine({ productLine: 'Pokemon', set: 'Alpha', productName: 'A2' }),
+      buildLine({ productLine: 'Pokemon', set: 'Beta', productName: 'B1' }),
+    ]
+  }
+
+  it('moves to the next line inside the same set without any transition', () => {
+    const lines = twoSets()
+    const groups = groupOrderLines(lines)
+
+    const result = advanceFrom(groups, lines[0].id)
+
+    expect(result.kind).toBe('line')
+    expect(result.kind === 'line' && result.line.productName).toBe('A2')
+  })
+
+  it('announces the next set when the current one is complete', () => {
+    const lines = twoSets()
+    lines[0].pickOutcome = 'picked'
+    lines[1].pickOutcome = 'picked'
+    const groups = groupOrderLines(lines)
+
+    const result = advanceFrom(groups, lines[1].id)
+
+    expect(result.kind).toBe('set-complete')
+    if (result.kind !== 'set-complete') return
+    expect(result.finishedSet.setName).toBe('Alpha')
+    expect(result.nextSet?.setName).toBe('Beta')
+    expect(result.nextSet?.productCount).toBe(1)
+    expect(result.nextSet?.cardCount).toBe(1)
+  })
+
+  it('reports the next set card count in physical cards', () => {
+    const lines = [
+      buildLine({ set: 'Alpha', pickOutcome: 'picked' }),
+      buildLine({ set: 'Beta', quantity: 4 }),
+    ]
+    const groups = groupOrderLines(lines)
+
+    const result = advanceFrom(groups, lines[0].id)
+
+    expect(result.kind === 'set-complete' && result.nextSet?.cardCount).toBe(4)
+  })
+
+  it('guards a set that still has unresolved products', () => {
+    const lines = twoSets()
+    // A2 left unresolved — the picker skipped it and walked on.
+    lines[0].pickOutcome = 'picked'
+    const groups = groupOrderLines(lines)
+
+    const result = advanceFrom(groups, lines[1].id)
+
+    expect(result.kind).toBe('set-incomplete')
+    if (result.kind !== 'set-incomplete') return
+    expect(result.set.setName).toBe('Alpha')
+    expect(result.unresolvedLines.map((line) => line.productName)).toEqual(['A2'])
+  })
+
+  it('counts a line carrying an issue as resolved for the guard', () => {
+    // Reporting an issue is dealing with a product; the guard must not nag about it.
+    const lines = [
+      buildIssueLine({ set: 'Alpha' }),
+      buildLine({ set: 'Beta', pickOutcome: 'picked' }),
+    ]
+    const groups = groupOrderLines(lines)
+
+    expect(advanceFrom(groups, lines[0].id).kind).toBe('set-complete')
+  })
+
+  it('yields no transition past the last line of the last set', () => {
+    const lines = [buildLine({ set: 'Alpha', pickOutcome: 'picked' })]
+    const groups = groupOrderLines(lines)
+
+    const result = advanceFrom(groups, lines[0].id)
+
+    // No next set to name, and no empty panel pretending there is one.
+    expect(result.kind).toBe('order-end')
+  })
+
+  it('never reports a set complete while a line in it is unresolved', () => {
+    const lines = [buildLine({ set: 'Alpha' }), buildLine({ set: 'Beta' })]
+    const groups = groupOrderLines(lines)
+
+    expect(groups.every((group) => group.isComplete)).toBe(false)
+    expect(advanceFrom(groups, lines[0].id).kind).toBe('set-incomplete')
+  })
+})
+
+describe('advanceFrom — resolving an earlier gap (T017)', () => {
+  it('stops reporting a set as incomplete once its last gap is filled', () => {
+    const lines = [
+      buildLine({ set: 'Alpha', productName: 'A1' }),
+      buildLine({ set: 'Alpha', productName: 'A2' }),
+      buildLine({ set: 'Beta', productName: 'B1' }),
+    ]
+    lines[0].pickOutcome = 'picked'
+
+    // While A2 is outstanding the guard fires.
+    expect(advanceFrom(groupOrderLines(lines), lines[1].id).kind).toBe('set-incomplete')
+
+    // The picker goes back and resolves it; the set must now hand over cleanly.
+    lines[1].pickOutcome = 'picked'
+    expect(advanceFrom(groupOrderLines(lines), lines[1].id).kind).toBe('set-complete')
+  })
+})
+
+describe('advanceFrom — the last set is not exempt', () => {
+  it('guards the final set too, rather than ending the order silently', () => {
+    // The picker is at the end of the order with work outstanding. Ending here quietly is
+    // exactly how an order reaches the bench short (FR-018).
+    const lines = [
+      buildLine({ set: 'Alpha', pickOutcome: 'picked' }),
+      buildLine({ set: 'Beta', productName: 'B1', pickOutcome: 'picked' }),
+      buildLine({ set: 'Beta', productName: 'B2' }),
+    ]
+    const groups = groupOrderLines(lines)
+
+    const result = advanceFrom(groups, lines[2].id)
+
+    expect(result.kind).toBe('set-incomplete')
+    if (result.kind !== 'set-incomplete') return
+    expect(result.nextSet).toBeNull()
+    expect(result.unresolvedLines.map((line) => line.productName)).toEqual(['B2'])
   })
 })
