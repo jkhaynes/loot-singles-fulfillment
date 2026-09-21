@@ -10,6 +10,34 @@
 
 ## Clarifications
 
+### Session 2026-09-21 — convergence
+
+`/speckit-converge` compared this spec against the built code and found four gaps. In three of
+them the code was right and the spec still carried wording from the design reversed earlier the
+same day — the residue of two reversals in two days. The fourth was a real defect.
+
+- Q: SC-004 requires stopping a picker at the end of a set with unresolved products; FR-019a
+  requires that moving never be blocked. Which holds? → A: FR-019a. SC-004 is retired and
+  restated around the final review — the guarantee it protected is preserved there, and covers
+  every outstanding product rather than only the current box. (SC-004)
+- Q: SC-005 requires the picker to state how many physical cards remain at every point, but the
+  card view shows no order-wide card count. Add the count, or amend the criterion? → A: Amend
+  the criterion. FR-029 and the "card and one action" decision take precedence; a third number
+  on that screen is what those decisions removed. (SC-005)
+- Q: FR-017 requires reporting what is missing to be one of three choices at the finish, but the
+  review offers it only via the card. Add a control, or amend? → A: Amend. Jumping to an
+  unresolved product lands on the card, where Report an issue already is. (FR-017)
+- Q: Should the spec fix canonical terms for "product" and "card" so a screen cannot label one
+  as the other? → A: Yes, as a binding requirement. The card view had shipped "Card 1 of 15"
+  over a **product** count, understating the pile in exactly the orders where quantity matters
+  most. Two review rounds missed it because no rule existed to check the label against.
+  (FR-032)
+
+**Why three of these are amendments and not code changes.** Each traces to a Product Owner
+decision already made and already built. Changing the code to satisfy the stale wording would
+mean restoring the per-set guard, adding a number to a screen deliberately stripped, and adding
+a fourth control to the review — undoing the decisions rather than recording them.
+
 ### Session 2026-09-21 — the focused view, after using it
 
 Walking the built screen on a phone in the dev environment showed the design was wrong in a way
@@ -197,10 +225,10 @@ dashboard offers to resume rather than to start another.
   visible and pickable; grouping must not hide it.
 - Two different games contain sets with the same name. Grouping by game must keep them
   apart rather than merging them into one box.
-- An order contains exactly one product. No set transition can occur, and the focused view
+- An order contains exactly one product. No box change can occur, and the focused view
   must still present it and allow it to be resolved.
 - A picker reaches the last product of the last set. There is no next box to name, and the
-  application must not present an empty transition.
+  application must not announce one; moving on leads to the final review instead.
 - The picker's claim is released by a manager while they are working in the focused view.
   Picking actions must stop being available and the picker must be told.
 - A picker changes view preference on one device and then picks on another. The second
@@ -257,7 +285,11 @@ dashboard offers to resume rather than to start another.
   the application MUST state that the order is unfinished and list every unresolved product,
   across all sets.
 - **FR-017**: In that situation the application MUST require the picker to choose between
-  returning to an unresolved product, reporting what is missing, and finishing anyway.
+  returning to an unresolved product and finishing anyway, and returning to a product MUST
+  land on that product's card, where reporting what is missing is already available.
+  *(Amended 2026-09-21. This previously required reporting to be a third choice offered on the
+  review itself. Returning to the product reaches it in the same gesture, and the review
+  screen's job is verification, not a second place to record an outcome.)*
 - **FR-018**: The application MUST NOT present an order as fully picked while any product in it
   is unresolved.
 - **FR-019**: Finishing an order with unresolved products MUST leave those products unresolved,
@@ -276,6 +308,17 @@ dashboard offers to resume rather than to start another.
   the screen MUST NOT present navigation unrelated to picking the current order alongside it.
   Measured on a 440×956 screen, the earlier build put the record action below the fold and
   surrounded it with seven other controls.
+- **FR-032**: **Product** MUST mean an order line and **card** MUST mean a physical card,
+  throughout the application. A line of quantity 3 is one product and three cards. Where a count
+  carries either word, that word MUST name what the count actually counts; a count MUST NEVER
+  carry the term for the other. Testable per screen: "Product 2 of 15" on the card view, "17
+  cards should be in your hand" on the final review, "9 of 17 cards accounted for" on the
+  whole-order view. A count MAY be shown unlabelled where the surrounding content makes it
+  unambiguous — the position within the current box sits directly under that box's name and
+  reads as a position (FR-022), and labelling it is what FR-029 strips from that screen.
+  *(Added 2026-09-21. The card view had shipped "Card 1 of 15" over a product count,
+  understating the pile in exactly the orders where quantity greater than one makes the
+  distinction matter — the project's designated high-risk field, per PRD §5.3.)*
 
 **Claiming**
 
@@ -315,10 +358,19 @@ dashboard offers to resume rather than to start another.
   without performing a swipe gesture.
 - **SC-003**: No sequence of navigation actions, without an explicit confirm or report
   action, changes any product's recorded outcome.
-- **SC-004**: A picker who reaches the end of a set with unresolved products is always told
-  so before they can move on to another set.
-- **SC-005**: At every point in an order, the picker can state how many physical cards
-  remain and how many remain in the box they are standing at, from the screen alone.
+- **SC-004**: A picker who reaches the end of an order with unresolved products is always told
+  so, and shown which products they are, before the order can be completed. *(Amended
+  2026-09-21. This previously placed the stop at the end of every set, which FR-019a reversed:
+  single-card boxes are the common case, so a per-set stop fired on nearly every card. Moving
+  the check to the end of the order widens it from the current box to every outstanding
+  product.)*
+- **SC-005**: At every point in an order, the picker can state how much of the box they are
+  standing at remains, from the screen alone; and at the end of the order, how many physical
+  cards should be in their hand. *(Amended 2026-09-21. This previously required the order-wide
+  physical card count to be on screen at every point. FR-029 and the "card and one action"
+  decision strip the card screen to the product, its box position, and one action — a third
+  count is what those decisions removed. The order-wide card count is carried by the final
+  review, where it is counted against the sleeve, and by the whole-order view.)*
 - **SC-006**: Two pickers attempting to claim the same order at the same moment result in
   exactly one claim, with the other picker told who holds it.
 - **SC-007**: A picker who holds an order is never offered an action to start a different
@@ -337,8 +389,9 @@ dashboard offers to resume rather than to start another.
   alphabetical, per PRD §13.1. Loot's shelves are ordered newest-to-oldest, so alphabetical
   ordering will not match the aisle direction; this was accepted deliberately because the
   expensive walk is between game sections, not along one.
-- **The set transition presentation** is specific to the focused view. The list view shows
-  the same grouping without interstitial screens.
+- **The box-change announcement** is specific to the focused view, where only one product is
+  visible at a time. The whole-order view shows the same grouping as headings, which need no
+  announcement. Neither view uses an interstitial screen.
 - **Existing picking actions are reused.** Recording a pick and reporting an issue behave as
   feature 015 delivered them; this feature changes where and how they are presented, not
   what they do.

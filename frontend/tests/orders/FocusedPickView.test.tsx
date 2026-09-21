@@ -225,6 +225,20 @@ describe('FocusedPickView — quantity', () => {
     expect(screen.queryByText(/copies to pull/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Picked' })).toBeInTheDocument()
   })
+
+  // T063 / FR-021. The counter walks products, so calling them cards understates the pile in
+  // an order where any line has quantity greater than one — "Card 1 of 2" when three cards
+  // must be pulled. Products and physical cards are the one distinction this feature exists
+  // to keep straight, so the label has to name which it is counting.
+  it('counts products by that name, never calling them cards', () => {
+    renderView([
+      buildLine({ set: 'Alpha', quantity: 3, productName: 'Three Copies' }),
+      buildLine({ set: 'Alpha', quantity: 1, productName: 'One Copy' }),
+    ])
+
+    expect(screen.getByText('Product 1 of 2')).toBeInTheDocument()
+    expect(screen.queryByText(/^Card \d+ of \d+$/)).not.toBeInTheDocument()
+  })
 })
 
 describe('FocusedPickView — card identity', () => {

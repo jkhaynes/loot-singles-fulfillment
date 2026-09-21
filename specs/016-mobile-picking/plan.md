@@ -11,8 +11,8 @@ the work needs, and the claim endpoint already exists — what is missing is the
 uses them.
 
 `OrderLineDetail` already carries `ProductLine` (the game), `Set`, `Quantity` and
-`PickOutcome`. Grouping (FR-001 – FR-006), progress (FR-020 – FR-022) and the unresolved-set
-guard (FR-016 – FR-019) are therefore all derivable on the client from a payload it already
+`PickOutcome`. Grouping (FR-001 – FR-006), progress (FR-020 – FR-022) and the unresolved-order
+check (FR-016 – FR-019) are therefore all derivable on the client from a payload it already
 receives. `POST /api/orders/{orderId}/claim` was built in feature 013 and is fully
 concurrency-safe; FR-024 only needs a button wired to it.
 
@@ -30,8 +30,9 @@ application or persistence layers changes except the one dashboard projection.
 
 **Primary Dependencies**: ASP.NET Core Web API, EF Core 10, Vite, React Router
 
-**Storage**: SQL Server (Azure SQL in production). **No schema change in this feature.** The
-per-device view preference lives in browser `localStorage`, not the database.
+**Storage**: SQL Server (Azure SQL in production). **No schema change in this feature.** No
+browser storage either: the per-device view preference this plan first described was withdrawn
+on 2026-09-21 (FR-009, FR-010), so nothing is persisted client-side.
 
 **Testing**: xUnit (unit + integration with Testcontainers SQL Server), Vitest + React Testing
 Library (frontend), Playwright (E2E)
@@ -46,9 +47,9 @@ between products in the focused view is a client-side state change and must not 
 order.
 
 **Constraints**: Grouping and progress MUST derive only from authoritative imported order data
-(`ProductLine`, `Set`, `Quantity`), never from catalog enrichment (FR-006). `localStorage` may
-be unavailable or throw (private browsing, blocked site data), so every read and write is
-guarded and the size-based default stands in when it fails.
+(`ProductLine`, `Set`, `Quantity`), never from catalog enrichment (FR-006). `matchMedia` may be
+unavailable (jsdom, an unusual webview), so the call is guarded and the whole-order view — which
+works at any width — stands in when it fails.
 
 **Scale/Scope**: Orders of roughly 1–40 product lines across 1–6 sets. One new frontend
 component tree, one small helper module, one dashboard field. No migration.
@@ -62,8 +63,8 @@ component tree, one small helper module, one dashboard field. No migration.
 | **I. Product Owner Authority** | Every requirement traces to PRD v0.4 §8, §10, §12.1, §13, §13.1, §13.2, §18, or to the two clarifications recorded in the spec. PASS |
 | **II. No Invented Requirements** | Game ordering and view-preference scope were the two genuine gaps; both were put to the Product Owner rather than assumed. The spec's Out of Scope section names what is deliberately not built. PASS |
 | **III. Small, Reviewable Changes** | Three independently shippable user stories, each reviewable alone. US1 changes only how existing data is ordered for display. PASS |
-| **IV. Test-Driven Development** | Red → Green → Refactor for every behavioural change. Grouping and progress are pure functions and get unit tests first; the focused view gets RTL tests first; the claim flow and the unresolved-set guard get E2E coverage. The dashboard `activeClaim` field gets an integration test first. PASS |
-| **V. Safe Failure Over Silent Corruption** | FR-005 requires a line with a missing or unrecognised set to remain visible rather than be grouped out of existence. FR-011 forbids navigation recording an outcome. `localStorage` failure degrades to the default rather than breaking the view. PASS |
+| **IV. Test-Driven Development** | Red → Green → Refactor for every behavioural change. Grouping and progress are pure functions and get unit tests first; the focused view gets RTL tests first; the claim flow and the final review get E2E coverage. The dashboard `activeClaim` field gets an integration test first. PASS |
+| **V. Safe Failure Over Silent Corruption** | FR-005 requires a line with a missing or unrecognised set to remain visible rather than be grouped out of existence. FR-011 forbids navigation recording an outcome. A `matchMedia` failure degrades to the whole-order view rather than breaking the screen. PASS |
 | **VI. Server-Enforced Critical Business Rules** | Claim exclusivity stays entirely server-side and unchanged (013). The dashboard's resume affordance is a convenience; a claim attempt that loses the race is still refused by the server, and FR-027's explanation is presentation over an authoritative answer, not a client-side gate. PASS |
 | **VII. Data Minimization** | `activeClaim` is computed server-side against the authenticated employee and returns only that employee's own order. No other employee's identifier is added to any payload. PASS |
 | **VIII. One Responsive Product** | Focused and list views are two presentations of one order in one codebase, sharing the same pick and report-issue calls. No duplicated business logic, no second app. PASS |
@@ -112,10 +113,11 @@ backend/
 frontend/
 ├── src/features/orders/
 │   ├── orderGrouping.ts                # NEW — pure grouping + progress derivation
-│   ├── useViewPreference.ts            # NEW — per-device preference, guarded storage
+│   ├── useIsPhone.ts                   # NEW — screen size decides the view (amended)
 │   ├── FocusedPickView.tsx             # NEW — one product at a time
-│   ├── SetTransition.tsx               # NEW — box finished / box unfinished
-│   ├── OrderDetailPage.tsx             # view switch, claim action, progress
+│   ├── OrderFinish.tsx                 # NEW — the final review (amended)
+│   ├── ReportIssueForm.tsx             # NEW — extracted, shared by both views
+│   ├── OrderDetailPage.tsx             # view selection, claim action, progress
 │   └── ordersApi.ts                    # claim call (endpoint already exists)
 ├── src/features/dashboard/
 │   ├── dashboardApi.ts                 # + activeClaim type
@@ -135,9 +137,14 @@ Recorded in [research.md](research.md). In summary:
 1. **Grouping computed on the client, not the server.** The payload already carries the fields;
    adding a server-side grouped shape would mean a new contract and a second representation of
    the same order for no behavioural gain.
-2. **Per-device preference in `localStorage`.** It is per-origin, per-browser storage, which is
-   exactly "per device", and it requires no schema or endpoint. Every access is guarded.
-3. **`matchMedia` for the size default**, not user-agent sniffing — the spec says screen size.
+2. ~~**Per-device preference in `localStorage`.**~~ **Withdrawn 2026-09-21.** FR-009 and FR-010
+   were amended so the view follows screen size alone, with no preference offered, stored or
+   remembered. `useViewPreference.ts` and its storage guards were deleted; `useIsPhone.ts`
+   replaced them. Nobody had asked for the toggle, and the control it occupied became the way
+   out of an order to the dashboard (FR-030), which pickers had asked for. Recorded rather than
+   removed, because the reversal is the decision.
+3. **`matchMedia` for the view**, not user-agent sniffing — the spec says screen size. A desktop
+   window narrowed to a phone's width is a phone-shaped screen.
 4. **`activeClaim` on the dashboard rather than scanning In Progress rows.** An employee can
    hold an order that sits in the Needs Attention section, because reporting an issue retains
    the claim (015). Scanning only In Progress would miss it.
@@ -201,10 +208,17 @@ cannot issue a request makes FR-011's "navigation never records" guarantee struc
 than a matter of discipline, and it lets the most intricate logic be tested without rendering
 anything.
 
-### `FocusedPickView` / `SetTransition` — the one-at-a-time experience
+### `FocusedPickView` / `OrderFinish` — the one-at-a-time experience
 
-**Responsibility**: present one product and the picker's available actions; present a box
-boundary when one is reached.
+**Amended 2026-09-21.** This section planned a `SetTransition` component for two screens: a
+"box finished" panel and a "box unfinished" guard requiring one of three choices. FR-019a
+reversed that — moving between products must never be blocked. Built and used, the guard fired
+on nearly every card, single-card boxes being the common case, so the order could not be
+browsed at all. A box change is now a band on the card itself, and the single checkpoint moved
+to the end of the order as `OrderFinish` (FR-031). `SetTransition.tsx` was deleted.
+
+**Responsibility**: present one product and the picker's available actions; announce a box
+boundary on the card when one is crossed; hand off to the final review past the last product.
 
 **Boundaries**: presentation and local navigation position. It owns neither grouping (the
 module) nor recording (the existing 015 endpoints).
@@ -218,24 +232,26 @@ this component.
 picking actions and tells the picker. Record failures reuse the error handling feature 015
 already built rather than inventing a second pattern.
 
-**Simplicity**: `SetTransition` is a separate component because it is a distinct screen with
-distinct content, not in anticipation of reuse. No state library is introduced; navigation
-position is component state.
+**Simplicity**: `OrderFinish` is a separate component because it is a distinct screen with
+distinct content — deliberately imageless, so reading a name and a number forces a re-read
+rather than inviting the recognition the picker has already made. Not in anticipation of reuse.
+No state library is introduced; navigation position is component state.
 
-### `useViewPreference` — which view, per device
+### `useIsPhone` — which view
 
-**Responsibility**: answer "focused or list?" — the stored per-device choice, else the
-size-based default.
+**Responsibility**: answer "is this a phone-sized screen?". Nothing more — a phone gets the
+card view, a desktop the whole order, and neither offers the other (FR-009).
 
-**Foreseeable variation — and an honest one**: FR-010 refines PRD §8's "persist for that
-employee" wording, and that wording may yet be corrected the other way. Keeping storage access
-behind this hook means a change to per-employee persistence would replace the hook's internals
-and leave every consumer untouched.
+**Amended 2026-09-21.** This section planned `useViewPreference`, answering "focused or list?"
+from a stored per-device choice with a size-based fallback. It noted that FR-010 refined PRD
+§8's "persist for that employee" wording and "may yet be corrected the other way" — which is
+what happened, twice in two days: first per-employee to per-device, then to no choice at all.
+The hook's storage internals, and the `localStorage` failure modeling that guarded them, went
+with the decision.
 
-**Failure modeling**: `localStorage` can be absent or throw — private browsing, blocked site
-data, some embedded webviews. Every access is guarded and any failure is treated as "no
-preference stored", so the view always renders. This is the difference between a preference
-that fails to persist and a picking screen that fails to appear.
+**Failure modeling**: `matchMedia` can be absent — jsdom, an unusual webview. The call is
+guarded and any failure falls back to the whole-order view, which works at any width, rather
+than to a view built for a screen that could not be measured.
 
 **Abstraction rationale**: a hook rather than inline code because two components need the
 answer and the guarded-storage logic must not be duplicated. Deliberately **not** a context

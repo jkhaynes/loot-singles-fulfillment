@@ -253,9 +253,13 @@ export function FocusedPickView({
             ‹
           </button>
           {/* Labelled: the band above shows a position within the box, and in a single-box
-              order the two would otherwise read as the same number twice. */}
+              order the two would otherwise read as the same number twice.
+
+              "Product", not "Card": this walks order lines, and a line of three is one product
+              but three cards to pull. Calling it a card count understated the pile in exactly
+              the orders where quantity matters most (FR-021, PRD §5.3). */}
           <span className="focused-pick__counter">
-            {`Card ${currentIndex + 1} of ${orderedLines.length}`}
+            {`Product ${currentIndex + 1} of ${orderedLines.length}`}
           </span>
           <button type="button" aria-label="Next card" onClick={goNext}>
             ›

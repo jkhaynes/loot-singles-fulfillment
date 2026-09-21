@@ -255,3 +255,24 @@ to fail first (Constitution Principle IV). T020 deserves particular care: a test
 nothing happened is worthless if written carelessly. It must assert that no request was issued
 and that recorded outcomes are unchanged — not merely that no error was shown. Vacuous
 assertions masked a real failure during feature 015.
+
+---
+
+## Phase 8: Convergence
+
+Assessed 2026-09-21 against `spec.md`, `plan.md` and `tasks.md` as the statement of intent.
+No constitution MUST principle is violated, and no requirement is unimplemented. Every item
+below is drift between the artifacts and the decisions the Product Owner made during
+implementation — in four of the five cases the code is right and the artifact is stale.
+
+Resolution directions were confirmed by the Product Owner on 2026-09-21 and are recorded on
+each task, so none of these is an open question for the implementer to re-decide.
+
+- [X] T062 Return to `/speckit-clarify` to retire SC-004 per SC-004 vs FR-019a (contradicts). SC-004 requires a picker reaching the end of a set with unresolved products to be told "before they can move on to another set"; FR-019a requires that moving never be blocked. The code implements FR-019a (`frontend/src/features/orders/orderGrouping.ts:156`). **Direction: retire SC-004** and restate it around the final review (FR-031), consistent with the PRD §13.2 amendment. Do **not** restore the per-set guard — it fired on nearly every card, single-card boxes being the common case
+- [X] T063 Relabel the card counter in `frontend/src/features/orders/FocusedPickView.tsx:258` per FR-021 (contradicts). It renders `Card N of M` where `M` is `orderedLines.length`, a **product** count — so an order with a quantity-3 line reads "Card 1 of 15" when 17 physical cards must be pulled, inverting the distinction FR-021 exists to enforce on the project's designated high-risk field. Test-first per Principle IV: no test asserts this string today, so add one to `frontend/tests/orders/FocusedPickView.test.tsx` proving the label misreports an order containing a quantity greater than one, see it fail, then fix the label
+- [X] T064 Return to `/speckit-clarify` to amend SC-005 per SC-005 (partial). It requires the picker to state how many physical cards remain "at every point in an order, from the screen alone"; `FocusedPickView` renders no order-wide card count, which `computeProgress` already supplies as `accountedCards`/`totalCards`. **Direction: amend SC-005** to match the deliberately stripped card screen rather than adding a third number to it — FR-029 and the Product Owner's "card and one action" decision take precedence
+- [X] T065 Return to `/speckit-clarify` to amend FR-017 per FR-017 (partial). It requires the picker to choose between returning to a product, reporting what is missing, and finishing anyway; `frontend/src/features/orders/OrderFinish.tsx` offers jump-to-line, Finish/Close and Back to the cards, so reporting takes a detour via the card. **Direction: amend FR-017** to describe that two-step path. Do **not** add a fourth control to the review screen
+- [X] T066 Update `specs/016-mobile-picking/plan.md` per plan: component inventory (contradicts). Lines 115, 117, 138, 204, 221, 225 and 235 specify `useViewPreference.ts` and `SetTransition.tsx`, with `localStorage` failure modeling and a rationale for each. Both components were deleted when FR-009/FR-010 and FR-019a reversed those decisions; `useIsPhone.ts` replaced the first and nothing replaced the second. Bring the plan in line with the approved spec, recording the reversal rather than quietly deleting the paragraphs — the same treatment `quickstart.md` received
+
+**Note on ordering**: T062, T064 and T065 are specification amendments, not code. Only T063
+changes application code, and it is the only one requiring a test. T066 is documentation.
