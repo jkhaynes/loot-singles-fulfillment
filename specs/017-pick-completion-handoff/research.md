@@ -208,10 +208,22 @@ and margin handling that cannot be determined from here. The owners confirm ship
 been printed to that hardware from a computer before, which is encouraging and is not the same
 thing.
 
-**Task-ordering consequence**: the printable label at correct physical size is proven on the actual
-printer before the ending screens, the packing desk, or the code rendering are built out. If a
-browser cannot hit the size, the label's design changes and everything resting on it moves — and
-that is cheap to discover first and expensive to discover last.
+**Deferred by Product Owner decision, 2026-09-21.** The printer is not available, and the feature
+proceeds on the assumption that browser printing works, with print problems to be debugged or
+designed around later. The validation is not cancelled — it moves from a gate at the start to
+outstanding work at the end (tasks.md T001, quickstart.md scenario 0).
+
+**What makes the deferral affordable**: the label stylesheet expresses every physical dimension as
+a named token in one place — stock size, margins, QR module size, barcode height, type sizes. If
+the printer disagrees with our assumed numbers, the correction is those values and nothing else.
+The label's structure, the ending screens that print it, and the desk's reprint path are all
+independent of the numbers.
+
+**What it does not cover**: tokens absorb *wrong numbers*. They do not absorb a browser being
+unable to produce a correctly sized label at all — a driver that always scales to fit, for
+instance. That would change the label's form rather than its measurements, and the work resting on
+it would move. This residual risk is carried knowingly rather than mitigated, which is why T001
+stays on the task list until a physical label has been measured.
 
 ---
 

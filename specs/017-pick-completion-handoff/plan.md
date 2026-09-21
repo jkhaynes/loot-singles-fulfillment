@@ -200,13 +200,19 @@ Full reasoning in [research.md](research.md).
 
 ## Task-Ordering Consequence
 
-**Scenario 0 of quickstart.md comes before the rest of the label work.** Proving a browser can
-produce a 1⅛ × 3½ inch label on the real printer is cheap now and expensive later: if it cannot,
-the label's design changes and the ending screens, the desk's reprint path and the code rendering
-all move with it.
+Proving a browser can produce a 1⅛ × 3½ inch label on the real printer is a hardware unknown, not a
+code unknown — no amount of careful implementation retires it, only a printed label does.
 
-This is a hardware unknown, not a code unknown, so no amount of careful implementation retires it —
-only a printed label does.
+**The Product Owner deferred it on 2026-09-21**: the printer is not available and the feature
+proceeds without waiting, with print problems to be debugged or designed around later. The
+validation moves from a gate at the start to outstanding work at the end (tasks.md T001,
+quickstart.md scenario 0).
+
+The design absorbs that deferral in one place: every physical dimension of the label lives as a
+named token in a single stylesheet, so wrong numbers are corrected without touching the label's
+structure, the ending screens, or the desk's reprint path. What tokens cannot absorb is a browser
+that cannot produce a correctly sized label at all — that would change the label's form, and the
+work resting on it would move. That residual is carried knowingly. See research.md §9.
 
 ## Architecture and Changeability Review
 

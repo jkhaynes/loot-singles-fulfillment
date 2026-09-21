@@ -367,11 +367,16 @@ Also out of scope:
 
 ## Risks
 
-- **Browser printing has never been validated against the shop's actual label printer.** Whether a
-  browser-produced label comes out at the correct physical size on 1⅛ × 3½ inch stock depends on
-  print scaling, margins and driver behaviour that cannot be confirmed from here. The label's design,
-  and the parts of the workflow that depend on a label existing, rest on this working. It should be
-  proven on the real hardware before the label's design is built out, not discovered afterwards.
+- **Browser printing has never been validated against the shop's actual label printer**, and the
+  Product Owner decided on 2026-09-21 to proceed without waiting for it. Whether a browser-produced
+  label comes out at the correct physical size on 1⅛ × 3½ inch stock depends on print scaling,
+  margins and driver behaviour that cannot be confirmed from here.
+
+  The risk is carried, not removed. It is made affordable by keeping every physical dimension as a
+  named token in one stylesheet, so wrong numbers are corrected in one place. It is **not** removed
+  for the case where a browser cannot produce a correctly sized label at all, which would change
+  the label's form rather than its measurements. The feature is not complete until a physical label
+  has been printed and measured.
 - **This feature introduces the first customer personal information the application has ever
   stored.** PRD §27 was amended to permit it, bounded by one-order-per-file, no picking surface
   reaching a slip, recorded access, and a deferred retention rule. Those bounds are the whole of the
