@@ -32,7 +32,11 @@ test('opens an available order and shows its picking details', async ({ page }) 
     'src',
     'https://static.e2e-fixtures.local/pikachu.png',
   )
-  await expect(page.getByRole('button', { name: /claim|pick|complete/i })).toHaveCount(0)
+  // 016-mobile-picking US3 changed this. The assertion was that an unclaimed order offered no
+  // action at all, which is precisely the dead end that feature removed: Claim is now offered
+  // here (FR-024). Picking actions still are not, because the order is not held.
+  await expect(page.getByRole('button', { name: /^claim$/i })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^picked$|report issue|complete/i })).toHaveCount(0)
 
   await page.getByRole('link', { name: 'Dashboard' }).click()
   await page.getByRole('link', { name: /browse orders/i }).click()
@@ -95,4 +99,33 @@ test('shows a Lorcana card image resolved by its own provider', async ({ page })
     'src',
     'https://static.e2e-fixtures.local/elsa.png',
   )
+})
+
+// 016-mobile-picking T015 — set-aware picking (spec US1, PRD §13).
+test('groups an order by game and set, and loses no line doing it', async ({ page }) => {
+  await login(page)
+
+  await page.getByRole('link', { name: 'E2E-ORDER-00006' }).click()
+  await expect(page.getByRole('heading', { name: /E2E-ORDER-00006/i })).toBeVisible()
+
+  // Magic before Pokemon; sets alphabetical within each game. The seed deliberately supplies
+  // its lines in neither order, so passing here cannot be an accident of input order.
+  const groups = page.getByRole('group')
+  await expect(groups).toHaveCount(5)
+  await expect(groups.nth(0)).toHaveAttribute('aria-label', 'Magic · Aetherdrift')
+  await expect(groups.nth(1)).toHaveAttribute('aria-label', 'Magic · Bloomburrow')
+  await expect(groups.nth(2)).toHaveAttribute('aria-label', 'Pokemon · Black Bolt')
+  await expect(groups.nth(3)).toHaveAttribute('aria-label', 'Pokemon · Surging Sparks')
+  // A line whose set was never recorded still gets a box, sorted last within its game.
+  await expect(groups.nth(4)).toHaveAttribute('aria-label', 'Pokemon · Set not recorded')
+
+  // Totality: five seeded lines in, five rendered out. A grouping bug that dropped one would
+  // hide work the picker must do.
+  await expect(page.getByRole('article')).toHaveCount(5)
+  await expect(page.getByRole('article', { name: /Mystery Promo/i })).toBeVisible()
+
+  // One product line, three physical cards — the distinction that matters at the box.
+  const blackBolt = page.getByRole('group', { name: 'Pokemon · Black Bolt' })
+  await expect(blackBolt).toContainText('1 product')
+  await expect(blackBolt).toContainText('3 cards')
 })

@@ -309,3 +309,63 @@ describe('DashboardPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/no orders are currently available/i)
   })
 })
+
+// 016-mobile-picking T039 (FR-026): an employee who already holds an order is offered it back,
+// rather than offered a fresh one and then told they cannot have it.
+describe('DashboardPage — resuming a held order', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  const heldOrder = {
+    orderId: 42,
+    tcgplayerOrderId: 'F8433182-HELD-00042',
+    productCount: 5,
+    totalQuantity: 8,
+  }
+
+  it('offers to resume the held order', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({ activeClaim: heldOrder }),
+    )
+
+    renderDashboard()
+
+    const resume = await screen.findByRole('link', { name: /resume/i })
+    expect(resume).toHaveAttribute('href', '/orders/42')
+    expect(resume).toHaveTextContent(/F8433182-HELD-00042/)
+  })
+
+  it('does not offer to start another order while one is held', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({ activeClaim: heldOrder }),
+    )
+
+    renderDashboard()
+
+    await screen.findByRole('link', { name: /resume/i })
+    // Offering Pick Next here produces a request that is known to fail (FR-027).
+    expect(screen.queryByRole('button', { name: /pick next order/i })).not.toBeInTheDocument()
+  })
+
+  it('offers Pick Next when no order is held', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(dashboardData({ activeClaim: null }))
+
+    renderDashboard()
+
+    expect(await screen.findByRole('button', { name: /pick next order/i })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /resume/i })).not.toBeInTheDocument()
+  })
+
+  it('says what the held order contains, so resuming is an informed choice', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({ activeClaim: heldOrder }),
+    )
+
+    renderDashboard()
+
+    const resume = await screen.findByRole('link', { name: /resume/i })
+    expect(resume).toHaveTextContent(/5 products/i)
+    expect(resume).toHaveTextContent(/8 cards/i)
+  })
+})

@@ -1,11 +1,13 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OrderDetailPage } from '../../src/features/orders/OrderDetailPage'
 import * as ordersApi from '../../src/features/orders/ordersApi'
 import { AuthProvider } from '../../src/features/auth/AuthContext'
 import * as authApi from '../../src/features/auth/authApi'
+import { buildLine, buildMultiGameLines } from '../support/orderBuilders'
+import { installMatchMedia } from '../support/matchMedia'
 
 vi.mock('../../src/features/orders/ordersApi', async (original) => ({
   ...(await original<typeof import('../../src/features/orders/ordersApi')>()),
@@ -13,6 +15,7 @@ vi.mock('../../src/features/orders/ordersApi', async (original) => ({
   recordPicked: vi.fn(),
   reportIssue: vi.fn(),
   releaseOrder: vi.fn(),
+  claimOrder: vi.fn(),
   forceReleaseOrder: vi.fn(),
 }))
 
@@ -599,5 +602,322 @@ describe('OrderDetailPage', () => {
     const pikachu = screen.getByRole('article', { name: /Pikachu/i })
     expect(within(pikachu).getByLabelText('Card image unavailable')).toBeInTheDocument()
     expect(within(pikachu).queryByRole('img')).not.toBeInTheDocument()
+  })
+
+  // 016-mobile-picking T009 — set-aware picking in the list view (spec US1, PRD §13).
+  describe('set grouping', () => {
+    it('renders one header per set, ordered by game then set', async () => {
+      vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder(buildMultiGameLines()))
+
+      renderPage()
+
+      const groups = await screen.findAllByRole('group')
+
+      // Magic before Pokemon; within each, sets alphabetical.
+      expect(groups.map((group) => group.getAttribute('aria-label'))).toEqual([
+        'Magic · Aetherdrift',
+        'Magic · Bloomburrow',
+        'Pokemon · Black Bolt',
+        'Pokemon · Surging Sparks',
+      ])
+    })
+
+    it('shows product and physical card counts per set', async () => {
+      vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder(buildMultiGameLines()))
+
+      renderPage()
+
+      const blackBolt = await screen.findByRole('group', { name: 'Pokemon · Black Bolt' })
+
+      // One product line, three physical cards — the distinction the picker needs at the box.
+      expect(within(blackBolt).getByText(/1 product/i)).toBeInTheDocument()
+      expect(within(blackBolt).getByText(/3 cards/i)).toBeInTheDocument()
+    })
+
+    it('keeps every line visible, including one with no recorded set', async () => {
+      const lines = [
+        buildLine({ productLine: 'Pokemon', set: 'Base Set', productName: 'Pikachu ex' }),
+        buildLine({ productLine: 'Pokemon', set: '', productName: 'Mystery Promo' }),
+      ]
+      vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder(lines))
+
+      renderPage()
+
+      // Never grouped out of existence (spec FR-005, Constitution V).
+      expect(await screen.findByRole('article', { name: /Mystery Promo/i })).toBeInTheDocument()
+      expect(screen.getAllByRole('article')).toHaveLength(2)
+      expect(screen.getByRole('group', { name: /Set not recorded/i })).toBeInTheDocument()
+    })
+  })
+})
+
+// 016-mobile-picking: the page-level view switch. Nothing rendered the focused view through
+// the page before, which is how a `view is not defined` reference survived a passing suite and
+// a clean typecheck — the whole component threw the moment a phone-sized screen loaded it.
+describe('OrderDetailPage on a phone', () => {
+  let restore: (() => void) | null = null
+
+  beforeEach(() => {
+    // Without this, mock call counts accumulate across the tests in this block, and a
+    // "was never called" assertion silently reads a previous test's calls.
+    vi.resetAllMocks()
+    vi.mocked(authApi.me).mockResolvedValue({
+      employeeId: 1,
+      displayName: 'Test Picker',
+      role: 'Picker',
+    })
+    restore = installMatchMedia(390).restore
+  })
+
+  afterEach(() => {
+    restore?.()
+    restore = null
+  })
+
+  it('renders the card view, not the whole order', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder(buildMultiGameLines()))
+
+    renderPage()
+
+    // One card, not five.
+    expect(await screen.findByRole('article')).toBeInTheDocument()
+    expect(screen.getAllByRole('article')).toHaveLength(1)
+    expect(screen.queryByRole('group')).not.toBeInTheDocument()
+  })
+
+  it('offers a way out to the dashboard on every card', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder(buildMultiGameLines()))
+
+    renderPage()
+    await screen.findByRole('article')
+
+    // Before this replaced the view toggle, a picker was stuck on the order until the end.
+    expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument()
+  })
+
+  it('offers no view toggle', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder(buildMultiGameLines()))
+
+    renderPage()
+
+    await screen.findByRole('article')
+    expect(screen.queryByRole('button', { name: /whole order/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /one card at a time/i })).not.toBeInTheDocument()
+  })
+
+  it('drops the order title block that pushed the record button below the fold', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder(buildMultiGameLines()))
+
+    renderPage()
+
+    await screen.findByRole('article')
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /browse orders/i })).not.toBeInTheDocument()
+  })
+})
+
+// 016-mobile-picking T040-T042 (FR-023, FR-024, FR-027): claiming is an explicit act on the
+// order, so viewing one is always safe. The endpoint has existed since feature 013; until now
+// nothing surfaced it here, so opening an order from the dashboard was a dead end.
+describe('OrderDetailPage — claiming', () => {
+  beforeEach(() => {
+    // Without this, mock call counts accumulate across the tests in this block, and a
+    // "was never called" assertion silently reads a previous test's calls.
+    vi.resetAllMocks()
+    vi.mocked(authApi.me).mockResolvedValue({
+      employeeId: 1,
+      displayName: 'Test Picker',
+      role: 'Picker',
+    })
+  })
+
+  function unclaimedOrder(): ordersApi.OrderDetail {
+    return {
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'ready',
+      lines: [buildLine({ productName: 'Pikachu ex' })],
+      claimedByEmployeeId: null,
+      claimedByEmployeeName: null,
+    }
+  }
+
+  it('offers to claim an unclaimed order, and claims nothing by being opened', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(unclaimedOrder())
+
+    renderPage()
+
+    expect(await screen.findByRole('button', { name: /^claim/i })).toBeInTheDocument()
+    // Viewing is safe (FR-023).
+    expect(ordersApi.claimOrder).not.toHaveBeenCalled()
+  })
+
+  it('claims the order and makes picking available', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(unclaimedOrder())
+    vi.mocked(ordersApi.claimOrder).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'inProgress',
+      claimedByEmployeeId: 1,
+      claimedByEmployeeName: 'Test Picker',
+    })
+
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^claim/i }))
+
+    expect(ordersApi.claimOrder).toHaveBeenCalledWith(42)
+    expect(await screen.findByRole('button', { name: 'Picked' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^claim/i })).not.toBeInTheDocument()
+  })
+
+  it('names the holder when someone else claimed it first', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(unclaimedOrder())
+    vi.mocked(ordersApi.claimOrder).mockRejectedValue(new ordersApi.OrderAlreadyClaimedError('Sam'))
+
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^claim/i }))
+
+    // The server settles the race; this only reports what it said (FR-025).
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Sam/)
+  })
+
+  it('explains rather than failing when the viewer already holds another order', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(unclaimedOrder())
+    vi.mocked(ordersApi.claimOrder).mockRejectedValue(new ordersApi.EmployeeHasActiveClaimError(7))
+
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /^claim/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/already/i)
+    // And offers a way to the order they do hold, rather than a dead end (FR-027).
+    expect(within(alert).getByRole('link')).toHaveAttribute('href', '/orders/7')
+  })
+
+  it('offers no claim action on an order someone else holds', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      ...unclaimedOrder(),
+      status: 'inProgress',
+      claimedByEmployeeId: 2,
+      claimedByEmployeeName: 'Sam',
+    })
+
+    renderPage()
+
+    await screen.findByRole('article')
+    expect(screen.queryByRole('button', { name: /^claim/i })).not.toBeInTheDocument()
+  })
+})
+
+// A picker on a phone had no way to let go of an order: Release lived only in the desktop
+// navigation, and "Complete" on the review screen navigated away while still holding the claim.
+// With one claim per employee enforced server-side, that left them unable to start anything else.
+describe('OrderDetailPage on a phone — letting go of an order', () => {
+  let restore: (() => void) | null = null
+
+  beforeEach(() => {
+    // Without this, mock call counts accumulate across the tests in this block, and a
+    // "was never called" assertion silently reads a previous test's calls.
+    vi.resetAllMocks()
+    vi.mocked(authApi.me).mockResolvedValue({
+      employeeId: 1,
+      displayName: 'Test Picker',
+      role: 'Picker',
+    })
+    restore = installMatchMedia(390).restore
+  })
+
+  afterEach(() => {
+    restore?.()
+    restore = null
+  })
+
+  it('offers Release while holding the order', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      claimedOrder([buildLine({ productName: 'Only Card' })]),
+    )
+
+    renderPage()
+
+    await screen.findByRole('article')
+    expect(screen.getByRole('button', { name: /^release$/i })).toBeInTheDocument()
+  })
+
+  it('offers no Release on an order it does not hold', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      ...claimedOrder([buildLine({ productName: 'Only Card' })]),
+      claimedByEmployeeId: 2,
+      claimedByEmployeeName: 'Sam',
+    })
+
+    renderPage()
+
+    await screen.findByRole('article')
+    expect(screen.queryByRole('button', { name: /^release$/i })).not.toBeInTheDocument()
+  })
+
+  it('releases the claim when the picker completes the order', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      claimedOrder([buildLine({ productName: 'Only Card', pickOutcome: 'picked' })]),
+    )
+    vi.mocked(ordersApi.releaseOrder).mockResolvedValue(undefined)
+
+    renderPage()
+    await screen.findByRole('article')
+
+    // Past the last card is the review screen.
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(await screen.findByRole('button', { name: /finish picking/i }))
+
+    // Completing without releasing leaves the picker holding an order they have finished, and
+    // unable to claim another.
+    expect(ordersApi.releaseOrder).toHaveBeenCalledWith(42)
+    expect(await screen.findByText('Browse Orders list')).toBeInTheDocument()
+  })
+
+  it('keeps the picker on the order when completing fails', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      claimedOrder([buildLine({ productName: 'Only Card', pickOutcome: 'picked' })]),
+    )
+    vi.mocked(ordersApi.releaseOrder).mockRejectedValue(new Error('network'))
+
+    renderPage()
+    await screen.findByRole('article')
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(await screen.findByRole('button', { name: /finish picking/i }))
+
+    // Navigating away on a failed release would report work as handed off when it was not.
+    expect(screen.queryByText('Browse Orders list')).not.toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent(/couldn't/i)
+  })
+
+  // BR-003. Shipped defect: the review's primary action called release unconditionally, so a
+  // picker who had merely walked through an order they never claimed was told the claim could
+  // not be released. There is nothing to release, and nothing to finish — only a screen to close.
+  it('releases nothing when closing an order it never held', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      ...claimedOrder([buildLine({ productName: 'Only Card' })]),
+      status: 'ready',
+      claimedByEmployeeId: null,
+      claimedByEmployeeName: null,
+    })
+
+    renderPage()
+    await screen.findByRole('article')
+
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    // The button says what it does: nothing is being finished here.
+    expect(screen.queryByRole('button', { name: /finish picking/i })).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /^close$/i }))
+
+    expect(ordersApi.releaseOrder).not.toHaveBeenCalled()
+    expect(await screen.findByText('Browse Orders list')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

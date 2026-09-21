@@ -101,6 +101,27 @@ public class DashboardServiceTests
             CancellationToken cancellationToken
         ) => SummariesForAsync(OrderStatus.Picked);
 
+        /// <summary>
+        /// Keyed on the claim, never on status — an order keeps its claim through Needs
+        /// Attention and Picked, which is the behaviour ActiveClaimTests covers against a real
+        /// database (016-mobile-picking FR-026).
+        /// </summary>
+        public Task<OrderSummary?> GetActiveClaimAsync(
+            int employeeId,
+            CancellationToken cancellationToken
+        ) =>
+            Task.FromResult(
+                orders
+                    .Where(order => order.ClaimedByEmployeeId == employeeId)
+                    .Select(order => new OrderSummary(
+                        order.Id,
+                        order.TcgplayerOrderId,
+                        order.OrderLines.Count,
+                        order.OrderLines.Sum(line => line.Quantity)
+                    ))
+                    .SingleOrDefault()
+            );
+
         public Task<IReadOnlyList<NeedsAttentionOrderSummary>> GetNeedsAttentionOrderSummariesAsync(
             CancellationToken cancellationToken
         ) =>

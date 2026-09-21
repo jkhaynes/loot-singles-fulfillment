@@ -11,6 +11,11 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  // The whole suite shares one E2EHost and one SQL Server container, so parallelism is bounded
+  // by that single backend rather than by CPU count. Left to default (one worker per core) the
+  // suite failed 7 of 23 on claim and navigation timeouts purely under load, while passing
+  // every time at 3 — failures that look exactly like real regressions and are not.
+  workers: 3,
   reporter: 'html',
   use: {
     baseURL: E2E_WEB_URL,
@@ -21,7 +26,14 @@ export default defineConfig({
     {
       // `dotnet run` (not the prebuilt DLL) so the host is always current: running a stale binary
       // silently tests old backend code, which has twice made a real defect read as a pass.
-      command: 'dotnet run --project ../backend/tests/LootSingles.E2EHost',
+      //
+      // --artifacts-path keeps that build out of backend/src/LootSingles.Api/bin. The E2E host
+      // references the API project, so building it also builds the API — and a running dev server
+      // IS LootSingles.Api.exe holding that folder's DLLs open, which failed the build with
+      // MSB3027 no matter which ports each stack used. Separate ports were never enough on their
+      // own: the contended resource is the build output directory, not a socket.
+      command:
+        'dotnet run --project ../backend/tests/LootSingles.E2EHost --artifacts-path ../backend/artifacts/e2e',
       url: `${E2E_API_URL}/health`,
       reuseExistingServer: false,
       timeout: 180_000,

@@ -20,4 +20,13 @@ public sealed class DashboardService(IDashboardRepository repository)
     public Task<IReadOnlyList<OrderSummary>> GetPickedOrderSummariesAsync(
         CancellationToken cancellationToken
     ) => repository.GetPickedOrderSummariesAsync(cancellationToken);
+
+    /// <summary>
+    /// The order this employee already holds, so the dashboard can offer to resume it rather
+    /// than offering to start another (016-mobile-picking FR-026).
+    /// </summary>
+    public Task<OrderSummary?> GetActiveClaimAsync(
+        int employeeId,
+        CancellationToken cancellationToken
+    ) => repository.GetActiveClaimAsync(employeeId, cancellationToken);
 }

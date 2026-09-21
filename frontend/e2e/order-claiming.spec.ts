@@ -75,3 +75,49 @@ test('Choose Order claims a specific order, and a manager can force-release it',
     }),
   ).toBeVisible()
 })
+
+// 016-mobile-picking T051 (US3): claiming is an explicit act on the order itself, and the
+// dashboard offers back an order already held. Before this, opening an order from the dashboard
+// was a dead end — the endpoint existed but nothing surfaced it there.
+test('claims from the order page, and the dashboard then offers to resume it', async ({
+  browser,
+}) => {
+  const picker = await newLoggedInPage(browser, 'e2epickersix')
+  const onlooker = await newLoggedInPage(browser, 'e2epickerseven')
+
+  await picker.goto('/orders')
+  await picker.getByRole('link', { name: 'E2E-ORDER-00008' }).click()
+  await expect(picker.getByRole('heading', { name: /E2E-ORDER-00008/i })).toBeVisible()
+
+  // Viewing did not claim it: a second employee still sees it as free.
+  await onlooker.goto('/orders')
+  await expect(
+    onlooker
+      .getByRole('article', { name: /E2E-ORDER-00008/i })
+      .getByRole('button', { name: /claim/i }),
+  ).toBeVisible()
+
+  await picker.getByRole('button', { name: /^claim$/i }).click()
+  await expect(picker.getByText(/in progress.*picking by e2e picker six/i)).toBeVisible()
+  await expect(picker.getByRole('button', { name: /^release$/i })).toBeVisible()
+
+  // The dashboard offers the held order back instead of offering to start another.
+  await picker.goto('/')
+  const resume = picker.getByRole('link', { name: /resume/i })
+  await expect(resume).toBeVisible()
+  await expect(resume).toContainText('E2E-ORDER-00008')
+  await expect(picker.getByRole('button', { name: /pick next order/i })).toHaveCount(0)
+
+  // The other employee's dashboard is unaffected — activeClaim is only ever your own.
+  await onlooker.goto('/')
+  await expect(onlooker.getByRole('link', { name: /resume/i })).toHaveCount(0)
+  await expect(onlooker.getByRole('button', { name: /pick next order/i })).toBeVisible()
+
+  // And claiming it now explains, rather than offering an action that fails.
+  await onlooker.goto('/orders')
+  await expect(
+    onlooker
+      .getByRole('article', { name: /E2E-ORDER-00008/i })
+      .getByRole('button', { name: /claim/i }),
+  ).toHaveCount(0)
+})

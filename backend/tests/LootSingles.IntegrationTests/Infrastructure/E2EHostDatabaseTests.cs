@@ -22,6 +22,15 @@ public sealed class E2EHostDatabaseTests
                     // which previously reported a 500 defect as a passing 404 (branch review
                     // BR-013). The host starts a SQL Server container anyway, so a build is cheap
                     // relative to startup.
+                    //
+                    // --artifacts-path keeps that build out of backend/src/LootSingles.Api/bin.
+                    // The E2E host references the API project, so building it also builds the
+                    // API — and a running dev server IS LootSingles.Api.exe holding that folder's
+                    // DLLs open, which fails the build with MSB3027 and leaves this test waiting
+                    // on a host that never starts. Playwright's own launch does the same
+                    // (frontend/playwright.config.ts).
+                    "--artifacts-path",
+                    Path.Combine(repositoryRoot, "backend", "artifacts", "e2e"),
                 },
                 WorkingDirectory = repositoryRoot,
                 RedirectStandardOutput = true,

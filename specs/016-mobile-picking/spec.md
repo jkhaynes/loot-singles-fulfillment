@@ -1,0 +1,412 @@
+# Feature Specification: Mobile Picking Experience
+
+**Feature Branch**: `016-mobile-picking`
+
+**Created**: 2026-09-20
+
+**Status**: Draft
+
+**Input**: User description: "Mobile picking experience. Pickers working from a phone get a focused view showing one product at a time; desktop defaults to the full list. Either view is reachable from the other on any device, and a deliberate choice persists for that employee. Moving between products never records an outcome. An order's lines are grouped by set; sets are grouped by game and ordered alphabetically within a game. Explicit set transitions, a guard against leaving a set with unresolved products, progress in physical cards including position within the set, claiming as an explicit action on the order, and a dashboard that offers to resume an order the employee already holds. Implements PRD v0.4 §8, §10, §12.1, §13, §13.1, §13.2, §18."
+
+## Clarifications
+
+### Session 2026-09-21 — convergence
+
+`/speckit-converge` compared this spec against the built code and found four gaps. In three of
+them the code was right and the spec still carried wording from the design reversed earlier the
+same day — the residue of two reversals in two days. The fourth was a real defect.
+
+- Q: SC-004 requires stopping a picker at the end of a set with unresolved products; FR-019a
+  requires that moving never be blocked. Which holds? → A: FR-019a. SC-004 is retired and
+  restated around the final review — the guarantee it protected is preserved there, and covers
+  every outstanding product rather than only the current box. (SC-004)
+- Q: SC-005 requires the picker to state how many physical cards remain at every point, but the
+  card view shows no order-wide card count. Add the count, or amend the criterion? → A: Amend
+  the criterion. FR-029 and the "card and one action" decision take precedence; a third number
+  on that screen is what those decisions removed. (SC-005)
+- Q: FR-017 requires reporting what is missing to be one of three choices at the finish, but the
+  review offers it only via the card. Add a control, or amend? → A: Amend. Jumping to an
+  unresolved product lands on the card, where Report an issue already is. (FR-017)
+- Q: Should the spec fix canonical terms for "product" and "card" so a screen cannot label one
+  as the other? → A: Yes, as a binding requirement. The card view had shipped "Card 1 of 15"
+  over a **product** count, understating the pile in exactly the orders where quantity matters
+  most. Two review rounds missed it because no rule existed to check the label against.
+  (FR-032)
+
+**Why three of these are amendments and not code changes.** Each traces to a Product Owner
+decision already made and already built. Changing the code to satisfy the stale wording would
+mean restoring the per-set guard, adding a number to a screen deliberately stripped, and adding
+a fourth control to the review — undoing the decisions rather than recording them.
+
+### Session 2026-09-21 — the focused view, after using it
+
+Walking the built screen on a phone in the dev environment showed the design was wrong in a way
+no test had caught. Every test passed; the screen was still unusable as a swiper.
+
+- Q: Should advancing past an unresolved card be blocked? → A: No. Moving between cards is
+  looking, not deciding, so it never blocks. The unfinished warning moves to the point where the
+  picker tries to **finish the order** with cards outstanding. (FR-016, FR-017)
+- Q: How much chrome should the focused view carry? → A: A card and one action. Order code and
+  one progress line above, the record action pinned in thumb reach below. (FR-029)
+- Q: Should an employee be able to switch views? → A: No. A phone gets the card view, a desktop
+  gets the whole order, and neither offers the other. The control the toggle occupied becomes a
+  link to the dashboard, because a picker was otherwise stuck on an order until its end.
+  (FR-009, FR-010, FR-030)
+- Q: Should the order end on a review before completing? → A: Yes. Every line with its quantity
+  and status, grouped by box, no images — the first time the order is visible as a whole.
+  (FR-031)
+
+**What was actually wrong.** Boxes holding a single card are the common case, not an edge —
+order 110 in the dev database has 15 lines across 15 different sets. The box-boundary guard
+therefore fired on nearly every card, so the picker could not look ahead at all, and a
+full-screen transition appeared between cards that had nothing to celebrate. Measured on a
+440×956 screen: the header consumed 31% of the viewport, the record action sat below the fold,
+and eight interactive controls competed on one screen.
+
+**Conflict with PRD v0.4 §13.2.** That section requires the application to stop a picker who
+reaches the end of a set with unresolved products and make them choose. This decision supersedes
+it: the stop moves to the end of the **order**. The guarantee §13.2 exists to protect — that an
+order cannot be finished silently short — is preserved and, because it now covers every
+outstanding card rather than only the current box, strengthened. §13.2 should be reworded at the
+next PRD amendment. Recorded here rather than left as a silent divergence.
+
+PRD §13's requirement to "present the transition explicitly, naming the next set and its size"
+is still met, by a prominent box band on the card itself rather than a separate screen — §13
+requires the transition be explicit, not that it occupy its own screen.
+
+### Session 2026-09-20
+
+- Q: In what order do the games themselves appear within an order? → A: Alphabetically by
+  game name. Consistent with the alphabetical rule already chosen for sets within a game,
+  needs no configuration, and stays stable as games are added. (FR-004)
+- Q: Does a picker's chosen view follow them across devices, or is it remembered per
+  device? → A: Per device. (FR-010)
+
+**Note on FR-010 and PRD §8.** §8 says a deliberate view choice "MUST persist for that
+employee", which reads as following the employee across devices. The Product Owner decided
+per-device instead, because an employee-wide preference defeats §8's own size-based default
+— a picker who once chose the list at a desktop would then be given the list on their phone,
+which is the behaviour this feature exists to remove.
+
+This is a confirmed Product Owner decision and therefore sits above the PRD in the
+source-of-truth hierarchy, so it governs. §8's wording should be corrected to say the choice
+persists per device when the PRD is next amended; it is recorded here so the two are not
+left quietly disagreeing.
+
+## User Scenarios & Testing *(mandatory)*
+
+### User Story 1 - Walk to each storage box once (Priority: P1)
+
+A picker opens an order containing cards from several games and several sets. The
+application presents the products grouped by set, with the sets from one game kept
+together, so the picker can clear one storage box before moving to the next instead of
+walking back and forth between sections of the shop.
+
+**Why this priority**: It applies to every picking view, including the list view that exists
+today, and it is a prerequisite for User Story 2 — a focused view cannot announce "box
+finished" until the products are grouped into boxes.
+
+**Measured correction (2026-09-20)**: this story was originally justified by reduced walking.
+Measuring the imported orders shows TCGplayer already clusters an order's lines by set — box
+visits as imported equal the minimum possible in every multi-line order present. The realised
+benefit is therefore a **defined, predictable order** across sets (TCGplayer's own sequence is
+arbitrary), **per-box product and card counts**, and a **guarantee** where today there is only
+an upstream courtesy that Loot does not control and that is not contractual. The reduced-walking
+claim should not be repeated without evidence from a real pull sheet.
+
+**Independent Test**: Import an order whose lines span at least two games and two sets per
+game, open it, and confirm the products are presented grouped and ordered as specified.
+Delivers the reduced-walking benefit on its own, in the existing list view, with no other
+part of this feature present.
+
+**Acceptance Scenarios**:
+
+1. **Given** an order with products from two different games, **When** the picker opens
+   the order, **Then** all products from one game appear together before any product from
+   the other game.
+2. **Given** an order with three sets within one game, **When** the picker opens the order,
+   **Then** the sets appear in alphabetical order by set name and every product of a set
+   appears contiguously within it.
+3. **Given** an order whose products all belong to one set, **When** the picker opens the
+   order, **Then** the products are presented as a single group with no empty or redundant
+   grouping shown.
+4. **Given** an order line whose set cannot be determined from the imported data, **When**
+   the picker opens the order, **Then** the line is still presented and reachable, and is
+   not silently dropped from the order.
+
+---
+
+### User Story 2 - Pick one card at a time on a phone (Priority: P2)
+
+A picker holding a phone in one hand and cards in the other works through an order one
+product at a time. Each product fills the screen with its identity, quantity and image.
+Moving to the next product never records anything; only a deliberate action records a pick
+or an issue. When the last product in a box is resolved, the application says so and names
+the next box. If the picker reaches the end of a box while products in it are still
+unresolved, the application says that too, rather than letting them walk away believing
+the box is done.
+
+**Why this priority**: This is the change the Product Owner most wants, and it addresses
+the "flow doesn't feel good" complaint directly. It is second only because it depends on
+the grouping delivered by User Story 1 to define what a box is.
+
+**Independent Test**: With grouping in place, open an order on a phone-sized viewport and
+work through it in the focused view — advancing, going back, recording a pick, recording
+an issue, finishing a set, and attempting to leave a set with work outstanding.
+
+**Acceptance Scenarios**:
+
+1. **Given** the picker is on a phone-sized screen, **When** they open a claimed order,
+   **Then** the focused view showing one product at a time is presented by default.
+2. **Given** the picker is on a desktop-sized screen, **When** they open a claimed order,
+   **Then** the full list view is presented by default.
+3. **Given** the picker is in either view, **When** they choose the other view, **Then**
+   the other view is presented and that choice is remembered for their next order.
+4. **Given** the picker is viewing a product, **When** they move to the next or previous
+   product by any means, **Then** no pick and no issue is recorded for the product they
+   left.
+5. **Given** the picker is viewing a product, **When** they explicitly confirm the pick,
+   **Then** the pick is recorded for that product only.
+6. **Given** a device with no touch screen or a picker who does not swipe, **When** they
+   use the on-screen navigation controls, **Then** they can reach every product in the
+   order without needing to swipe.
+7. **Given** every product in the current set is resolved, **When** the picker advances
+   past the last one, **Then** the application states that the set is finished and names
+   the next set together with its product and physical card counts.
+8. **Given** at least one product in the current set is unresolved, **When** the picker
+   advances past the last product in that set, **Then** the application states that the
+   set is not finished, lists the unresolved products, and requires the picker to choose
+   between returning to them, reporting what is missing, or leaving the set.
+9. **Given** the picker chooses to leave a set with unresolved products, **When** they
+   confirm, **Then** those products remain unresolved and the order is not represented as
+   fully picked.
+10. **Given** the picker is anywhere in the order, **When** they look at the progress
+    display, **Then** it shows products resolved out of total, physical cards accounted
+    for out of total, and their position within the current set.
+
+---
+
+### User Story 3 - Start an order from the order itself (Priority: P3)
+
+A picker browsing orders opens one to look at it, decides to work on it, and claims it
+from that screen. A picker who already holds an order is offered that order to resume
+rather than being offered a new one and then told they cannot have it.
+
+**Why this priority**: It closes a dead end — an order opened from the dashboard currently
+has no way to start work, so the picker must back out and use a different screen — but the
+picker can reach their work today by another route, so it is less urgent than the two
+stories above. It is fully independent of them and could be delivered in any order.
+
+**Independent Test**: Open an unclaimed order without claiming it, confirm nothing changes;
+claim it from that screen; then return to the dashboard while holding it and confirm the
+dashboard offers to resume rather than to start another.
+
+**Acceptance Scenarios**:
+
+1. **Given** an unclaimed order, **When** the picker opens it, **Then** the order is shown
+   without being claimed and no other picker is prevented from claiming it.
+2. **Given** the picker is viewing an unclaimed order they hold no claim on, **When** they
+   choose to claim it, **Then** the claim is granted to them and picking actions become
+   available.
+3. **Given** two pickers viewing the same unclaimed order, **When** both attempt to claim
+   it, **Then** exactly one succeeds and the other is told who holds it.
+4. **Given** the picker already holds an active claim, **When** they view the dashboard,
+   **Then** the dashboard offers to resume the order they hold instead of offering to start
+   another.
+5. **Given** the picker already holds an active claim, **When** they open a different
+   unclaimed order, **Then** the application explains that they already hold an order
+   rather than presenting a claim action that will fail.
+
+---
+
+### Edge Cases
+
+- A product's set is missing or empty in the imported order data. The product must remain
+  visible and pickable; grouping must not hide it.
+- Two different games contain sets with the same name. Grouping by game must keep them
+  apart rather than merging them into one box.
+- An order contains exactly one product. No box change can occur, and the focused view
+  must still present it and allow it to be resolved.
+- A picker reaches the last product of the last set. There is no next box to name, and the
+  application must not announce one; moving on leads to the final review instead.
+- The picker's claim is released by a manager while they are working in the focused view.
+  Picking actions must stop being available and the picker must be told.
+- A picker changes view preference on one device and then picks on another. The second
+  device keeps its own preference, or its size-based default if it has none.
+- The picker resolves the final unresolved product in an earlier set by navigating back to
+  it. The set it belongs to must stop being reported as unfinished.
+
+## Requirements *(mandatory)*
+
+### Functional Requirements
+
+**Grouping and ordering**
+
+- **FR-001**: The application MUST group an order's products by set, so that every product
+  belonging to one set is presented contiguously.
+- **FR-002**: The application MUST group sets by game, so that all sets belonging to one
+  game are presented before any set of another game.
+- **FR-003**: The application MUST order the sets within a game alphabetically by set name.
+- **FR-004**: The application MUST order games alphabetically by game name.
+- **FR-005**: The application MUST present a product whose set is missing or unrecognised
+  without dropping it from the order.
+- **FR-006**: Grouping and ordering MUST derive from the game and set recorded on the order
+  line, which is authoritative imported data, and MUST NOT depend on catalog enrichment.
+
+**Focused picking**
+
+- **FR-007**: The application MUST provide a focused view that presents one product at a
+  time, and a list view that presents the whole order.
+- **FR-008**: The application MUST default to the focused view on a phone-sized screen and
+  to the list view on a desktop-sized screen.
+- **FR-009**: The view MUST follow screen size alone. A phone-sized screen MUST NOT offer the
+  whole-order view, and a desktop-sized screen MUST NOT offer the card view.
+- **FR-010**: The application MUST NOT offer, store or remember a view preference.
+- **FR-030**: The card view MUST offer a way out of the order — to the dashboard — from every
+  card, so a picker is never held on an order until its end.
+- **FR-031**: Moving past the last card MUST present a review of the whole order before it can
+  be completed: every product grouped by box, with its quantity and its outcome, and **without
+  card images**. It MUST lead with the number of physical cards the picker should be holding,
+  so that number can be counted against the sleeve.
+- **FR-011**: Moving between products MUST NOT record a pick, an issue, or any other
+  outcome for any product.
+- **FR-012**: Only an explicit, deliberate action MUST record a pick or an issue.
+- **FR-013**: Every product in an order MUST be reachable using on-screen controls, without
+  requiring a swipe gesture.
+- **FR-014**: The picker MUST be able to return to any product they have already passed and
+  change nothing by doing so.
+
+**Set transitions and the unresolved guard**
+
+- **FR-015**: When the current product belongs to a different set from the previous one, the
+  application MUST identify the new set explicitly, stating its product count and physical card
+  count. This MUST NOT interrupt the picker with a separate screen.
+- **FR-016**: When the picker attempts to **finish the order** while any product is unresolved,
+  the application MUST state that the order is unfinished and list every unresolved product,
+  across all sets.
+- **FR-017**: In that situation the application MUST require the picker to choose between
+  returning to an unresolved product and finishing anyway, and returning to a product MUST
+  land on that product's card, where reporting what is missing is already available.
+  *(Amended 2026-09-21. This previously required reporting to be a third choice offered on the
+  review itself. Returning to the product reaches it in the same gesture, and the review
+  screen's job is verification, not a second place to record an outcome.)*
+- **FR-018**: The application MUST NOT present an order as fully picked while any product in it
+  is unresolved.
+- **FR-019**: Finishing an order with unresolved products MUST leave those products unresolved,
+  and MUST NOT cause the order to be represented as fully picked.
+- **FR-019a**: Moving between products MUST NEVER be blocked or interrupted, whatever is
+  unresolved. Advancing is looking, not deciding — the same principle as FR-011.
+
+**Progress**
+
+- **FR-020**: The application MUST show the picker how many products are resolved out of
+  the order's total.
+- **FR-021**: The application MUST show how many physical cards are accounted for out of
+  the order's total, counting quantity rather than product lines.
+- **FR-022**: The application MUST show the picker's position within the current set.
+- **FR-029**: In the focused view the record action MUST remain reachable without scrolling, and
+  the screen MUST NOT present navigation unrelated to picking the current order alongside it.
+  Measured on a 440×956 screen, the earlier build put the record action below the fold and
+  surrounded it with seven other controls.
+- **FR-032**: **Product** MUST mean an order line and **card** MUST mean a physical card,
+  throughout the application. A line of quantity 3 is one product and three cards. Where a count
+  carries either word, that word MUST name what the count actually counts; a count MUST NEVER
+  carry the term for the other. Testable per screen: "Product 2 of 15" on the card view, "17
+  cards should be in your hand" on the final review, "9 of 17 cards accounted for" on the
+  whole-order view. A count MAY be shown unlabelled where the surrounding content makes it
+  unambiguous — the position within the current box sits directly under that box's name and
+  reads as a position (FR-022), and labelling it is what FR-029 strips from that screen.
+  *(Added 2026-09-21. The card view had shipped "Card 1 of 15" over a product count,
+  understating the pile in exactly the orders where quantity greater than one makes the
+  distinction matter — the project's designated high-risk field, per PRD §5.3.)*
+
+**Claiming**
+
+- **FR-023**: Viewing an order MUST NOT claim it.
+- **FR-024**: The application MUST offer an explicit claim action on the order itself when
+  the viewing employee holds no active claim and the order is available.
+- **FR-025**: Claiming MUST remain exclusive and enforced server-side, such that exactly one
+  of two simultaneous claim attempts on the same order succeeds.
+- **FR-026**: When an employee already holds an active claim, the dashboard MUST offer to
+  resume that order rather than offering to start another.
+- **FR-027**: When an employee holding a claim views a different available order, the
+  application MUST explain that they already hold an order rather than presenting a claim
+  action that is known to fail.
+- **FR-028**: Pick Next Order MUST continue to claim and open the next available order in a
+  single action.
+
+### Key Entities
+
+- **Order**: unchanged by this feature. Gains no new stored state beyond what claiming
+  already records.
+- **Order line**: unchanged. Its existing game, set, quantity and resolved-outcome
+  attributes are what grouping, progress and the unresolved guard read.
+- **Set group**: a presentation grouping of an order's lines sharing one game and set,
+  carrying the set's name, its product count and its physical card count. Derived for
+  display; not necessarily stored.
+- **View preference**: a deliberate choice between the focused and list views, held per
+  device and applied in place of that device's size-based default.
+
+## Success Criteria *(mandatory)*
+
+### Measurable Outcomes
+
+- **SC-001**: For any order, the number of times a picker must move between game sections
+  of the shop equals the number of distinct games in that order — never more, whatever order
+  the import supplied the lines in.
+- **SC-002**: A picker can resolve every product in an order using only on-screen controls,
+  without performing a swipe gesture.
+- **SC-003**: No sequence of navigation actions, without an explicit confirm or report
+  action, changes any product's recorded outcome.
+- **SC-004**: A picker who reaches the end of an order with unresolved products is always told
+  so, and shown which products they are, before the order can be completed. *(Amended
+  2026-09-21. This previously placed the stop at the end of every set, which FR-019a reversed:
+  single-card boxes are the common case, so a per-set stop fired on nearly every card. Moving
+  the check to the end of the order widens it from the current box to every outstanding
+  product.)*
+- **SC-005**: At every point in an order, the picker can state how much of the box they are
+  standing at remains, from the screen alone; and at the end of the order, how many physical
+  cards should be in their hand. *(Amended 2026-09-21. This previously required the order-wide
+  physical card count to be on screen at every point. FR-029 and the "card and one action"
+  decision strip the card screen to the product, its box position, and one action — a third
+  count is what those decisions removed. The order-wide card count is carried by the final
+  review, where it is counted against the sleeve, and by the whole-order view.)*
+- **SC-006**: Two pickers attempting to claim the same order at the same moment result in
+  exactly one claim, with the other picker told who holds it.
+- **SC-007**: A picker who holds an order is never offered an action to start a different
+  one that then fails.
+
+## Assumptions
+
+- **One claim per employee** is already enforced server-side by feature 013 and is treated
+  as established behaviour here, not re-specified.
+- **A product is "resolved"** when it has a recorded pick outcome — either picked, or
+  carrying a reported issue. A product with no recorded outcome is unresolved. This matches
+  the behaviour delivered by feature 015.
+- **Physical card counts** come from the quantity already recorded on each order line, which
+  is authoritative imported data.
+- **Set release dates are not available** and set ordering within a game is therefore
+  alphabetical, per PRD §13.1. Loot's shelves are ordered newest-to-oldest, so alphabetical
+  ordering will not match the aisle direction; this was accepted deliberately because the
+  expensive walk is between game sections, not along one.
+- **The box-change announcement** is specific to the focused view, where only one product is
+  visible at a time. The whole-order view shows the same grouping as headings, which need no
+  announcement. Neither view uses an interstitial screen.
+- **Existing picking actions are reused.** Recording a pick and reporting an issue behave as
+  feature 015 delivered them; this feature changes where and how they are presented, not
+  what they do.
+- **Screen size determines the default view**, not device type detection.
+
+## Out of Scope
+
+Deferred to later features, and explicitly not part of this one:
+
+- The order lifecycle states added in PRD §20.1 and §20.2 — Awaiting Customer Decision,
+  Packed, Cancelled, and the written-off and substituted line outcomes.
+- The counts-only dashboard redesign in PRD §21, and the dedicated per-state pages it links
+  to. This feature changes the dashboard only to offer resuming a held order (FR-026).
+- The pick completion screens in PRD §22.
+- Order hand-off and labelling in PRD §22.1, including the sleeve label and the packing
+  desk.
+- The ability for a picking issue to record a card found instead, in PRD §19.1.
+- Release-date ordering of sets, deliberately deferred by PRD §13.1.
