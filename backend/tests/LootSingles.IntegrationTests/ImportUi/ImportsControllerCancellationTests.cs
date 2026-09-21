@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using LootSingles.Application.Import;
 using LootSingles.Domain.Orders;
+using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using LootSingles.IntegrationTests.Auth;
 using Microsoft.AspNetCore.Hosting;
@@ -206,6 +207,7 @@ public sealed class ImportsControllerCancellationTests
             new()
             {
                 OrderIdentifier = identifier,
+                PageNumbers = [1],
                 ProductLines =
                 [
                     new RawProductLine

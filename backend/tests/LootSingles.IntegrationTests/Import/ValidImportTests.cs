@@ -47,6 +47,7 @@ public class ValidImportTests
         var parser = new PdfPigPackingSlipParser();
         IPackingSlipImportService service = new PackingSlipImportService(
             parser,
+            new PdfPigPackingSlipSlicer(),
             new ImportRepository(dbContext),
             NullLogger<PackingSlipImportService>.Instance
         );

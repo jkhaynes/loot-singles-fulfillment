@@ -78,4 +78,15 @@ public class Order
     /// Navigation to the packing employee, for surfacing their display name at the packing desk.
     /// </summary>
     public Employee? PackedByEmployee { get; set; }
+
+    /// <summary>
+    /// This order's stored packing slip, when one was sliced out of the batch at import time
+    /// (017-pick-completion-handoff FR-019). Null for orders imported before that feature and
+    /// for any order whose slip could not be produced (FR-022) — absence is a normal state.
+    /// <para>
+    /// A reference navigation, so it is never materialised unless something explicitly asks for
+    /// it. No picking query does, which is what keeps customer data off those paths (FR-039).
+    /// </para>
+    /// </summary>
+    public OrderPackingSlip? PackingSlip { get; set; }
 }

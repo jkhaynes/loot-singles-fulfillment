@@ -18,7 +18,7 @@ public class OrderPackingSlipConfiguration : IEntityTypeConfiguration<OrderPacki
 
         builder
             .HasOne(slip => slip.Order)
-            .WithOne()
+            .WithOne(order => order.PackingSlip)
             .HasForeignKey<OrderPackingSlip>(slip => slip.OrderId)
             .OnDelete(DeleteBehavior.Cascade);
 

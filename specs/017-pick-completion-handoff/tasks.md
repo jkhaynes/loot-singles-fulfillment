@@ -149,40 +149,40 @@ and slip are produced, mark it packed, and confirm it leaves the awaiting-packin
 
 ### Tests for User Story 2 (write first, watch fail)
 
-- [ ] T031 [P] [US2] Unit tests for slip slicing in `backend/tests/LootSingles.UnitTests/Import/` against `backend/tests/LootSingles.Fixtures/PackingSlips/valid-multi-order-batch.pdf` — one order's pages only, reopens cleanly, text intact
-- [ ] T032 [P] [US2] Unit test for slicing a multi-page order using `multi-page-order-no-total-on-continuation-pages.pdf` — all of its pages, none of another order's
-- [ ] T033 [P] [US2] Unit tests for `PackingCodeResolver` — a QR link, a bare order number, a full TCGplayer identifier, plus whitespace, case and scanner terminators (research.md §10)
-- [ ] T034 [US2] Add a fixture to `backend/tests/LootSingles.Fixtures/PackingSlips/` whose slip cannot be sliced, for T035
-- [ ] T035 [US2] Write a failing integration test asserting a slip that cannot be sliced **does not reject its order and does not fail its batch** (FR-021) — the regression plan.md names as most likely
-- [ ] T036 [P] [US2] Integration tests for `GET /api/packing/orders/{code}` — all three input shapes, `orderNotFound`, and `canPack` reflecting the order's **current** state rather than the printed label's
-- [ ] T037 [P] [US2] Integration tests for `POST /api/orders/{orderId}/packed` — success, `orderAlreadyPacked`, `orderNotAwaitingPacking`, and `orderHasUnresolvedIssue` **naming the unresolved products** (FR-028)
-- [ ] T038 [US2] Write a failing concurrency test asserting two simultaneous pack attempts record exactly one pack (FR-033), following the existing `PickingConcurrencyTests` pattern
-- [ ] T039 [P] [US2] Integration tests for `GET /api/orders/{orderId}/packing-slip` — success, `packingSlipUnavailable` as distinct from `orderNotFound` (FR-022), and that a durable access row naming employee and time is written (FR-038)
-- [ ] T040 [P] [US2] Integration tests for `GET /api/packing/awaiting`
-- [ ] T041 [P] [US2] RTL tests for the packing desk — resolve, refuse a held order by name, state plainly when no slip is stored, and show **every** contributor rather than a truncated list (FR-043)
-- [ ] T083 [P] [US2] Write failing integration tests asserting an employee with the `Picker` role can retrieve a packing slip and mark an order packed (FR-037) — the codebase has `RequireManagerAdmin`, and a role check added reflexively to a PII endpoint would silently break packing
+- [X] T031 [P] [US2] Unit tests for slip slicing in `backend/tests/LootSingles.UnitTests/Import/` against `backend/tests/LootSingles.Fixtures/PackingSlips/valid-multi-order-batch.pdf` — one order's pages only, reopens cleanly, text intact
+- [X] T032 [P] [US2] Unit test for slicing a multi-page order using `multi-page-order-no-total-on-continuation-pages.pdf` — all of its pages, none of another order's
+- [X] T033 [P] [US2] Unit tests for `PackingCodeResolver` — a QR link, a bare order number, a full TCGplayer identifier, plus whitespace, case and scanner terminators (research.md §10)
+- [X] T034 [US2] Add a fixture to `backend/tests/LootSingles.Fixtures/PackingSlips/` whose slip cannot be sliced, for T035
+- [X] T035 [US2] Write a failing integration test asserting a slip that cannot be sliced **does not reject its order and does not fail its batch** (FR-021) — the regression plan.md names as most likely
+- [X] T036 [P] [US2] Integration tests for `GET /api/packing/orders/{code}` — all three input shapes, `orderNotFound`, and `canPack` reflecting the order's **current** state rather than the printed label's
+- [X] T037 [P] [US2] Integration tests for `POST /api/orders/{orderId}/packed` — success, `orderAlreadyPacked`, `orderNotAwaitingPacking`, and `orderHasUnresolvedIssue` **naming the unresolved products** (FR-028)
+- [X] T038 [US2] Write a failing concurrency test asserting two simultaneous pack attempts record exactly one pack (FR-033), following the existing `PickingConcurrencyTests` pattern
+- [X] T039 [P] [US2] Integration tests for `GET /api/orders/{orderId}/packing-slip` — success, `packingSlipUnavailable` as distinct from `orderNotFound` (FR-022), and that a durable access row naming employee and time is written (FR-038)
+- [X] T040 [P] [US2] Integration tests for `GET /api/packing/awaiting`
+- [X] T041 [P] [US2] RTL tests for the packing desk — resolve, refuse a held order by name, state plainly when no slip is stored, and show **every** contributor rather than a truncated list (FR-043)
+- [X] T083 [P] [US2] Write failing integration tests asserting an employee with the `Picker` role can retrieve a packing slip and mark an order packed (FR-037) — the codebase has `RequireManagerAdmin`, and a role check added reflexively to a PII endpoint would silently break packing
 
 ### Implementation for User Story 2
 
-- [ ] T042 [US2] Add `PageNumbers` to `backend/src/LootSingles.Application/Import/RawOrderBlock.cs`
-- [ ] T043 [US2] Record page numbers through parsing and continuation-page merging in `backend/src/LootSingles.Infrastructure/Import/PdfPigPackingSlipParser.cs`
-- [ ] T044 [US2] Create `backend/src/LootSingles.Application/Import/IPackingSlipSlicer.cs` — bytes plus page numbers in, one document out, nothing else (research.md §2)
-- [ ] T045 [US2] Implement `backend/src/LootSingles.Infrastructure/Import/PdfPigPackingSlipSlicer.cs` using `PdfMerger`, making T031 and T032 pass
-- [ ] T046 [US2] Rewind the upload between parse and slice in `backend/src/LootSingles.Application/Import/PackingSlipImportService.cs`, buffering only when the stream cannot seek (research.md §3)
-- [ ] T047 [US2] Slice and store each order's slip in `PackingSlipImportService.cs` as a **subordinate** step that records and swallows its own failure, making T035 pass
-- [ ] T048 [US2] Extend `backend/src/LootSingles.Application/Import/IImportPersistence.cs` and its implementation to store a slip alongside its order
-- [ ] T049 [P] [US2] Create `backend/src/LootSingles.Application/Packing/PackingCodeResolver.cs`, making T033 pass
-- [ ] T050 [US2] Create `backend/src/LootSingles.Application/Packing/IPackingRepository.cs` and `PackingService.cs` — resolve, pack, awaiting, slip retrieval
-- [ ] T051 [US2] Implement `backend/src/LootSingles.Infrastructure/Persistence/PackingRepository.cs`, projecting the awaiting list to the fields the desk shows and never loading slip bytes with it
-- [ ] T052 [US2] Implement the packed transition as a conditional write in `PackingRepository.cs`, mirroring feature 013's claiming rather than a read-then-write check, making T037 and T038 pass
-- [ ] T053 [US2] Create `backend/src/LootSingles.Api/Controllers/PackingController.cs` with the resolve and awaiting endpoints
-- [ ] T054 [US2] Add the packed and packing-slip endpoints to `OrdersController.cs`
-- [ ] T055 [US2] Write the access record and an `ILogger<T>` line on every slip retrieval — naming order and employee, never slip content — making T039 pass
-- [ ] T056 [P] [US2] Create `frontend/src/features/packing/packingApi.ts` with typed errors matching the contract's codes
-- [ ] T057 [US2] Create `frontend/src/features/packing/ScanBox.tsx` holding focus so a handheld scanner needs no clicking
-- [ ] T058 [US2] Create `frontend/src/features/packing/PackingDeskPage.tsx` — resolve, details, print slip, mark packed, awaiting list
-- [ ] T059 [US2] Add the packing route to `frontend/src/App.tsx`
-- [ ] T060 [US2] E2E coverage of quickstart.md scenarios 3, 4 and 5 in `frontend/e2e/`
+- [X] T042 [US2] Add `PageNumbers` to `backend/src/LootSingles.Application/Import/RawOrderBlock.cs`
+- [X] T043 [US2] Record page numbers through parsing and continuation-page merging in `backend/src/LootSingles.Infrastructure/Import/PdfPigPackingSlipParser.cs`
+- [X] T044 [US2] Create `backend/src/LootSingles.Application/Import/IPackingSlipSlicer.cs` — bytes plus page numbers in, one document out, nothing else (research.md §2)
+- [X] T045 [US2] Implement `backend/src/LootSingles.Infrastructure/Import/PdfPigPackingSlipSlicer.cs` using `PdfMerger`, making T031 and T032 pass
+- [X] T046 [US2] Rewind the upload between parse and slice in `backend/src/LootSingles.Application/Import/PackingSlipImportService.cs`, buffering only when the stream cannot seek (research.md §3)
+- [X] T047 [US2] Slice and store each order's slip in `PackingSlipImportService.cs` as a **subordinate** step that records and swallows its own failure, making T035 pass
+- [X] T048 [US2] Extend `backend/src/LootSingles.Application/Import/IImportPersistence.cs` and its implementation to store a slip alongside its order
+- [X] T049 [P] [US2] Create `backend/src/LootSingles.Application/Packing/PackingCodeResolver.cs`, making T033 pass
+- [X] T050 [US2] Create `backend/src/LootSingles.Application/Packing/IPackingRepository.cs` and `PackingService.cs` — resolve, pack, awaiting, slip retrieval
+- [X] T051 [US2] Implement `backend/src/LootSingles.Infrastructure/Persistence/PackingRepository.cs`, projecting the awaiting list to the fields the desk shows and never loading slip bytes with it
+- [X] T052 [US2] Implement the packed transition as a conditional write in `PackingRepository.cs`, mirroring feature 013's claiming rather than a read-then-write check, making T037 and T038 pass
+- [X] T053 [US2] Create `backend/src/LootSingles.Api/Controllers/PackingController.cs` with the resolve and awaiting endpoints
+- [X] T054 [US2] Add the packed and packing-slip endpoints to `OrdersController.cs`
+- [X] T055 [US2] Write the access record and an `ILogger<T>` line on every slip retrieval — naming order and employee, never slip content — making T039 pass
+- [X] T056 [P] [US2] Create `frontend/src/features/packing/packingApi.ts` with typed errors matching the contract's codes
+- [X] T057 [US2] Create `frontend/src/features/packing/ScanBox.tsx` holding focus so a handheld scanner needs no clicking
+- [X] T058 [US2] Create `frontend/src/features/packing/PackingDeskPage.tsx` — resolve, details, print slip, mark packed, awaiting list
+- [X] T059 [US2] Add the packing route to `frontend/src/App.tsx`
+- [X] T060 [US2] E2E coverage of quickstart.md scenarios 3, 4 and 5 in `frontend/e2e/`
 
 **Checkpoint**: The lifecycle closes. A sleeve can be picked, labelled, scanned, packed.
 

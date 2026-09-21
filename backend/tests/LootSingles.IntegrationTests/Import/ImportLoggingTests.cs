@@ -26,6 +26,7 @@ public class ImportLoggingTests
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
+            new PdfPigPackingSlipSlicer(),
             new ImportRepository(context),
             logger
         );
@@ -50,6 +51,7 @@ public class ImportLoggingTests
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
+            new PdfPigPackingSlipSlicer(),
             new ImportRepository(context),
             logger
         );
@@ -80,6 +82,7 @@ public class ImportLoggingTests
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
+            new PdfPigPackingSlipSlicer(),
             new ImportRepository(context),
             logger
         );
@@ -108,6 +111,7 @@ public class ImportLoggingTests
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
+            new PdfPigPackingSlipSlicer(),
             new ImportRepository(context),
             logger
         );
@@ -132,6 +136,7 @@ public class ImportLoggingTests
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
+            new PdfPigPackingSlipSlicer(),
             new ImportRepository(context),
             logger
         );
@@ -167,6 +172,7 @@ public class ImportLoggingTests
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
+            new PdfPigPackingSlipSlicer(),
             new ImportRepository(context),
             logger
         );
@@ -191,6 +197,7 @@ public class ImportLoggingTests
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
+            new PdfPigPackingSlipSlicer(),
             new ImportRepository(context),
             logger
         );
@@ -216,6 +223,7 @@ public class ImportLoggingTests
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
         var service = new PackingSlipImportService(
             new CancellableParser(),
+            new PdfPigPackingSlipSlicer(),
             new ImportRepository(context),
             logger
         );
@@ -248,12 +256,13 @@ public class ImportLoggingTests
     }
 
     [Fact]
-    public async Task ImportAsync_TwoHundredOrderBatch_ProducesExactlyOneAttemptLevelLogEntry()
+    public async Task ImportAsync_TwoHundredOrderBatch_ProducesOnlyAttemptLevelLogEntries()
     {
         await using var context = ImportTestSupport.CreateDatabaseContext();
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
         var service = new PackingSlipImportService(
             new SyntheticProgressiveParser(200),
+            new PdfPigPackingSlipSlicer(),
             new ImportRepository(context),
             logger
         );
@@ -266,10 +275,31 @@ public class ImportLoggingTests
 
         Assert.NotNull(final);
         Assert.NotEqual(0, final.ImportAttempt.Id);
-        var entry = Assert.Single(logger.Entries);
-        Assert.Equal(LogLevel.Information, entry.Level);
+
+        // The point of this test is that logging never scales with the batch. Two hundred
+        // orders must not produce two hundred entries — the constitution forbids per-loop
+        // logging, and an operator cannot read it anyway. The bound is deliberately tight:
+        // a per-order regression would show up here as 200-odd entries.
+        Assert.True(
+            logger.Entries.Count <= 2,
+            $"expected attempt-level logging only, got {logger.Entries.Count} entries"
+        );
+
+        var entry = Assert.Single(
+            logger.Entries,
+            candidate => candidate.Level == LogLevel.Information
+        );
         Assert.Equal(200, entry.GetState<int>("OrdersDetected"));
         Assert.Equal(200, entry.GetState<int>("OrdersSucceeded"));
+
+        // This fixture parses synthetic blocks against a one-byte document, so no slip can be
+        // sliced for any of them. That is worth exactly one warning naming how many orders
+        // went without — never one per order (017-pick-completion-handoff).
+        var slipWarning = Assert.Single(
+            logger.Entries,
+            candidate => candidate.Level == LogLevel.Warning
+        );
+        Assert.Equal(200, slipWarning.GetState<int>("WithoutPackingSlipCount"));
     }
 
     private static void AssertNoLeakedContent(ImportTestSupport.LogEntry entry, string marker)
@@ -311,6 +341,7 @@ public class ImportLoggingTests
                     new RawOrderBlock
                     {
                         OrderIdentifier = $"SYNTHETIC-LOG-{index:D6}-ORDER",
+                        PageNumbers = [1],
                         ProductLines =
                         [
                             new RawProductLine

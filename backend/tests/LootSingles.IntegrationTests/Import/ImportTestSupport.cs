@@ -32,6 +32,7 @@ internal static class ImportTestSupport
     public static PackingSlipImportService CreateService(LootSinglesDbContext context) =>
         new(
             new PdfPigPackingSlipParser(),
+            new PdfPigPackingSlipSlicer(),
             new ImportRepository(context),
             NullLogger<PackingSlipImportService>.Instance
         );
@@ -41,6 +42,7 @@ internal static class ImportTestSupport
     ) =>
         new(
             parser ?? new PdfPigPackingSlipParser(),
+            new PdfPigPackingSlipSlicer(),
             new FakeImportPersistence(),
             NullLogger<PackingSlipImportService>.Instance
         );

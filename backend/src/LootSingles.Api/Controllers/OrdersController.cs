@@ -16,7 +16,8 @@ public sealed class OrdersController(
     OrdersService ordersService,
     OrderClaimService orderClaimService,
     PickingService pickingService,
-    IPackingRepository packingRepository
+    IPackingRepository packingRepository,
+    ILogger<OrdersController> logger
 ) : ControllerBase
 {
     /// <summary>
@@ -24,6 +25,99 @@ public sealed class OrdersController(
     /// order, so the label cannot disagree with what it identifies and a reprint matches the
     /// original. Carries no customer data of any kind (FR-015).
     /// </summary>
+    /// <summary>
+    /// Records an order as packed (FR-027, FR-032). Terminal — this feature provides no
+    /// inverse, per PRD §20.1.
+    /// </summary>
+    [HttpPost("{orderId:int}/packed")]
+    public async Task<IActionResult> MarkPacked(int orderId, CancellationToken cancellationToken)
+    {
+        var outcome = await packingRepository.MarkPackedAsync(
+            orderId,
+            ActorEmployeeId(),
+            cancellationToken
+        );
+
+        if (outcome == PackOutcome.Success)
+        {
+            logger.LogInformation(
+                "Employee {EmployeeId} recorded order {OrderId} as packed.",
+                ActorEmployeeId(),
+                orderId
+            );
+        }
+
+        return outcome switch
+        {
+            PackOutcome.Success => Ok(
+                await packingRepository.ResolveAsync(
+                    new PackingCode(orderId, null),
+                    cancellationToken
+                )
+            ),
+            PackOutcome.OrderNotFound => NotFound(new { error = "order_not_found" }),
+            PackOutcome.AlreadyPacked => Conflict(new { error = "order_already_packed" }),
+            // Named products, not a bare conflict: a packer has to be able to tell whether it
+            // is theirs to fix, and it is not (FR-028).
+            PackOutcome.HasUnresolvedIssue => Conflict(
+                new
+                {
+                    error = "order_has_unresolved_issue",
+                    unresolvedProducts = (
+                        await packingRepository.GetLabelContentAsync(orderId, cancellationToken)
+                    )?.UnresolvedProducts
+                        ?? [],
+                }
+            ),
+            PackOutcome.NotAwaitingPacking => Conflict(
+                new { error = "order_not_awaiting_packing" }
+            ),
+            _ => throw new InvalidOperationException(
+                $"Unexpected outcome {outcome} for MarkPacked."
+            ),
+        };
+    }
+
+    /// <summary>
+    /// An order's stored packing slip, for printing at the bench.
+    /// <para>
+    /// <b>The only endpoint in this application that returns customer personal information.</b>
+    /// Every retrieval is recorded with the employee and the time (FR-038), and no picking
+    /// surface links here (FR-039).
+    /// </para>
+    /// </summary>
+    [HttpGet("{orderId:int}/packing-slip")]
+    public async Task<IActionResult> PackingSlip(int orderId, CancellationToken cancellationToken)
+    {
+        var result = await packingRepository.GetPackingSlipAsync(
+            orderId,
+            ActorEmployeeId(),
+            cancellationToken
+        );
+
+        switch (result.Outcome)
+        {
+            case PackingSlipOutcome.OrderNotFound:
+                return NotFound(new { error = "order_not_found" });
+
+            case PackingSlipOutcome.Unavailable:
+                // Distinct from order_not_found so the desk can say which is true. Every order
+                // imported before this feature is in exactly this state (FR-022).
+                return NotFound(new { error = "packing_slip_unavailable" });
+
+            default:
+                // Logged alongside the durable record: the order and the employee, never the
+                // slip itself, which the constitution forbids putting in a log.
+                logger.LogInformation(
+                    "Employee {EmployeeId} retrieved the packing slip for order {OrderId}.",
+                    ActorEmployeeId(),
+                    orderId
+                );
+
+                return File(result.Content!, "application/pdf");
+        }
+    }
+
     [HttpGet("{orderId:int}/label")]
     public async Task<IActionResult> Label(int orderId, CancellationToken cancellationToken)
     {

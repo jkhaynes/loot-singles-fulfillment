@@ -66,11 +66,13 @@ public class DuplicateOrderTests
         await using var secondContext = lease.CreateDbContext();
         var firstService = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
+            new PdfPigPackingSlipSlicer(),
             new CoordinatedPersistence(firstContext, barrier),
             NullLogger<PackingSlipImportService>.Instance
         );
         var secondService = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
+            new PdfPigPackingSlipSlicer(),
             new CoordinatedPersistence(secondContext, barrier),
             NullLogger<PackingSlipImportService>.Instance
         );

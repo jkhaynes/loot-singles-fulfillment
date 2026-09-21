@@ -97,6 +97,7 @@ public class ProgressReportingTests
                     new RawOrderBlock
                     {
                         OrderIdentifier = $"SYNTHETIC-{index:D6}-ORDER",
+                        PageNumbers = [1],
                         ProductLines =
                         [
                             new RawProductLine

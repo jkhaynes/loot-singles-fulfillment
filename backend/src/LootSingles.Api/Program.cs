@@ -48,6 +48,7 @@ builder.Services.AddDbContext<LootSinglesDbContext>(options =>
 );
 builder.Services.AddScoped<IImportPersistence, ImportRepository>();
 builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
+builder.Services.AddScoped<IPackingSlipSlicer, PdfPigPackingSlipSlicer>();
 builder.Services.AddScoped<IPackingSlipImportService, PackingSlipImportService>();
 
 builder.Services.AddScoped<IPinHasher, Pbkdf2PinHasher>();

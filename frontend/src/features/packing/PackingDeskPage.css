@@ -1,0 +1,228 @@
+/* The packing desk — a seated, desktop surface (PRD §22.1). */
+
+.packing-desk {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4) var(--space-8);
+}
+
+.packing-desk__header h1 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-h1);
+}
+
+.packing-desk__header p {
+  margin: 0 0 var(--space-6);
+  color: var(--color-text-secondary);
+}
+
+/* Scanning is the way in, so the box is the loudest thing on the page. */
+.packing-scan label {
+  display: block;
+  font-size: var(--font-size-body-small);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.packing-scan__row {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.packing-scan__input {
+  flex: 1;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-brand-primary);
+  border-radius: var(--radius-medium);
+  padding: var(--space-4);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 17px;
+  color: var(--color-text-primary);
+}
+
+.packing-scan__button {
+  border-radius: var(--radius-medium);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  padding-inline: var(--space-5);
+  cursor: pointer;
+}
+
+.packing-desk__error {
+  margin-top: var(--space-4);
+  border-left: 2px solid var(--color-danger);
+  background: var(--color-surface);
+  border-radius: var(--radius-medium);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-primary);
+}
+
+.packing-desk__order {
+  margin-top: var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  padding: var(--space-5);
+}
+
+.packing-desk__identity h2 {
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+.packing-desk__tcg {
+  margin: var(--space-1) 0 var(--space-5);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: var(--font-size-body-small);
+  color: var(--color-text-secondary);
+}
+
+.packing-desk__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  overflow: hidden;
+  margin: 0;
+}
+
+.packing-desk__facts > div {
+  background: var(--color-surface-elevated);
+  padding: var(--space-3) var(--space-4);
+}
+
+.packing-desk__facts dt {
+  font-size: var(--font-size-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.packing-desk__facts dd {
+  margin: 0;
+  font-size: var(--font-size-body);
+}
+
+.packing-desk__count {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.packing-desk__blocked {
+  margin-top: var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 9%, var(--color-surface));
+  border-radius: var(--radius-medium);
+  padding: var(--space-4);
+}
+
+.packing-desk__blocked p {
+  margin: 0;
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
+.packing-desk__blocked ul {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+  color: var(--color-text-secondary);
+}
+
+.packing-desk__actions {
+  margin-top: var(--space-5);
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.packing-desk__primary {
+  background: var(--color-brand-primary);
+  color: #06210f;
+  border-radius: var(--radius-medium);
+  padding: var(--space-4) var(--space-5);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.packing-desk__secondary {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  padding: var(--space-4) var(--space-5);
+  font-family: inherit;
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.packing-desk__noSlip {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-small);
+  max-width: 48ch;
+}
+
+.packing-desk__queue {
+  margin-top: var(--space-7);
+}
+
+.packing-desk__queue h2 {
+  font-size: var(--font-size-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-3);
+}
+
+.packing-desk__queue ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.packing-desk__queue li {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  gap: var(--space-4);
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+.packing-desk__queueCode {
+  font-family: ui-monospace, Consolas, monospace;
+  font-weight: 600;
+}
+
+.packing-desk__queueTcg {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body-small);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.packing-desk__queueCount {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.packing-desk__empty {
+  color: var(--color-text-muted);
+  margin: 0;
+}

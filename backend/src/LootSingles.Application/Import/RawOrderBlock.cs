@@ -23,4 +23,15 @@ public class RawOrderBlock
     /// order spans, when it spans more than one.
     /// </summary>
     public required IReadOnlyList<RawProductLine> ProductLines { get; set; }
+
+    /// <summary>
+    /// The 1-based page numbers of the source document this block was assembled from, in order.
+    /// A multi-page order carries every page it spans, because the parser is the only component
+    /// that knows which pages belong together — it is what merges them.
+    /// <para>
+    /// Carried out so the slip for one order can be sliced from the batch without re-deriving
+    /// that association (017-pick-completion-handoff FR-018).
+    /// </para>
+    /// </summary>
+    public required IReadOnlyList<int> PageNumbers { get; set; }
 }

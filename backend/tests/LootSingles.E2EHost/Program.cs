@@ -56,6 +56,7 @@ builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IImportPersistence, ImportRepository>();
 builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
+builder.Services.AddScoped<IPackingSlipSlicer, PdfPigPackingSlipSlicer>();
 builder.Services.AddScoped<PackingSlipImportService>();
 builder.Services.AddScoped<IPackingSlipImportService, ObservableProgressImportService>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
@@ -336,6 +337,8 @@ static async Task SeedAsync(IServiceProvider services)
             ("e2epickerseven", "E2E Picker Seven"),
             ("e2epickereight", "E2E Picker Eight"),
             ("e2epickernine", "E2E Picker Nine"),
+            ("e2epickerten", "E2E Picker Ten"),
+            ("e2epickereleven", "E2E Picker Eleven"),
         }
     )
     {
@@ -419,6 +422,25 @@ static async Task SeedAsync(IServiceProvider services)
                 SetAwareLine("Pokemon", "Hold Set", "Hold Pulled", "#001/050", 7),
                 SetAwareLine("Pokemon", "Hold Set", "Hold Missing", "#002/050", 1),
             ],
+        }
+    );
+    // 017 T060: two orders for the packing desk spec — one packed clean, one blocked by an issue.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00011",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(45),
+            OrderLines = [SetAwareLine("Pokemon", "Desk Set", "Desk Packable", "#001/050", 2)],
+        }
+    );
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00012",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(50),
+            OrderLines = [SetAwareLine("Pokemon", "Desk Set", "Desk Blocker", "#002/050", 1)],
         }
     );
     await context.SaveChangesAsync();

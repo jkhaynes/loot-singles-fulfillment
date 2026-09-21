@@ -120,6 +120,7 @@ public sealed class ImportsControllerDuplicateAndWarningTests
                         new RawOrderBlock
                         {
                             OrderIdentifier = "VALID-1",
+                            PageNumbers = [1],
                             ProductLines =
                             [
                                 new RawProductLine

@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using LootSingles.Application.Import;
+using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using LootSingles.IntegrationTests.Auth;
 using LootSingles.IntegrationTests.ImportUi;
@@ -24,6 +25,7 @@ public sealed class ParserExceptionSafetyTests
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
         var service = new PackingSlipImportService(
             new ThrowingParser(),
+            new PdfPigPackingSlipSlicer(),
             new ImportRepository(context),
             logger
         );
