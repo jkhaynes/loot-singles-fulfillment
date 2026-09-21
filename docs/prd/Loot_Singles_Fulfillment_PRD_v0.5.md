@@ -2,18 +2,27 @@
 
 ## Product Requirements Document
 
-**Version:** 0.4\
+**Version:** 0.5\
 **Status:** Discovery / Product Definition\
 **Working Product Name:** Loot Singles Fulfillment\
 **Primary Business:** Loot Card Shop\
 **Product Owner:** Loot Card Shop Owner
+
+**Changes in 0.5:** amendments A14--A16, approved 2026-09-21, arising
+from the pick completion and hand-off design recorded in
+`docs/discovery/2026-09-21-pick-completion-handoff.md`. One changed
+approved V1 scope materially: customer privacy (§27) now permits — and
+requires — the application to store one TCGplayer packing slip per
+order, reversing 0.4's instruction not to persist customer shipping PII.
+The other two narrow the counts shown at pick completion (§22) and on
+the hand-off label (§22.1), and add a Code 128 barcode alongside the
+label's QR code. Packing verification remains a V2 non-goal.
 
 **Changes in 0.4:** amendments A1--A13, approved 2026-09-20, arising from
 the picking experience prototype recorded in
 `docs/discovery/2026-09-20-picking-experience-prototype.md`. Three
 changed approved V1 scope: order lifecycle states (§20), order hand-off
 and labelling (§22.1), and removal of the barcode non-goal (§35).
-Packing verification remains a V2 non-goal.
 
 ------------------------------------------------------------------------
 
@@ -947,25 +956,30 @@ and both are deliberate.
 
 > **Pick Complete**
 >
-> 5 products\
-> 8 physical cards\
-> All items picked
+> **8**\
+> cards in the sleeve
 
-It summarizes products, physical cards and issues, prints a
-ready-to-pack label (§22.1), and offers the next order.
+It states the physical card count, prints a ready-to-pack label (§22.1),
+and offers the next order.
 
 **Needs a manager** --- the picker has pulled what they can and
 something is unresolved:
 
 > **Pick Ended --- Needs a Manager**
 >
-> 7 cards pulled\
-> 1 product unresolved\
+> **7**\
+> cards pulled\
 > 1 card set aside with the order
 
-It summarizes what was pulled, what is unresolved and what has been set
-aside, prints a hold label (§22.1), and directs the bundle to the review
-area.
+It states what was pulled, what has been set aside and which product is
+unresolved, prints a hold label (§22.1), and directs the bundle to the
+review area.
+
+The screen states one count deliberately. A product count --- distinct
+card entries, as distinct from the cards themselves --- cannot be
+checked against a sleeve of loose cards. On a screen whose only job is
+catching a miscount before the sleeve is sealed, a number nobody can
+verify competes for attention with the one they can.
 
 The completion screen is the last opportunity to catch quantity
 mistakes before the sleeve is sealed.
@@ -987,12 +1001,31 @@ The label must carry, in human-readable form:
 
 -   A short order code
 -   The full TCGplayer order identifier
--   The product and physical card counts
+-   The physical card count
 -   Who picked it, and when
+
+The label carries one count, for the reason given in §22.
 
 The label must carry a **QR code** encoding a link to that order, so a
 phone camera and a desk scanner both resolve it. QR is fixed by the
 phone-camera requirement.
+
+The label must also carry a **Code 128 barcode** encoding the bare
+TCGplayer order identifier.
+
+The two codes serve two destinations. The QR brings a scanner or a phone
+camera into this application. The Code 128 types the order identifier
+into TCGplayer's own search, which is where a tracking number is
+recorded for an order shipped with a carrier label. A scanner types
+exactly what is encoded, so one code cannot do both.
+
+The Code 128 also reads on a 1D laser scanner, which cannot read QR at
+all. A 2D imager is therefore an upgrade rather than a prerequisite,
+revising 0.4's acceptance that one must be bought.
+
+The Code 128's printed value is the human-readable full TCGplayer order
+identifier required above, so what a person reads and what a scanner
+types cannot diverge.
 
 The label must **not** carry customer name, address, or any other
 customer data (§27). A dropped label must leak nothing.
@@ -1006,6 +1039,16 @@ An order that ships short (§20.2) must be labelled as short.
 Scanning or entering a code at the packing desk must identify the order,
 its counts and its picker, and allow it to be marked `Packed`. Scanning
 a held order must refuse and explain.
+
+The packing desk must also print that order's stored packing slip (§27),
+which is what the packer physically needs. Under thirty dollars the slip
+is the whole job; above it, the slip's information is keyed into a
+third-party shipping-label printer and the resulting tracking number is
+entered against the order in TCGplayer.
+
+Any authenticated employee may open a slip and mark an order `Packed`.
+The role split (§9.4) does not describe packers, and a role check here
+would obstruct packing rather than protect anything.
 
 **Printing.** Printing happens from the picker's device through the
 browser. The hosted API cannot reach a printer on the shop network, so
@@ -1195,15 +1238,36 @@ The exact validation rules remain to be specified technically.
 TCGplayer packing slips contain customer information that the picker
 does not require, including shipping information.
 
-V1 should follow data minimization principles.
+V1 follows data minimization principles. The picker workflow must not
+expose customer information, and no order or order line carries customer
+fields.
 
-The picker workflow should not expose unnecessary customer information.
+**The packing workflow is the exception, because packing is not
+picking.** The packer needs the customer's address to produce a
+shipment, and in V1 that address reaches them on the TCGplayer packing
+slip itself. V1 therefore stores one packing slip per order, extracted
+from the imported batch document at import time; the batch document is
+not retained.
 
-Where technically practical, V1 should extract and retain only
-information required for picking and order identification rather than
-persisting customer shipping PII.
+This reverses 0.4's instruction to avoid persisting customer shipping
+PII. It is bounded by four rules, and the reversal is only acceptable
+with all four:
 
-The packing workflow may have different requirements in V2.
+-   **One order per file.** A stored slip contains exactly one
+    customer's data. No stored artifact contains more than one order's
+    slip.
+-   **Not reachable from picking.** No picking surface links to a slip
+    or exposes its contents. A slip is reachable only from the packing
+    workflow (§22.1).
+-   **Access is recorded.** Every retrieval of a slip is logged with the
+    employee and the time.
+-   **Retention is deferred, not absent.** V1 keeps slips indefinitely,
+    so that a mistimed action cannot destroy a slip a packer still
+    needs. A retention and deletion rule is owed and is recorded as an
+    open question (§41).
+
+Nothing further is extracted from a slip into the application's own data
+model.
 
 ------------------------------------------------------------------------
 
@@ -1865,6 +1929,16 @@ explicitly confirmed with the Product Owner.
 57. How much additional picking time, if any, is acceptable?
 58. What employee feedback would demonstrate that the application is
     preferable to paper?
+
+## Customer Data Retention
+
+59. **How long is a stored packing slip kept?** V1 stores one packing
+    slip per order (§27) and deletes none. Deleting a slip when its
+    order is marked `Packed` was considered and deliberately deferred,
+    because it makes a mistimed action unrecoverable and the reprint
+    window matters more today than the retention does. The store
+    therefore grows without bound and accumulates customer shipping
+    data. A retention and deletion rule is owed.
 
 ------------------------------------------------------------------------
 
