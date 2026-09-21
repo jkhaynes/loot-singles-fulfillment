@@ -83,7 +83,12 @@ test('picks through an order one card at a time, and never records by moving', a
   await next(page).click()
   await expect(page.getByText(/count the sleeve/i)).toBeVisible()
   await page.getByRole('button', { name: /finish picking/i }).click()
-  await expect(page).toHaveURL(/\/orders$/)
+
+  // 017-pick-completion-handoff: finishing used to drop the picker back on the order list with
+  // nothing to show for it. It now ends on a screen that states the count and prints the label
+  // (PRD §22). The claim is still released, which is what the rest of this test checks.
+  await expect(page.getByRole('heading', { name: 'Pick complete' })).toBeVisible()
+  await page.goto('/orders')
 
   // The order is free again: claimable, and no longer held by this picker.
   await expect(

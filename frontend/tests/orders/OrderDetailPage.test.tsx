@@ -17,6 +17,14 @@ vi.mock('../../src/features/orders/ordersApi', async (original) => ({
   releaseOrder: vi.fn(),
   claimOrder: vi.fn(),
   forceReleaseOrder: vi.fn(),
+  getOrderLabel: vi.fn(),
+  pickNextOrder: vi.fn(),
+}))
+
+// Both encoders measure text through a canvas 2D context, which jsdom does not implement.
+vi.mock('jsbarcode', () => ({ default: vi.fn() }))
+vi.mock('qrcode-generator', () => ({
+  default: () => ({ addData: vi.fn(), make: vi.fn(), createSvgTag: () => '<svg />' }),
 }))
 
 vi.mock('../../src/features/auth/authApi', async (original) => ({
@@ -865,6 +873,17 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
       claimedOrder([buildLine({ productName: 'Only Card', pickOutcome: 'picked' })]),
     )
     vi.mocked(ordersApi.releaseOrder).mockResolvedValue(undefined)
+    vi.mocked(ordersApi.getOrderLabel).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      cardCount: 1,
+      pickedBy: [{ employeeId: 1, displayName: 'Test Picker' }],
+      pickedAt: '2026-09-21T14:14:00Z',
+      isHeld: false,
+      unresolvedProducts: [],
+      setAsideCount: null,
+      shipsShort: false,
+    })
 
     renderPage()
     await screen.findByRole('article')
@@ -876,7 +895,12 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
     // Completing without releasing leaves the picker holding an order they have finished, and
     // unable to claim another.
     expect(ordersApi.releaseOrder).toHaveBeenCalledWith(42)
-    expect(await screen.findByText('Browse Orders list')).toBeInTheDocument()
+    // Feature 017 changed where this lands. A finished pick used to drop the picker back on the
+    // order list with nothing to show for it; now it ends on a screen that states the count and
+    // prints the label (PRD §22). Releasing an order without finishing it still returns to the
+    // list — that is the test above, and the two acts are deliberately separate.
+    expect(await screen.findByText('Pick complete')).toBeInTheDocument()
+    expect(screen.queryByText('Browse Orders list')).not.toBeInTheDocument()
   })
 
   it('keeps the picker on the order when completing fails', async () => {

@@ -4,6 +4,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   getOrderDetail,
   releaseOrder,
+  getOrderLabel,
+  pickNextOrder,
+  NoOrdersAvailableError,
   claimOrder,
   OrderAlreadyClaimedError,
   EmployeeHasActiveClaimError,
@@ -19,6 +22,8 @@ import { useAuth } from '../auth/AuthContext'
 import { computeProgress, groupOrderLines } from './orderGrouping'
 import { useIsPhone } from './useIsPhone'
 import { FocusedPickView } from './FocusedPickView'
+import { PickEnding } from './PickEnding'
+import type { LabelContent } from './ordersApi'
 import { ReportIssueForm } from './ReportIssueForm'
 import './OrderDetailPage.css'
 
@@ -32,6 +37,8 @@ export function OrderDetailPage() {
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [actionError, setActionError] = useState<ReactNode | null>(null)
   const [isClaiming, setIsClaiming] = useState(false)
+  /** Non-null once the pick has ended; the ending screen replaces the picking view. */
+  const [ending, setEnding] = useState<LabelContent | null>(null)
   const [isReleasing, setIsReleasing] = useState(false)
   const [isForceReleasing, setIsForceReleasing] = useState(false)
   const [recordingLineId, setRecordingLineId] = useState<number | null>(null)
@@ -58,6 +65,7 @@ export function OrderDetailPage() {
     }
   }, [orderId])
 
+  /** Giving up an order without finishing it. Unchanged since feature 013. */
   async function handleRelease() {
     if (!order) return
 
@@ -71,6 +79,47 @@ export function OrderDetailPage() {
       setActionError("Couldn't release this order. Try refreshing the page.")
     } finally {
       setIsReleasing(false)
+    }
+  }
+
+  /**
+   * Finishing a pick ends on a screen rather than a navigation (PRD §22).
+   *
+   * Distinct from handleRelease even though both give up the claim: releasing abandons an
+   * order, finishing completes one. Only the second produces a sleeve that needs labelling.
+   *
+   * The label is fetched before the claim is released, so a failure on either side leaves the
+   * picker where they were rather than half-finished with nothing to print.
+   */
+  async function handleFinish() {
+    if (!order) return
+
+    setIsReleasing(true)
+    setActionError(null)
+    try {
+      const label = await getOrderLabel(order.orderId)
+      await releaseOrder(order.orderId)
+      setEnding(label)
+    } catch {
+      setActionError("Couldn't finish this order. Try refreshing the page.")
+    } finally {
+      setIsReleasing(false)
+    }
+  }
+
+  /** The fast path off the ending screen: claim and open the next order, as Pick Next does. */
+  async function handleNextOrder() {
+    setActionError(null)
+    try {
+      const next = await pickNextOrder()
+      setEnding(null)
+      navigate(`/orders/${next.orderId}`)
+    } catch (error) {
+      if (error instanceof NoOrdersAvailableError) {
+        navigate('/orders')
+        return
+      }
+      setActionError("Couldn't start the next order. Try the dashboard.")
     }
   }
 
@@ -320,7 +369,15 @@ export function OrderDetailPage() {
         </p>
       )}
 
-      {loadState === 'loading' ? (
+      {ending !== null ? (
+        // The pick has ended. The picking view is gone deliberately: there is nothing left to
+        // record here, and the claim has already been released (PRD §22).
+        <PickEnding
+          label={ending}
+          onNextOrder={handleNextOrder}
+          onBackToDashboard={() => navigate('/')}
+        />
+      ) : loadState === 'loading' ? (
         <p className="order-detail-state">Loading order…</p>
       ) : loadState === 'not-found' ? (
         <p role="alert" className="order-detail-state order-detail-state--error">
@@ -342,7 +399,7 @@ export function OrderDetailPage() {
           // picker still holding a finished order could never start another. Someone who never
           // held it is only closing a screen: releasing there asks the server to give up a claim
           // they do not have, which simply fails. Feature 017's label print plugs in here.
-          onCompleted={canRelease ? handleRelease : () => navigate('/orders')}
+          onCompleted={canRelease ? handleFinish : () => navigate('/orders')}
           canClaim={canClaim}
           isClaiming={isClaiming}
           onClaim={handleClaim}

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using LootSingles.Application.Orders;
+using LootSingles.Application.Packing;
 using LootSingles.Application.Picking;
 using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
@@ -14,9 +15,54 @@ namespace LootSingles.Api.Controllers;
 public sealed class OrdersController(
     OrdersService ordersService,
     OrderClaimService orderClaimService,
-    PickingService pickingService
+    PickingService pickingService,
+    IPackingRepository packingRepository
 ) : ControllerBase
 {
+    /// <summary>
+    /// What goes on this order label (FR-009 through FR-017). Every value is derived from the
+    /// order, so the label cannot disagree with what it identifies and a reprint matches the
+    /// original. Carries no customer data of any kind (FR-015).
+    /// </summary>
+    [HttpGet("{orderId:int}/label")]
+    public async Task<IActionResult> Label(int orderId, CancellationToken cancellationToken)
+    {
+        var label = await packingRepository.GetLabelContentAsync(orderId, cancellationToken);
+
+        if (label is null)
+        {
+            return NotFound(new { error = "order_not_found" });
+        }
+
+        // The guard is whether picking has happened, not whether the order reached Picked status:
+        // a held order is NeedsAttention and must still print a hold label (FR-013).
+        if (!label.HasStarted)
+        {
+            return Conflict(new { error = "order_not_started" });
+        }
+
+        return Ok(
+            new
+            {
+                orderId = label.OrderId,
+                tcgplayerOrderId = label.TcgplayerOrderId,
+                cardCount = label.CardCount,
+                pickedBy = label
+                    .PickedBy.Select(person => new
+                    {
+                        employeeId = person.EmployeeId,
+                        displayName = person.DisplayName,
+                    })
+                    .ToList(),
+                pickedAt = label.PickedAt,
+                isHeld = label.IsHeld,
+                unresolvedProducts = label.UnresolvedProducts,
+                setAsideCount = label.SetAsideCount,
+                shipsShort = label.ShipsShort,
+            }
+        );
+    }
+
     [HttpPost("{orderId:int}/lines/{lineId:int}/pick")]
     public async Task<IActionResult> Pick(
         int orderId,

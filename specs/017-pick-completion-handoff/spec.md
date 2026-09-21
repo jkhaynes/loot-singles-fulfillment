@@ -21,8 +21,8 @@ sleeve and offers to print a label. The picker taps print, sticks the label on t
 bundle is now identifiable by anyone who picks it up.
 
 When something could not be picked, the pick ends on a different screen: it names what is
-unresolved and what has been set aside with the order, prints a visibly different hold label, and
-sends the bundle to the review area rather than to the ready-to-pack bin.
+unresolved, prints a visibly different hold label, and sends the bundle to the review area rather
+than to the ready-to-pack bin.
 
 **Why this priority**: This is the gap the whole feature exists to close, and it delivers value on
 its own. Even with nothing else built, a labelled sleeve can be matched to its order by a human
@@ -40,8 +40,8 @@ to exist.
    completion outcome stating the total number of physical cards that should be in the sleeve.
 2. **Given** a picker holds an order where at least one product line has an unresolved issue,
    **When** they finish the pick, **Then** the application presents a needs-a-manager outcome
-   stating the number of cards pulled, the number of cards set aside with the order, and which
-   products are unresolved.
+   stating the number of cards pulled and which products are unresolved (and the set-aside count
+   once anything records one — FR-046).
 3. **Given** a picker is on either ending outcome, **When** they have not yet asked to print,
    **Then** no print dialog has been opened on their behalf.
 4. **Given** a picker is on either ending outcome, **When** they choose to print, **Then** a label
@@ -53,7 +53,7 @@ to exist.
    **Then** it is claimed for them and opened, the same way the existing Pick Next action behaves.
 7. **Given** an order has an unresolved picking issue, **When** its label is produced, **Then** the
    label is distinguishable from a ready-to-pack label without relying on colour, and states how
-   many cards were set aside with the order.
+   many cards were set aside with the order once anything records one (FR-046).
 8. **Given** any order, **When** its label is produced, **Then** the label contains no customer
    name, address, or other customer information.
 
@@ -187,8 +187,9 @@ confirm the count falls.
   they hold, and MUST distinguish a completion from a needs-a-manager ending.
 - **FR-002**: A completion ending MUST state the total number of physical cards that should be in
   the sleeve.
-- **FR-003**: A needs-a-manager ending MUST state the number of physical cards pulled, the number of
-  cards set aside with the order, and which product or products are unresolved.
+- **FR-003**: A needs-a-manager ending MUST state the number of physical cards pulled and which
+  product or products are unresolved. It MUST also state the number of cards set aside with the
+  order **when that number is known and non-zero** — see FR-046.
 - **FR-004**: The ending outcome MUST NOT state a count of product lines. The physical card count is
   the only count presented, because it is the only one that can be checked against the sleeve.
 - **FR-005**: The application MUST NOT initiate printing without an explicit request from the
@@ -214,6 +215,12 @@ confirm the count falls.
 - **FR-013**: A label for an order with an unresolved picking issue MUST be distinguishable from a
   ready-to-pack label in monochrome, by an inverted band rather than by colour, and MUST state the
   number of cards set aside with the order.
+- **FR-046**: Nothing in this feature records that a picker set a card aside with an order. That
+  capability belongs to the issue-resolution feature (PRD §19.1 as amended). The ending screen and
+  the hold label MUST therefore omit the set-aside count rather than print a zero, which would tell
+  a manager "no cards set aside" on every hold label and be worse than saying nothing. The place for
+  it exists so that adding the capability later does not reopen a printed label’s layout — the same
+  reasoning as FR-014.
 - **FR-014**: The label MUST be capable of marking an order as shipping short. Nothing in this
   feature sets that state; the marker exists so the label's design does not have to be reopened when
   short shipments become reachable.

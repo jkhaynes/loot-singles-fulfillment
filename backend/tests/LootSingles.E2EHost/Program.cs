@@ -7,6 +7,7 @@ using LootSingles.Application.CardCatalog;
 using LootSingles.Application.Dashboard;
 using LootSingles.Application.Import;
 using LootSingles.Application.Orders;
+using LootSingles.Application.Packing;
 using LootSingles.Application.Picking;
 using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
@@ -58,6 +59,7 @@ builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
 builder.Services.AddScoped<PackingSlipImportService>();
 builder.Services.AddScoped<IPackingSlipImportService, ObservableProgressImportService>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IPackingRepository, PackingRepository>();
 builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvider(
     "Pokemon",
     FakePikachuImageUrl,
@@ -332,6 +334,8 @@ static async Task SeedAsync(IServiceProvider services)
         {
             ("e2epickersix", "E2E Picker Six"),
             ("e2epickerseven", "E2E Picker Seven"),
+            ("e2epickereight", "E2E Picker Eight"),
+            ("e2epickernine", "E2E Picker Nine"),
         }
     )
     {
@@ -385,6 +389,35 @@ static async Task SeedAsync(IServiceProvider services)
                 // No recorded set. Must remain visible and pickable rather than being grouped
                 // out of existence (spec FR-005, Constitution V).
                 SetAwareLine("Pokemon", "", "Mystery Promo", "#PR-01", 1),
+            ],
+        }
+    );
+    // 017-pick-completion-handoff T030: one order that finishes clean and one that ends held,
+    // so quickstart scenarios 1 and 2 each get an order nothing else touches. Both are newer
+    // than every other seeded order so "Pick Next Order" never selects them.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00009",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(35),
+            OrderLines =
+            [
+                SetAwareLine("Pokemon", "Handoff Set", "Handoff First", "#001/050", 3),
+                SetAwareLine("Pokemon", "Handoff Set", "Handoff Second", "#002/050", 5),
+            ],
+        }
+    );
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00010",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(40),
+            OrderLines =
+            [
+                SetAwareLine("Pokemon", "Hold Set", "Hold Pulled", "#001/050", 7),
+                SetAwareLine("Pokemon", "Hold Set", "Hold Missing", "#002/050", 1),
             ],
         }
     );

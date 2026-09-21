@@ -1,0 +1,147 @@
+/* The ending screen (PRD §22). Mobile-first: this is read one-handed at a storage box. */
+
+.pick-ending {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-4) var(--space-4) var(--space-6);
+  min-height: 100%;
+}
+
+.pick-ending__mark {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: var(--space-3);
+  border: 1.5px solid var(--color-success);
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+}
+
+.pick-ending__mark--held {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+}
+
+.pick-ending__title {
+  margin: 0;
+  font-size: var(--font-size-h2);
+  font-weight: 650;
+}
+
+/* The number is the point of the screen: it is what gets counted against the sleeve. */
+.pick-ending__count {
+  margin: var(--space-4) 0 0;
+  font-size: 60px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.pick-ending__countLabel {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-body);
+  color: var(--color-text-secondary);
+}
+
+.pick-ending__unresolved {
+  margin-top: var(--space-5);
+  width: 100%;
+  text-align: left;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 2px solid var(--color-warning);
+  border-radius: var(--radius-medium);
+  padding: var(--space-3) var(--space-4);
+}
+
+.pick-ending__unresolvedTitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-body-small);
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
+.pick-ending__unresolved ul {
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--font-size-body);
+}
+
+.pick-ending__setAside {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-body-small);
+  color: var(--color-text-secondary);
+}
+
+.pick-ending__destination {
+  margin: var(--space-5) 0 0;
+  font-size: var(--font-size-body-small);
+  color: var(--color-text-secondary);
+  max-width: 34ch;
+}
+
+.pick-ending__actions {
+  margin-top: auto;
+  padding-top: var(--space-6);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pick-ending__button {
+  width: 100%;
+  border-radius: var(--radius-medium);
+  padding: var(--space-4);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  font-family: inherit;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.pick-ending__primary {
+  background: var(--color-brand-primary);
+  color: #06210f;
+  border-color: var(--color-brand-primary);
+}
+
+.pick-ending__primary:hover {
+  background: var(--color-brand-primary-hover);
+}
+
+.pick-ending__secondary {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+
+.pick-ending__secondary:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-muted);
+}
+
+.pick-ending__quiet {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body-small);
+  font-family: inherit;
+  padding: var(--space-3);
+  cursor: pointer;
+}
+
+/* The label lives in the DOM so printing needs no second render pass, but it is never part of the
+   screen the picker reads. label.css reveals it and hides everything else at print time. */
+.pick-ending__labelHost {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+}
