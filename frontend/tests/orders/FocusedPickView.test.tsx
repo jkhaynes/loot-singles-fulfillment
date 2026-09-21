@@ -338,3 +338,51 @@ describe('FocusedPickView — the final review', () => {
     expect(onCompleted).not.toHaveBeenCalled()
   })
 })
+
+// The claim action started life as a small chip in the top bar, beside the order code, while
+// the dock showed a passive "not claimed" message. On an unclaimed order Claim *is* the action,
+// so it belongs in the dock at the same weight as Picked, in reach of the thumb.
+describe('FocusedPickView — claiming an order you are viewing', () => {
+  const viewing = {
+    canRecordOutcome: false,
+    blockedReason: 'This order is not claimed, so picks cannot be recorded.',
+  }
+
+  it('offers Claim in the dock, not a passive message', async () => {
+    const onClaim = vi.fn()
+    renderView(oneBox(), { ...viewing, canClaim: true, onClaim })
+
+    const claim = screen.getByRole('button', { name: /^claim$/i })
+    expect(claim).toBeInTheDocument()
+    // The dock's primary slot, the same control Picked occupies once the order is held.
+    expect(claim).toHaveClass('focused-pick__picked')
+    expect(screen.queryByText(/not claimed/i)).not.toBeInTheDocument()
+
+    await userEvent.setup().click(claim)
+    expect(onClaim).toHaveBeenCalledTimes(1)
+  })
+
+  it('says it is claiming while the request is in flight', () => {
+    renderView(oneBox(), { ...viewing, canClaim: true, isClaiming: true, onClaim: vi.fn() })
+
+    expect(screen.getByRole('button', { name: /claiming/i })).toBeDisabled()
+  })
+
+  it('falls back to the explanation when the order cannot be claimed', () => {
+    renderView(oneBox(), {
+      canRecordOutcome: false,
+      blockedReason: 'Sam is picking this order.',
+      canClaim: false,
+    })
+
+    expect(screen.queryByRole('button', { name: /^claim$/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Sam is picking this order.')).toBeInTheDocument()
+  })
+
+  it('offers picking rather than claiming once the order is held', () => {
+    renderView(oneBox(), { canRecordOutcome: true, canClaim: false })
+
+    expect(screen.getByRole('button', { name: /^picked$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^claim$/i })).not.toBeInTheDocument()
+  })
+})

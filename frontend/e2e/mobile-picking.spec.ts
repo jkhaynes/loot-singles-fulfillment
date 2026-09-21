@@ -88,6 +88,16 @@ test('offers a way out to the dashboard from every card', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Hare Apparent', level: 2 })).toBeVisible()
   await expect(page.getByRole('button', { name: /^picked/i })).toHaveCount(0)
 
+  // Claim takes the dock's primary slot — full width and in reach — rather than sitting as a
+  // chip in the top bar above a passive "not claimed" message.
+  const claim = page.getByRole('button', { name: /^claim$/i })
+  await expect(claim).toBeVisible()
+  await expect(claim).toBeInViewport()
+  const box = await claim.boundingBox()
+  // Comfortably past the 44px minimum, and spanning the screen rather than tucked in a corner.
+  expect(box!.height).toBeGreaterThanOrEqual(48)
+  expect(box!.width).toBeGreaterThan(300)
+
   // Until this replaced the view toggle, a picker was stuck on an order until its end.
   await page.getByRole('link', { name: /dashboard/i }).click()
   await expect(page).toHaveURL(/localhost:\d+\/$/)

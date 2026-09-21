@@ -30,6 +30,10 @@ export interface FocusedPickViewProps {
   onReportIssue: (lineId: number, request: ReportIssueRequest) => void
   /** The picker has completed the order from the final review. */
   onCompleted?: () => void
+  /** The order is free and this employee could take it (FR-024). */
+  canClaim?: boolean
+  isClaiming?: boolean
+  onClaim?: () => void
 }
 
 /** Minimum horizontal travel before a drag counts as a swipe rather than a tap. */
@@ -43,6 +47,9 @@ export function FocusedPickView({
   onPicked,
   onReportIssue,
   onCompleted,
+  canClaim = false,
+  isClaiming = false,
+  onClaim,
 }: FocusedPickViewProps) {
   const orderedLines = useMemo(() => groups.flatMap((group) => group.lines), [groups])
 
@@ -218,6 +225,18 @@ export function FocusedPickView({
               Report an issue
             </button>
           </>
+        ) : canClaim ? (
+          // On an unclaimed order this IS the action, so it takes the dock's primary slot —
+          // the same control Picked occupies once the order is held — rather than sitting as a
+          // chip in the top bar above a passive "not claimed" message.
+          <button
+            type="button"
+            className="focused-pick__picked"
+            disabled={isClaiming}
+            onClick={onClaim}
+          >
+            {isClaiming ? 'Claiming…' : 'Claim'}
+          </button>
         ) : (
           !canRecordOutcome &&
           blockedReason && <p className="focused-pick__blocked">{blockedReason}</p>

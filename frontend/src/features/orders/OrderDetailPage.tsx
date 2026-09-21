@@ -232,20 +232,9 @@ export function OrderDetailPage() {
           </span>
           {/* Labelled, because the band below shows a position and this is a count — two
               "X of Y" numbers on one screen would otherwise read as the same kind of thing. */}
-          {/* A phone gets the same claim action: the card view is the only view it has, so
-              without this a picker could open an order there and never start it. */}
-          {canClaim ? (
-            <button
-              type="button"
-              className="order-detail-bar__claim"
-              onClick={handleClaim}
-              disabled={isClaiming}
-            >
-              {isClaiming ? 'Claiming…' : 'Claim'}
-            </button>
-          ) : (
-            <span className="order-detail-bar__progress">{`${confirmedLineCount} picked`}</span>
-          )}
+          {/* Claiming lives in the dock beside the card, not up here: on an unclaimed order it
+              is the action, and a chip in a thin bar is the wrong weight and the wrong reach. */}
+          <span className="order-detail-bar__progress">{`${confirmedLineCount} picked`}</span>
         </header>
       ) : (
         <header className="order-detail-header">
@@ -336,6 +325,9 @@ export function OrderDetailPage() {
           // Feature 017's pick completion and label print plug in here. Until they exist,
           // completing returns the picker to the order list to claim the next one.
           onCompleted={() => navigate('/orders')}
+          canClaim={canClaim}
+          isClaiming={isClaiming}
+          onClaim={handleClaim}
         />
       ) : (
         <section className="order-detail-lines" aria-label="Products to pick">
