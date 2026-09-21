@@ -160,9 +160,42 @@ dashboard holding it and confirm it offers to resume.
   - Backend: 0 warnings, 0 errors. Frontend: `tsc -b` initially failed on two imports in `OrderDetailPage.tsx` left dead when the issue form moved to `ReportIssueForm` — removed; build is clean. `oxlint` reports one pre-existing warning in `AuthContext.tsx`, untouched by this branch.
 - [X] T055 Run the full suites — backend unit, backend integration (Docker required), frontend, and Playwright — and confirm all pass
   - 228 backend unit, 181 backend integration, 183 frontend unit, 24 Playwright — all passing.
-- [ ] T056 Walk [quickstart.md](quickstart.md) manually, including the order line with no recorded set
-  - Story 2's steps were rewritten on 2026-09-20 to match the approved spec. They had described the set-transition panel and the three-choice guard (both removed by FR-019a), the view toggle and the `localStorage`-blocked fallback (both removed by FR-009). Re-walk the corrected steps before ticking this off.
+- [X] T056 Walk [quickstart.md](quickstart.md) manually, including the order line with no recorded set
+  - Story 2's steps were rewritten on 2026-09-20 to match the approved spec. They had described the set-transition panel and the three-choice guard (both removed by FR-019a), the view toggle and the `localStorage`-blocked fallback (both removed by FR-009). Walked against the corrected steps and passed, 2026-09-21.
 - [ ] T057 Run `/branch-review` and resolve every Required finding before `/speckit-converge`
+  - First round, 2026-09-21: **PASS WITH SUGGESTIONS** — zero Required findings, three Optional (BR-001 to BR-003). The Product Owner accepted all three; they are planned as Phase 7 below. Re-run after Phase 7 to confirm the remediation introduced nothing.
+
+---
+
+## Phase 7: Review Remediation (branch-review round 1)
+
+All three findings are **Optional** and were accepted by the Product Owner on 2026-09-21.
+None blocks `/speckit-converge`.
+
+### BR-002 — `computeProgress` reports a position it does not have
+
+Behavioural: the function returns a wrong value. Test-first — the regression test must fail
+against the current implementation before the fix.
+
+- [X] T058 [US1] Add a failing regression test in `frontend/tests/orders/orderGrouping.test.ts` proving `computeProgress(groups, null)` currently reports `currentSetPosition: 1` and the first group's `currentSetName`, when there is no current line to have a position in. Cover the same for a `currentLineId` that matches no line
+- [X] T059 [US1] Make `computeProgress` in `frontend/src/features/orders/orderGrouping.ts` return `currentSetPosition: 0` and an empty `currentSetName` when `currentLineId` is null or unmatched, keeping the 1-based floor for a line that *is* found, so T058 passes. Confirm `OrderDetailPage.tsx:204` (the desktop header, which passes `null`) still reads the same card counts
+
+### BR-003 — no component test for completing an order the employee does not hold
+
+The fix is already in (`OrderDetailPage.tsx:339`, commit `64314de`), so this is the regression
+test that fix never got at the component level. It is currently covered only end to end.
+
+- [X] T060 [US3] Add a regression test to `frontend/tests/orders/OrderDetailPage.test.tsx`, in the existing `OrderDetailPage on a phone — letting go of an order` block, proving that reaching the final review on an order this employee does **not** hold and pressing the primary action calls **no** `releaseOrder` and still reaches `/orders`. Verify it genuinely guards the defect by collapsing `onCompleted={canRelease ? handleRelease : …}` back to an unconditional `handleRelease` and confirming the test fails, then restore it
+
+### BR-001 — stale comment above `onCompleted`
+
+Non-behavioural: a comment only. No automated regression test is meaningful here — no test can
+observe a comment, and inventing one to satisfy TDD would be the reflexive coverage the
+constitution warns against. Verified by reading the diff.
+
+- [X] T061 [P] Delete the first of the two stacked comment blocks above `onCompleted` in `frontend/src/features/orders/OrderDetailPage.tsx:333-334` ("Feature 017's pick completion screen plugs in here. Until it exists, finishing shows the whole order rather than a dead end") — finishing no longer shows the whole order, and the block below it already explains the release-vs-close split and names the 017 seam
+
+**Checkpoint**: re-run `/branch-review` (T057) once Phase 7 is implemented.
 
 ---
 
@@ -177,6 +210,8 @@ Phase 4 US2 — focused view    Phase 5 US3 — claiming (T036–T051)
    (T016–T035)                  independent of US1 and US2
       ↓                      ↙
 Phase 6 Polish (T052–T057)
+      ↓
+Phase 7 Review remediation (T058–T061) → re-run T057
 ```
 
 - **US2 depends on US1.** The focused view cannot announce "box finished" until products are
@@ -187,6 +222,8 @@ Phase 6 Polish (T052–T057)
 - Within US2, T026 depends on T010; T028 and T030 depend on T026; T031 depends on T027, T028
   and T030.
 - Within US3, T043 → T044 → T045 → T046 in order; T047–T050 depend on T046 for the contract.
+- Within Phase 7, T058 must precede T059 — the regression test has to be seen failing before
+  the fix that makes it pass. T060 and T061 depend on nothing and on each other not at all.
 
 ## Parallel Opportunities
 

@@ -658,6 +658,9 @@ describe('OrderDetailPage on a phone', () => {
   let restore: (() => void) | null = null
 
   beforeEach(() => {
+    // Without this, mock call counts accumulate across the tests in this block, and a
+    // "was never called" assertion silently reads a previous test's calls.
+    vi.resetAllMocks()
     vi.mocked(authApi.me).mockResolvedValue({
       employeeId: 1,
       displayName: 'Test Picker',
@@ -718,6 +721,9 @@ describe('OrderDetailPage on a phone', () => {
 // nothing surfaced it here, so opening an order from the dashboard was a dead end.
 describe('OrderDetailPage — claiming', () => {
   beforeEach(() => {
+    // Without this, mock call counts accumulate across the tests in this block, and a
+    // "was never called" assertion silently reads a previous test's calls.
+    vi.resetAllMocks()
     vi.mocked(authApi.me).mockResolvedValue({
       employeeId: 1,
       displayName: 'Test Picker',
@@ -813,6 +819,9 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
   let restore: (() => void) | null = null
 
   beforeEach(() => {
+    // Without this, mock call counts accumulate across the tests in this block, and a
+    // "was never called" assertion silently reads a previous test's calls.
+    vi.resetAllMocks()
     vi.mocked(authApi.me).mockResolvedValue({
       employeeId: 1,
       displayName: 'Test Picker',
@@ -885,5 +894,30 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
     // Navigating away on a failed release would report work as handed off when it was not.
     expect(screen.queryByText('Browse Orders list')).not.toBeInTheDocument()
     expect(await screen.findByRole('alert')).toHaveTextContent(/couldn't/i)
+  })
+
+  // BR-003. Shipped defect: the review's primary action called release unconditionally, so a
+  // picker who had merely walked through an order they never claimed was told the claim could
+  // not be released. There is nothing to release, and nothing to finish — only a screen to close.
+  it('releases nothing when closing an order it never held', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      ...claimedOrder([buildLine({ productName: 'Only Card' })]),
+      status: 'ready',
+      claimedByEmployeeId: null,
+      claimedByEmployeeName: null,
+    })
+
+    renderPage()
+    await screen.findByRole('article')
+
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    // The button says what it does: nothing is being finished here.
+    expect(screen.queryByRole('button', { name: /finish picking/i })).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /^close$/i }))
+
+    expect(ordersApi.releaseOrder).not.toHaveBeenCalled()
+    expect(await screen.findByText('Browse Orders list')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

@@ -202,12 +202,12 @@ export function computeProgress(groups: SetGroup[], currentLineId: number | null
     }
   }
 
+  // No current line means no position to report. The whole-order view calls it that way, and an
+  // earlier version floored the answer at 1, so it claimed the picker stood at the first card of
+  // the first box. Nothing rendered it, which is exactly why it went unnoticed.
   const currentGroup =
-    groups.find((group) => group.lines.some((line) => line.id === currentLineId)) ?? groups[0]
-
-  const currentSetPosition = currentGroup
-    ? currentGroup.lines.findIndex((line) => line.id === currentLineId) + 1
-    : 0
+    groups.find((group) => group.lines.some((line) => line.id === currentLineId)) ?? null
+  const indexInSet = currentGroup?.lines.findIndex((line) => line.id === currentLineId) ?? -1
 
   return {
     resolvedProducts,
@@ -217,7 +217,7 @@ export function computeProgress(groups: SetGroup[], currentLineId: number | null
     currentSetName: currentGroup?.setName ?? '',
     // Position is reported within the set, not the order (FR-022) — it answers "how much of
     // this box is left?", which is the question the picker standing at it actually has.
-    currentSetPosition: Math.max(currentSetPosition, currentGroup ? 1 : 0),
+    currentSetPosition: indexInSet + 1,
     currentSetSize: currentGroup?.lines.length ?? 0,
   }
 }

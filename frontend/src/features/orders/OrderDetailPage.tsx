@@ -330,8 +330,6 @@ export function OrderDetailPage() {
           recordingLineId={recordingLineId}
           onPicked={handlePicked}
           onReportIssue={handleReportIssue}
-          // Feature 017's pick completion screen plugs in here. Until it exists, finishing
-          // shows the whole order rather than a dead end.
           // Finishing releases the claim — one claim per employee is enforced server-side, so a
           // picker still holding a finished order could never start another. Someone who never
           // held it is only closing a screen: releasing there asks the server to give up a claim

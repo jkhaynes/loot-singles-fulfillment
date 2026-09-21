@@ -248,6 +248,30 @@ describe('computeProgress (T008)', () => {
     expect(progress.currentSetPosition).toBe(2)
     expect(progress.currentSetSize).toBe(2)
   })
+
+  // BR-002. The whole-order view passes null — it has no current card — and used to be told it
+  // was standing at position 1 of the first box. Nothing rendered that number, so the lie was
+  // invisible; the next caller to read it would have been the one to find out.
+  it('reports no position when there is no current line', () => {
+    const groups = groupOrderLines(buildMultiGameLines())
+
+    const progress = computeProgress(groups, null)
+
+    expect(progress.currentSetPosition).toBe(0)
+    expect(progress.currentSetName).toBe('')
+    // The order-wide counts are still real: they do not depend on where the picker is.
+    expect(progress.totalProducts).toBe(5)
+    expect(progress.totalCards).toBe(7)
+  })
+
+  it('reports no position for a line that is not in the order', () => {
+    const groups = groupOrderLines(buildMultiGameLines())
+
+    const progress = computeProgress(groups, 999_999)
+
+    expect(progress.currentSetPosition).toBe(0)
+    expect(progress.currentSetName).toBe('')
+  })
 })
 
 describe('advanceFrom — never blocks (FR-019a)', () => {
