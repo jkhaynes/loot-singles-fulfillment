@@ -222,11 +222,11 @@ ordinary gates.
 
 ### The PRD §27 bounds — these are the mitigation, not a checklist
 
-- [ ] T069 Verify one order per file: assert a stored slip names exactly one customer (quickstart.md privacy check 1, FR-019)
-- [ ] T070 Verify the batch is not retained: assert no stored artifact holds the whole batch document after an import (privacy check 2, FR-020)
-- [ ] T071 Verify picking surfaces cannot reach a slip: assert no payload consumed by a picking screen carries slip content or customer fields, and no picking screen links to one (privacy check 3, FR-039)
-- [ ] T072 Verify access is attributable: retrieve a slip and assert a durable record names the employee and time (privacy check 4, SC-010)
-- [ ] T073 Verify logs are clean: assert no log line carries customer name, address or slip content, per the constitution's logging rule (privacy check 5)
+- [X] T069 Verify one order per file: assert a stored slip names exactly one customer (quickstart.md privacy check 1, FR-019)
+- [X] T070 Verify the batch is not retained: assert no stored artifact holds the whole batch document after an import (privacy check 2, FR-020)
+- [X] T071 Verify picking surfaces cannot reach a slip: assert no payload consumed by a picking screen carries slip content or customer fields, and no picking screen links to one (privacy check 3, FR-039)
+- [X] T072 Verify access is attributable: retrieve a slip and assert a durable record names the employee and time (privacy check 4, SC-010)
+- [X] T073 Verify logs are clean: assert no log line carries customer name, address or slip content, per the constitution's logging rule (privacy check 5)
 
 > If any of T069–T073 cannot be made to pass, **stop**. PRD §27's four bounds hold together or not
 > at all, and weakening one re-opens amendment A14 with the Product Owner — it is not an
@@ -234,11 +234,11 @@ ordinary gates.
 
 ### Ordinary gates
 
-- [ ] T074 [P] Review whether the new behaviour warrants production logging beyond slip access and slip-extraction failure, per the constitution's Observability standard — adding none where none is warranted
-- [ ] T075 [P] Run `npm --prefix frontend run build` and `npm --prefix frontend run lint`; `tsc --noEmit` checks nothing in this project
-- [ ] T076 [P] Run `dotnet build backend/LootSingles.sln` and `dotnet test backend/LootSingles.sln`
-- [ ] T077 [P] Run `npm --prefix frontend run format:check` and the C# formatting check
-- [ ] T078 Walk quickstart.md end to end against the running application and correct any step that does not match what was built — **scenario 0 depends on T001 and stays outstanding until the printer is available**
+- [X] T074 [P] Review whether the new behaviour warrants production logging beyond slip access and slip-extraction failure, per the constitution's Observability standard — adding none where none is warranted
+- [X] T075 [P] Run `npm --prefix frontend run build` and `npm --prefix frontend run lint`; `tsc --noEmit` checks nothing in this project
+- [X] T076 [P] Run `dotnet build backend/LootSingles.sln` and `dotnet test backend/LootSingles.sln`
+- [X] T077 [P] Run `npm --prefix frontend run format:check` and the C# formatting check
+- [X] T078 Walk quickstart.md end to end against the running application and correct any step that does not match what was built — **scenario 0 depends on T001 and stays outstanding until the printer is available**
 - [ ] T079 Run `/branch-review` and resolve every Required finding before `/speckit-converge`, per CLAUDE.md's Branch Review Gate
 
 > **T001 is still open at this point.** The feature is not done while it is, and `/speckit-converge`

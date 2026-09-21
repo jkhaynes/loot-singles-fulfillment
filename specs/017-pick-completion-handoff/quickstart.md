@@ -74,14 +74,17 @@ Covers User Story 1, FR-003 and FR-013.
 1. Claim an order, confirm some lines, and report an unresolved issue on at least one.
 2. Finish the pick.
 
-**Expected**: a needs-a-manager outcome stating cards pulled, cards set aside with the order, and
-**which products** are unresolved.
+**Expected**: a needs-a-manager outcome stating cards pulled and **which products** are unresolved.
+
+> The set-aside count is deliberately absent. Nothing records that a picker set a card aside until
+> the issue-resolution feature, and printing a zero would tell a manager "no cards set aside" on
+> every hold label — worse than saying nothing (FR-046).
 
 3. Print the label.
 
 **Expected**: a hold label distinguishable from a ready-to-pack one **in monochrome** — an inverted
-band, not a colour — stating the set-aside count. Print it in greyscale to confirm it survives
-(FR-013).
+HOLD band, not a colour. Print it in greyscale to confirm it survives (FR-013). The set-aside
+count appears here once anything records one (FR-046).
 
 ---
 
@@ -97,6 +100,11 @@ Covers User Story 2, FR-023 through FR-030.
 
 **Expected**: the slip prints and contains **exactly one order's** information — check it names one
 customer, not several (FR-019).
+
+> **This step needs an order imported through the application.** A slip is sliced out of the batch
+> at import time, so orders created any other way — including every order the end-to-end suite
+> seeds — have none and behave as scenario 5 instead. Import a real packing slip first if you are
+> walking this by hand.
 
 3. Mark the order packed.
 
@@ -136,7 +144,8 @@ order can still be marked packed.
 
 Covers User Story 3, FR-016.
 
-1. Print an order's label, then print it again from the order, then again from the packing desk.
+1. Print an order's label from the ending screen, then again from the order (the phone bar's
+   **Print label**), then again from the packing desk (**Print label again**).
 
 **Expected**: all three are identical, including the **original** picker and pick time — not the
 person or moment of the reprint.
