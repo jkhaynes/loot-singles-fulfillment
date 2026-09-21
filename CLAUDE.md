@@ -4,7 +4,7 @@ This file must be usable by Claude Code without requiring knowledge of any prior
 
 ## Project
 
-**Loot Singles Fulfillment** is an internal fulfillment application for Loot Card Shop. V1 replaces the printed TCGplayer invoice for the **picking** portion of order fulfillment with a responsive, set-aware, visual picking experience that strongly emphasizes high-risk information (quantity greater than one, variant, set, card identity), supports multiple concurrent pickers with exclusive order claiming, and represents picking problems explicitly instead of forcing a false happy path. See [`docs/prd/Loot_Singles_Fulfillment_PRD_v0.4.md`](docs/prd/Loot_Singles_Fulfillment_PRD_v0.4.md) for full detail.
+**Loot Singles Fulfillment** is an internal fulfillment application for Loot Card Shop. V1 replaces the printed TCGplayer invoice for the **picking** portion of order fulfillment with a responsive, set-aware, visual picking experience that strongly emphasizes high-risk information (quantity greater than one, variant, set, card identity), supports multiple concurrent pickers with exclusive order claiming, and represents picking problems explicitly instead of forcing a false happy path. See [`docs/prd/Loot_Singles_Fulfillment_PRD_v0.5.md`](docs/prd/Loot_Singles_Fulfillment_PRD_v0.5.md) for full detail.
 
 ## Product Authority
 
@@ -91,6 +91,7 @@ Review rounds have diminishing returns, and remediation can introduce its own de
 - PDF import/parsing must fail safely — reject and surface the problem rather than silently create an incomplete or incorrect order.
 - Employee PINs must never be stored in plaintext.
 - Customer PII should be minimized and must not be exposed to pickers beyond what picking requires.
+- The one exception is the stored per-order packing slip (PRD §27): packing needs the customer's address, so the application keeps one slip per order. It is reachable only from the packing workflow, never from a picking surface, and every retrieval is logged. Do not widen that access, and do not extract further customer fields out of a slip into the data model.
 - Do not add multi-tenant SaaS complexity; this is single-business software.
 - Do not implement future V2/V3 features (packing verification, barcode/QR handoff, batch picking, camera-assisted verification) during V1 unless explicitly approved by the Product Owner.
 

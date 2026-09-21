@@ -193,10 +193,10 @@ The Loot Card Shop owner is the Product Owner. Confirmed Product Owner decisions
 
 ## Discovery State
 
-This project has a number of open questions documented in the PRD (see [`docs/prd/Loot_Singles_Fulfillment_PRD_v0.4.md`](docs/prd/Loot_Singles_Fulfillment_PRD_v0.4.md), Sections 41–42). These remain **unresolved** and must not be silently converted into implementation assumptions.
+This project has a number of open questions documented in the PRD (see [`docs/prd/Loot_Singles_Fulfillment_PRD_v0.5.md`](docs/prd/Loot_Singles_Fulfillment_PRD_v0.5.md), Sections 41–42). These remain **unresolved** and must not be silently converted into implementation assumptions.
 
 ## Documentation
 
-- [Product Requirements Document](docs/prd/Loot_Singles_Fulfillment_PRD_v0.4.md)
+- [Product Requirements Document](docs/prd/Loot_Singles_Fulfillment_PRD_v0.5.md)
 - [AI-Assisted Development Workflow](docs/development/ai-assisted-development-workflow.md)
 - [`CLAUDE.md`](CLAUDE.md) — project rules for AI-assisted development
