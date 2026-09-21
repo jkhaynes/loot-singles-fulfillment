@@ -11,6 +11,11 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  // The whole suite shares one E2EHost and one SQL Server container, so parallelism is bounded
+  // by that single backend rather than by CPU count. Left to default (one worker per core) the
+  // suite failed 7 of 23 on claim and navigation timeouts purely under load, while passing
+  // every time at 3 — failures that look exactly like real regressions and are not.
+  workers: 3,
   reporter: 'html',
   use: {
     baseURL: E2E_WEB_URL,

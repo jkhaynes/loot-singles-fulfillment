@@ -39,38 +39,39 @@ async function openFirstOrder(page: import('@playwright/test').Page) {
   await page.getByRole('link', { name: 'E2E-ORDER-00001' }).click()
 }
 
-// 016-mobile-picking T035. A phone gets the focused view by default (FR-008), so the first
-// product on screen is the first of the first box after grouping — Lorcana sorts before Magic
-// and Pokemon — not whichever line TCGplayer happened to list first.
-test('order detail opens in the focused view on a mobile viewport, without horizontal scroll', async ({
+// 016-mobile-picking. A phone gets the card view and nothing else, so the first product on
+// screen is the first of the first box after grouping — Lorcana sorts before Magic and Pokemon
+// — not whichever line TCGplayer happened to list first.
+test('order detail shows one card on a mobile viewport, without horizontal scroll', async ({
   page,
 }) => {
   await openFirstOrder(page)
 
   await expect(page.getByRole('heading', { name: 'Elsa', level: 2 })).toBeVisible()
-  await expect(page.getByRole('button', { name: /whole order/i })).toBeVisible()
+  await expect(page.getByRole('article')).toHaveCount(1)
   expect(await hasHorizontalScroll(page)).toBe(false)
 })
 
-test('the whole-order view also fits a mobile viewport', async ({ page }) => {
+// There is deliberately no "the whole order also fits a phone" test any more: a phone cannot
+// reach that view. The Product Owner removed the toggle on 2026-09-21 so the control it
+// occupied could become the way out to the dashboard, which pickers did ask for.
+test('a phone offers no way to the whole-order view', async ({ page }) => {
   await openFirstOrder(page)
 
-  await page.getByRole('button', { name: /whole order/i }).click()
-  await expect(page.getByRole('article', { name: /Pikachu/i })).toBeVisible()
-
-  // Set headers and card rows must not push the layout wider than the screen.
-  expect(await hasHorizontalScroll(page)).toBe(false)
+  await expect(page.getByRole('heading', { name: 'Elsa', level: 2 })).toBeVisible()
+  await expect(page.getByRole('button', { name: /whole order/i })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: /dashboard/i })).toBeVisible()
 })
 
 test.describe('on a desktop viewport', () => {
   test.use({ viewport: { width: 1280, height: 800 }, isMobile: false, hasTouch: false })
 
-  test('order detail opens in the whole-order view by default', async ({ page }) => {
+  test('order detail shows the whole order, and offers no card view', async ({ page }) => {
     await openFirstOrder(page)
 
-    // Seated at a bench, the whole order is the more useful shape (FR-008).
+    // Seated at a bench, the whole order is the more useful shape (PRD §8).
     await expect(page.getByRole('article')).toHaveCount(4)
     await expect(page.getByRole('article', { name: /Pikachu/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /one card at a time/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /one card at a time/i })).toHaveCount(0)
   })
 })

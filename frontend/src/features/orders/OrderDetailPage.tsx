@@ -14,7 +14,7 @@ import {
 import type { OrderDetail, PickingIssueType, ReportIssueRequest } from './ordersApi'
 import { useAuth } from '../auth/AuthContext'
 import { computeProgress, groupOrderLines } from './orderGrouping'
-import { useViewPreference } from './useViewPreference'
+import { useIsPhone } from './useIsPhone'
 import { FocusedPickView } from './FocusedPickView'
 import { ReportIssueForm } from './ReportIssueForm'
 import './OrderDetailPage.css'
@@ -150,7 +150,9 @@ export function OrderDetailPage() {
   // Set-aware picking (PRD §13): one group per storage box, ordered for the walk.
   const setGroups = useMemo(() => groupOrderLines(order?.lines ?? []), [order?.lines])
   const progress = useMemo(() => computeProgress(setGroups, null), [setGroups])
-  const { view, choose } = useViewPreference()
+  // A phone gets the card view, a desktop the whole order. Neither offers the other (PRD §8,
+  // Product Owner decision 2026-09-21).
+  const isPhone = useIsPhone()
   const blockedReason =
     order !== null && !canRecordOutcome
       ? order.claimedByEmployeeName === null
@@ -158,66 +160,82 @@ export function OrderDetailPage() {
         : `${order.claimedByEmployeeName} is picking this order.`
       : null
 
+  // In the focused view the screen is a card and one action (FR-029): the order's own title,
+  // status, second progress line and the Release / Browse / Dashboard links took 31% of a
+  // 440x956 screen and pushed the record button below the fold.
+  const isFocused = isPhone && loadState === 'loaded'
+
   return (
-    <main className="order-detail-page">
-      <header className="order-detail-header">
-        <div>
-          <p className="order-detail-header__eyebrow">Order picking detail</p>
-          <h1>{order ? `Order ${order.tcgplayerOrderId}` : 'Order detail'}</h1>
-          {order && (
-            <p
-              className="order-detail-header__status"
-              aria-label={`Order status: ${orderStatusLabel(order.status)}`}
-            >
-              {order.claimedByEmployeeName
-                ? `${orderStatusLabel(order.status)} · Picking by ${order.claimedByEmployeeName}`
-                : orderStatusLabel(order.status)}
-            </p>
-          )}
-          {order && (
-            <p className="order-detail-header__progress">
-              {`${confirmedLineCount} of ${order.lines.length} lines confirmed`}
-            </p>
-          )}
-          {order && (
-            /* Physical cards as well as products: a line of three is three cards to pull,
+    <main className={`order-detail-page${isFocused ? ' order-detail-page--focused' : ''}`}>
+      {isFocused ? (
+        <header className="order-detail-bar">
+          {/* One exit, on every card. Until this replaced the view toggle a picker was stuck on
+              an order until they reached the end of it. */}
+          <Link to="/" className="order-detail-bar__out">
+            <span aria-hidden="true">‹</span> Dashboard
+          </Link>
+          <span className="order-detail-bar__code">
+            {order ? order.tcgplayerOrderId.split('-').at(-1) : ''}
+          </span>
+          {/* Labelled, because the band below shows a position and this is a count — two
+              "X of Y" numbers on one screen would otherwise read as the same kind of thing. */}
+          <span className="order-detail-bar__progress">{`${confirmedLineCount} picked`}</span>
+        </header>
+      ) : (
+        <header className="order-detail-header">
+          <div>
+            <p className="order-detail-header__eyebrow">Order picking detail</p>
+            <h1>{order ? `Order ${order.tcgplayerOrderId}` : 'Order detail'}</h1>
+            {order && (
+              <p
+                className="order-detail-header__status"
+                aria-label={`Order status: ${orderStatusLabel(order.status)}`}
+              >
+                {order.claimedByEmployeeName
+                  ? `${orderStatusLabel(order.status)} · Picking by ${order.claimedByEmployeeName}`
+                  : orderStatusLabel(order.status)}
+              </p>
+            )}
+            {order && (
+              <p className="order-detail-header__progress">
+                {`${confirmedLineCount} of ${order.lines.length} lines confirmed`}
+              </p>
+            )}
+            {order && (
+              /* Physical cards as well as products: a line of three is three cards to pull,
                not one (PRD §18, FR-021). */
-            <p className="order-detail-header__cards">
-              {`${progress.accountedCards} of ${progress.totalCards} cards accounted for`}
-            </p>
-          )}
-          {actionError && (
-            <p role="alert" className="order-detail-header__error">
-              {actionError}
-            </p>
-          )}
-        </div>
-        <nav className="order-detail-navigation" aria-label="Order detail navigation">
-          {order && (
-            <button
-              type="button"
-              className="order-detail-navigation__view"
-              onClick={() => choose(view === 'focused' ? 'list' : 'focused')}
-            >
-              {/* Deliberately avoids the words pick/claim/complete: this switches how the order
-                  is displayed and records nothing, so it must not read like an action. */}
-              {view === 'focused' ? 'Whole order' : 'One card at a time'}
-            </button>
-          )}
-          {canRelease && (
-            <button type="button" onClick={handleRelease} disabled={isReleasing}>
-              {isReleasing ? 'Releasing…' : 'Release'}
-            </button>
-          )}
-          {canForceRelease && (
-            <button type="button" onClick={handleForceRelease} disabled={isForceReleasing}>
-              {isForceReleasing ? 'Force-releasing…' : 'Force-Release'}
-            </button>
-          )}
-          <Link to="/orders">Browse Orders</Link>
-          <Link to="/">Dashboard</Link>
-        </nav>
-      </header>
+              <p className="order-detail-header__cards">
+                {`${progress.accountedCards} of ${progress.totalCards} cards accounted for`}
+              </p>
+            )}
+            {actionError && (
+              <p role="alert" className="order-detail-header__error">
+                {actionError}
+              </p>
+            )}
+          </div>
+          <nav className="order-detail-navigation" aria-label="Order detail navigation">
+            {canRelease && (
+              <button type="button" onClick={handleRelease} disabled={isReleasing}>
+                {isReleasing ? 'Releasing…' : 'Release'}
+              </button>
+            )}
+            {canForceRelease && (
+              <button type="button" onClick={handleForceRelease} disabled={isForceReleasing}>
+                {isForceReleasing ? 'Force-releasing…' : 'Force-Release'}
+              </button>
+            )}
+            <Link to="/orders">Browse Orders</Link>
+            <Link to="/">Dashboard</Link>
+          </nav>
+        </header>
+      )}
+
+      {actionError && isFocused && (
+        <p role="alert" className="order-detail-bar__error">
+          {actionError}
+        </p>
+      )}
 
       {loadState === 'loading' ? (
         <p className="order-detail-state">Loading order…</p>
@@ -229,7 +247,7 @@ export function OrderDetailPage() {
         <p role="alert" className="order-detail-state order-detail-state--error">
           Couldn't load order. Try refreshing the page.
         </p>
-      ) : view === 'focused' ? (
+      ) : isPhone ? (
         <FocusedPickView
           groups={setGroups}
           canRecordOutcome={canRecordOutcome}
@@ -237,9 +255,11 @@ export function OrderDetailPage() {
           recordingLineId={recordingLineId}
           onPicked={handlePicked}
           onReportIssue={handleReportIssue}
-          // Feature 017's pick completion screen plugs in here. Until it exists, running off
-          // the end of the order shows the whole order rather than a dead end.
-          onOrderEnd={() => choose('list')}
+          // Feature 017's pick completion screen plugs in here. Until it exists, finishing
+          // shows the whole order rather than a dead end.
+          // Feature 017's pick completion and label print plug in here. Until they exist,
+          // completing returns the picker to the order list to claim the next one.
+          onCompleted={() => navigate('/orders')}
         />
       ) : (
         <section className="order-detail-lines" aria-label="Products to pick">

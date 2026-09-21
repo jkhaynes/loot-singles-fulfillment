@@ -313,14 +313,27 @@ device type.
 The interaction may adapt to available screen size while maintaining the
 same underlying workflow.
 
-On a phone, picking defaults to a **focused view** showing one product
-at a time. On a desktop, it defaults to the **full list**. Either view
-must remain reachable from the other on any device, and a deliberate
-choice must persist for that employee.
+On a phone, picking shows a **focused view** of one product at a time.
+On a desktop, it shows the **full list**. The view follows screen size
+alone: neither offers the other, and no view preference is stored.
 
 The two devices are used in genuinely different postures --- one-handed
-at a storage box, or seated at a bench --- so the default follows the
-device rather than being chosen per screen.
+at a storage box, or seated at a bench --- so the view follows the
+screen rather than being chosen.
+
+**Amended 2026-09-21.** This section previously required either view to
+remain reachable from the other, with a deliberate choice persisting for
+the employee. It was reversed twice in two days --- first from
+per-employee to per-device, then to no choice at all --- and the second
+reversal is recorded here. Nobody had asked for the toggle, and the
+control it occupied became the way out of an order to the dashboard,
+which pickers had asked for: until then a picker was held on an order
+until they reached its end.
+
+A consequence worth stating: the controls on a phone and on a desktop
+are now deliberately **not** identical, which supersedes the
+"identical controls, no device-specific workaround" expectation carried
+by feature 015's SC-008 for the picking screen.
 
 Manager work --- reviewing problem orders and recording what a customer
 decided --- is a seated task at a computer, and its surfaces are
@@ -550,22 +563,31 @@ Unlike an uncertain image (§17), an imperfect sort is not a safety
 problem --- it costs a few steps, and nothing about it claims to be
 authoritative.
 
-## 13.2 Leaving a Set With Products Unresolved
+## 13.2 Leaving an Order With Products Unresolved
 
-When a picker reaches the end of a set that still has unresolved
+When a picker reaches the end of an **order** that still has unresolved
 products, the application must say so, list what remains, and require a
 deliberate choice:
 
 -   Return to those products
 -   Report what is missing
--   Leave the set
+-   Complete anyway
 
-The application must **not** present a set as finished while products in
-it are unresolved.
+The application must **not** present an order as fully picked while
+products in it are unresolved.
 
-The whole point of set grouping is walking to a box once. A picker who
-skips a card and walks away has to walk back, which is exactly the cost
-this section exists to remove.
+**Amended 2026-09-21.** This section previously placed that stop at the
+end of every **set**. Built and used, it fired on nearly every card:
+boxes holding a single card are the common case --- one real order holds
+fifteen products across fifteen sets --- so the picker could not look
+ahead at all, and a full-screen interstitial appeared between cards that
+had nothing to celebrate.
+
+Moving the stop to the end of the order preserves the guarantee this
+section exists for, and strengthens it: the check now covers every
+outstanding card in the order rather than only the box just left. Moving
+between products is never blocked, because advancing is looking rather
+than deciding --- the same principle §23 applies to recording.
 
 ------------------------------------------------------------------------
 

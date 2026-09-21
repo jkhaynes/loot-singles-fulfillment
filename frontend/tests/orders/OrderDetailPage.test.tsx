@@ -1,12 +1,13 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OrderDetailPage } from '../../src/features/orders/OrderDetailPage'
 import * as ordersApi from '../../src/features/orders/ordersApi'
 import { AuthProvider } from '../../src/features/auth/AuthContext'
 import * as authApi from '../../src/features/auth/authApi'
 import { buildLine, buildMultiGameLines } from '../support/orderBuilders'
+import { installMatchMedia } from '../support/matchMedia'
 
 vi.mock('../../src/features/orders/ordersApi', async (original) => ({
   ...(await original<typeof import('../../src/features/orders/ordersApi')>()),
@@ -646,5 +647,67 @@ describe('OrderDetailPage', () => {
       expect(screen.getAllByRole('article')).toHaveLength(2)
       expect(screen.getByRole('group', { name: /Set not recorded/i })).toBeInTheDocument()
     })
+  })
+})
+
+// 016-mobile-picking: the page-level view switch. Nothing rendered the focused view through
+// the page before, which is how a `view is not defined` reference survived a passing suite and
+// a clean typecheck — the whole component threw the moment a phone-sized screen loaded it.
+describe('OrderDetailPage on a phone', () => {
+  let restore: (() => void) | null = null
+
+  beforeEach(() => {
+    vi.mocked(authApi.me).mockResolvedValue({
+      employeeId: 1,
+      displayName: 'Test Picker',
+      role: 'Picker',
+    })
+    restore = installMatchMedia(390).restore
+  })
+
+  afterEach(() => {
+    restore?.()
+    restore = null
+  })
+
+  it('renders the card view, not the whole order', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder(buildMultiGameLines()))
+
+    renderPage()
+
+    // One card, not five.
+    expect(await screen.findByRole('article')).toBeInTheDocument()
+    expect(screen.getAllByRole('article')).toHaveLength(1)
+    expect(screen.queryByRole('group')).not.toBeInTheDocument()
+  })
+
+  it('offers a way out to the dashboard on every card', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder(buildMultiGameLines()))
+
+    renderPage()
+    await screen.findByRole('article')
+
+    // Before this replaced the view toggle, a picker was stuck on the order until the end.
+    expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument()
+  })
+
+  it('offers no view toggle', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder(buildMultiGameLines()))
+
+    renderPage()
+
+    await screen.findByRole('article')
+    expect(screen.queryByRole('button', { name: /whole order/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /one card at a time/i })).not.toBeInTheDocument()
+  })
+
+  it('drops the order title block that pushed the record button below the fold', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(claimedOrder(buildMultiGameLines()))
+
+    renderPage()
+
+    await screen.findByRole('article')
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /browse orders/i })).not.toBeInTheDocument()
   })
 })

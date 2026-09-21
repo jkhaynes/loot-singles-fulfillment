@@ -136,54 +136,48 @@ export function groupOrderLines(lines: OrderLineDetail[]): SetGroup[] {
  * nothing — advancing is a question, not an outcome (FR-011).
  */
 export type Advance =
-  /** Another product in the same box. */
-  | { kind: 'line'; line: OrderLineDetail }
-  /** The box is finished. `nextSet` is null only when it was also the last box. */
-  | { kind: 'set-complete'; finishedSet: SetGroup; nextSet: SetGroup | null }
-  /** The box still owes cards. The picker must choose deliberately (FR-016, FR-017). */
-  | {
-      kind: 'set-incomplete'
-      set: SetGroup
-      unresolvedLines: OrderLineDetail[]
-      nextSet: SetGroup | null
-    }
-  /** Nothing left anywhere in the order. */
+  /** The next product. `enteringSet` is set when it belongs to a different box (FR-015). */
+  | { kind: 'line'; line: OrderLineDetail; enteringSet: SetGroup | null }
+  /** Past the last product in the order. */
   | { kind: 'order-end' }
 
 /**
  * Where advancing from `fromLineId` leads.
  *
- * A set that still has unresolved products never reports as finished (FR-018) — the picker is
- * told what is outstanding and made to choose, because walking away believing a box is done is
- * how a card gets missed and the order stalls later.
+ * **Never blocks** (FR-019a). Moving between products is looking, not deciding, so nothing
+ * outstanding can stop it — the same principle as FR-011, applied to navigation rather than
+ * recording. An earlier version stopped the picker at every box boundary with work outstanding;
+ * boxes holding a single card turned out to be the common case, so that fired on nearly every
+ * card and made the order impossible to browse.
+ *
+ * The check that an order is not finished short now lives in `unresolvedAcrossOrder`, at the
+ * point where finishing is actually attempted.
  */
 export function advanceFrom(groups: SetGroup[], fromLineId: number): Advance {
-  const groupIndex = groups.findIndex((group) => group.lines.some((line) => line.id === fromLineId))
-  if (groupIndex === -1) return { kind: 'order-end' }
+  const ordered = groups.flatMap((group) => group.lines.map((line) => ({ line, group })))
+  const index = ordered.findIndex((entry) => entry.line.id === fromLineId)
+  if (index === -1 || index === ordered.length - 1) return { kind: 'order-end' }
 
-  const group = groups[groupIndex]
-  const lineIndex = group.lines.findIndex((line) => line.id === fromLineId)
-  const nextSet = groups[groupIndex + 1] ?? null
+  const current = ordered[index]
+  const next = ordered[index + 1]
 
-  // Still inside this box.
-  if (lineIndex < group.lines.length - 1) {
-    return { kind: 'line', line: group.lines[lineIndex + 1] }
+  return {
+    kind: 'line',
+    line: next.line,
+    // Named only on the step that actually crosses into a new box, so the card can announce it
+    // without a screen of its own (FR-015).
+    enteringSet: next.group === current.group ? null : next.group,
   }
+}
 
-  if (!group.isComplete) {
-    return {
-      kind: 'set-incomplete',
-      set: group,
-      unresolvedLines: group.unresolvedLines,
-      nextSet,
-    }
-  }
+/** Every product still unresolved, in walking order. Drives the finish check (FR-016). */
+export function unresolvedAcrossOrder(groups: SetGroup[]): OrderLineDetail[] {
+  return groups.flatMap((group) => group.unresolvedLines)
+}
 
-  // Finished the last box of the order: no next set to name, and no empty panel pretending
-  // otherwise.
-  if (nextSet === null) return { kind: 'order-end' }
-
-  return { kind: 'set-complete', finishedSet: group, nextSet }
+/** The box a product belongs to, for the band shown on its card. */
+export function setGroupOf(groups: SetGroup[], lineId: number): SetGroup | null {
+  return groups.find((group) => group.lines.some((line) => line.id === lineId)) ?? null
 }
 
 /**

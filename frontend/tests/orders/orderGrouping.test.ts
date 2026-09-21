@@ -3,6 +3,8 @@ import {
   advanceFrom,
   computeProgress,
   groupOrderLines,
+  setGroupOf,
+  unresolvedAcrossOrder,
 } from '../../src/features/orders/orderGrouping'
 import {
   buildIssueLine,
@@ -248,131 +250,113 @@ describe('computeProgress (T008)', () => {
   })
 })
 
-describe('advanceFrom — set transitions and the guard (T016)', () => {
-  function twoSets() {
+describe('advanceFrom — never blocks (FR-019a)', () => {
+  function twoBoxes() {
     return [
-      buildLine({ productLine: 'Pokemon', set: 'Alpha', productName: 'A1' }),
-      buildLine({ productLine: 'Pokemon', set: 'Alpha', productName: 'A2' }),
-      buildLine({ productLine: 'Pokemon', set: 'Beta', productName: 'B1' }),
-    ]
-  }
-
-  it('moves to the next line inside the same set without any transition', () => {
-    const lines = twoSets()
-    const groups = groupOrderLines(lines)
-
-    const result = advanceFrom(groups, lines[0].id)
-
-    expect(result.kind).toBe('line')
-    expect(result.kind === 'line' && result.line.productName).toBe('A2')
-  })
-
-  it('announces the next set when the current one is complete', () => {
-    const lines = twoSets()
-    lines[0].pickOutcome = 'picked'
-    lines[1].pickOutcome = 'picked'
-    const groups = groupOrderLines(lines)
-
-    const result = advanceFrom(groups, lines[1].id)
-
-    expect(result.kind).toBe('set-complete')
-    if (result.kind !== 'set-complete') return
-    expect(result.finishedSet.setName).toBe('Alpha')
-    expect(result.nextSet?.setName).toBe('Beta')
-    expect(result.nextSet?.productCount).toBe(1)
-    expect(result.nextSet?.cardCount).toBe(1)
-  })
-
-  it('reports the next set card count in physical cards', () => {
-    const lines = [
-      buildLine({ set: 'Alpha', pickOutcome: 'picked' }),
-      buildLine({ set: 'Beta', quantity: 4 }),
-    ]
-    const groups = groupOrderLines(lines)
-
-    const result = advanceFrom(groups, lines[0].id)
-
-    expect(result.kind === 'set-complete' && result.nextSet?.cardCount).toBe(4)
-  })
-
-  it('guards a set that still has unresolved products', () => {
-    const lines = twoSets()
-    // A2 left unresolved — the picker skipped it and walked on.
-    lines[0].pickOutcome = 'picked'
-    const groups = groupOrderLines(lines)
-
-    const result = advanceFrom(groups, lines[1].id)
-
-    expect(result.kind).toBe('set-incomplete')
-    if (result.kind !== 'set-incomplete') return
-    expect(result.set.setName).toBe('Alpha')
-    expect(result.unresolvedLines.map((line) => line.productName)).toEqual(['A2'])
-  })
-
-  it('counts a line carrying an issue as resolved for the guard', () => {
-    // Reporting an issue is dealing with a product; the guard must not nag about it.
-    const lines = [
-      buildIssueLine({ set: 'Alpha' }),
-      buildLine({ set: 'Beta', pickOutcome: 'picked' }),
-    ]
-    const groups = groupOrderLines(lines)
-
-    expect(advanceFrom(groups, lines[0].id).kind).toBe('set-complete')
-  })
-
-  it('yields no transition past the last line of the last set', () => {
-    const lines = [buildLine({ set: 'Alpha', pickOutcome: 'picked' })]
-    const groups = groupOrderLines(lines)
-
-    const result = advanceFrom(groups, lines[0].id)
-
-    // No next set to name, and no empty panel pretending there is one.
-    expect(result.kind).toBe('order-end')
-  })
-
-  it('never reports a set complete while a line in it is unresolved', () => {
-    const lines = [buildLine({ set: 'Alpha' }), buildLine({ set: 'Beta' })]
-    const groups = groupOrderLines(lines)
-
-    expect(groups.every((group) => group.isComplete)).toBe(false)
-    expect(advanceFrom(groups, lines[0].id).kind).toBe('set-incomplete')
-  })
-})
-
-describe('advanceFrom — resolving an earlier gap (T017)', () => {
-  it('stops reporting a set as incomplete once its last gap is filled', () => {
-    const lines = [
       buildLine({ set: 'Alpha', productName: 'A1' }),
       buildLine({ set: 'Alpha', productName: 'A2' }),
       buildLine({ set: 'Beta', productName: 'B1' }),
     ]
-    lines[0].pickOutcome = 'picked'
+  }
 
-    // While A2 is outstanding the guard fires.
-    expect(advanceFrom(groupOrderLines(lines), lines[1].id).kind).toBe('set-incomplete')
+  it('moves to the next product in the same box', () => {
+    const lines = twoBoxes()
+    const result = advanceFrom(groupOrderLines(lines), lines[0].id)
 
-    // The picker goes back and resolves it; the set must now hand over cleanly.
-    lines[1].pickOutcome = 'picked'
-    expect(advanceFrom(groupOrderLines(lines), lines[1].id).kind).toBe('set-complete')
+    expect(result.kind).toBe('line')
+    expect(result.kind === 'line' && result.line.productName).toBe('A2')
+    expect(result.kind === 'line' && result.enteringSet).toBeNull()
+  })
+
+  it('crosses into the next box without stopping, naming it', () => {
+    const lines = twoBoxes()
+    const result = advanceFrom(groupOrderLines(lines), lines[1].id)
+
+    expect(result.kind).toBe('line')
+    expect(result.kind === 'line' && result.line.productName).toBe('B1')
+    // Named so the card can announce the new box, rather than a screen of its own (FR-015).
+    expect(result.kind === 'line' && result.enteringSet?.setName).toBe('Beta')
+  })
+
+  it('crosses a box boundary even with the box left unresolved', () => {
+    // This is the whole point of the change. An earlier build stopped here, and because boxes
+    // holding one card are the common case it fired on nearly every card.
+    const lines = twoBoxes()
+    const result = advanceFrom(groupOrderLines(lines), lines[1].id)
+
+    expect(result.kind).toBe('line')
+  })
+
+  it('never blocks on a box of exactly one unresolved card', () => {
+    const lines = [
+      buildLine({ set: 'Alpha', productName: 'Only One' }),
+      buildLine({ set: 'Beta', productName: 'Next Box' }),
+    ]
+
+    const result = advanceFrom(groupOrderLines(lines), lines[0].id)
+
+    expect(result.kind).toBe('line')
+    expect(result.kind === 'line' && result.line.productName).toBe('Next Box')
+  })
+
+  it('walks an order of single-card boxes end to end without one interruption', () => {
+    const lines = ['A', 'B', 'C', 'D', 'E'].map((s) =>
+      buildLine({ set: s, productName: `Card ${s}` }),
+    )
+    const groups = groupOrderLines(lines)
+
+    const visited: string[] = ['Card A']
+    let id = lines[0].id
+    for (;;) {
+      const step = advanceFrom(groups, id)
+      if (step.kind !== 'line') break
+      visited.push(step.line.productName)
+      id = step.line.id
+    }
+
+    expect(visited).toEqual(['Card A', 'Card B', 'Card C', 'Card D', 'Card E'])
+  })
+
+  it('reports the end of the order past the last product', () => {
+    const lines = twoBoxes()
+    expect(advanceFrom(groupOrderLines(lines), lines[2].id).kind).toBe('order-end')
   })
 })
 
-describe('advanceFrom — the last set is not exempt', () => {
-  it('guards the final set too, rather than ending the order silently', () => {
-    // The picker is at the end of the order with work outstanding. Ending here quietly is
-    // exactly how an order reaches the bench short (FR-018).
+describe('unresolvedAcrossOrder', () => {
+  it('collects what is outstanding across every box, in walking order', () => {
+    const lines = [
+      buildLine({ set: 'Alpha', productName: 'A1', pickOutcome: 'picked' }),
+      buildLine({ set: 'Alpha', productName: 'A2' }),
+      buildLine({ set: 'Beta', productName: 'B1' }),
+      buildIssueLine({ set: 'Beta', productName: 'B2' }),
+    ]
+
+    const outstanding = unresolvedAcrossOrder(groupOrderLines(lines))
+
+    // Picked and issue-reported lines are both resolved; only the untouched two remain.
+    expect(outstanding.map((line) => line.productName)).toEqual(['A2', 'B1'])
+  })
+
+  it('is empty once every product has an outcome', () => {
     const lines = [
       buildLine({ set: 'Alpha', pickOutcome: 'picked' }),
-      buildLine({ set: 'Beta', productName: 'B1', pickOutcome: 'picked' }),
-      buildLine({ set: 'Beta', productName: 'B2' }),
+      buildIssueLine({ set: 'Beta' }),
     ]
+
+    expect(unresolvedAcrossOrder(groupOrderLines(lines))).toEqual([])
+  })
+})
+
+describe('setGroupOf', () => {
+  it('finds the box a product belongs to', () => {
+    const lines = [buildLine({ set: 'Alpha' }), buildLine({ set: 'Beta' })]
     const groups = groupOrderLines(lines)
 
-    const result = advanceFrom(groups, lines[2].id)
+    expect(setGroupOf(groups, lines[1].id)?.setName).toBe('Beta')
+  })
 
-    expect(result.kind).toBe('set-incomplete')
-    if (result.kind !== 'set-incomplete') return
-    expect(result.nextSet).toBeNull()
-    expect(result.unresolvedLines.map((line) => line.productName)).toEqual(['B2'])
+  it('returns null for a product that is not in the order', () => {
+    expect(setGroupOf(groupOrderLines([buildLine()]), 9999)).toBeNull()
   })
 })

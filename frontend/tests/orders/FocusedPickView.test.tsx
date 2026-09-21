@@ -23,8 +23,8 @@ function renderView(
   return { props, ...render(<FocusedPickView {...props} />) }
 }
 
-/** Three products in one set, so navigation can be exercised without crossing a box boundary. */
-function oneSet() {
+/** Three cards in one box, so navigation can be exercised without crossing a boundary. */
+function oneBox() {
   return [
     buildLine({ set: 'Alpha', productName: 'First Card' }),
     buildLine({ set: 'Alpha', productName: 'Second Card' }),
@@ -32,36 +32,40 @@ function oneSet() {
   ]
 }
 
-function next() {
-  return screen.getByRole('button', { name: /next/i })
-}
+const next = () => screen.getByRole('button', { name: /next card/i })
+const previous = () => screen.getByRole('button', { name: /previous card/i })
+const pickedButton = () => screen.getByRole('button', { name: /^picked|^pulled all/i })
 
-function previous() {
-  return screen.getByRole('button', { name: /previous|back/i })
-}
-
-describe('FocusedPickView — one product at a time', () => {
-  it('shows the first product and not the others', () => {
-    renderView(oneSet())
+describe('FocusedPickView — one card at a time', () => {
+  it('shows the current card and not the others', () => {
+    renderView(oneBox())
 
     expect(screen.getByRole('heading', { name: 'First Card' })).toBeInTheDocument()
     expect(screen.queryByText('Second Card')).not.toBeInTheDocument()
   })
 
-  it('reports position within the set and the order', () => {
-    renderView(oneSet())
+  it('names the box and the position within it', () => {
+    renderView(oneBox())
 
-    expect(screen.getByText(/1 of 3/i)).toBeInTheDocument()
-    expect(screen.getByText(/Alpha/)).toBeInTheDocument()
+    expect(screen.getByText('Alpha')).toBeInTheDocument()
+    expect(screen.getByText('1 of 3')).toBeInTheDocument()
+  })
+
+  it('fills the box bar to match the position beside it', () => {
+    // Position, not completion: a bar that disagreed with the number next to it would read as
+    // broken. What was actually pulled is checked on the review screen.
+    const { container } = renderView(oneBox())
+
+    expect(container.querySelector<HTMLElement>('.focused-pick__boxFill')?.style.width).toBe('33%')
   })
 })
 
-// T020 — the central safety rule (FR-011). Asserted positively: no request issued, and no
-// outcome changed. "No error appeared" would pass against a component that recorded silently.
-describe('FocusedPickView — navigating records nothing', () => {
-  it('issues no pick or issue request while moving forward', async () => {
+// FR-011. Asserted positively — no request issued, no outcome changed. "No error appeared"
+// would pass against a component that recorded silently.
+describe('FocusedPickView — moving records nothing', () => {
+  it('issues no request while moving forward', async () => {
     const user = userEvent.setup()
-    const { props } = renderView(oneSet())
+    const { props } = renderView(oneBox())
 
     await user.click(next())
     await user.click(next())
@@ -71,21 +75,9 @@ describe('FocusedPickView — navigating records nothing', () => {
     expect(props.onReportIssue).not.toHaveBeenCalled()
   })
 
-  it('issues no request while moving back', async () => {
+  it('leaves every card unresolved after a full pass', async () => {
     const user = userEvent.setup()
-    const { props } = renderView(oneSet())
-
-    await user.click(next())
-    await user.click(previous())
-
-    expect(screen.getByRole('heading', { name: 'First Card' })).toBeInTheDocument()
-    expect(props.onPicked).not.toHaveBeenCalled()
-    expect(props.onReportIssue).not.toHaveBeenCalled()
-  })
-
-  it('leaves every line unresolved after a full pass through the order', async () => {
-    const user = userEvent.setup()
-    const lines = oneSet()
+    const lines = oneBox()
     const { props } = renderView(lines)
 
     await user.click(next())
@@ -93,78 +85,116 @@ describe('FocusedPickView — navigating records nothing', () => {
     await user.click(previous())
     await user.click(previous())
 
-    // The lines themselves are unchanged — nothing recorded an outcome behind the picker's back.
     expect(lines.every((line) => line.pickOutcome === null)).toBe(true)
     expect(props.onPicked).not.toHaveBeenCalled()
-    expect(props.onReportIssue).not.toHaveBeenCalled()
   })
 
-  it('shows a passed-over product as still unresolved when the picker returns', async () => {
+  it('still offers to record a card the picker passed over', async () => {
     const user = userEvent.setup()
-    renderView(oneSet())
+    renderView(oneBox())
 
     await user.click(next())
     await user.click(previous())
 
-    // Still offering to record it, because nothing was recorded.
-    expect(screen.getByRole('button', { name: /^picked$/i })).toBeEnabled()
+    expect(pickedButton()).toBeEnabled()
+    expect(pickedButton()).toHaveAttribute('aria-pressed', 'false')
   })
 })
 
-// T021 — FR-013. Swipe is an extra affordance, never the only way through.
-describe('FocusedPickView — reachable without swiping', () => {
-  it('reaches every product using on-screen controls alone', async () => {
-    const user = userEvent.setup()
-    renderView(oneSet())
+// FR-019a. The defect this screen was rebuilt to fix.
+describe('FocusedPickView — moving is never blocked', () => {
+  function singleCardBoxes() {
+    return ['Alpha', 'Beta', 'Gamma'].map((set) => buildLine({ set, productName: `Card ${set}` }))
+  }
 
-    const seen: string[] = []
-    seen.push(screen.getByRole('heading', { level: 2 }).textContent ?? '')
+  it('crosses into the next box with the current one unresolved', async () => {
+    const user = userEvent.setup()
+    renderView(singleCardBoxes())
+
     await user.click(next())
-    seen.push(screen.getByRole('heading', { level: 2 }).textContent ?? '')
+
+    expect(screen.getByRole('heading', { name: 'Card Beta' })).toBeInTheDocument()
+  })
+
+  it('walks single-card boxes end to end with nothing resolved', async () => {
+    const user = userEvent.setup()
+    renderView(singleCardBoxes())
+
     await user.click(next())
-    seen.push(screen.getByRole('heading', { level: 2 }).textContent ?? '')
+    await user.click(next())
+
+    expect(screen.getByRole('heading', { name: 'Card Gamma' })).toBeInTheDocument()
+  })
+
+  it('announces a new box on the card rather than on a screen of its own', async () => {
+    const user = userEvent.setup()
+    renderView(singleCardBoxes())
+
+    await user.click(next())
+
+    // The card is still there — this is a band, not an interstitial.
+    expect(screen.getByRole('heading', { name: 'Card Beta' })).toBeInTheDocument()
+    expect(screen.getByText(/new box/i)).toBeInTheDocument()
+  })
+})
+
+describe('FocusedPickView — reachable without swiping', () => {
+  it('reaches every card using the on-screen controls alone', async () => {
+    const user = userEvent.setup()
+    renderView(oneBox())
+
+    const seen = [screen.getByRole('heading', { level: 2 }).textContent]
+    await user.click(next())
+    seen.push(screen.getByRole('heading', { level: 2 }).textContent)
+    await user.click(next())
+    seen.push(screen.getByRole('heading', { level: 2 }).textContent)
 
     expect(seen).toEqual(['First Card', 'Second Card', 'Third Card'])
   })
 
-  it('disables going back from the first product rather than hiding the control', () => {
-    renderView(oneSet())
+  it('disables going back from the first card rather than hiding the control', () => {
+    renderView(oneBox())
 
-    // Hiding it would make the layout shift as the picker moves; disabling keeps it steady.
     expect(previous()).toBeDisabled()
   })
 })
 
-// T022
 describe('FocusedPickView — recording is explicit', () => {
-  it('records a pick for the current product only', async () => {
+  it('records a pick for the current card only', async () => {
     const user = userEvent.setup()
-    const lines = oneSet()
+    const lines = oneBox()
     const { props } = renderView(lines)
 
     await user.click(next())
-    await user.click(screen.getByRole('button', { name: /^picked$/i }))
+    await user.click(pickedButton())
 
     expect(props.onPicked).toHaveBeenCalledTimes(1)
     expect(props.onPicked).toHaveBeenCalledWith(lines[1].id)
   })
 
-  it('shows a recorded product as picked', () => {
-    const lines = [buildLine({ set: 'Alpha', productName: 'Done', pickOutcome: 'picked' })]
-    renderView(lines)
+  it('confirms visibly once recorded', () => {
+    const { container } = renderView([
+      buildLine({ set: 'Alpha', productName: 'Done', pickOutcome: 'picked' }),
+    ])
 
-    expect(screen.getByRole('button', { name: /^picked$/i })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
+    // Label and card state, not colour alone.
+    expect(screen.getByRole('button', { name: /picked ✓/i })).toBeInTheDocument()
+    expect(container.querySelector('.focused-pick__card--picked')).not.toBeNull()
   })
 
-  it('opens the issue form on request and reports against the current product', async () => {
+  it('says it is recording while the request is in flight', () => {
+    const lines = oneBox()
+    renderView(lines, { recordingLineId: lines[0].id })
+
+    expect(screen.getByRole('button', { name: /recording/i })).toBeDisabled()
+  })
+
+  it('reports an issue against the current card', async () => {
     const user = userEvent.setup()
-    const lines = oneSet()
+    const lines = oneBox()
     const { props } = renderView(lines)
 
-    await user.click(screen.getByRole('button', { name: /report issue/i }))
+    await user.click(screen.getByRole('button', { name: /report an issue/i }))
     await user.click(screen.getByRole('button', { name: /submit issue/i }))
 
     expect(props.onReportIssue).toHaveBeenCalledTimes(1)
@@ -172,54 +202,79 @@ describe('FocusedPickView — recording is explicit', () => {
   })
 })
 
-// T024 — PRD §5.3 and §15. The focused view is where a missed "PULL 3 COPIES" costs most.
-describe('FocusedPickView — quantity emphasis', () => {
-  it('emphasises a quantity greater than one', () => {
-    renderView([buildLine({ set: 'Alpha', productName: 'Three Of These', quantity: 3 })])
-
-    const quantity = screen.getByText('3')
-    expect(quantity).toHaveAttribute('data-emphasis', 'high')
-  })
-
-  it('states the count in words as well as a numeral', () => {
+// PRD §5.3, §15 — the costliest picking error in the shop.
+describe('FocusedPickView — quantity', () => {
+  it('states a quantity greater than one loudly, in words and figures', () => {
     renderView([buildLine({ set: 'Alpha', quantity: 3 })])
 
-    // A bare numeral is easy to skim past on a phone held in one hand.
-    expect(screen.getByText(/pull 3 copies/i)).toBeInTheDocument()
+    expect(screen.getByText('3')).toHaveAttribute('data-emphasis', 'high')
+    expect(screen.getByText(/copies to pull/i)).toBeInTheDocument()
   })
 
-  it('does not emphasise a single copy', () => {
+  it('carries the count into the button label', () => {
+    renderView([buildLine({ set: 'Alpha', quantity: 3 })])
+
+    expect(screen.getByRole('button', { name: 'Pulled all 3' })).toBeInTheDocument()
+  })
+
+  it('says nothing about quantity for a single copy', () => {
     renderView([buildLine({ set: 'Alpha', quantity: 1 })])
 
-    expect(screen.getByText('1')).not.toHaveAttribute('data-emphasis')
-    expect(screen.queryByText(/pull 1 cop/i)).not.toBeInTheDocument()
+    // Printing "1" on every card would train the picker to ignore the element that matters
+    // when it says 3.
+    expect(screen.queryByText(/copies to pull/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Picked' })).toBeInTheDocument()
   })
 })
 
-// T025 — the claim released by a manager while the picker is working (spec edge case).
-describe('FocusedPickView — claim lost mid-pick', () => {
-  it('withdraws the recording actions', () => {
-    renderView(oneSet(), {
-      canRecordOutcome: false,
-      blockedReason: 'A manager released this order.',
-    })
+describe('FocusedPickView — card identity', () => {
+  it('shows the collector number and the variant as separate chips', () => {
+    renderView([
+      buildLine({
+        set: 'Alpha',
+        collectorNumber: '#067/086',
+        variant: 'Holofoil',
+        condition: 'Near Mint',
+        rarity: 'Double Rare',
+      }),
+    ])
 
-    expect(screen.queryByRole('button', { name: /^picked$/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /report issue/i })).not.toBeInTheDocument()
+    const card = screen.getByRole('article')
+    expect(within(card).getByText('#067/086')).toBeInTheDocument()
+    // The one fact the artwork cannot carry (PRD §16).
+    expect(within(card).getByText('HOLOFOIL')).toBeInTheDocument()
+    expect(within(card).getByText('Double Rare · Near Mint')).toBeInTheDocument()
   })
 
-  it('explains why, rather than leaving the picker to guess', () => {
-    renderView(oneSet(), {
-      canRecordOutcome: false,
-      blockedReason: 'A manager released this order.',
-    })
+  it('omits the variant chip when the line has none', () => {
+    renderView([buildLine({ set: 'Alpha', variant: null })])
 
-    expect(screen.getByRole('status')).toHaveTextContent('A manager released this order.')
+    expect(screen.queryByText('HOLOFOIL')).not.toBeInTheDocument()
+  })
+
+  it('shows no image rather than a wrong one when none resolved', () => {
+    renderView([buildLine({ set: 'Alpha', imageUrl: null })])
+
+    // PRD §17. The placeholder is small on purpose — nothing to look at must not outrank the name.
+    expect(screen.getByText('No image')).toBeInTheDocument()
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+})
+
+describe('FocusedPickView — claim lost mid-pick', () => {
+  const blocked = { canRecordOutcome: false, blockedReason: 'A manager released this order.' }
+
+  it('withdraws the recording actions and explains why', () => {
+    renderView(oneBox(), blocked)
+
+    expect(screen.queryByRole('button', { name: /^picked/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /report an issue/i })).not.toBeInTheDocument()
+    expect(screen.getByText('A manager released this order.')).toBeInTheDocument()
   })
 
   it('still allows navigation, so the picker can see what they were holding', async () => {
     const user = userEvent.setup()
-    renderView(oneSet(), { canRecordOutcome: false, blockedReason: 'Released.' })
+    renderView(oneBox(), blocked)
 
     await user.click(next())
 
@@ -227,38 +282,59 @@ describe('FocusedPickView — claim lost mid-pick', () => {
   })
 })
 
-describe('FocusedPickView — recording in flight', () => {
-  it('disables the action for the line being recorded', () => {
-    const lines = oneSet()
-    renderView(lines, { recordingLineId: lines[0].id })
-
-    expect(screen.getByRole('button', { name: /^picked$/i })).toBeDisabled()
-  })
-})
-
-describe('FocusedPickView — card identity', () => {
-  it('shows the set, collector number and condition alongside the name', () => {
+describe('FocusedPickView — the final review', () => {
+  it('opens past the last card, listing every product', async () => {
+    const user = userEvent.setup()
     renderView([
-      buildLine({
-        set: 'Alpha',
-        productName: 'Genesect ex',
-        collectorNumber: '#067/086',
-        condition: 'Near Mint',
-        variant: 'Holofoil',
-      }),
+      buildLine({ set: 'Alpha', productName: 'Pulled', quantity: 2, pickOutcome: 'picked' }),
+      buildLine({ set: 'Beta', productName: 'Left Open' }),
     ])
 
-    const card = screen.getByRole('article')
-    expect(within(card).getByText('#067/086')).toBeInTheDocument()
-    expect(within(card).getByText('Near Mint')).toBeInTheDocument()
-    expect(within(card).getByText('Holofoil')).toBeInTheDocument()
+    await user.click(next())
+    await user.click(next())
+
+    expect(screen.getByText(/count the sleeve/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Pulled/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Left Open/i })).toBeInTheDocument()
   })
 
-  it('shows no image rather than a wrong one when none resolved', () => {
-    renderView([buildLine({ set: 'Alpha', imageUrl: null })])
+  it('jumps back to a card from the review and carries on', async () => {
+    const user = userEvent.setup()
+    renderView([
+      buildLine({ set: 'Alpha', productName: 'Left Open' }),
+      buildLine({ set: 'Beta', productName: 'Done', pickOutcome: 'picked' }),
+    ])
 
-    // PRD §17: no image is better than the wrong image.
-    expect(screen.getByLabelText(/image unavailable/i)).toBeInTheDocument()
-    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    await user.click(next())
+    await user.click(next())
+    await user.click(screen.getByRole('button', { name: /Left Open/i }))
+
+    expect(screen.getByRole('heading', { name: 'Left Open', level: 2 })).toBeInTheDocument()
+  })
+
+  it('completes only on a deliberate press, recording nothing', async () => {
+    const user = userEvent.setup()
+    const onCompleted = vi.fn()
+    const lines = [buildLine({ set: 'Alpha', productName: 'Left Open' })]
+    const { props } = renderView(lines, { onCompleted })
+
+    await user.click(next())
+    await user.click(screen.getByRole('button', { name: /^complete/i }))
+
+    expect(onCompleted).toHaveBeenCalledTimes(1)
+    expect(props.onPicked).not.toHaveBeenCalled()
+    expect(lines[0].pickOutcome).toBeNull()
+  })
+
+  it('returns to the cards without completing', async () => {
+    const user = userEvent.setup()
+    const onCompleted = vi.fn()
+    renderView([buildLine({ set: 'Alpha', productName: 'Only One' })], { onCompleted })
+
+    await user.click(next())
+    await user.click(screen.getByRole('button', { name: /back to the cards/i }))
+
+    expect(screen.getByRole('heading', { name: 'Only One', level: 2 })).toBeInTheDocument()
+    expect(onCompleted).not.toHaveBeenCalled()
   })
 })

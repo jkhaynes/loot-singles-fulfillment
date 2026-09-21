@@ -1,35 +1,39 @@
 import { useMemo, useState } from 'react'
-import { advanceFrom, computeProgress } from './orderGrouping'
+import { advanceFrom, computeProgress, setGroupOf } from './orderGrouping'
 import type { SetGroup } from './orderGrouping'
-import { SetTransition } from './SetTransition'
-import type { SetTransitionAdvance } from './SetTransition'
+import { OrderFinish } from './OrderFinish'
 import { ReportIssueForm } from './ReportIssueForm'
 import { pickingIssueTypeLabel } from './ordersApi'
 import type { ReportIssueRequest } from './ordersApi'
 
 /**
- * Picking one product at a time (016-mobile-picking, PRD §8, §12, §18).
+ * Picking one card at a time (016-mobile-picking, PRD §8, §12, §18).
  *
- * The rule this component exists to keep: **moving never records anything**. Navigation changes
- * which product is on screen and nothing else; only the Picked button and the issue form record
- * an outcome (FR-011, PRD §23). Swipe is layered on top of on-screen controls rather than
- * replacing them, so every product stays reachable without a gesture (FR-013).
+ * Two rules shape the screen:
+ *
+ * 1. Moving never records anything (FR-011). Only the record button and the issue form do.
+ * 2. Moving is never blocked (FR-019a). Advancing is looking, not deciding, so nothing
+ *    outstanding stops it. Everything gets checked once, on the final review.
+ *
+ * One card, one action, one way out. A box change is a band on the card rather than a screen of
+ * its own, because most boxes hold a single card and an interstitial between every card is all
+ * ceremony and no content.
  */
 
 export interface FocusedPickViewProps {
   groups: SetGroup[]
   canRecordOutcome: boolean
-  /** Why recording is unavailable, shown instead of the actions. */
+  /** Why recording is unavailable, shown instead of the action. */
   blockedReason: string | null
   recordingLineId: number | null
   onPicked: (lineId: number) => void
   onReportIssue: (lineId: number, request: ReportIssueRequest) => void
-  /** Called when the picker moves past the end of the order. */
-  onOrderEnd?: () => void
+  /** The picker has completed the order from the final review. */
+  onCompleted?: () => void
 }
 
 /** Minimum horizontal travel before a drag counts as a swipe rather than a tap. */
-const SWIPE_THRESHOLD_PX = 60
+const SWIPE_THRESHOLD_PX = 50
 
 export function FocusedPickView({
   groups,
@@ -38,186 +42,143 @@ export function FocusedPickView({
   recordingLineId,
   onPicked,
   onReportIssue,
-  onOrderEnd,
+  onCompleted,
 }: FocusedPickViewProps) {
   const orderedLines = useMemo(() => groups.flatMap((group) => group.lines), [groups])
 
   const [currentLineId, setCurrentLineId] = useState<number | null>(
     () => orderedLines[0]?.id ?? null,
   )
-  const [transition, setTransition] = useState<SetTransitionAdvance | null>(null)
+  const [isReviewing, setIsReviewing] = useState(false)
   const [isReportingIssue, setIsReportingIssue] = useState(false)
+  const [enteredSet, setEnteredSet] = useState<SetGroup | null>(null)
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
 
   const currentIndex = orderedLines.findIndex((line) => line.id === currentLineId)
   const line = orderedLines[currentIndex] ?? orderedLines[0]
-  const progress = computeProgress(groups, line?.id ?? null)
 
   if (!line) return null
 
-  function goTo(lineId: number) {
-    // Navigation only. Nothing here touches an outcome.
+  const progress = computeProgress(groups, line.id)
+  const box = setGroupOf(groups, line.id)
+
+  function goTo(lineId: number, entering: SetGroup | null = null) {
     setCurrentLineId(lineId)
-    setTransition(null)
+    setEnteredSet(entering)
+    setIsReviewing(false)
     setIsReportingIssue(false)
   }
 
   function goNext() {
     const advance = advanceFrom(groups, line.id)
 
-    if (advance.kind === 'line') {
-      goTo(advance.line.id)
-      return
-    }
-
+    // Past the last card: the review, which is the only screen that interrupts.
     if (advance.kind === 'order-end') {
-      onOrderEnd?.()
+      setIsReportingIssue(false)
+      setIsReviewing(true)
       return
     }
 
-    setIsReportingIssue(false)
-    setTransition(advance)
+    goTo(advance.line.id, advance.enteringSet)
   }
 
   function goPrevious() {
-    if (transition) {
-      // Step back out of a transition to the product that led into it.
-      setTransition(null)
-      return
-    }
-
     const previous = orderedLines[currentIndex - 1]
     if (previous) goTo(previous.id)
   }
 
-  /** Leaving a transition: start the next box, or walk away from an unfinished one. */
-  function continuePastTransition() {
-    const nextSet = transition?.nextSet ?? null
-    const firstOfNextSet = nextSet?.lines[0]
-
-    if (firstOfNextSet) {
-      goTo(firstOfNextSet.id)
-      return
-    }
-
-    setTransition(null)
-    onOrderEnd?.()
-  }
-
-  if (transition) {
+  if (isReviewing) {
     return (
-      <div className="focused-pick">
-        <SetTransition
-          advance={transition}
-          onContinue={continuePastTransition}
-          onReturnToLine={goTo}
-          onReportMissing={(lineId) => {
-            goTo(lineId)
-            setIsReportingIssue(true)
-          }}
-        />
-        <button type="button" className="focused-pick__back" onClick={goPrevious}>
-          Back
-        </button>
-      </div>
+      <OrderFinish
+        groups={groups}
+        onReturnToLine={(lineId) => goTo(lineId)}
+        onComplete={() => onCompleted?.()}
+        onBackToCards={() => setIsReviewing(false)}
+      />
     )
   }
 
-  const isFirst = currentIndex <= 0
   const isRecording = recordingLineId === line.id
+  const isPicked = line.pickOutcome === 'picked'
+  // Mirrors the "2 of 3" beside it, so the bar and the number never disagree. It shows where
+  // the picker is, not what has been pulled — the review screen is where that gets checked.
+  const boxFill = progress.currentSetSize
+    ? Math.round((progress.currentSetPosition / progress.currentSetSize) * 100)
+    : 0
 
   return (
     <div
       className="focused-pick"
-      // Swipe is an addition to the buttons below, never a replacement — and it is bound to
-      // navigation only, never to recording a pick.
       onTouchStart={(event) => setTouchStartX(event.touches[0]?.clientX ?? null)}
       onTouchEnd={(event) => {
         if (touchStartX === null) return
         const travel = (event.changedTouches[0]?.clientX ?? touchStartX) - touchStartX
         setTouchStartX(null)
+        // Swipe moves between cards and nothing else — it can never record an outcome.
         if (travel <= -SWIPE_THRESHOLD_PX) goNext()
-        else if (travel >= SWIPE_THRESHOLD_PX && !isFirst) goPrevious()
+        else if (travel >= SWIPE_THRESHOLD_PX && currentIndex > 0) goPrevious()
       }}
     >
-      <p className="focused-pick__progress">
-        <span className="focused-pick__set">{progress.currentSetName}</span>
-        {` · ${progress.currentSetPosition} of ${progress.currentSetSize} in this box`}
-      </p>
-      <p className="focused-pick__order-progress">
-        {`${progress.accountedCards} of ${progress.totalCards} cards accounted for`}
-      </p>
+      {/* Where the picker is standing, answered before anything else. */}
+      <div className="focused-pick__box">
+        <div className="focused-pick__boxRow">
+          <p className="focused-pick__boxName">{box?.setName}</p>
+          <span className="focused-pick__boxCount">
+            {`${progress.currentSetPosition} of ${progress.currentSetSize}`}
+          </span>
+        </div>
+        <div className="focused-pick__boxBar">
+          <div className="focused-pick__boxFill" style={{ width: `${boxFill}%` }} />
+        </div>
+        {enteredSet && (
+          <p className="focused-pick__entering">
+            {`New box · ${enteredSet.cardCount} ${enteredSet.cardCount === 1 ? 'card' : 'cards'}`}
+          </p>
+        )}
+      </div>
 
-      <article className="focused-pick__card" aria-label={`Product ${line.productName}`}>
+      <article
+        className={`focused-pick__card${isPicked ? ' focused-pick__card--picked' : ''}`}
+        aria-label={`Product ${line.productName}`}
+      >
         {line.imageUrl !== null ? (
           <img className="focused-pick__image" src={line.imageUrl} alt={line.productName} />
         ) : (
-          <div className="focused-pick__placeholder" aria-label="Card image unavailable">
-            <span aria-hidden="true">No image</span>
+          <div className="focused-pick__placeholder">
+            <span>No image</span>
           </div>
         )}
 
         <h2 className="focused-pick__name">{line.productName}</h2>
 
-        <p className="focused-pick__identity">
-          <span>{line.collectorNumber}</span>
-          {line.variant !== null && <span>{line.variant}</span>}
-          <span>{line.condition}</span>
-        </p>
-
-        <p className="focused-pick__quantity">
-          {line.quantity > 1 ? (
-            <>
-              {/* Spelled out as well as shown: a bare numeral is easy to skim past on a phone
-                  held in one hand, and a missed multiple is the costliest picking error. */}
-              <strong data-emphasis="high">{line.quantity}</strong>
-              <span className="focused-pick__quantity-words">{`Pull ${line.quantity} copies`}</span>
-            </>
-          ) : (
-            <span>{line.quantity}</span>
+        {/* The number is how you find it in the box. The variant is the one thing the picture
+            cannot tell you — holofoil and non-holo are different cards that look identical. */}
+        <p className="focused-pick__chips">
+          <span className="focused-pick__number">{line.collectorNumber}</span>
+          {line.variant !== null && (
+            <span className="focused-pick__variant">{line.variant.toUpperCase()}</span>
           )}
         </p>
+        <p className="focused-pick__detail">
+          {[line.rarity, line.condition].filter(Boolean).join(' · ')}
+        </p>
+
+        {/* The costliest picking error in the shop (PRD §5.3, §15, and the §2 example). */}
+        {line.quantity > 1 && (
+          <p className="focused-pick__quantity">
+            <strong data-emphasis="high">{line.quantity}</strong>
+            <span>copies to pull</span>
+          </p>
+        )}
 
         {line.currentIssue && (
-          <p className="focused-pick__issue" role="status">
-            <strong data-emphasis="high">
-              {pickingIssueTypeLabel(line.currentIssue.issueType)}
-            </strong>
+          <p className="focused-pick__issue">
+            {pickingIssueTypeLabel(line.currentIssue.issueType)}
           </p>
         )}
       </article>
 
-      {canRecordOutcome ? (
-        <div className="focused-pick__actions">
-          <button
-            type="button"
-            className="focused-pick__picked"
-            aria-pressed={line.pickOutcome === 'picked'}
-            disabled={isRecording}
-            onClick={() => onPicked(line.id)}
-          >
-            Picked
-          </button>
-          {!isReportingIssue && (
-            <button
-              type="button"
-              className="focused-pick__report"
-              disabled={isRecording}
-              onClick={() => setIsReportingIssue(true)}
-            >
-              Report Issue
-            </button>
-          )}
-        </div>
-      ) : (
-        blockedReason && (
-          <p className="focused-pick__blocked" role="status">
-            {blockedReason}
-          </p>
-        )
-      )}
-
-      {canRecordOutcome && isReportingIssue && (
+      {isReportingIssue && canRecordOutcome && (
         <ReportIssueForm
           lineId={line.id}
           isSubmitting={isRecording}
@@ -229,14 +190,58 @@ export function FocusedPickView({
         />
       )}
 
-      <nav className="focused-pick__navigation" aria-label="Move between products">
-        <button type="button" onClick={goPrevious} disabled={isFirst}>
-          Previous
-        </button>
-        <button type="button" onClick={goNext}>
-          Next
-        </button>
-      </nav>
+      {/* Pinned in thumb reach: the record action is never scrolled past. */}
+      <div className="focused-pick__dock">
+        {canRecordOutcome && !isReportingIssue ? (
+          <>
+            <button
+              type="button"
+              className="focused-pick__picked"
+              aria-pressed={isPicked}
+              disabled={isRecording}
+              onClick={() => onPicked(line.id)}
+            >
+              {isRecording
+                ? 'Recording…'
+                : isPicked
+                  ? 'Picked ✓'
+                  : line.quantity > 1
+                    ? `Pulled all ${line.quantity}`
+                    : 'Picked'}
+            </button>
+            <button
+              type="button"
+              className="focused-pick__report"
+              disabled={isRecording}
+              onClick={() => setIsReportingIssue(true)}
+            >
+              Report an issue
+            </button>
+          </>
+        ) : (
+          !canRecordOutcome &&
+          blockedReason && <p className="focused-pick__blocked">{blockedReason}</p>
+        )}
+
+        <nav className="focused-pick__navigation" aria-label="Move between cards">
+          <button
+            type="button"
+            aria-label="Previous card"
+            onClick={goPrevious}
+            disabled={currentIndex <= 0}
+          >
+            ‹
+          </button>
+          {/* Labelled: the band above shows a position within the box, and in a single-box
+              order the two would otherwise read as the same number twice. */}
+          <span className="focused-pick__counter">
+            {`Card ${currentIndex + 1} of ${orderedLines.length}`}
+          </span>
+          <button type="button" aria-label="Next card" onClick={goNext}>
+            ›
+          </button>
+        </nav>
+      </div>
     </div>
   )
 }

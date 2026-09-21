@@ -60,19 +60,19 @@ test('confirming every line takes an order to Picked without a separate complete
   ).toBeVisible()
 })
 
-test('a reported issue survives release and re-claim, then resolves to Picked on mobile', async ({
+test('a reported issue survives release and re-claim, then resolves to Picked', async ({
   browser,
 }) => {
-  // Simulated mobile viewport (SC-008): identical controls, no device-specific workaround.
-  const page = await newLoggedInPage(browser, 'e2epickerfour', { width: 375, height: 812 })
+  // Was a 375px viewport, asserting SC-008's "identical controls on mobile". 016-mobile-picking
+  // forces a phone to the card-at-a-time view and a desktop to the whole order, with no way to
+  // switch, so the controls are deliberately NOT identical any more — SC-008's mobile claim is
+  // superseded by that Product Owner decision. Picking on a phone is covered end to end by
+  // mobile-picking.spec.ts with the controls it actually has; this test keeps the release and
+  // re-claim flow it was written for, on the view that still offers those controls.
+  const page = await newLoggedInPage(browser, 'e2epickerfour')
 
   await claimOrder(page, 'E2E-ORDER-00005')
   const orderUrl = page.url()
-
-  // 016-mobile-picking made the focused view the default on a phone-sized screen, so this test
-  // asks for the whole order explicitly. What it checks is unchanged: the same controls work at
-  // a small viewport with no device-specific workaround (SC-008).
-  await page.getByRole('button', { name: /whole order/i }).click()
 
   await lineCard(page, 'Venusaur').getByRole('button', { name: 'Report Issue' }).click()
   await lineCard(page, 'Venusaur').getByLabel('Issue type').selectOption('cardNotFound')

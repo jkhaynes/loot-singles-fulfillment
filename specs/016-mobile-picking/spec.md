@@ -10,6 +10,42 @@
 
 ## Clarifications
 
+### Session 2026-09-21 — the focused view, after using it
+
+Walking the built screen on a phone in the dev environment showed the design was wrong in a way
+no test had caught. Every test passed; the screen was still unusable as a swiper.
+
+- Q: Should advancing past an unresolved card be blocked? → A: No. Moving between cards is
+  looking, not deciding, so it never blocks. The unfinished warning moves to the point where the
+  picker tries to **finish the order** with cards outstanding. (FR-016, FR-017)
+- Q: How much chrome should the focused view carry? → A: A card and one action. Order code and
+  one progress line above, the record action pinned in thumb reach below. (FR-029)
+- Q: Should an employee be able to switch views? → A: No. A phone gets the card view, a desktop
+  gets the whole order, and neither offers the other. The control the toggle occupied becomes a
+  link to the dashboard, because a picker was otherwise stuck on an order until its end.
+  (FR-009, FR-010, FR-030)
+- Q: Should the order end on a review before completing? → A: Yes. Every line with its quantity
+  and status, grouped by box, no images — the first time the order is visible as a whole.
+  (FR-031)
+
+**What was actually wrong.** Boxes holding a single card are the common case, not an edge —
+order 110 in the dev database has 15 lines across 15 different sets. The box-boundary guard
+therefore fired on nearly every card, so the picker could not look ahead at all, and a
+full-screen transition appeared between cards that had nothing to celebrate. Measured on a
+440×956 screen: the header consumed 31% of the viewport, the record action sat below the fold,
+and eight interactive controls competed on one screen.
+
+**Conflict with PRD v0.4 §13.2.** That section requires the application to stop a picker who
+reaches the end of a set with unresolved products and make them choose. This decision supersedes
+it: the stop moves to the end of the **order**. The guarantee §13.2 exists to protect — that an
+order cannot be finished silently short — is preserved and, because it now covers every
+outstanding card rather than only the current box, strengthened. §13.2 should be reworded at the
+next PRD amendment. Recorded here rather than left as a silent divergence.
+
+PRD §13's requirement to "present the transition explicitly, naming the next set and its size"
+is still met, by a prominent box band on the card itself rather than a separate screen — §13
+requires the transition be explicit, not that it occupy its own screen.
+
 ### Session 2026-09-20
 
 - Q: In what order do the games themselves appear within an order? → A: Alphabetically by
@@ -195,11 +231,15 @@ dashboard offers to resume rather than to start another.
   time, and a list view that presents the whole order.
 - **FR-008**: The application MUST default to the focused view on a phone-sized screen and
   to the list view on a desktop-sized screen.
-- **FR-009**: Both views MUST be reachable from the other on any device.
-- **FR-010**: When an employee deliberately chooses a view, the application MUST remember
-  that choice **on the device where it was made** and apply it there in place of the
-  size-based default. A choice made on one device MUST NOT change the view presented on
-  another.
+- **FR-009**: The view MUST follow screen size alone. A phone-sized screen MUST NOT offer the
+  whole-order view, and a desktop-sized screen MUST NOT offer the card view.
+- **FR-010**: The application MUST NOT offer, store or remember a view preference.
+- **FR-030**: The card view MUST offer a way out of the order — to the dashboard — from every
+  card, so a picker is never held on an order until its end.
+- **FR-031**: Moving past the last card MUST present a review of the whole order before it can
+  be completed: every product grouped by box, with its quantity and its outcome, and **without
+  card images**. It MUST lead with the number of physical cards the picker should be holding,
+  so that number can be counted against the sleeve.
 - **FR-011**: Moving between products MUST NOT record a pick, an issue, or any other
   outcome for any product.
 - **FR-012**: Only an explicit, deliberate action MUST record a pick or an issue.
@@ -210,18 +250,20 @@ dashboard offers to resume rather than to start another.
 
 **Set transitions and the unresolved guard**
 
-- **FR-015**: When every product in a set is resolved and a further set remains, the
-  application MUST present an explicit transition naming the next set and stating its
-  product count and physical card count.
-- **FR-016**: When the picker reaches the end of a set that still contains unresolved
-  products, the application MUST state that the set is unfinished and list the unresolved
-  products.
+- **FR-015**: When the current product belongs to a different set from the previous one, the
+  application MUST identify the new set explicitly, stating its product count and physical card
+  count. This MUST NOT interrupt the picker with a separate screen.
+- **FR-016**: When the picker attempts to **finish the order** while any product is unresolved,
+  the application MUST state that the order is unfinished and list every unresolved product,
+  across all sets.
 - **FR-017**: In that situation the application MUST require the picker to choose between
-  returning to an unresolved product, reporting what is missing, and leaving the set.
-- **FR-018**: The application MUST NOT present a set as finished while any product in it is
-  unresolved.
-- **FR-019**: Leaving a set with unresolved products MUST leave those products unresolved,
+  returning to an unresolved product, reporting what is missing, and finishing anyway.
+- **FR-018**: The application MUST NOT present an order as fully picked while any product in it
+  is unresolved.
+- **FR-019**: Finishing an order with unresolved products MUST leave those products unresolved,
   and MUST NOT cause the order to be represented as fully picked.
+- **FR-019a**: Moving between products MUST NEVER be blocked or interrupted, whatever is
+  unresolved. Advancing is looking, not deciding — the same principle as FR-011.
 
 **Progress**
 
@@ -230,6 +272,10 @@ dashboard offers to resume rather than to start another.
 - **FR-021**: The application MUST show how many physical cards are accounted for out of
   the order's total, counting quantity rather than product lines.
 - **FR-022**: The application MUST show the picker's position within the current set.
+- **FR-029**: In the focused view the record action MUST remain reachable without scrolling, and
+  the screen MUST NOT present navigation unrelated to picking the current order alongside it.
+  Measured on a 440×956 screen, the earlier build put the record action below the fold and
+  surrounded it with seven other controls.
 
 **Claiming**
 
