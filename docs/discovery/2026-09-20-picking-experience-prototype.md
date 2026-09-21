@@ -65,8 +65,39 @@ label should still mark them, because physical separation alone has failed befor
 | No completion screen (PRD §22) | An order ends with a status label changing and nothing else; no last count before sealing |
 | An order in Needs Attention can only leave by someone finding the card | If the card genuinely is not there, the order is stuck forever |
 | Picked is terminal | Picked orders accumulate with no notion of what is still on the shelf |
-| Lines render in TCGplayer's arbitrary order (PRD §13 unbuilt) | The picker walks between boxes more than necessary |
+| Lines render in TCGplayer's arbitrary order (PRD §13 unbuilt) | The picker walks between boxes more than necessary — **partly incorrect, see the correction below** |
 | Dashboard shows flagged product names inline | Grows without bound as the queue grows |
+
+### Correction, 2026-09-20 (measured after implementation)
+
+The claim that a picker "walks between boxes more than necessary" was an assumption, and
+measuring the imported orders in the test environment does not support it.
+
+Counting box visits in the order TCGplayer supplied the lines, against the minimum possible:
+
+| Order | Lines | Box visits as imported | Distinct boxes |
+|---|---|---|---|
+| 108 | 50 | 28 | 28 |
+| 110 | 15 | 15 | 15 |
+| 121 | 5 | 5 | 5 |
+
+They are identical. **TCGplayer already groups an order's lines by set**, and in order 108 it
+also keeps the two games contiguous. Grouping therefore reduces box visits by zero on this data.
+
+What set-aware picking still delivers is narrower than this document originally claimed:
+
+- **A defined order** rather than TCGplayer's arbitrary one. Order 108 arrives as ME05, ME03,
+  ME:, ME02, ME01, SV09 …; alphabetical gives ME:, ME01, ME02, ME03, ME05, then the SV and SWSH
+  families in sequence. Pokémon set names encode release order within a family, so alphabetical
+  lands close to shelf order at no cost — an accidental argument for having deferred
+  release-date ordering.
+- **Per-box counts**, so a picker knows what a box owes before opening it.
+- **A guarantee rather than a courtesy.** TCGplayer's clustering is not contractual, is not
+  something Loot controls, and is not guaranteed across export paths.
+
+This does not invalidate PRD §13, but it does mean the section's stated motivation — reducing
+movement between storage boxes — is not the benefit actually being realised today. Worth
+confirming against a real pull sheet before §13's rationale is relied on again.
 
 ## Decisions taken
 

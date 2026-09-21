@@ -38,11 +38,17 @@ application presents the products grouped by set, with the sets from one game ke
 together, so the picker can clear one storage box before moving to the next instead of
 walking back and forth between sections of the shop.
 
-**Why this priority**: This is the largest reduction in physical work in the feature and
-it applies to every picking view, including the list view that exists today. Order lines
-currently render in the arbitrary order they arrived from TCGplayer, so every picker walks
-further than necessary on every order. It is also a prerequisite for User Story 2 — a
-focused view cannot announce "box finished" until the products are grouped into boxes.
+**Why this priority**: It applies to every picking view, including the list view that exists
+today, and it is a prerequisite for User Story 2 — a focused view cannot announce "box
+finished" until the products are grouped into boxes.
+
+**Measured correction (2026-09-20)**: this story was originally justified by reduced walking.
+Measuring the imported orders shows TCGplayer already clusters an order's lines by set — box
+visits as imported equal the minimum possible in every multi-line order present. The realised
+benefit is therefore a **defined, predictable order** across sets (TCGplayer's own sequence is
+arbitrary), **per-box product and card counts**, and a **guarantee** where today there is only
+an upstream courtesy that Loot does not control and that is not contractual. The reduced-walking
+claim should not be repeated without evidence from a real pull sheet.
 
 **Independent Test**: Import an order whose lines span at least two games and two sets per
 game, open it, and confirm the products are presented grouped and ordered as specified.
@@ -257,7 +263,8 @@ dashboard offers to resume rather than to start another.
 ### Measurable Outcomes
 
 - **SC-001**: For any order, the number of times a picker must move between game sections
-  of the shop equals the number of distinct games in that order — never more.
+  of the shop equals the number of distinct games in that order — never more, whatever order
+  the import supplied the lines in.
 - **SC-002**: A picker can resolve every product in an order using only on-screen controls,
   without performing a swipe gesture.
 - **SC-003**: No sequence of navigation actions, without an explicit confirm or report
