@@ -50,27 +50,36 @@ in an explicitly labelled group, sorted last within its game. Not dropped.
 
 Use a phone-sized viewport (Playwright project, or dev tools device emulation).
 
-1. Open a claimed order. The focused view appears by default.
-2. Switch to the list; confirm it appears, and that the choice survives opening another order.
-3. Switch back. Resize to desktop width in a fresh browser profile and confirm the list is the
-   default there.
-4. **The central check**: navigate forward and back across several products without confirming
+1. Open a claimed order. The focused view appears, and there is no way to reach the whole-order
+   view from here (FR-009). Resize to desktop width and confirm the reverse: the whole order,
+   with no way to the card view.
+2. Confirm the way out is always present — the dashboard link is reachable from every card, not
+   only at the end of the order (FR-030).
+3. **The central check**: navigate forward and back across several products without confirming
    anything. Return to the first product. Its outcome must be unchanged, and no pick request
    must have been issued. Watch the network panel — "looks unchanged" is not the assertion.
-5. Confirm a pick explicitly. Only that product changes.
-6. Navigate using on-screen controls alone, never swiping. Every product must be reachable.
-7. Resolve every product in a set, then advance. The transition must name the next set with its
-   product and card counts.
-8. Leave one product unresolved, advance past the end of that set. The guard must appear, list
-   the unresolved product, and offer exactly three choices.
-9. Choose "leave the set". The product stays unresolved and the order is not shown as picked.
-10. Check progress throughout: products resolved, physical cards accounted for, position in
-    the current set.
+4. Confirm a pick explicitly. Only that product changes, and the change is visible on the
+   button itself — not merely recorded.
+5. Navigate using on-screen controls alone, never swiping. Every product must be reachable.
+   Then confirm swiping moves between cards and never records anything.
+6. **Leave a product unresolved and cross into the next box.** Nothing may block or interrupt
+   the move (FR-019a). The new box is announced on the card itself, naming its size.
+7. Check the box band throughout: the set name, the position within the box ("2 of 3"), and a
+   fill that tracks that position. It shows where the picker is standing, not what has been
+   pulled.
+8. Continue past the last card. The final review must appear (FR-031), listing every product
+   with its quantity and outcome, without images, headed by the number of physical cards that
+   should be in hand. Confirm a product left unresolved in step 6 is listed as not looked at.
+9. Jump back to a listed product from the review, resolve it, and return. The count updates.
+10. Finish from the review. The order is released and the dashboard offers to claim it again.
 
-**Passes when** navigation never records anything and the guard cannot be walked past silently.
+**Passes when** nothing but the explicit record action ever records an outcome, nothing ever
+blocks the picker from moving, and no unresolved product can reach the end unlisted.
 
-**Storage check**: with `localStorage` blocked (private window, or site data disabled), the
-view must still render, falling back to the size-based default rather than erroring.
+**Viewing an order nobody holds**: open an unclaimed order on a phone and walk it to the review.
+Claim is the primary action throughout, no picking action is offered, and the review's button
+closes the screen rather than offering to finish picking — it must not attempt to release a
+claim this employee never held.
 
 ## Story 3 — Start an order from the order itself
 

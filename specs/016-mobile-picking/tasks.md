@@ -153,11 +153,15 @@ dashboard holding it and confirm it offers to resume.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T052 Assess whether any new behaviour warrants production logging per Constitution XI, and add it via `ILogger<T>` with non-PII structured fields only where warranted. Expectation: little or none — grouping is client-side and the dashboard change is a read. Record the assessment rather than adding logging reflexively
-- [ ] T053 [P] Run `dotnet csharpier format .` and the frontend formatter; confirm both are clean
-- [ ] T054 [P] Confirm the backend and frontend builds produce zero new warnings
-- [ ] T055 Run the full suites — backend unit, backend integration (Docker required), frontend, and Playwright — and confirm all pass
-- [ ] T056 Walk [quickstart.md](quickstart.md) manually, including the `localStorage`-blocked case and the order line with no recorded set
+- [X] T052 Assess whether any new behaviour warrants production logging per Constitution XI, and add it via `ILogger<T>` with non-PII structured fields only where warranted. Expectation: little or none — grouping is client-side and the dashboard change is a read. Record the assessment rather than adding logging reflexively
+  - **Assessment (2026-09-20): no logging added.** The branch's only production backend change is `GetActiveClaimAsync`, a read on the dashboard returning the signed-in employee's own claim. It is neither an important event nor a failure path, and it has no error branch of its own. Everything else in the feature — grouping, the focused view, the final review — is client-side. Claiming and releasing, the events that *are* worth logging, already log where they are handled and were not changed here. Adding a log line for a read would be the reflexive logging Constitution XI warns against.
+- [X] T053 [P] Run `dotnet csharpier format .` and the frontend formatter; confirm both are clean
+- [X] T054 [P] Confirm the backend and frontend builds produce zero new warnings
+  - Backend: 0 warnings, 0 errors. Frontend: `tsc -b` initially failed on two imports in `OrderDetailPage.tsx` left dead when the issue form moved to `ReportIssueForm` — removed; build is clean. `oxlint` reports one pre-existing warning in `AuthContext.tsx`, untouched by this branch.
+- [X] T055 Run the full suites — backend unit, backend integration (Docker required), frontend, and Playwright — and confirm all pass
+  - 228 backend unit, 181 backend integration, 183 frontend unit, 24 Playwright — all passing.
+- [ ] T056 Walk [quickstart.md](quickstart.md) manually, including the order line with no recorded set
+  - Story 2's steps were rewritten on 2026-09-20 to match the approved spec. They had described the set-transition panel and the three-choice guard (both removed by FR-019a), the view toggle and the `localStorage`-blocked fallback (both removed by FR-009). Re-walk the corrected steps before ticking this off.
 - [ ] T057 Run `/branch-review` and resolve every Required finding before `/speckit-converge`
 
 ---

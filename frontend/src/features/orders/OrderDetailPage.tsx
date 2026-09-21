@@ -11,11 +11,10 @@ import {
   recordPicked,
   reportIssue,
   orderStatusLabel,
-  pickingIssueTypes,
   pickingIssueTypeLabel,
   OrderNotFoundError,
 } from './ordersApi'
-import type { OrderDetail, PickingIssueType, ReportIssueRequest } from './ordersApi'
+import type { OrderDetail, ReportIssueRequest } from './ordersApi'
 import { useAuth } from '../auth/AuthContext'
 import { computeProgress, groupOrderLines } from './orderGrouping'
 import { useIsPhone } from './useIsPhone'
