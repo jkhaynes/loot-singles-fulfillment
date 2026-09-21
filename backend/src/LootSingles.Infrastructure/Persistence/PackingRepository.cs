@@ -65,25 +65,58 @@ public sealed class PackingRepository(LootSinglesDbContext context) : IPackingRe
         CancellationToken cancellationToken
     )
     {
-        var orders = await context
+        // Projected rather than materialised. An earlier version included every awaiting
+        // order's OrderLines and counted them in memory, which pulled thousands of rows to
+        // render a handful of card counts and contradicted the plan this was built from. The
+        // counts are computed in SQL, and the list is bounded (BR-002).
+        var rows = await context
             .Orders.AsNoTracking()
-            .Include(order => order.OrderLines)
             .Where(order => order.Status == OrderStatus.Picked && order.PackedAt == null)
             .OrderBy(order => order.ImportedAt)
+            .Take(PackingLimits.AwaitingPageSize)
+            .Select(order => new
+            {
+                order.Id,
+                order.TcgplayerOrderId,
+                CardCount = order
+                    .OrderLines.Where(line => line.PickOutcome == PickOutcome.Picked)
+                    .Sum(line => line.Quantity),
+                PickedAt = order
+                    .OrderLines.Where(line => line.PickOutcomeRecordedAt != null)
+                    .Max(line => line.PickOutcomeRecordedAt),
+                ContributorIds = order
+                    .OrderLines.Where(line => line.PickOutcomeRecordedByEmployeeId != null)
+                    .Select(line => line.PickOutcomeRecordedByEmployeeId!.Value)
+                    .Distinct()
+                    .ToList(),
+                HasPackingSlip = context.OrderPackingSlips.Any(slip => slip.OrderId == order.Id),
+            })
             .ToListAsync(cancellationToken);
 
-        var slipOwners = await context
-            .OrderPackingSlips.AsNoTracking()
-            .Where(slip => orders.Select(order => order.Id).Contains(slip.OrderId))
-            .Select(slip => slip.OrderId)
-            .ToListAsync(cancellationToken);
-
-        var names = await NamesForAsync(
-            orders.SelectMany(order => order.OrderLines),
+        var names = await NamesForIdsAsync(
+            rows.SelectMany(row => row.ContributorIds).Distinct().ToList(),
             cancellationToken
         );
 
-        return orders.Select(order => ToView(order, names, slipOwners.Contains(order.Id))).ToList();
+        return rows.Select(row => new PackingView(
+                OrderId: row.Id,
+                TcgplayerOrderId: row.TcgplayerOrderId,
+                CardCount: row.CardCount,
+                PickedBy: row.ContributorIds.Select(id => new LabelContributor(
+                        id,
+                        names.TryGetValue(id, out var name) ? name : "Unknown"
+                    ))
+                    .ToList(),
+                PickedAt: row.PickedAt,
+                // Every row here is picked, unpacked and free of unresolved issues by
+                // construction — the filter above is exactly the packable condition.
+                Status: nameof(OrderStatus.Picked),
+                CanPack: true,
+                BlockedReason: null,
+                UnresolvedProducts: [],
+                HasPackingSlip: row.HasPackingSlip
+            ))
+            .ToList();
     }
 
     public async Task<PackOutcome> MarkPackedAsync(
@@ -92,6 +125,41 @@ public sealed class PackingRepository(LootSinglesDbContext context) : IPackingRe
         CancellationToken cancellationToken
     )
     {
+        // Write first, explain afterwards.
+        //
+        // An earlier version checked the order out of the database and then wrote if the checks
+        // passed, which left a window between them. Feature 015 deliberately keeps a picked order
+        // re-claimable so a picker can revise a line, so "a picker reports an issue while a packer
+        // scans the same sleeve" is a supported workflow — and it landed in that window on the
+        // first attempt every time, packing an order whose line was unresolved. Because Packed
+        // short-circuits the status derivation, nothing afterwards corrected it (FR-034,
+        // Constitution VI).
+        //
+        // Every condition that decides whether this order may be packed now lives in the WHERE
+        // clause, so the database evaluates them against the same rows it updates.
+        var rowsAffected = await context
+            .Orders.Where(candidate =>
+                candidate.Id == orderId
+                && candidate.PackedAt == null
+                && candidate.Status == OrderStatus.Picked
+                && !candidate.OrderLines.Any(line => line.PickOutcome == PickOutcome.HasIssue)
+            )
+            .ExecuteUpdateAsync(
+                setters =>
+                    setters
+                        .SetProperty(candidate => candidate.PackedAt, DateTimeOffset.UtcNow)
+                        .SetProperty(candidate => candidate.PackedByEmployeeId, actorEmployeeId)
+                        .SetProperty(candidate => candidate.Status, OrderStatus.Packed),
+                cancellationToken
+            );
+
+        if (rowsAffected == 1)
+        {
+            return PackOutcome.Success;
+        }
+
+        // Nothing was packed. Read now to say why — this read cannot race anything, because the
+        // decision has already been made and the answer is only used to word the refusal.
         var order = await context
             .Orders.AsNoTracking()
             .Include(candidate => candidate.OrderLines)
@@ -112,26 +180,7 @@ public sealed class PackingRepository(LootSinglesDbContext context) : IPackingRe
             return PackOutcome.HasUnresolvedIssue;
         }
 
-        if (order.Status != OrderStatus.Picked)
-        {
-            return PackOutcome.NotAwaitingPacking;
-        }
-
-        // The checks above produce a useful answer; this write is what makes it true. PackedAt is
-        // part of the condition, so two simultaneous attempts cannot both succeed — the loser
-        // updates no rows and is told the order is already packed (FR-033).
-        var rowsAffected = await context
-            .Orders.Where(candidate => candidate.Id == orderId && candidate.PackedAt == null)
-            .ExecuteUpdateAsync(
-                setters =>
-                    setters
-                        .SetProperty(candidate => candidate.PackedAt, DateTimeOffset.UtcNow)
-                        .SetProperty(candidate => candidate.PackedByEmployeeId, actorEmployeeId)
-                        .SetProperty(candidate => candidate.Status, OrderStatus.Packed),
-                cancellationToken
-            );
-
-        return rowsAffected == 1 ? PackOutcome.Success : PackOutcome.AlreadyPacked;
+        return PackOutcome.NotAwaitingPacking;
     }
 
     public async Task<PackingSlipResult> GetPackingSlipAsync(
@@ -219,14 +268,21 @@ public sealed class PackingRepository(LootSinglesDbContext context) : IPackingRe
     private async Task<Dictionary<int, string>> NamesForAsync(
         IEnumerable<OrderLine> lines,
         CancellationToken cancellationToken
+    ) =>
+        await NamesForIdsAsync(
+            lines
+                .Where(line => line.PickOutcomeRecordedByEmployeeId is not null)
+                .Select(line => line.PickOutcomeRecordedByEmployeeId!.Value)
+                .Distinct()
+                .ToList(),
+            cancellationToken
+        );
+
+    private async Task<Dictionary<int, string>> NamesForIdsAsync(
+        IReadOnlyCollection<int> ids,
+        CancellationToken cancellationToken
     )
     {
-        var ids = lines
-            .Where(line => line.PickOutcomeRecordedByEmployeeId is not null)
-            .Select(line => line.PickOutcomeRecordedByEmployeeId!.Value)
-            .Distinct()
-            .ToList();
-
         if (ids.Count == 0)
         {
             return [];

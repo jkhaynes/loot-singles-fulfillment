@@ -108,8 +108,14 @@ public sealed class PackedOrderStatusTests
         Assert.Equal(OrderStatus.Packed, await StatusOfAsync(factory, order.Id));
     }
 
+    /// <summary>
+    /// BR-001. Recording an outcome on a packed order used to succeed, which is how an order
+    /// could end up <see cref="OrderStatus.Packed"/> with a <see cref="PickOutcome.HasIssue"/>
+    /// line: the pack was legitimate, and a picker still holding the claim reported an issue
+    /// afterwards. Packed is terminal (FR-031), so the write is refused rather than absorbed.
+    /// </summary>
     [Fact]
-    public async Task RecordingALineOutcomeOnAPackedOrder_LeavesItPacked()
+    public async Task RecordingALineOutcomeOnAPackedOrder_IsRefused()
     {
         await using var factory = new AuthWebApplicationFactory();
         var (client, employee) = await LoginAsync(factory, "packedpick");
@@ -121,8 +127,12 @@ public sealed class PackedOrderStatusTests
             $"/api/orders/{order.Id}/lines/{lineId}/pick",
             content: null
         );
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        // Not not_your_claim: this employee does hold the claim, and saying otherwise would send
+        // them looking for a problem that is not there.
+        Assert.Equal("order_already_packed", document.RootElement.GetProperty("error").GetString());
         Assert.Equal(OrderStatus.Packed, await StatusOfAsync(factory, order.Id));
     }
 

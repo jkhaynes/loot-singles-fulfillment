@@ -106,7 +106,7 @@ export function PickEnding({ label, onNextOrder, onBackToDashboard }: PickEnding
 
       {/* Rendered off-screen and revealed only by the print stylesheet, so the picker reads the
           summary while the printer gets the label. */}
-      <div className="pick-ending__labelHost">
+      <div className="order-label-host">
         <OrderLabel label={label} />
       </div>
     </section>

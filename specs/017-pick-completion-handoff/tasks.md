@@ -232,6 +232,76 @@ ordinary gates.
 > at all, and weakening one re-opens amendment A14 with the Product Owner — it is not an
 > implementation decision (plan.md, Note on Principle VII).
 
+### Branch review remediation (2026-09-21)
+
+> From `/branch-review` on this branch. Two Required findings and four Optional ones the Product
+> Owner approved. Behavioural fixes are test-first: the regression task proves the defect against
+> the current implementation before the task that corrects it.
+
+**BR-001 (Required) — a packed order must never carry an unresolved issue.**
+`MarkPackedAsync` checks for unresolved issues on an `AsNoTracking` read, but its conditional
+update guards only `PackedAt == null`. A picker re-claiming a picked order to revise a line —
+which feature 015 deliberately allows — can report an issue between that read and the write, and
+the order is packed anyway. Because `Packed` short-circuits the derivation, the status never
+self-corrects. Violates FR-034 and Constitution VI.
+
+- [X] T087 Write a failing concurrency test in `backend/tests/LootSingles.IntegrationTests/Packing/PackingDeskTests.cs` that interleaves `POST /orders/{id}/packed` with `POST /orders/{id}/lines/{lineId}/report-issue` across repeated iterations and asserts the invariant **no order is ever `Packed` while a line is `HasIssue`**. Follow the existing `PickingConcurrencyTests` shape. The reproduction is probabilistic by nature — a deterministic one would need an interception seam the production code should not carry — so iterate enough to fail reliably against the current implementation, and note in the test why
+- [X] T088 Move the unresolved-issue and `Status == Picked` conditions into the conditional update’s `WHERE` in `backend/src/LootSingles.Infrastructure/Persistence/PackingRepository.cs` `MarkPackedAsync`, re-reading on zero rows affected to choose between `AlreadyPacked`, `HasUnresolvedIssue` and `NotAwaitingPacking`, so T087 passes
+- [X] T089 Confirm the existing single-threaded refusals still hold after T088 — held order, already packed, not awaiting packing — in the same test file, so the re-read path is covered as well as the race
+
+**BR-002 (Required) — the awaiting list contradicts its own plan.**
+`GetAwaitingPackingAsync` materialises every awaiting order with all of its `OrderLines` and
+computes counts in memory, and is unbounded. plan.md and T051 both say this list is projected to
+the fields the desk shows; the constitution's EF standards require projection for read models and
+limiting potentially large result sets. Batches of ~200 orders are documented as real.
+
+- [X] T090 Write a failing integration test in `backend/tests/LootSingles.IntegrationTests/Packing/PackingDeskTests.cs` seeding more awaiting orders than the intended cap and asserting `GET /api/packing/awaiting` returns at most that many, oldest first
+- [X] T091 Project card count, contributors and picked time in SQL rather than `Include`-ing `OrderLines`, and apply the bound, in `backend/src/LootSingles.Infrastructure/Persistence/PackingRepository.cs` `GetAwaitingPackingAsync`, so T090 passes
+- [X] T092 Assert the desk still shows correct card counts and contributor names for a multi-line, multi-picker order after the projection, in the same test file — the counts are what the projection could silently get wrong
+
+> **Not asserted by test:** that the query no longer materialises line graphs. Proving it would
+> mean asserting on generated SQL, which is brittle and would fail on unrelated EF upgrades. T091
+> is verified by reading the query; T090 and T092 protect the behaviour it must preserve.
+
+**BR-003 (Optional, approved) — redundant URL decode.** Non-behavioural today: no TCGplayer
+identifier contains a percent sequence, so no regression test is written for a defect that cannot
+currently occur. The existing `Resolve_ByScannedLinkOrIdentifier_ReachesTheSameOrder` test is the
+safety net for the scanned-link path this touches.
+
+- [X] T093 **Investigated and rejected.** ASP.NET Core does *not* deliver the route value fully
+  decoded — it deliberately leaves `%2F` encoded to avoid path confusion, and the client sends a
+  scanned link through `encodeURIComponent`. Removing `Uri.UnescapeDataString` made every scanned
+  link resolve to nothing, which `Resolve_ByScannedLinkOrIdentifier_ReachesTheSameOrder` caught on
+  the next run. The call is load-bearing, and `PackingController.Resolve` now says so in a comment
+  so it is not removed again. BR-003 was a wrong finding, and the safety net named in its task is
+  what proved it.
+
+**BR-006 (Optional, approved) — the label borrows another feature’s stylesheet.**
+`PrintLabelButton` positions its print host with `pick-ending__labelHost`, owned by
+`PickEnding.css`. It works only because `OrderDetailPage` statically imports `PickEnding`.
+Non-behavioural — existing RTL tests already assert the label renders.
+
+- [X] T094 [P] Move the off-screen print-host rule into `frontend/src/features/labels/label.css` under a label-owned class, and point both `frontend/src/features/labels/PrintLabelButton.tsx` and `frontend/src/features/orders/PickEnding.tsx` at it
+
+**BR-005 (Optional, approved) — no end-to-end proof that a stored slip prints.**
+Every E2E-seeded order is created directly rather than imported, so all of them take the
+"no slip stored" path. The happy path of US2’s central action is proven by integration tests but
+never through the UI. This adds missing coverage rather than fixing a defect, so there is no
+failing-first regression task.
+
+- [X] T095 Import `backend/tests/LootSingles.Fixtures/PackingSlips/valid-multi-order-batch.pdf` through the import screen inside `frontend/e2e/packing-desk.spec.ts`, so at least one order in the E2E database has a stored slip
+- [X] T096 Add E2E coverage scanning that imported order at the packing desk and confirming **Print packing slip** is offered and resolves, completing quickstart scenario 3 end to end
+
+**BR-004 (Optional, approved) — the suite-wide timeout treats a symptom.**
+The expect timeout was raised to 15s to absorb EF query compilation on the first write after the
+E2E host starts. It works, but slows every genuine failure by ten seconds. Test infrastructure
+only; no application behaviour changes.
+
+- [X] T097 Warm the status-derivation query after seeding in `backend/tests/LootSingles.E2EHost/Program.cs` — a zero-row `ExecuteUpdateAsync` against `Orders` is enough to compile it — so the host is ready rather than merely responding when Playwright starts
+- [X] T098 Restore the default expect timeout in `frontend/playwright.config.ts`, then run the full E2E suite twice and confirm both runs are green before keeping the change
+
+---
+
 ### Ordinary gates
 
 - [X] T074 [P] Review whether the new behaviour warrants production logging beyond slip access and slip-extraction failure, per the constitution's Observability standard — adding none where none is warranted

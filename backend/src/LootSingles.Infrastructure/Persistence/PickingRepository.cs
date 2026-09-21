@@ -33,9 +33,16 @@ public sealed class PickingRepository(LootSinglesDbContext context) : IPickingRe
             cancellationToken
         );
 
+        // PackedAt is part of the lock rather than a check before it. A packed order is
+        // terminal (FR-031), and recording an outcome on one is how an order ended up Packed
+        // while a line was HasIssue: the pack was legitimate, and an issue was reported
+        // afterwards by a picker who still held the claim. Because Packed short-circuits the
+        // status derivation, nothing downstream corrected it.
         var claimLocked = await context
             .Orders.Where(order =>
-                order.Id == orderId && order.ClaimedByEmployeeId == actorEmployeeId
+                order.Id == orderId
+                && order.ClaimedByEmployeeId == actorEmployeeId
+                && order.PackedAt == null
             )
             .ExecuteUpdateAsync(
                 setters => setters.SetProperty(order => order.Status, order => order.Status),
@@ -138,9 +145,22 @@ public sealed class PickingRepository(LootSinglesDbContext context) : IPickingRe
         CancellationToken cancellationToken
     )
     {
-        if (!await context.Orders.AnyAsync(order => order.Id == orderId, cancellationToken))
+        var order = await context
+            .Orders.AsNoTracking()
+            .Where(candidate => candidate.Id == orderId)
+            .Select(candidate => new { candidate.PackedAt })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (order is null)
         {
             return PickingResult.OrderNotFound;
+        }
+
+        if (order.PackedAt is not null)
+        {
+            // Checked before the claim, because the employee may genuinely hold it and being
+            // told otherwise would send them looking for a problem that is not there.
+            return PickingResult.OrderAlreadyPacked;
         }
 
         var lineInOrder = await context.OrderLines.AnyAsync(

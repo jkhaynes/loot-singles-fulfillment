@@ -206,6 +206,9 @@ public sealed class OrdersController(
             PickingOutcome.OrderNotFound => NotFound(new { error = "order_not_found" }),
             PickingOutcome.LineNotFound => NotFound(new { error = "line_not_found" }),
             PickingOutcome.NotYourClaim => Conflict(new { error = "not_your_claim" }),
+            // Distinct from not_your_claim: the picker may well hold the claim, but the order has
+            // been packed and its lines are no longer workable (FR-031).
+            PickingOutcome.OrderAlreadyPacked => Conflict(new { error = "order_already_packed" }),
             PickingOutcome.InvalidIssueType => BadRequest(new { error = "invalid_issue_type" }),
             PickingOutcome.InvalidIssueDetails => BadRequest(
                 new { error = "invalid_issue_details" }

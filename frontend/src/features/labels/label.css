@@ -119,6 +119,16 @@
   display: block;
 }
 
+/* Kept out of view until the print stylesheet reveals it, so a screen that carries a label never
+   turns into one. Owned here rather than by any one caller: both the ending screen and the reprint
+   button mount a label, and borrowing another feature's class made this depend on import order
+   (BR-006). */
+.order-label-host {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+}
+
 /* Printing is client-side because the hosted API cannot reach a printer on the shop LAN. The page
    becomes the label and nothing else, at exactly the stock's size. */
 @media print {

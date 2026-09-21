@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using LootSingles.Application.Packing;
 using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Auth;
@@ -250,10 +251,180 @@ public sealed class PackingDeskTests
         Assert.Equal(HttpStatusCode.OK, packed.StatusCode);
     }
 
+    /// <summary>
+    /// T087 / BR-001 — FR-034 under concurrency.
+    ///
+    /// <para>
+    /// Feature 015 deliberately keeps a picked order re-claimable so a picker can revise a line
+    /// before the sleeve is sealed. That makes "a picker reports an issue while a packer scans the
+    /// same sleeve" a supported workflow rather than a contrived race, and the packing write must
+    /// survive it.
+    /// </para>
+    ///
+    /// <para>
+    /// The reproduction is probabilistic. A deterministic one would need an interception seam
+    /// between the desk's read and its write, which is not worth carrying in production code, so
+    /// this races the two requests over enough fresh orders to land in the window reliably. It
+    /// asserts the invariant rather than either outcome: whichever request wins is fine, but an
+    /// order must never end up packed while one of its lines is unresolved.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task PackingWhileAPickerReportsAnIssue_NeverPacksAnOrderWithAnUnresolvedLine()
+    {
+        const int attempts = 25;
+        await using var factory = new AuthWebApplicationFactory();
+        var (packerClient, _) = await LoginAsync(factory, "raceapacker");
+        var (pickerClient, picker) = await LoginAsync(factory, "raceapicker");
+
+        for (var attempt = 0; attempt < attempts; attempt++)
+        {
+            var order = await SeedPickedOrderAsync(
+                factory,
+                $"RACE-ISSUE-{attempt:D3}",
+                picker.Id,
+                cards: 1
+            );
+
+            // Re-claiming a picked order is what feature 015 allows, and it is what puts the
+            // picker in a position to report an issue on an order already at the bench.
+            (
+                await pickerClient.PostAsync($"/api/orders/{order.Id}/claim", null)
+            ).EnsureSuccessStatusCode();
+            var lineId = await FirstLineIdAsync(factory, order.Id);
+
+            await Task.WhenAll(
+                packerClient.PostAsync($"/api/orders/{order.Id}/packed", content: null),
+                pickerClient.PostAsJsonAsync(
+                    $"/api/orders/{order.Id}/lines/{lineId}/report-issue",
+                    new
+                    {
+                        issueType = nameof(PickingIssueType.CardNotFound),
+                        requiredQuantity = (int?)null,
+                        foundQuantity = (int?)null,
+                        note = (string?)null,
+                    }
+                )
+            );
+
+            var packedWithUnresolvedLine = false;
+            await factory.SeedAsync(async context =>
+            {
+                packedWithUnresolvedLine = await context
+                    .Orders.AsNoTracking()
+                    .AnyAsync(candidate =>
+                        candidate.Id == order.Id
+                        && candidate.PackedAt != null
+                        && candidate.OrderLines.Any(line =>
+                            line.PickOutcome == PickOutcome.HasIssue
+                        )
+                    );
+            });
+
+            Assert.False(
+                packedWithUnresolvedLine,
+                $"attempt {attempt}: order {order.Id} was packed while one of its lines was unresolved. "
+                    + "Packed short-circuits the status derivation, so this never self-corrects (FR-034)."
+            );
+
+            // Release so the next iteration can claim; one claim per employee is enforced.
+            await pickerClient.PostAsync($"/api/orders/{order.Id}/release", content: null);
+        }
+    }
+
+    /// <summary>
+    /// T090 / BR-002 — the awaiting list is bounded.
+    /// <para>
+    /// Batches of around 200 orders are documented as real, and a day's unpacked backlog is a
+    /// list nobody reads to the end. The constitution requires limiting potentially large result
+    /// sets; unbounded, this returns every awaiting order and every one of their lines.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task AwaitingPacking_IsBounded_AndReturnsTheOldestFirst()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (client, employee) = await LoginAsync(factory, "deskbound");
+
+        for (var index = 0; index < PackingLimits.AwaitingPageSize + 5; index++)
+        {
+            var order = NewOrder($"DESK-BOUND-{index:D3}", OrderStatus.Picked);
+            order.ImportedAt = DateTimeOffset.Parse("2026-09-01T00:00:00Z").AddMinutes(index);
+            order.OrderLines.Add(Line(1, PickOutcome.Picked, employee.Id, $"Bound {index}"));
+            await factory.SeedAsync(context =>
+            {
+                context.Orders.Add(order);
+                return Task.CompletedTask;
+            });
+        }
+
+        var root = await JsonAsync(await client.GetAsync("/api/packing/awaiting"));
+        var returned = root.EnumerateArray().ToList();
+
+        Assert.Equal(PackingLimits.AwaitingPageSize, returned.Count);
+        // Oldest first: the sleeve that has been on the shelf longest is the one to pack next.
+        Assert.Equal("DESK-BOUND-000", returned[0].GetProperty("tcgplayerOrderId").GetString());
+    }
+
+    /// <summary>
+    /// T092 / BR-002 — counts and contributors survive the projection.
+    /// <para>
+    /// Moving the card count and the contributor list into SQL is exactly the kind of change that
+    /// can quietly return the wrong number: summing every line instead of the picked ones,
+    /// counting lines rather than cards, or losing a second picker to a missing Distinct. A
+    /// multi-line, multi-picker order is the shape that catches all three.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task AwaitingPacking_CountsCardsNotLines_AndNamesEveryContributor()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (client, first) = await LoginAsync(factory, "deskprojectone");
+        var (_, second) = await LoginAsync(factory, "deskprojecttwo");
+
+        var order = NewOrder("DESK-PROJECTION", OrderStatus.Picked);
+        order.OrderLines.Add(Line(3, PickOutcome.Picked, first.Id, "Projection First"));
+        order.OrderLines.Add(Line(5, PickOutcome.Picked, second.Id, "Projection Second"));
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.Add(order);
+            return Task.CompletedTask;
+        });
+
+        var root = await JsonAsync(await client.GetAsync("/api/packing/awaiting"));
+        var view = root.EnumerateArray()
+            .Single(item => item.GetProperty("orderId").GetInt32() == order.Id);
+
+        // Two product lines, eight physical cards.
+        Assert.Equal(8, view.GetProperty("cardCount").GetInt32());
+        Assert.Equal(
+            [first.DisplayName, second.DisplayName],
+            view.GetProperty("pickedBy")
+                .EnumerateArray()
+                .Select(person => person.GetProperty("displayName").GetString())
+                .OrderBy(name => name)
+        );
+        Assert.True(view.GetProperty("canPack").GetBoolean());
+    }
+
     // ---- helpers -------------------------------------------------------------------------
 
     private static async Task<JsonElement> JsonAsync(HttpResponseMessage response) =>
         JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.Clone();
+
+    private static async Task<int> FirstLineIdAsync(AuthWebApplicationFactory factory, int orderId)
+    {
+        var lineId = 0;
+        await factory.SeedAsync(async context =>
+        {
+            lineId = await context
+                .OrderLines.AsNoTracking()
+                .Where(line => line.OrderId == orderId)
+                .Select(line => line.Id)
+                .FirstAsync();
+        });
+        return lineId;
+    }
 
     private static async Task<Order> ReadOrderAsync(AuthWebApplicationFactory factory, int orderId)
     {

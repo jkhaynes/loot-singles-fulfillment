@@ -24,6 +24,11 @@ public sealed class PackingController(IPackingRepository packingRepository) : Co
     [HttpGet("orders/{code}")]
     public async Task<IActionResult> Resolve(string code, CancellationToken cancellationToken)
     {
+        // Branch review BR-003 proposed removing this as a redundant second decode. It is not:
+        // a scanned QR arrives as a whole URL, the client sends it through encodeURIComponent, and
+        // ASP.NET Core deliberately leaves %2F encoded in route values to avoid path confusion. Take
+        // this out and every scanned link resolves to nothing —
+        // Resolve_ByScannedLinkOrIdentifier_ReachesTheSameOrder is what proves it.
         var view = await packingRepository.ResolveAsync(
             PackingCodeResolver.Resolve(Uri.UnescapeDataString(code)),
             cancellationToken

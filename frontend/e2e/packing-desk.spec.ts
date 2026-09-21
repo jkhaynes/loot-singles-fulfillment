@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
+import path from 'node:path'
+
+// Same shape order-import.spec.ts uses: resolved from the working directory Playwright runs in.
+const importedBatchFixture = path.resolve(
+  '../backend/tests/LootSingles.Fixtures/PackingSlips/valid-multi-order-batch.pdf',
+)
 
 // 017-pick-completion-handoff T060 — quickstart.md scenarios 3, 4 and 5.
 // A desktop surface: packing is a seated job at a bench.
@@ -150,4 +156,66 @@ test('reprints a label and shows the queue falling when an order is packed', asy
   // number other workers are moving.
   await page.goto('/')
   await expect(page.getByRole('article', { name: 'Awaiting Packing' })).toBeVisible()
+})
+
+// T095/T096 / BR-005 — the happy path of US2's central action, end to end.
+//
+// Every other order in this suite is seeded directly, so none of them has a stored slip and all of
+// them exercise scenario 5 instead. A slip only exists for an order that came through the importer,
+// so this test imports one and then packs it.
+test('prints the stored packing slip for an order that was imported', async ({ page }) => {
+  test.setTimeout(60_000)
+
+  // The importer is manager-only, and the fixture is the same batch the backend tests slice.
+  await login(page, 'e2emanager')
+  await page.getByRole('link', { name: /import orders/i }).click()
+  await page.getByLabel(/packing slip/i).setInputFiles(importedBatchFixture)
+  await page.getByRole('button', { name: /import orders/i }).click()
+  await expect(page.getByText(/13 of 13 orders processed/i)).toBeVisible({ timeout: 30_000 })
+
+  // Pick it so it reaches the bench.
+  await page.goto('/orders')
+  // Any order from the batch will do; the first one is stable across runs.
+  const row = page.getByRole('article', { name: /F0000001-ABC001-00001/i })
+  await row.getByRole('button', { name: /claim/i }).click()
+  await expect(page).toHaveURL(/\/orders\/\d+$/)
+  const orderId = page.url().split('/').pop()!
+
+  // Re-query each time rather than collecting handles up front: recording a pick re-renders the
+  // list and relabels the button to 'Picked ✓', so handles taken before the first click go stale
+  // and the rest of the loop silently clicks nothing.
+  // Wait for the list before counting anything in it: a count taken mid-render is zero, the
+  // loop then does nothing, and the failure surfaces later as a status that never changed.
+  await expect(page.getByRole('article').first()).toBeVisible()
+
+  // A line with more than one copy reads 'Pulled all N', not 'Picked' — matching only the
+  // latter silently clicks nothing and leaves the order In Progress.
+  const unpicked = () => page.getByRole('button', { name: /^Picked$|^Pulled all/ })
+  for (let remaining = await unpicked().count(); remaining > 0; remaining--) {
+    await unpicked().first().click()
+    await expect(unpicked()).toHaveCount(remaining - 1)
+  }
+  await expect(page.getByLabel(/Order status: Picked/)).toBeVisible()
+
+  // ---- quickstart scenario 3, the half the seeded orders cannot reach ----
+  await page.goto('/packing')
+  await scanBox(page).fill(orderId)
+  await scanBox(page).press('Enter')
+
+  const order = page.getByRole('region', { name: new RegExp(`Order ${orderId}`) })
+  await expect(order).toBeVisible()
+  await expect(order).not.toContainText(/no packing slip/i)
+
+  const slip = order.getByRole('link', { name: /print packing slip/i })
+  await expect(slip).toBeVisible()
+  await expect(slip).toHaveAttribute('href', `/api/orders/${orderId}/packing-slip`)
+
+  // The slip really is served, and really is a PDF.
+  const response = await page.request.get(`/api/orders/${orderId}/packing-slip`)
+  expect(response.status()).toBe(200)
+  expect(response.headers()['content-type']).toContain('application/pdf')
+
+  // Pack it rather than leaving it on a queue other specs also look at.
+  await order.getByRole('button', { name: /mark packed/i }).click()
+  await expect(order).toContainText(/already been packed/i)
 })

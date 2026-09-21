@@ -66,7 +66,7 @@ export function PrintLabelButton({ orderId, className, children }: PrintLabelBut
       {/* Off-screen until the print stylesheet reveals it, so the page the employee is reading
           never turns into a label. */}
       {label !== null && (
-        <div className="pick-ending__labelHost">
+        <div className="order-label-host">
           <OrderLabel label={label} />
         </div>
       )}

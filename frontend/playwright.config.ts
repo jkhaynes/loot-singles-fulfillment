@@ -16,12 +16,6 @@ export default defineConfig({
   // suite failed 7 of 23 on claim and navigation timeouts purely under load, while passing
   // every time at 3 — failures that look exactly like real regressions and are not.
   workers: 3,
-  // The default 5s is tight for this suite for the same reason workers are capped: one shared
-  // backend, and the first write after it starts pays for EF query compilation against a cold
-  // SQL Server container. Two specs racing that first pick would trade failures run to run,
-  // each looking exactly like a regression in whichever one lost. Raising the bound does not
-  // hide a broken assertion — it still fails, ten seconds later.
-  expect: { timeout: 15_000 },
   reporter: 'html',
   use: {
     baseURL: E2E_WEB_URL,

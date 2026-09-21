@@ -137,11 +137,3 @@
   padding: var(--space-3);
   cursor: pointer;
 }
-
-/* The label lives in the DOM so printing needs no second render pass, but it is never part of the
-   screen the picker reads. label.css reveals it and hides everything else at print time. */
-.pick-ending__labelHost {
-  position: absolute;
-  left: -10000px;
-  top: 0;
-}

@@ -116,7 +116,34 @@ app.MapGet(
 );
 
 await SeedAsync(app.Services);
+await WarmUpAsync(app.Services);
 await app.RunAsync();
+
+/// <summary>
+/// Compiles the queries the first request would otherwise pay for, before Playwright starts.
+/// </summary>
+/// <remarks>
+/// EF builds and compiles a query the first time it is used, and the status derivation is a
+/// correlated subquery inside an ExecuteUpdate — the most expensive shape in this application.
+/// Paid on the first pick of a run, it pushed that request past the suite's assertion timeout, so
+/// whichever spec happened to pick first failed and the failure moved between runs. Paying it here
+/// means the host is ready when it says it is, rather than merely responding (branch review
+/// BR-004).
+/// </remarks>
+static async Task WarmUpAsync(IServiceProvider services)
+{
+    await using var scope = services.CreateAsyncScope();
+    var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
+
+    // Matches no row by construction, so it compiles the statement without touching data.
+    await context
+        .Orders.Where(order => order.Id == -1)
+        .ExecuteUpdateAsync(setters =>
+            setters.SetProperty(order => order.Status, order => order.Status)
+        );
+
+    await context.Orders.AsNoTracking().Where(order => order.Id == -1).ToListAsync();
+}
 
 static async Task SeedAsync(IServiceProvider services)
 {
