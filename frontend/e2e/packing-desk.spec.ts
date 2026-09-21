@@ -117,19 +117,18 @@ test('says plainly when a code matches no order', async ({ page }) => {
 test('reprints a label and shows the queue falling when an order is packed', async ({ page }) => {
   await login(page, 'e2epickertwelve')
 
-  // ---- Scenario 7: the count rises when an order is picked ----
-  await page.goto('/')
-  const tile = page.getByRole('article', { name: 'Awaiting Packing' })
-  await expect(tile).toBeVisible()
-  const before = Number((await tile.textContent())?.replace(/\D/g, '') ?? '0')
-
   const orderId = await pickWholeOrder(page, 'E2E-ORDER-00013', 'Reprint Card')
 
-  await page.goto('/')
-  await expect(tile).toContainText(String(before + 1))
+  // ---- Scenario 7: picked and unpacked means awaiting packing ----
+  // Asserted against this order rather than the dashboard total. The total is shared, and
+  // other workers pick and pack their own orders throughout the run — an absolute number
+  // would fail whenever one of them happened to be mid-flight, which is a race in the test
+  // rather than anything wrong with the count.
+  await page.goto('/packing')
+  const queue = page.getByRole('region', { name: 'Awaiting packing' })
+  await expect(queue).toContainText(`Order ${orderId}`)
 
   // ---- Scenario 6: the label can be produced again from the desk ----
-  await page.goto('/packing')
   await scanBox(page).fill(orderId)
   await scanBox(page).press('Enter')
 
@@ -142,10 +141,13 @@ test('reprints a label and shows the queue falling when an order is packed', asy
   await expect(label).toContainText(`ORDER ${orderId}`)
   await expect(label).toContainText('E2E Picker Twelve')
 
-  // ---- Scenario 7 again: and falls when it is packed ----
+  // ---- Scenario 7 again: and leaves the queue once packed ----
   await order.getByRole('button', { name: /mark packed/i }).click()
   await expect(order).toContainText(/already been packed/i)
+  await expect(queue).not.toContainText(`Order ${orderId}`)
 
+  // The dashboard tile counts the same thing, so it is checked for its label rather than a
+  // number other workers are moving.
   await page.goto('/')
-  await expect(tile).toContainText(String(before))
+  await expect(page.getByRole('article', { name: 'Awaiting Packing' })).toBeVisible()
 })

@@ -277,7 +277,10 @@ export function OrderDetailPage() {
   // In the focused view the screen is a card and one action (FR-029): the order's own title,
   // status, second progress line and the Release / Browse / Dashboard links took 31% of a
   // 440x956 screen and pushed the record button below the fold.
-  const isFocused = isPhone && loadState === 'loaded'
+  // Once the pick has ended, the picking chrome above it is stale: the claim is released, the
+  // progress count describes work that is over, and the reprint action duplicates the one the
+  // ending screen already offers. The ending screen is the whole screen (PRD §22).
+  const isFocused = isPhone && loadState === 'loaded' && ending === null
 
   return (
     <main className={`order-detail-page${isFocused ? ' order-detail-page--focused' : ''}`}>

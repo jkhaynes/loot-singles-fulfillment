@@ -55,8 +55,9 @@ test('confirming every line takes an order to Picked without a separate complete
   await expect(page.getByLabel(/Order status: Picked/)).toBeVisible()
 
   await page.goto('/')
+  // 017 renamed this tile: it counts orders awaiting packing now, not orders ever picked.
   await expect(
-    page.getByRole('article', { name: 'Picked' }).getByText('1', { exact: true }),
+    page.getByRole('article', { name: 'Awaiting Packing' }).getByText('1', { exact: true }),
   ).toBeVisible()
 })
 
