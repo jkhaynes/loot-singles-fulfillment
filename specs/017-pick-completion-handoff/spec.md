@@ -201,10 +201,12 @@ confirm the count falls.
 
 #### The label
 
-- **FR-009**: The application MUST produce a printable label for any order that has been picked,
-  sized for standard address label stock of approximately 1⅛ × 3½ inches.
+- **FR-009**: The application MUST produce a printable label for any order whose picking has ended
+  — whether it completed or was held for a manager — sized for standard address label stock of
+  approximately 1⅛ × 3½ inches. An order on which no pick outcome has yet been recorded has no
+  label.
 - **FR-010**: The label MUST carry, in human-readable form: a short order code, the full TCGplayer
-  order identifier, the physical card count, and who picked the order and when.
+  order identifier, the physical card count, and who picked the order and when (FR-041).
 - **FR-011**: The label MUST carry a QR code that resolves to that order within the application.
 - **FR-012**: The label MUST carry a Code 128 barcode encoding the bare TCGplayer order identifier,
   and the barcode's printed value MUST serve as the human-readable full identifier required by
@@ -216,9 +218,10 @@ confirm the count falls.
   feature sets that state; the marker exists so the label's design does not have to be reopened when
   short shipments become reachable.
 - **FR-015**: The label MUST NOT carry customer name, address, or any other customer information.
-- **FR-016**: Employees MUST be able to produce an order's label again, both from the order and from
-  the packing desk, and a reproduced label MUST be identical to the original, including the original
-  picker and pick time.
+- **FR-016**: Employees MUST be able to produce the label again for **any order whose picking has
+  ended** — including one held for a manager, whose label is the most likely to be needed twice —
+  both from the order and from the packing desk. A reproduced label MUST be identical to the
+  original, including the original contributors and pick time.
 - **FR-017**: The application MUST derive every count printed on a label from the order itself, so
   that a label cannot disagree with the order it identifies.
 
@@ -241,8 +244,8 @@ confirm the count falls.
   an entered or scanned code to an order.
 - **FR-024**: The packing surface MUST accept both a link produced by scanning a label's QR code and
   a directly entered order code, resolving both to the same order.
-- **FR-025**: On resolving an order, the packing surface MUST show its physical card count, who
-  picked it, and when.
+- **FR-025**: On resolving an order, the packing surface MUST show its physical card count, every
+  employee who picked it (FR-041), and when picking finished.
 - **FR-026**: The packing surface MUST produce that order's stored packing slip for printing.
 - **FR-027**: The packing surface MUST allow an order awaiting packing to be recorded as packed.
 - **FR-028**: The packing surface MUST refuse to pack an order with an unresolved picking issue, and
@@ -275,6 +278,19 @@ confirm the count falls.
   contents.
 - **FR-040**: The application MUST NOT extract customer information out of a stored packing slip
   into any other part of its data.
+
+#### Who picked it
+
+- **FR-041**: "Who picked an order" MUST be **every** employee who recorded a pick outcome on one
+  of its lines, not a single employee. An order released and re-claimed may be picked by more than
+  one person, and naming only one of them would be inaccurate rather than merely incomplete.
+- **FR-042**: The pick time MUST be when the most recent pick outcome was recorded — the moment
+  picking finished.
+- **FR-043**: Where the label's fixed size cannot hold every name, it MUST show the first two
+  contributors in the order they first contributed, followed by a count of the remainder. The
+  packing desk, which has no such constraint, MUST show all of them.
+- **FR-044**: Contributors MUST be derived from recorded pick outcomes only, so that the list
+  describes picking work and nothing else.
 
 ### Key Entities
 
@@ -317,6 +333,12 @@ is a decision that can be revisited without redesigning the feature.
 - **The label's QR code resolves to the order's packing view.** A phone camera scanning a sleeve
   opens the place where that order gets packed, rather than a general order page the packer must
   navigate from.
+- **Contributors describe picking, and the issue-resolution feature must keep it that way.**
+  FR-044 derives the list from recorded pick outcomes, which today only pickers produce — a manager
+  has no way to record one. **If the issue-resolution feature lets a manager record a pick outcome
+  when capturing a substitute, that manager would appear on the label as a picker.** Preventing
+  that is a constraint on the later feature, stated here so it is inherited rather than
+  rediscovered.
 - **The short order code is the application's own order number.** It is short enough to read aloud
   and to type, and is already how orders are referred to in practice. It is not meaningful outside
   the application.

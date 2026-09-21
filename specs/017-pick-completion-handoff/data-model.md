@@ -62,7 +62,6 @@ document.
 |---|---|
 | `OrderId` | The order this slip belongs to. One slip per order at most. |
 | `Content` | The slip document's bytes. |
-| `PageCount` | How many pages of the batch document the order occupied. |
 | `StoredAt` | When it was extracted and stored. |
 
 **This is the only place in the application that holds customer personal information.** It carries
@@ -132,15 +131,22 @@ printed.
 | Short order code | The order's own number |
 | Full TCGplayer identifier | `Order.TcgplayerOrderId` |
 | Physical card count | Computed from the order's lines |
-| Picker and pick time | The order's existing pick record |
+| Contributors and pick time | Distinct employees who recorded a pick outcome on the order's lines, and the most recent such timestamp |
 | Hold state, set-aside count | The order's current line outcomes |
 | Ships-short marker | Not set by anything in this feature (FR-014) |
 
 **Why nothing is stored**: FR-017 requires a label to agree with the order it identifies, and
 FR-016 requires a reprint to match the original. A stored label snapshot could drift from its
-order; a derived one cannot. The one field that looks like a snapshot — the original picker and
-pick time — is already recorded on the order by feature 015, so a reprint reads the same values the
-first print did without a second copy existing.
+order; a derived one cannot.
+
+**No new field is needed to answer "who picked it".** `OrderLine` already carries
+`PickOutcomeRecordedByEmployeeId` and `PickOutcomeRecordedAt` from feature 015, so the contributor
+set is a distinct projection over lines the label query already reads for the card count — and a
+reprint re-derives the same answer the first print did (FR-041, FR-042).
+
+That per-line record is also what makes the honest answer cheaper than the dishonest one: naming a
+single picker would require choosing between employees who all contributed, which is a rule nobody
+has decided. Listing them needs no such rule.
 
 ---
 

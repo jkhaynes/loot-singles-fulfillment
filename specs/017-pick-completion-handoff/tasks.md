@@ -37,7 +37,7 @@ Web application layout per plan.md: `backend/src/`, `backend/tests/`, `frontend/
 of the feature rather than the start.
 
 - [ ] T001 **DEFERRED — validate the printed label on the real printer** (quickstart.md scenario 0): print the label at 1⅛ × 3½ inches on the shop's small label printer, measure it against the stock, and scan both codes off the physical label. Adjust the `label.css` tokens from T024 if the size is wrong
-- [ ] T002 [P] Record the deferral decision and its mitigation in `specs/017-pick-completion-handoff/research.md` §9 and in `spec.md`'s Risks section
+- [x] T002 [P] Record the deferral decision and its mitigation in `specs/017-pick-completion-handoff/research.md` §9 and in `spec.md`'s Risks section
 - [ ] T003 [P] Add a QR encoder and a Code 128 encoder to `frontend/package.json`, pinned, and record the chosen packages in `research.md` §8
 
 > **Product Owner decision, 2026-09-21**: the printer is not available yet and the feature proceeds
@@ -62,7 +62,8 @@ of the feature rather than the start.
 **Purpose**: The governance correction that must land before any slip code exists, and the schema
 plus status change that US2 and US4 both depend on.
 
-**⚠️ No user story may begin until this phase is complete.**
+**⚠️ US2 and US4 may not begin until this phase is complete.** US1 depends only on Phase 1 — it's
+the ending screens and the label, and needs neither the packed state nor slip storage.
 
 ### Governance
 
@@ -101,20 +102,23 @@ with a monochrome-distinguishable label. Neither needs the packing desk to exist
 ### Tests for User Story 1 (write first, watch fail)
 
 - [ ] T015 [P] [US1] Unit tests for label content derivation in `backend/tests/LootSingles.UnitTests/Packing/` — card count, hold state, set-aside count, and that **no product-line count is produced** (FR-004)
-- [ ] T016 [P] [US1] Integration tests for `GET /api/orders/{orderId}/label` in `backend/tests/LootSingles.IntegrationTests/Orders/` — success shape, `orderNotFound`, `orderNotPicked`, and that **no customer field appears in the payload** (FR-015)
+- [ ] T016 [P] [US1] Integration tests for `GET /api/orders/{orderId}/label` in `backend/tests/LootSingles.IntegrationTests/Orders/` — success shape, `orderNotFound`, `orderNotStarted`, that a **held** order returns a label rather than a conflict (FR-013), and that **no customer field appears in the payload** (FR-015)
 - [ ] T017 [P] [US1] RTL tests for the completion ending in `frontend/tests/` — states the card count, shows no product count, and opens no print dialog unprompted (FR-005)
 - [ ] T018 [P] [US1] RTL tests for the needs-a-manager ending — cards pulled, cards set aside, and the unresolved products named (FR-003)
 - [ ] T019 [P] [US1] RTL test asserting that after a label is requested, continuing to the next order becomes the primary action (FR-006)
 
 ### Implementation for User Story 1
 
-- [ ] T020 [US1] Create `backend/src/LootSingles.Application/Packing/LabelContent.cs` deriving every printed value from the order (FR-017)
+- [ ] T080 [P] [US1] Unit tests for the contributor list in `backend/tests/LootSingles.UnitTests/Packing/` — one employee, two, and an order whose lines were recorded by three; distinct, ordered by first contribution; pick time is the **most recent** outcome (FR-041, FR-042)
+- [ ] T081 [P] [US1] Unit tests for the label's name formatting in `frontend/tests/` — one name, two names, and three or more rendering as the first two plus a remainder count (FR-043)
+- [ ] T020 [US1] Create `backend/src/LootSingles.Application/Packing/LabelContent.cs` deriving every printed value from the order (FR-017), including the contributor list as a distinct projection over line pick outcomes (FR-041, FR-044) — **not** a single picker, since an order released and re-claimed has more than one
 - [ ] T021 [US1] Add the label endpoint to `backend/src/LootSingles.Api/Controllers/OrdersController.cs` per contracts/packing-api.md
 - [ ] T022 [P] [US1] Add the label client and typed errors to `frontend/src/features/orders/ordersApi.ts`, matching the existing error-class pattern
-- [ ] T023 [US1] Create `frontend/src/features/labels/OrderLabel.tsx` rendering text, QR and Code 128, with the Code 128's printed value serving as the human-readable full identifier (FR-012)
+- [ ] T023 [US1] Create `frontend/src/features/labels/OrderLabel.tsx` rendering text, QR and Code 128 — the QR encoding a link to the order's packing view, the Code 128 encoding the bare TCGplayer identifier with its printed value serving as the human-readable one (FR-011, FR-012)
 - [ ] T024 [US1] Create `frontend/src/features/labels/label.css` — physical units and an explicit page size, with **every physical dimension expressed as a named custom property in one block at the top of the file** (stock width and height, page margins, QR module size, barcode height, type sizes), so that correcting T001 later is a change to those values and nothing else
 - [ ] T025 [US1] Implement the hold variant's inverted band in `label.css`, distinguishable **in monochrome**, never by colour (FR-013)
 - [ ] T026 [US1] Add the ships-short marker to `OrderLabel.tsx`, set by nothing in this feature (FR-014)
+- [ ] T082 [US1] Create the name-formatting helper beside `frontend/src/features/labels/OrderLabel.tsx` — first two contributors then `+N`, making T081 pass (FR-043)
 - [ ] T027 [US1] Create `frontend/src/features/orders/PickEnding.tsx` presenting both endings, with printing as an explicit action
 - [ ] T028 [US1] Route finishing a pick to `PickEnding` in `frontend/src/features/orders/OrderDetailPage.tsx`, replacing the current navigation to `/orders`, preserving the existing claim release (FR-008)
 - [ ] T029 [US1] Wire continuing to the next order to the existing pick-next path in `PickEnding.tsx` (FR-007), including the no-orders-available case
@@ -144,7 +148,8 @@ and slip are produced, mark it packed, and confirm it leaves the awaiting-packin
 - [ ] T038 [US2] Write a failing concurrency test asserting two simultaneous pack attempts record exactly one pack (FR-033), following the existing `PickingConcurrencyTests` pattern
 - [ ] T039 [P] [US2] Integration tests for `GET /api/orders/{orderId}/packing-slip` — success, `packingSlipUnavailable` as distinct from `orderNotFound` (FR-022), and that a durable access row naming employee and time is written (FR-038)
 - [ ] T040 [P] [US2] Integration tests for `GET /api/packing/awaiting`
-- [ ] T041 [P] [US2] RTL tests for the packing desk — resolve, refuse a held order by name, state plainly when no slip is stored
+- [ ] T041 [P] [US2] RTL tests for the packing desk — resolve, refuse a held order by name, state plainly when no slip is stored, and show **every** contributor rather than a truncated list (FR-043)
+- [ ] T083 [P] [US2] Write failing integration tests asserting an employee with the `Picker` role can retrieve a packing slip and mark an order packed (FR-037) — the codebase has `RequireManagerAdmin`, and a role check added reflexively to a PII endpoint would silently break packing
 
 ### Implementation for User Story 2
 
@@ -180,7 +185,7 @@ and slip are produced, mark it packed, and confirm it leaves the awaiting-packin
 including the original picker and time.
 
 - [ ] T061 [P] [US3] Write a failing test asserting a reprint carries the **original** picker and pick time, not the reprinting employee or moment (FR-016)
-- [ ] T062 [US3] Add a reprint action to `frontend/src/features/orders/OrderDetailPage.tsx` for any picked order
+- [ ] T062 [US3] Add a reprint action to `frontend/src/features/orders/OrderDetailPage.tsx` for any order whose picking has ended, **including a held one** — the label most likely to be reprinted (FR-016)
 - [ ] T063 [US3] Add a reprint action to `frontend/src/features/packing/PackingDeskPage.tsx`
 - [ ] T064 [US3] E2E coverage of quickstart.md scenario 6 in `frontend/e2e/`
 

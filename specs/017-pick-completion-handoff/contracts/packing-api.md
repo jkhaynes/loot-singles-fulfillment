@@ -21,8 +21,8 @@ disagree with what it identifies (FR-017), and a reprint matches the original (F
 | `orderId` | The short order code printed on the label |
 | `tcgplayerOrderId` | The full identifier, and the value the Code 128 encodes |
 | `cardCount` | Physical cards — the only count on the label (FR-010) |
-| `pickedByDisplayName` | Who picked it |
-| `pickedAt` | When they picked it |
+| `pickedBy` | **Every** employee who recorded a pick outcome, ordered by first contribution (FR-041) |
+| `pickedAt` | When the most recent outcome was recorded — when picking finished (FR-042) |
 | `isHeld` | Whether this is a hold label (FR-013) |
 | `setAsideCount` | Cards set aside with the order; meaningful when `isHeld` |
 | `shipsShort` | Always false in this feature; the marker exists so the label design is not reopened later (FR-014) |
@@ -37,7 +37,12 @@ as amended.
 | Status | Code | When |
 |---|---|---|
 | 404 | `orderNotFound` | No such order |
-| 409 | `orderNotPicked` | The order has not been picked, so there is no label to print |
+| 409 | `orderNotStarted` | **No pick outcome has been recorded on any line**, so there is nothing to label |
+
+> **The guard is "has picking happened", not "is the order Picked".** A held order's status is
+> `NeedsAttention`, never `Picked`, and it must print a hold label (FR-013) — gating on the
+> `Picked` status would make the needs-a-manager ending unable to print at all, which is half of
+> User Story 1.
 
 ---
 
@@ -108,7 +113,8 @@ scanning the label's QR. Whitespace and case are normalised at this boundary.
 |---|---|
 | `orderId`, `tcgplayerOrderId` | Identity |
 | `cardCount` | Physical cards |
-| `pickedByDisplayName`, `pickedAt` | Who picked it and when |
+| `pickedBy` | **All** contributors — the desk has no space constraint, so it shows every one (FR-043) |
+| `pickedAt` | When picking finished |
 | `status` | The order's current status |
 | `canPack` | Whether it can be packed now |
 | `blockedReason` | Why not, when `canPack` is false |
