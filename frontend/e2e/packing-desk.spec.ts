@@ -111,3 +111,41 @@ test('says plainly when a code matches no order', async ({ page }) => {
   // The desk stays ready for the next scan rather than becoming a dead end (FR-029).
   await expect(scanBox(page)).toBeFocused()
 })
+
+// T064 / quickstart scenario 6, and T068 / scenario 7 — the two smaller stories, exercised
+// against the same picked order so they need no seeds of their own.
+test('reprints a label and shows the queue falling when an order is packed', async ({ page }) => {
+  await login(page, 'e2epickertwelve')
+
+  // ---- Scenario 7: the count rises when an order is picked ----
+  await page.goto('/')
+  const tile = page.getByRole('article', { name: 'Awaiting Packing' })
+  await expect(tile).toBeVisible()
+  const before = Number((await tile.textContent())?.replace(/\D/g, '') ?? '0')
+
+  const orderId = await pickWholeOrder(page, 'E2E-ORDER-00013', 'Reprint Card')
+
+  await page.goto('/')
+  await expect(tile).toContainText(String(before + 1))
+
+  // ---- Scenario 6: the label can be produced again from the desk ----
+  await page.goto('/packing')
+  await scanBox(page).fill(orderId)
+  await scanBox(page).press('Enter')
+
+  const order = page.getByRole('region', { name: new RegExp(`Order ${orderId}`) })
+  await expect(order).toBeVisible()
+  await order.getByRole('button', { name: /print label again/i }).click()
+
+  // The label carries the original picker, not whoever asked for the reprint (FR-016).
+  const label = page.getByLabel('Ready to pack label')
+  await expect(label).toContainText(`ORDER ${orderId}`)
+  await expect(label).toContainText('E2E Picker Twelve')
+
+  // ---- Scenario 7 again: and falls when it is packed ----
+  await order.getByRole('button', { name: /mark packed/i }).click()
+  await expect(order).toContainText(/already been packed/i)
+
+  await page.goto('/')
+  await expect(tile).toContainText(String(before))
+})

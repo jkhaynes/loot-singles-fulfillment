@@ -157,6 +157,44 @@ public sealed class OrderLabelTests
         }
     }
 
+    /// <summary>
+    /// T061 / FR-016 — a reprint must match the original, including the <em>original</em> picker
+    /// and pick time rather than whoever asked for it later.
+    /// <para>
+    /// This holds because the label is derived rather than stored (data-model.md): there is no
+    /// snapshot that could drift. The test exists because that is a property of the design worth
+    /// pinning — a later change that starts recording label state would break it here rather than
+    /// on a sticker.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Label_ReprintedAfterSomeoneElsePacksIt_StillNamesTheOriginalPicker()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (pickerClient, picker) = await LoginAsync(factory, "labelreprintpicker");
+        var (packerClient, _) = await LoginAsync(factory, "labelreprintpacker");
+        var order = NewOrder("LABEL-REPRINT");
+        order.Status = OrderStatus.Picked;
+        order.OrderLines.Add(Line(4, PickOutcome.Picked, picker.Id, At("09:00")));
+        await SeedAsync(factory, order);
+
+        var first = await JsonAsync(await pickerClient.GetAsync($"/api/orders/{order.Id}/label"));
+        (
+            await packerClient.PostAsync($"/api/orders/{order.Id}/packed", null)
+        ).EnsureSuccessStatusCode();
+        var reprint = await JsonAsync(await packerClient.GetAsync($"/api/orders/{order.Id}/label"));
+
+        Assert.Equal(
+            picker.DisplayName,
+            reprint.GetProperty("pickedBy")[0].GetProperty("displayName").GetString()
+        );
+        Assert.Equal(At("09:00"), reprint.GetProperty("pickedAt").GetDateTimeOffset());
+        Assert.Equal(first.GetRawText(), reprint.GetRawText());
+    }
+
+    private static async Task<JsonElement> JsonAsync(HttpResponseMessage response) =>
+        JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.Clone();
+
     // ---- helpers -------------------------------------------------------------------------
 
     private static DateTimeOffset At(string time) => DateTimeOffset.Parse($"2026-09-21T{time}:00Z");

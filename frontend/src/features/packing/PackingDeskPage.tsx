@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ScanBox } from './ScanBox'
+import { PrintLabelButton } from '../labels/PrintLabelButton'
 import {
   getAwaitingPacking,
   markPacked,
@@ -162,6 +163,12 @@ export function PackingDeskPage() {
                 Mark packed
               </button>
             )}
+
+            {/* The other half of FR-016: a sleeve can arrive at the bench with its label
+                missing, and the desk is where that gets noticed. */}
+            <PrintLabelButton orderId={order.orderId} className="packing-desk__secondary">
+              Print label again
+            </PrintLabelButton>
           </div>
         </section>
       )}

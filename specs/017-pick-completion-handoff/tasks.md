@@ -195,10 +195,10 @@ and slip are produced, mark it packed, and confirm it leaves the awaiting-packin
 **Independent test**: Print a label, reprint from the order, reprint from the desk; all three match,
 including the original picker and time.
 
-- [ ] T061 [P] [US3] Write a failing test asserting a reprint carries the **original** picker and pick time, not the reprinting employee or moment (FR-016)
-- [ ] T062 [US3] Add a reprint action to `frontend/src/features/orders/OrderDetailPage.tsx` for any order whose picking has ended, **including a held one** — the label most likely to be reprinted (FR-016)
-- [ ] T063 [US3] Add a reprint action to `frontend/src/features/packing/PackingDeskPage.tsx`
-- [ ] T064 [US3] E2E coverage of quickstart.md scenario 6 in `frontend/e2e/`
+- [X] T061 [P] [US3] Write a failing test asserting a reprint carries the **original** picker and pick time, not the reprinting employee or moment (FR-016)
+- [X] T062 [US3] Add a reprint action to `frontend/src/features/orders/OrderDetailPage.tsx` for any order whose picking has ended, **including a held one** — the label most likely to be reprinted (FR-016)
+- [X] T063 [US3] Add a reprint action to `frontend/src/features/packing/PackingDeskPage.tsx`
+- [X] T064 [US3] E2E coverage of quickstart.md scenario 6 in `frontend/e2e/`
 
 ---
 
@@ -208,10 +208,10 @@ including the original picker and time.
 
 **Independent test**: Pick an order and watch the count rise; pack it and watch the count fall.
 
-- [ ] T065 [P] [US4] Write failing tests in `backend/tests/LootSingles.UnitTests/Dashboard/` and `backend/tests/LootSingles.IntegrationTests/Dashboard/` asserting the count excludes packed orders (FR-036)
-- [ ] T066 [US4] Change the count's meaning in `backend/src/LootSingles.Application/Dashboard/DashboardService.cs` and `backend/src/LootSingles.Infrastructure/Persistence/DashboardRepository.cs`
-- [ ] T067 [US4] Relabel the tile in `frontend/src/features/dashboard/DashboardPage.tsx` from *Picked* to *Awaiting packing*
-- [ ] T068 [US4] E2E coverage of quickstart.md scenario 7 in `frontend/e2e/`
+- [X] T065 [P] [US4] Write failing tests in `backend/tests/LootSingles.UnitTests/Dashboard/` and `backend/tests/LootSingles.IntegrationTests/Dashboard/` asserting the count excludes packed orders (FR-036)
+- [X] T066 [US4] Change the count's meaning in `backend/src/LootSingles.Application/Dashboard/DashboardService.cs` and `backend/src/LootSingles.Infrastructure/Persistence/DashboardRepository.cs`
+- [X] T067 [US4] Relabel the tile in `frontend/src/features/dashboard/DashboardPage.tsx` from *Picked* to *Awaiting packing*
+- [X] T068 [US4] E2E coverage of quickstart.md scenario 7 in `frontend/e2e/`
 
 ---
 

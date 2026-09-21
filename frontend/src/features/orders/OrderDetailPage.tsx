@@ -23,6 +23,7 @@ import { computeProgress, groupOrderLines } from './orderGrouping'
 import { useIsPhone } from './useIsPhone'
 import { FocusedPickView } from './FocusedPickView'
 import { PickEnding } from './PickEnding'
+import { PrintLabelButton } from '../labels/PrintLabelButton'
 import type { LabelContent } from './ordersApi'
 import { ReportIssueForm } from './ReportIssueForm'
 import './OrderDetailPage.css'
@@ -245,6 +246,10 @@ export function OrderDetailPage() {
   const canRecordOutcome = canRelease
   // Offered only when the order is free: claiming one someone else holds is refused by the
   // server anyway, and offering a button known to fail is the dead end FR-027 removes.
+  // Whether picking has produced anything to print. Deliberately not "is the order Picked":
+  // a held order is NeedsAttention and still has a label (FR-009).
+  const hasStartedPicking = order !== null && order.lines.some((line) => line.pickOutcome !== null)
+
   // A packed order has physically left, so there is nothing a claim could accomplish — unlike
   // a picked one, which stays claimable on purpose so a picker can revise lines before the
   // sleeve is sealed (feature 015). The server enforces this too; hiding the button only keeps
@@ -301,6 +306,13 @@ export function OrderDetailPage() {
             >
               {isReleasing ? 'Releasing…' : 'Release'}
             </button>
+          )}
+
+          {/* A label that jammed, misprinted or fell off needs replacing without re-picking
+              the order. Offered once picking has produced something to print, held orders
+              included — theirs is the label most likely to be needed twice (FR-016). */}
+          {hasStartedPicking && (
+            <PrintLabelButton orderId={order!.orderId} className="order-detail-bar__release" />
           )}
         </header>
       ) : (

@@ -339,6 +339,7 @@ static async Task SeedAsync(IServiceProvider services)
             ("e2epickernine", "E2E Picker Nine"),
             ("e2epickerten", "E2E Picker Ten"),
             ("e2epickereleven", "E2E Picker Eleven"),
+            ("e2epickertwelve", "E2E Picker Twelve"),
         }
     )
     {
@@ -441,6 +442,17 @@ static async Task SeedAsync(IServiceProvider services)
             Status = OrderStatus.Ready,
             ImportedAt = DateTimeOffset.UtcNow.AddMinutes(50),
             OrderLines = [SetAwareLine("Pokemon", "Desk Set", "Desk Blocker", "#002/050", 1)],
+        }
+    );
+    // 017 T064/T068: the reprint and awaiting-packing-count spec, with an order of its own so
+    // the dashboard number it watches is not moved by another worker mid-assertion.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00013",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(55),
+            OrderLines = [SetAwareLine("Pokemon", "Reprint Set", "Reprint Card", "#003/050", 1)],
         }
     );
     await context.SaveChangesAsync();

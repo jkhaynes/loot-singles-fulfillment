@@ -72,7 +72,10 @@ describe('DashboardPage', () => {
   })
 
   // 015-pick-completion T039: the three placeholder tiles now show live counts (US3 AC1, AC2).
-  it('shows live counts for In Progress, Needs Attention and Picked instead of placeholders', async () => {
+  // 017: the last tile counts orders awaiting packing rather than orders ever picked. The
+  // old number only grew; this one falls when a sleeve is posted, which is the question anyone
+  // actually has (FR-036).
+  it('shows live counts for In Progress, Needs Attention and Awaiting Packing', async () => {
     vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
       dashboardData({
         ready: { count: 1, orders: [] },
@@ -99,7 +102,7 @@ describe('DashboardPage', () => {
     expect(within(inProgressTile).getByText('2')).toBeInTheDocument()
     const needsAttentionTile = screen.getByRole('article', { name: 'Needs Attention' })
     expect(within(needsAttentionTile).getByText('1')).toBeInTheDocument()
-    const pickedTile = screen.getByRole('article', { name: 'Picked' })
+    const pickedTile = screen.getByRole('article', { name: 'Awaiting Packing' })
     expect(within(pickedTile).getByText('5')).toBeInTheDocument()
     expect(screen.queryByText('Not yet available')).not.toBeInTheDocument()
   })
@@ -245,7 +248,7 @@ describe('DashboardPage', () => {
     renderDashboard()
     await screen.findByText(/no orders ready to pick/i)
 
-    for (const label of ['Ready to Pick', 'In Progress', 'Needs Attention', 'Picked']) {
+    for (const label of ['Ready to Pick', 'In Progress', 'Needs Attention', 'Awaiting Packing']) {
       const tile = screen.getByRole('article', { name: label })
       expect(within(tile).getByText('0')).toBeInTheDocument()
     }
