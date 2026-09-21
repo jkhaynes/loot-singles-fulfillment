@@ -214,8 +214,11 @@ VALUES
 
 COMMIT TRANSACTION;
 
--- What was created.
+-- What was created. Id is included because re-running this script deletes and re-inserts, so
+-- every order gets a NEW Id — a /orders/<id> link from a previous run will not point at the
+-- same order afterwards. Use the Ids printed here.
 SELECT
+  o.Id,
   o.TcgplayerOrderId,
   COUNT(*)                                                    AS Products,
   SUM(ol.Quantity)                                            AS Cards,
@@ -225,5 +228,5 @@ SELECT
 FROM Orders o
 JOIN OrderLines ol ON ol.OrderId = o.Id
 WHERE o.TcgplayerOrderId LIKE 'F8433182-TEST%'
-GROUP BY o.TcgplayerOrderId
-ORDER BY o.TcgplayerOrderId;
+GROUP BY o.Id, o.TcgplayerOrderId
+ORDER BY o.Id;
