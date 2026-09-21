@@ -147,6 +147,13 @@ test('reprints a label and shows the queue falling when an order is packed', asy
   await expect(label).toContainText(`ORDER ${orderId}`)
   await expect(label).toContainText('E2E Picker Twelve')
 
+  // The reprint goes through the same printable-label component as the ending screen, but that is
+  // an assumption until the output is checked — and the desk is a busier page to isolate a label
+  // from. One page, not the whole desk paginated at 1⅛ inches.
+  const pdf = await page.pdf({ preferCSSPageSize: true })
+  const pageCount = (pdf.toString('latin1').match(/\/Type\s*\/Page(?!s)/g) ?? []).length
+  expect(pageCount).toBe(1)
+
   // ---- Scenario 7 again: and leaves the queue once packed ----
   await order.getByRole('button', { name: /mark packed/i }).click()
   await expect(order).toContainText(/already been packed/i)

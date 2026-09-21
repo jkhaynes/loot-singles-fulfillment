@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { LabelContent } from './ordersApi'
-import { OrderLabel } from '../labels/OrderLabel'
+import { PrintableLabel } from '../labels/PrintableLabel'
 import './PickEnding.css'
 
 /**
@@ -39,52 +39,54 @@ export function PickEnding({ label, onNextOrder, onBackToDashboard }: PickEnding
 
   return (
     <section className="pick-ending" aria-label={label.isHeld ? 'Pick ended' : 'Pick complete'}>
-      <div className={`pick-ending__mark${label.isHeld ? ' pick-ending__mark--held' : ''}`}>
-        <span aria-hidden="true">{label.isHeld ? '!' : '✓'}</span>
+      <div className="pick-ending__summary" data-testid="pick-ending-summary">
+        <div className={`pick-ending__mark${label.isHeld ? ' pick-ending__mark--held' : ''}`}>
+          <span aria-hidden="true">{label.isHeld ? '!' : '✓'}</span>
+        </div>
+
+        <h2 className="pick-ending__title">
+          {label.isHeld ? 'Pick ended — needs a manager' : 'Pick complete'}
+        </h2>
+
+        <p className="pick-ending__count">{label.cardCount}</p>
+        <p className="pick-ending__countLabel">
+          {label.isHeld
+            ? label.cardCount === 1
+              ? 'card pulled'
+              : 'cards pulled'
+            : label.cardCount === 1
+              ? 'card in the sleeve'
+              : 'cards in the sleeve'}
+        </p>
+
+        {label.isHeld && (
+          <div className="pick-ending__unresolved">
+            <p className="pick-ending__unresolvedTitle">
+              {label.unresolvedProducts.length === 1
+                ? 'Still unresolved'
+                : `${label.unresolvedProducts.length} still unresolved`}
+            </p>
+            <ul>
+              {label.unresolvedProducts.map((product) => (
+                <li key={product}>{product}</li>
+              ))}
+            </ul>
+            {setAside !== null && setAside > 0 && (
+              <p className="pick-ending__setAside">
+                {setAside === 1 ? '1 card set aside' : `${setAside} cards set aside`} with the order
+              </p>
+            )}
+          </div>
+        )}
+
+        <p className="pick-ending__destination">
+          {label.isHeld
+            ? 'Stick the hold label on the sleeve and put it in the review area — not ready-to-pack.'
+            : 'Stick the label on the sleeve and put it in the ready-to-pack bin.'}
+        </p>
       </div>
 
-      <h2 className="pick-ending__title">
-        {label.isHeld ? 'Pick ended — needs a manager' : 'Pick complete'}
-      </h2>
-
-      <p className="pick-ending__count">{label.cardCount}</p>
-      <p className="pick-ending__countLabel">
-        {label.isHeld
-          ? label.cardCount === 1
-            ? 'card pulled'
-            : 'cards pulled'
-          : label.cardCount === 1
-            ? 'card in the sleeve'
-            : 'cards in the sleeve'}
-      </p>
-
-      {label.isHeld && (
-        <div className="pick-ending__unresolved">
-          <p className="pick-ending__unresolvedTitle">
-            {label.unresolvedProducts.length === 1
-              ? 'Still unresolved'
-              : `${label.unresolvedProducts.length} still unresolved`}
-          </p>
-          <ul>
-            {label.unresolvedProducts.map((product) => (
-              <li key={product}>{product}</li>
-            ))}
-          </ul>
-          {setAside !== null && setAside > 0 && (
-            <p className="pick-ending__setAside">
-              {setAside === 1 ? '1 card set aside' : `${setAside} cards set aside`} with the order
-            </p>
-          )}
-        </div>
-      )}
-
-      <p className="pick-ending__destination">
-        {label.isHeld
-          ? 'Stick the hold label on the sleeve and put it in the review area — not ready-to-pack.'
-          : 'Stick the label on the sleeve and put it in the ready-to-pack bin.'}
-      </p>
-
-      <div className="pick-ending__actions">
+      <div className="pick-ending__actions" data-testid="pick-ending-actions">
         <button
           type="button"
           className={labelRequested ? secondary : primary}
@@ -104,11 +106,9 @@ export function PickEnding({ label, onNextOrder, onBackToDashboard }: PickEnding
         </button>
       </div>
 
-      {/* Rendered off-screen and revealed only by the print stylesheet, so the picker reads the
-          summary while the printer gets the label. */}
-      <div className="order-label-host">
-        <OrderLabel label={label} />
-      </div>
+      {/* Out of view on screen and the only thing on the page when printed, so the picker reads
+          the summary while the printer gets the label. */}
+      <PrintableLabel label={label} />
     </section>
   )
 }

@@ -1,12 +1,30 @@
 /* The ending screen (PRD §22). Mobile-first: this is read one-handed at a storage box. */
 
+/* On a phone this sits inside a container exactly one screen tall that clips overflow. It fills that
+   container rather than sizing itself to 100% of it: min-height: 100% plus padding came out taller than
+   the screen, and the bottom action was clipped. flex: 1 with border-box fills it exactly. If a long
+   list of unresolved products genuinely does not fit, this scrolls instead of hiding anything. */
 .pick-ending {
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   padding: var(--space-4) var(--space-4) var(--space-6);
-  min-height: 100%;
+}
+
+/* Takes all the space above the actions and centres the summary in it, so the count sits in the
+   middle of the screen rather than pinned to the top above an empty gap. */
+.pick-ending__summary {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .pick-ending__mark {
@@ -88,7 +106,6 @@
 }
 
 .pick-ending__actions {
-  margin-top: auto;
   padding-top: var(--space-6);
   width: 100%;
   display: flex;

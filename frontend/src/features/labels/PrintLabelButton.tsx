@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { getOrderLabel, OrderNotStartedError } from '../orders/ordersApi'
 import type { LabelContent } from '../orders/ordersApi'
-import { OrderLabel } from './OrderLabel'
+import { PrintableLabel } from './PrintableLabel'
 
 /**
  * Reprints an order's label (FR-016).
@@ -63,13 +63,8 @@ export function PrintLabelButton({ orderId, className, children }: PrintLabelBut
         </p>
       )}
 
-      {/* Off-screen until the print stylesheet reveals it, so the page the employee is reading
-          never turns into a label. */}
-      {label !== null && (
-        <div className="order-label-host">
-          <OrderLabel label={label} />
-        </div>
-      )}
+      {/* Out of view on screen and the only thing on the page when printed. */}
+      {label !== null && <PrintableLabel label={label} />}
     </>
   )
 }

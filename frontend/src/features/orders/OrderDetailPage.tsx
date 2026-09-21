@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
@@ -40,6 +40,7 @@ export function OrderDetailPage() {
   const [isClaiming, setIsClaiming] = useState(false)
   /** Non-null once the pick has ended; the ending screen replaces the picking view. */
   const [ending, setEnding] = useState<LabelContent | null>(null)
+  const isFinishing = useRef(false)
   const [isReleasing, setIsReleasing] = useState(false)
   const [isForceReleasing, setIsForceReleasing] = useState(false)
   const [recordingLineId, setRecordingLineId] = useState<number | null>(null)
@@ -93,7 +94,12 @@ export function OrderDetailPage() {
    * picker where they were rather than half-finished with nothing to print.
    */
   async function handleFinish() {
-    if (!order) return
+    // A ref rather than state: a double tap lands both calls before React has re-rendered, so
+    // isReleasing would still read false for the second. Without this the second release
+    // answered 409 — the first had already given the claim up — and the screen reported a
+    // failure over a finish that had worked.
+    if (!order || isFinishing.current) return
+    isFinishing.current = true
 
     setIsReleasing(true)
     setActionError(null)
@@ -101,7 +107,9 @@ export function OrderDetailPage() {
       const label = await getOrderLabel(order.orderId)
       await releaseOrder(order.orderId)
       setEnding(label)
+      // Left set on success: the picking view is gone, and nothing should finish it again.
     } catch {
+      isFinishing.current = false
       setActionError("Couldn't finish this order. Try refreshing the page.")
     } finally {
       setIsReleasing(false)
@@ -277,14 +285,16 @@ export function OrderDetailPage() {
   // In the focused view the screen is a card and one action (FR-029): the order's own title,
   // status, second progress line and the Release / Browse / Dashboard links took 31% of a
   // 440x956 screen and pushed the record button below the fold.
-  // Once the pick has ended, the picking chrome above it is stale: the claim is released, the
-  // progress count describes work that is over, and the reprint action duplicates the one the
-  // ending screen already offers. The ending screen is the whole screen (PRD §22).
-  const isFocused = isPhone && loadState === 'loaded' && ending === null
+  const isFocused = isPhone && loadState === 'loaded'
 
   return (
     <main className={`order-detail-page${isFocused ? ' order-detail-page--focused' : ''}`}>
-      {isFocused ? (
+      {/* Once the pick has ended there is no header of either kind. The claim has been released,
+          so a Release button would answer 409 not_your_claim; the progress line describes work
+          that is over; and the ending screen has its own print action. An earlier build hid the
+          phone header by making isFocused false, which swapped in the desktop header and its
+          Release button instead of removing anything (PRD §22). */}
+      {ending !== null ? null : isFocused ? (
         <header className="order-detail-bar">
           {/* One exit, on every card. Until this replaced the view toggle a picker was stuck on
               an order until they reached the end of it. */}
