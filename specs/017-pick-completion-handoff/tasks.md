@@ -38,7 +38,7 @@ of the feature rather than the start.
 
 - [ ] T001 **DEFERRED — validate the printed label on the real printer** (quickstart.md scenario 0): print the label at 1⅛ × 3½ inches on the shop's small label printer, measure it against the stock, and scan both codes off the physical label. Adjust the `label.css` tokens from T024 if the size is wrong
 - [x] T002 [P] Record the deferral decision and its mitigation in `specs/017-pick-completion-handoff/research.md` §9 and in `spec.md`'s Risks section
-- [ ] T003 [P] Add a QR encoder and a Code 128 encoder to `frontend/package.json`, pinned, and record the chosen packages in `research.md` §8
+- [X] T003 [P] Add a QR encoder and a Code 128 encoder to `frontend/package.json`, pinned, and record the chosen packages in `research.md` §8
 
 > **Product Owner decision, 2026-09-21**: the printer is not available yet and the feature proceeds
 > without waiting for it, on the explicit understanding that print problems are debugged or
@@ -67,26 +67,37 @@ the ending screens and the label, and needs neither the packed state nor slip st
 
 ### Governance
 
-- [ ] T004 Annotate `specs/001-tcgplayer-order-import/spec.md` FR-019, SC-004, User Story 3 and Assumptions as superseded by 017 and PRD v0.5 §27 (amendment A14), stating precisely what survives — FR-020 still forbids retaining the batch document — per research.md §1
-- [ ] T005 [P] Correct the doc comment on `backend/src/LootSingles.Application/Import/IPackingSlipParser.cs`, which currently instructs implementations never to persist the stream or any copy of it "(FR-019)"
+- [X] T004 Annotate `specs/001-tcgplayer-order-import/spec.md` FR-019, SC-004, User Story 3 and Assumptions as superseded by 017 and PRD v0.5 §27 (amendment A14), stating precisely what survives — FR-020 still forbids retaining the batch document — per research.md §1
+- [X] T005 [P] Correct the doc comment on `backend/src/LootSingles.Application/Import/IPackingSlipParser.cs`, which currently instructs implementations never to persist the stream or any copy of it "(FR-019)"
 
 > T004 and T005 are not housekeeping. Leaving two contradictory hard requirements in the repository
 > misleads whoever reads the wrong one first, and `/branch-review` would be right to flag it.
 
 ### Schema and status
 
-- [ ] T006 [P] Add `Packed` to `backend/src/LootSingles.Domain/Orders/OrderStatus.cs`, documenting that it is the only value not derived from line outcomes
-- [ ] T007 [P] Add `PackedAt` and `PackedByEmployeeId` to `backend/src/LootSingles.Domain/Orders/Order.cs`, documenting the null-together invariant
-- [ ] T008 [P] Create `backend/src/LootSingles.Domain/Orders/OrderPackingSlip.cs` per data-model.md
-- [ ] T009 [P] Create `backend/src/LootSingles.Domain/Orders/PackingSlipAccess.cs` per data-model.md
-- [ ] T010 Add EF configurations for the two new entities in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/`, with the slip in its own table so order queries never materialise its bytes
-- [ ] T011 Generate one migration covering T006–T010 in `backend/src/LootSingles.Infrastructure/Persistence/Migrations/`
+- [X] T006 [P] Add `Packed` to `backend/src/LootSingles.Domain/Orders/OrderStatus.cs`, documenting that it is the only value not derived from line outcomes
+- [X] T007 [P] Add `PackedAt` and `PackedByEmployeeId` to `backend/src/LootSingles.Domain/Orders/Order.cs`, documenting the null-together invariant
+- [X] T008 [P] Create `backend/src/LootSingles.Domain/Orders/OrderPackingSlip.cs` per data-model.md
+- [X] T009 [P] Create `backend/src/LootSingles.Domain/Orders/PackingSlipAccess.cs` per data-model.md
+- [X] T010 Add EF configurations for the two new entities in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/`, with the slip in its own table so order queries never materialise its bytes
+- [X] T011 Generate one migration covering T006–T010 in `backend/src/LootSingles.Infrastructure/Persistence/Migrations/`
 
 ### The status short-circuit (test first)
 
-- [ ] T012 Write failing integration tests in `backend/tests/LootSingles.IntegrationTests/Orders/` asserting a packed order's status survives **every** existing write path that recomputes status — claim, release, force-release, and recording a line outcome — per plan.md's named regression
-- [ ] T013 Write a failing test asserting an order with an unresolved issue cannot reach `Packed` (FR-034)
-- [ ] T014 Implement the packed short-circuit ahead of `OrderStatusComputation.FromCurrentLines` in `backend/src/LootSingles.Infrastructure/Persistence/`, leaving the existing derivation expression **unmodified** (research.md §6), making T012 and T013 pass
+- [X] T012 Write failing integration tests in `backend/tests/LootSingles.IntegrationTests/Orders/` asserting a packed order's status survives **every** existing write path that recomputes status — claim, release, force-release, and recording a line outcome — per plan.md's named regression
+- [X] T013 Write a failing test asserting an order with an unresolved issue cannot reach `Packed` (FR-034)
+- [X] T014 Implement the packed short-circuit ahead of `OrderStatusComputation.FromCurrentLines` in `backend/src/LootSingles.Infrastructure/Persistence/`, leaving the existing derivation expression **unmodified** (research.md §6), making T012 and T013 pass
+
+### A packed order is not claimable (FR-045, added 2026-09-21)
+
+> Found while reviewing Phase 2, not by a test: status correctly stays `Packed`, but nothing stopped
+> a picker claiming one. `ClaimSpecificAsync` filters on the claim being free, not on status, and
+> Browse Orders has no status filter — so the order was listed, openable, and claimable. A **picked**
+> order stays re-claimable by design (015 lets a picker revise lines); packing is where that ends.
+
+- [X] T084 Write failing tests: an integration test that claiming a packed order is refused with a distinct reason (`backend/tests/LootSingles.IntegrationTests/Orders/PackedOrderStatusTests.cs`), and an RTL test that `OrderDetailPage` offers no claim action for a packed order (`frontend/tests/`)
+- [X] T085 Add an `OrderAlreadyPacked` claim outcome and guard `ClaimSpecificAsync` on it in `backend/src/LootSingles.Application/Orders/OrderClaimResult.cs`, `backend/src/LootSingles.Infrastructure/Persistence/OrderRepository.cs` and `backend/src/LootSingles.Api/Controllers/OrdersController.cs` — server-side enforcement, per Constitution VI
+- [X] T086 Hide the claim action for a packed order in `frontend/src/features/orders/OrderDetailPage.tsx`, and surface the refusal as a typed error in `frontend/src/features/orders/ordersApi.ts`
 
 ---
 

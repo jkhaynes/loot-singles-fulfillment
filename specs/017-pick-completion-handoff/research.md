@@ -173,6 +173,11 @@ The server supplies the label's *content* — short code, full identifier, card 
 hold state, set-aside count — so FR-017 holds and a label cannot disagree with its order. The
 browser renders that content, including generating the QR and Code 128 images, and prints it.
 
+**Chosen (T003)**: `qrcode-generator@1.4.4` and `jsbarcode@3.12.1`, both pinned exactly. Each ships
+its own TypeScript declarations, so no `@types` packages are added, and both render to SVG — which
+is what a print stylesheet needs, since SVG scales to physical units without resampling. `npm
+install` reported no vulnerabilities and added two packages in total.
+
 **Two new frontend dependencies**, against a dependency list currently holding only React, React
 DOM and React Router. Each is justified separately:
 

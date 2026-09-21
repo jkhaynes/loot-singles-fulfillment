@@ -58,6 +58,18 @@ public class LootSinglesDbContext : DbContext
     public DbSet<PickingIssue> PickingIssues => Set<PickingIssue>();
 
     /// <summary>
+    /// DbSet for OrderPackingSlip entities (017-pick-completion-handoff).
+    /// Queried only by the packing workflow — an order never loads its slip incidentally, which is
+    /// what keeps slip bytes off every picking path.
+    /// </summary>
+    public DbSet<OrderPackingSlip> OrderPackingSlips => Set<OrderPackingSlip>();
+
+    /// <summary>
+    /// DbSet for PackingSlipAccess entities (017-pick-completion-handoff).
+    /// </summary>
+    public DbSet<PackingSlipAccess> PackingSlipAccesses => Set<PackingSlipAccess>();
+
+    /// <summary>
     /// Configures the model using the Fluent API.
     /// Applies entity type configurations from the assembly automatically.
     /// </summary>

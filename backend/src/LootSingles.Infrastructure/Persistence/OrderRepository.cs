@@ -79,7 +79,14 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
             orderId,
             ct =>
                 context
-                    .Orders.Where(order => order.Id == orderId && order.ClaimedByEmployeeId == null)
+                    // PackedAt is part of the condition rather than a check beforehand, so a
+                    // request that races in still cannot claim a packed order. Constitution VI puts
+                    // this enforcement point in the backend; hiding the button is separate (FR-045).
+                    .Orders.Where(order =>
+                        order.Id == orderId
+                        && order.ClaimedByEmployeeId == null
+                        && order.PackedAt == null
+                    )
                     .ExecuteUpdateAsync(
                         setters =>
                             setters

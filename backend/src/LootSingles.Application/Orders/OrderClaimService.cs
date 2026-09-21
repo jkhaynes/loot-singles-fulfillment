@@ -111,6 +111,16 @@ public sealed class OrderClaimService(
                 return OrderClaimResult.OrderNotFound;
             }
 
+            if (attempt.Order.PackedAt is not null)
+            {
+                logger.LogInformation(
+                    "Employee {EmployeeId} attempted to choose order {OrderId} but it has already been packed.",
+                    actorEmployeeId,
+                    orderId
+                );
+                return OrderClaimResult.AlreadyPacked(attempt.Order);
+            }
+
             logger.LogInformation(
                 "Employee {EmployeeId} attempted to choose order {OrderId} but it is already claimed by employee {ClaimantId}.",
                 actorEmployeeId,

@@ -921,3 +921,50 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
+
+// FR-045. A packed sleeve has already left the building, so offering to claim it is offering
+// something that cannot help. Note the boundary being drawn: a *picked* order stays claimable on
+// purpose (feature 015 lets a picker re-claim one and revise its lines to fix a mis-pick).
+// Packing is where that stops, which is why these two cases are tested against each other.
+describe('OrderDetailPage — a packed order is not claimable', () => {
+  beforeEach(() => {
+    installMatchMedia(false)
+    vi.mocked(authApi.me).mockResolvedValue({
+      employeeId: 1,
+      displayName: 'Test Picker',
+      role: 'Picker',
+    })
+  })
+
+  it('offers no Claim action for a packed order', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'packed',
+      lines: [line(1, 'Pikachu', 'picked')],
+      claimedByEmployeeId: null,
+      claimedByEmployeeName: null,
+    })
+
+    renderPage()
+    await screen.findByRole('article')
+
+    expect(screen.queryByRole('button', { name: /^claim$/i })).not.toBeInTheDocument()
+  })
+
+  it('still offers Claim for a picked order that has not been packed', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'picked',
+      lines: [line(1, 'Pikachu', 'picked')],
+      claimedByEmployeeId: null,
+      claimedByEmployeeName: null,
+    })
+
+    renderPage()
+    await screen.findByRole('article')
+
+    expect(screen.getByRole('button', { name: /^claim$/i })).toBeInTheDocument()
+  })
+})

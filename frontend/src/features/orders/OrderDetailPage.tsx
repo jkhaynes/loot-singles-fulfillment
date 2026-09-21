@@ -196,7 +196,15 @@ export function OrderDetailPage() {
   const canRecordOutcome = canRelease
   // Offered only when the order is free: claiming one someone else holds is refused by the
   // server anyway, and offering a button known to fail is the dead end FR-027 removes.
-  const canClaim = order !== null && employee !== null && order.claimedByEmployeeId === null
+  // A packed order has physically left, so there is nothing a claim could accomplish — unlike
+  // a picked one, which stays claimable on purpose so a picker can revise lines before the
+  // sleeve is sealed (feature 015). The server enforces this too; hiding the button only keeps
+  // the app from offering something that cannot work (FR-045).
+  const canClaim =
+    order !== null &&
+    employee !== null &&
+    order.claimedByEmployeeId === null &&
+    order.status !== 'packed'
   const confirmedLineCount =
     order?.lines.filter((line) => line.pickOutcome === 'picked').length ?? 0
   // Set-aware picking (PRD §13): one group per storage box, ordered for the walk.

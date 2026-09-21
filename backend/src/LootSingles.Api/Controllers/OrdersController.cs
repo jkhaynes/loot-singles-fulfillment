@@ -125,6 +125,9 @@ public sealed class OrdersController(
                     claimedOrderId = result.ConflictingOrderId,
                 }
             ),
+            OrderClaimOutcome.OrderAlreadyPacked => Conflict(
+                new { error = "order_already_packed" }
+            ),
             _ => throw new InvalidOperationException(
                 $"Unexpected outcome {result.Outcome} for Claim."
             ),

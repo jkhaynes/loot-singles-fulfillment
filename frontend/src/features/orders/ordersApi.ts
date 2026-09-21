@@ -139,6 +139,18 @@ export class EmployeeHasActiveClaimError extends Error {
   }
 }
 
+/**
+ * The order has been packed, so it has left the picking workflow entirely (FR-045).
+ * Separate from OrderAlreadyClaimedError because nobody is holding it — saying it is claimed
+ * by someone would be false, and would send the picker looking for a person who does not exist.
+ */
+export class OrderAlreadyPackedError extends Error {
+  constructor() {
+    super('This order has already been packed')
+    this.name = 'OrderAlreadyPackedError'
+  }
+}
+
 export class OrderAlreadyClaimedError extends Error {
   claimedByEmployeeName: string | null
 
@@ -262,6 +274,9 @@ export async function claimOrder(orderId: number): Promise<OrderClaimUpdate> {
     const body = (await response.json()) as ClaimConflictBody
     if (body.error === 'order_already_claimed') {
       throw new OrderAlreadyClaimedError(body.claimedByEmployeeName ?? null)
+    }
+    if (body.error === 'order_already_packed') {
+      throw new OrderAlreadyPackedError()
     }
     throw new EmployeeHasActiveClaimError(body.claimedOrderId ?? null)
   }

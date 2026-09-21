@@ -265,6 +265,15 @@ confirm the count falls.
 - **FR-035**: Every other order status MUST continue to be derived from the order's current line
   outcomes and claim state exactly as it is today. The packed state is the single exception and MUST
   be an explicitly recorded event rather than a derived one.
+- **FR-045**: A packed order MUST NOT be claimable. The application MUST NOT offer a claim action
+  for one, and MUST refuse a claim attempt with an explanation rather than accepting it or failing
+  silently.
+
+  This is narrower than it sounds, and the narrowness is the point. A **picked** order remains
+  re-claimable on purpose: feature 015 established that a picker may re-claim one and revise its
+  lines, which is how a mis-pick gets corrected before the sleeve is sealed. Packing is where that
+  stops. The sleeve has physically left, so there is nothing left to correct here and offering to
+  try is misleading.
 - **FR-036**: The dashboard MUST count orders awaiting packing rather than orders that have been
   picked.
 
@@ -354,8 +363,11 @@ is a decision that can be revisited without redesigning the feature.
 - **A stored packing slip is retained indefinitely.** Deleting a slip when its order is packed was
   considered and deliberately deferred, because it makes a mistimed action unrecoverable. PRD §41
   open question 59 records that a retention rule is owed.
-- **No history view of packed orders is provided.** A packed order remains reachable by its order
-  code and is not otherwise listed.
+- **No history view of packed orders is provided.** No screen exists whose purpose is browsing what
+  has been packed. A packed order does still appear in the existing Browse Orders list, showing its
+  packed status — it is simply not actionable there (FR-045). Product Owner decision, 2026-09-21:
+  being able to look an order up and see that it has gone is useful; being offered a claim button
+  for it is not.
 - **Packed orders cannot be un-packed.** PRD §20.1 defines packed as terminal, and a mis-pack is
   corrected in TCGplayer rather than here.
 - **Employees at the packing bench sign in with the same accounts they use elsewhere.** No new role
