@@ -73,6 +73,24 @@ test('picks through an order one card at a time, and never records by moving', a
   await expect(page.getByRole('heading', { name: 'First Card', level: 2 })).toBeVisible()
   await recordButton(page).click()
   await expect(page.getByRole('button', { name: /picked ✓/i })).toBeVisible()
+
+  // ---- Completing lets go of the order ----
+  // One claim per employee is enforced server-side, so a picker who finished an order while
+  // still holding it could never start another. Completing must actually release it.
+  // Back at the first of three cards after that jump, so three advances reach the review.
+  await next(page).click()
+  await next(page).click()
+  await next(page).click()
+  await expect(page.getByText(/count the sleeve/i)).toBeVisible()
+  await page.getByRole('button', { name: /^complete/i }).click()
+  await expect(page).toHaveURL(/\/orders$/)
+
+  // The order is free again: claimable, and no longer held by this picker.
+  await expect(
+    page.getByRole('article', { name: /E2E-ORDER-00007/i }).getByRole('button', { name: /claim/i }),
+  ).toBeVisible()
+  await page.goto('/')
+  await expect(page.getByRole('link', { name: /resume/i })).toHaveCount(0)
 })
 
 // Claims nothing and uses a different order from the test above: the suite runs in parallel, so

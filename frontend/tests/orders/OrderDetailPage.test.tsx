@@ -805,3 +805,85 @@ describe('OrderDetailPage — claiming', () => {
     expect(screen.queryByRole('button', { name: /^claim/i })).not.toBeInTheDocument()
   })
 })
+
+// A picker on a phone had no way to let go of an order: Release lived only in the desktop
+// navigation, and "Complete" on the review screen navigated away while still holding the claim.
+// With one claim per employee enforced server-side, that left them unable to start anything else.
+describe('OrderDetailPage on a phone — letting go of an order', () => {
+  let restore: (() => void) | null = null
+
+  beforeEach(() => {
+    vi.mocked(authApi.me).mockResolvedValue({
+      employeeId: 1,
+      displayName: 'Test Picker',
+      role: 'Picker',
+    })
+    restore = installMatchMedia(390).restore
+  })
+
+  afterEach(() => {
+    restore?.()
+    restore = null
+  })
+
+  it('offers Release while holding the order', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      claimedOrder([buildLine({ productName: 'Only Card' })]),
+    )
+
+    renderPage()
+
+    await screen.findByRole('article')
+    expect(screen.getByRole('button', { name: /^release$/i })).toBeInTheDocument()
+  })
+
+  it('offers no Release on an order it does not hold', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      ...claimedOrder([buildLine({ productName: 'Only Card' })]),
+      claimedByEmployeeId: 2,
+      claimedByEmployeeName: 'Sam',
+    })
+
+    renderPage()
+
+    await screen.findByRole('article')
+    expect(screen.queryByRole('button', { name: /^release$/i })).not.toBeInTheDocument()
+  })
+
+  it('releases the claim when the picker completes the order', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      claimedOrder([buildLine({ productName: 'Only Card', pickOutcome: 'picked' })]),
+    )
+    vi.mocked(ordersApi.releaseOrder).mockResolvedValue(undefined)
+
+    renderPage()
+    await screen.findByRole('article')
+
+    // Past the last card is the review screen.
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(await screen.findByRole('button', { name: /^complete/i }))
+
+    // Completing without releasing leaves the picker holding an order they have finished, and
+    // unable to claim another.
+    expect(ordersApi.releaseOrder).toHaveBeenCalledWith(42)
+    expect(await screen.findByText('Browse Orders list')).toBeInTheDocument()
+  })
+
+  it('keeps the picker on the order when completing fails', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      claimedOrder([buildLine({ productName: 'Only Card', pickOutcome: 'picked' })]),
+    )
+    vi.mocked(ordersApi.releaseOrder).mockRejectedValue(new Error('network'))
+
+    renderPage()
+    await screen.findByRole('article')
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(await screen.findByRole('button', { name: /^complete/i }))
+
+    // Navigating away on a failed release would report work as handed off when it was not.
+    expect(screen.queryByText('Browse Orders list')).not.toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent(/couldn't/i)
+  })
+})

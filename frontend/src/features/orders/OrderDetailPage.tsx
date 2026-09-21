@@ -232,9 +232,20 @@ export function OrderDetailPage() {
           </span>
           {/* Labelled, because the band below shows a position and this is a count — two
               "X of Y" numbers on one screen would otherwise read as the same kind of thing. */}
-          {/* Claiming lives in the dock beside the card, not up here: on an unclaimed order it
-              is the action, and a chip in a thin bar is the wrong weight and the wrong reach. */}
-          <span className="order-detail-bar__progress">{`${confirmedLineCount} picked`}</span>
+          {/* Claiming lives in the dock beside the card, because on an unclaimed order it is
+              THE action. Releasing is the opposite: rare, and reached deliberately, so a small
+              control up here is the right weight. Without it a phone had no way to let go of an
+              order at all. Progress is not repeated here — the card carries it. */}
+          {canRelease && (
+            <button
+              type="button"
+              className="order-detail-bar__release"
+              onClick={handleRelease}
+              disabled={isReleasing}
+            >
+              {isReleasing ? 'Releasing…' : 'Release'}
+            </button>
+          )}
         </header>
       ) : (
         <header className="order-detail-header">
@@ -322,9 +333,10 @@ export function OrderDetailPage() {
           onReportIssue={handleReportIssue}
           // Feature 017's pick completion screen plugs in here. Until it exists, finishing
           // shows the whole order rather than a dead end.
-          // Feature 017's pick completion and label print plug in here. Until they exist,
-          // completing returns the picker to the order list to claim the next one.
-          onCompleted={() => navigate('/orders')}
+          // Completing releases the claim. One claim per employee is enforced server-side, so
+          // a picker who finished an order while still holding it could never start another.
+          // Feature 017's label print and Packed state plug in alongside this.
+          onCompleted={handleRelease}
           canClaim={canClaim}
           isClaiming={isClaiming}
           onClaim={handleClaim}
