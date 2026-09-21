@@ -162,8 +162,9 @@ dashboard holding it and confirm it offers to resume.
   - 228 backend unit, 181 backend integration, 183 frontend unit, 24 Playwright — all passing.
 - [X] T056 Walk [quickstart.md](quickstart.md) manually, including the order line with no recorded set
   - Story 2's steps were rewritten on 2026-09-20 to match the approved spec. They had described the set-transition panel and the three-choice guard (both removed by FR-019a), the view toggle and the `localStorage`-blocked fallback (both removed by FR-009). Walked against the corrected steps and passed, 2026-09-21.
-- [ ] T057 Run `/branch-review` and resolve every Required finding before `/speckit-converge`
-  - First round, 2026-09-21: **PASS WITH SUGGESTIONS** — zero Required findings, three Optional (BR-001 to BR-003). The Product Owner accepted all three; they are planned as Phase 7 below. Re-run after Phase 7 to confirm the remediation introduced nothing.
+- [X] T057 Run `/branch-review` and resolve every Required finding before `/speckit-converge`
+  - First round, 2026-09-21: **PASS WITH SUGGESTIONS** — zero Required findings, three Optional (BR-001 to BR-003). The Product Owner accepted all three; they are planned as Phase 7 below.
+  - Second round, 2026-09-21, after Phase 7: **PASS** — zero Required, zero Optional. All three round-1 findings verified resolved in the code rather than from the checkboxes. No third round: a round producing no Required findings is the stopping point.
 
 ---
 
