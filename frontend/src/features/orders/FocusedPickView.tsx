@@ -98,6 +98,7 @@ export function FocusedPickView({
     return (
       <OrderFinish
         groups={groups}
+        isHolding={canRecordOutcome}
         onReturnToLine={(lineId) => goTo(lineId)}
         onComplete={() => onCompleted?.()}
         onBackToCards={() => setIsReviewing(false)}

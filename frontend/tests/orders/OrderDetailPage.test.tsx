@@ -862,7 +862,7 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
 
     // Past the last card is the review screen.
     await user.click(screen.getByRole('button', { name: /next card/i }))
-    await user.click(await screen.findByRole('button', { name: /^complete/i }))
+    await user.click(await screen.findByRole('button', { name: /finish picking/i }))
 
     // Completing without releasing leaves the picker holding an order they have finished, and
     // unable to claim another.
@@ -880,7 +880,7 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
     renderPage()
     await screen.findByRole('article')
     await user.click(screen.getByRole('button', { name: /next card/i }))
-    await user.click(await screen.findByRole('button', { name: /^complete/i }))
+    await user.click(await screen.findByRole('button', { name: /finish picking/i }))
 
     // Navigating away on a failed release would report work as handed off when it was not.
     expect(screen.queryByText('Browse Orders list')).not.toBeInTheDocument()

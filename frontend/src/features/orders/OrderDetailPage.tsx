@@ -333,10 +333,11 @@ export function OrderDetailPage() {
           onReportIssue={handleReportIssue}
           // Feature 017's pick completion screen plugs in here. Until it exists, finishing
           // shows the whole order rather than a dead end.
-          // Completing releases the claim. One claim per employee is enforced server-side, so
-          // a picker who finished an order while still holding it could never start another.
-          // Feature 017's label print and Packed state plug in alongside this.
-          onCompleted={handleRelease}
+          // Finishing releases the claim — one claim per employee is enforced server-side, so a
+          // picker still holding a finished order could never start another. Someone who never
+          // held it is only closing a screen: releasing there asks the server to give up a claim
+          // they do not have, which simply fails. Feature 017's label print plugs in here.
+          onCompleted={canRelease ? handleRelease : () => navigate('/orders')}
           canClaim={canClaim}
           isClaiming={isClaiming}
           onClaim={handleClaim}

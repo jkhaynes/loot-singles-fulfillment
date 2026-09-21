@@ -11,12 +11,17 @@ function headlineCount(container: HTMLElement): string {
   return container.querySelector('.order-finish__count')?.textContent ?? ''
 }
 
-function renderFinish(lines: OrderLineDetail[]) {
+function renderFinish(
+  lines: OrderLineDetail[],
+  overrides: Partial<Parameters<typeof OrderFinish>[0]> = {},
+) {
   const props = {
     groups: groupOrderLines(lines),
+    isHolding: true,
     onReturnToLine: vi.fn(),
     onComplete: vi.fn(),
     onBackToCards: vi.fn(),
+    ...overrides,
   }
   return { props, ...render(<OrderFinish {...props} />) }
 }
@@ -57,7 +62,7 @@ describe('OrderFinish — the countable number', () => {
   it('restates the count on the completing button', () => {
     renderFinish([buildLine({ set: 'Alpha', quantity: 3, pickOutcome: 'picked' })])
 
-    expect(screen.getByRole('button', { name: /complete — 3 cards/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /finish picking — 3 cards/i })).toBeInTheDocument()
   })
 })
 
@@ -135,7 +140,7 @@ describe('OrderFinish — completing', () => {
     const lines = [buildLine({ set: 'Alpha', pickOutcome: 'picked' })]
     const { props } = renderFinish(lines)
 
-    await user.click(screen.getByRole('button', { name: /^complete/i }))
+    await user.click(screen.getByRole('button', { name: /finish picking/i }))
 
     expect(props.onComplete).toHaveBeenCalledTimes(1)
     expect(props.onReturnToLine).not.toHaveBeenCalled()
@@ -149,5 +154,35 @@ describe('OrderFinish — completing', () => {
 
     expect(props.onBackToCards).toHaveBeenCalledTimes(1)
     expect(props.onComplete).not.toHaveBeenCalled()
+  })
+})
+
+// Viewing an order you do not hold and pressing the primary action tried to release a claim
+// that was never yours, and failed with an error. Nothing is being finished there — the picker
+// is just closing a screen they were looking at.
+describe('OrderFinish — when the order is not held', () => {
+  it('offers to close rather than to finish picking', () => {
+    renderFinish([buildLine({ set: 'Alpha', pickOutcome: 'picked' })], { isHolding: false })
+
+    expect(screen.getByRole('button', { name: /^close$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /finish picking/i })).not.toBeInTheDocument()
+  })
+
+  it('does not offer a card count it has no claim over', () => {
+    renderFinish([buildLine({ set: 'Alpha', quantity: 3, pickOutcome: 'picked' })], {
+      isHolding: false,
+    })
+
+    // "Finish picking — 3 cards" would imply this employee pulled them.
+    expect(screen.queryByRole('button', { name: /3 cards/i })).not.toBeInTheDocument()
+  })
+
+  it('names what it does when the order IS held', () => {
+    renderFinish([buildLine({ set: 'Alpha', quantity: 3, pickOutcome: 'picked' })], {
+      isHolding: true,
+    })
+
+    // Finishing the picking, not completing the order — it still has to be packed (PRD §36).
+    expect(screen.getByRole('button', { name: /finish picking — 3 cards/i })).toBeInTheDocument()
   })
 })

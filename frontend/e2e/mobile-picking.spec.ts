@@ -65,7 +65,7 @@ test('picks through an order one card at a time, and never records by moving', a
   await expect(page.getByText(/count the sleeve/i)).toBeVisible()
   // Two cards pulled from the quantity-2 line; First and Third were never resolved, and the
   // headline counts what is in the sleeve rather than what was ordered.
-  await expect(page.getByRole('button', { name: /complete — 2 cards/i })).toBeVisible()
+  await expect(page.getByRole('button', { name: /finish picking — 2 cards/i })).toBeVisible()
   await expect(page.getByText(/2 not looked at/i)).toBeVisible()
 
   // Every product is listed whatever its outcome, and any of them can be jumped back to.
@@ -82,7 +82,7 @@ test('picks through an order one card at a time, and never records by moving', a
   await next(page).click()
   await next(page).click()
   await expect(page.getByText(/count the sleeve/i)).toBeVisible()
-  await page.getByRole('button', { name: /^complete/i }).click()
+  await page.getByRole('button', { name: /finish picking/i }).click()
   await expect(page).toHaveURL(/\/orders$/)
 
   // The order is free again: claimable, and no longer held by this picker.
@@ -116,7 +116,17 @@ test('offers a way out to the dashboard from every card', async ({ page }) => {
   expect(box!.height).toBeGreaterThanOrEqual(48)
   expect(box!.width).toBeGreaterThan(300)
 
+  // The review of an order nobody holds closes the screen. It used to offer "Complete", which
+  // tried to release a claim this employee never had and failed with an error.
+  for (let i = 0; i < 5; i += 1) await next(page).click()
+  await expect(page.getByText(/count the sleeve/i)).toBeVisible()
+  await expect(page.getByRole('button', { name: /finish picking/i })).toHaveCount(0)
+  await page.getByRole('button', { name: /^close$/i }).click()
+  await expect(page).toHaveURL(/\/orders$/)
+  await expect(page.getByRole('alert')).toHaveCount(0)
+
   // Until this replaced the view toggle, a picker was stuck on an order until its end.
+  await page.getByRole('link', { name: 'E2E-ORDER-00006' }).click()
   await page.getByRole('link', { name: /dashboard/i }).click()
   await expect(page).toHaveURL(/localhost:\d+\/$/)
 })

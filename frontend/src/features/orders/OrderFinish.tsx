@@ -17,8 +17,14 @@ import type { OrderLineDetail } from './ordersApi'
 
 export interface OrderFinishProps {
   groups: SetGroup[]
+  /**
+   * Whether this employee holds the order's claim. Someone looking at an order they do not hold
+   * is not finishing anything — they are closing a screen, and pressing a button that tried to
+   * release a claim they never had simply failed with an error.
+   */
+  isHolding: boolean
   onReturnToLine: (lineId: number) => void
-  /** Complete the order. Enabled whatever is outstanding; finishing short is deliberate. */
+  /** Hand the order on, or just leave it. Finishing short is deliberate and still allowed. */
   onComplete: () => void
   onBackToCards: () => void
 }
@@ -39,6 +45,7 @@ function statusOf(line: OrderLineDetail): 'picked' | 'issue' | 'open' {
 
 export function OrderFinish({
   groups,
+  isHolding,
   onReturnToLine,
   onComplete,
   onBackToCards,
@@ -109,8 +116,13 @@ export function OrderFinish({
       </div>
 
       <div className="order-finish__dock">
+        {/* "Finish picking", not "Complete": the picking is what ends here. The order still has
+            to be packed and dispatched (PRD §36), so claiming it is complete overstates what
+            just happened. Without the claim there is nothing to finish at all. */}
         <button type="button" className="order-finish__primary" onClick={onComplete}>
-          {`Complete — ${cardsInHand} ${cardsInHand === 1 ? 'card' : 'cards'}`}
+          {isHolding
+            ? `Finish picking — ${cardsInHand} ${cardsInHand === 1 ? 'card' : 'cards'}`
+            : 'Close'}
         </button>
         <button type="button" className="order-finish__secondary" onClick={onBackToCards}>
           Back to the cards

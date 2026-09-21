@@ -319,7 +319,7 @@ describe('FocusedPickView — the final review', () => {
     const { props } = renderView(lines, { onCompleted })
 
     await user.click(next())
-    await user.click(screen.getByRole('button', { name: /^complete/i }))
+    await user.click(screen.getByRole('button', { name: /finish picking/i }))
 
     expect(onCompleted).toHaveBeenCalledTimes(1)
     expect(props.onPicked).not.toHaveBeenCalled()
