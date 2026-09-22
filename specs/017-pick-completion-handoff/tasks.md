@@ -378,6 +378,24 @@ manager. It's a rare race path, and the order is correctly refused either way.
 
 - [X] T109 [US2] Add an integration test to `backend/tests/LootSingles.IntegrationTests/Packing/PackingDeskTests.cs`: resolve an order that is claimed and in progress, with one line picked and one line with no outcome and no reported issue, and assert `canPack` is false, the blocked reason says the order has not finished picking, and `unresolvedProducts` is empty. Confirm it would catch the round-3 mistake by temporarily switching `Packability` back to `label.IsHeld` and watching it fail, then restore it
 
+### Branch review remediation, round 5 (2026-09-21)
+
+**BR-001 (Required, Low): the desktop half of T111 was changed without a test.** T111 also made
+the ending screen show its own errors on desktop, where the header that normally shows them is
+hidden. The T110 test runs at phone width, where errors were already shown, so it passes with or
+without that change. Constitution Principle IV requires a failing test before any behaviour
+change. The code change is already in place, so this test is proven by temporarily reverting the
+display condition, not by writing a fix after it.
+
+- [X] T112 [US1] Add an RTL test in `frontend/tests/orders/OrderDetailPage.test.tsx` at desktop width (`installMatchMedia(false)`, as the packed-order tests do): finish an order, tap **Next order** with `pickNextOrder` rejecting with `NoOrdersAvailableError`, and assert the "No orders are currently available to pick." message is shown. Prove it: temporarily put the display condition in `frontend/src/features/orders/OrderDetailPage.tsx` back to `actionError && isFocused`, watch the test fail, then restore it
+
+> **Done differently from the wording above, because its premise was wrong.** Finish exists only in
+> the phone's card view, so a desktop picker never reaches the ending screen and a desktop-width test
+> of it cannot be built. What makes the desktop layout show up on the ending is a phone turned
+> sideways: 844px in landscape is wider than the 767px breakpoint. The test finishes at phone width,
+> rotates the phone, then taps Next order. It failed with the display rule put back to
+> `actionError && isFocused`, and passes as the code is now.
+
 ---
 
 ### Ordinary gates

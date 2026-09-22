@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -1034,6 +1034,47 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
       await screen.findByText('No orders are currently available to pick.'),
     ).toBeInTheDocument()
     expect(screen.queryByText('Browse Orders list')).not.toBeInTheDocument()
+  })
+
+  // Branch review round 5 (T112). The ending is reached only from the phone's card view, but a
+  // phone turned sideways is wider than the breakpoint, and the page switches to the desktop
+  // layout with the ending still up. That layout shows errors in a header the ending hides, so
+  // Next order's "nothing to pick" message was drawn nowhere.
+  it('still says so after the phone is turned sideways on the ending', async () => {
+    restore?.()
+    const media = installMatchMedia(390)
+    restore = media.restore
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      claimedOrder([buildLine({ productName: 'Only Card', pickOutcome: 'picked' })]),
+    )
+    vi.mocked(ordersApi.releaseOrder).mockResolvedValue(undefined)
+    vi.mocked(ordersApi.getOrderLabel).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      cardCount: 1,
+      pickedBy: [{ employeeId: 1, displayName: 'Test Picker' }],
+      pickedAt: '2026-09-21T14:14:00Z',
+      isHeld: false,
+      unresolvedProducts: [],
+      setAsideCount: null,
+      shipsShort: false,
+    })
+    vi.mocked(ordersApi.pickNextOrder).mockRejectedValue(new ordersApi.NoOrdersAvailableError())
+
+    renderPage()
+    await screen.findByRole('article')
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(await screen.findByRole('button', { name: /finish picking/i }))
+    await screen.findByText('Pick complete')
+
+    // Landscape on a 390x844 phone.
+    act(() => media.setWidth(844))
+    await user.click(screen.getByRole('button', { name: /next order/i }))
+
+    expect(
+      await screen.findByText('No orders are currently available to pick.'),
+    ).toBeInTheDocument()
   })
 
   it('keeps the picker on the order when completing fails', async () => {
