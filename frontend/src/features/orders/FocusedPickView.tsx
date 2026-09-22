@@ -3,8 +3,9 @@ import { advanceFrom, computeProgress, setGroupOf } from './orderGrouping'
 import type { SetGroup } from './orderGrouping'
 import { OrderFinish } from './OrderFinish'
 import { ReportIssueForm } from './ReportIssueForm'
+import { ReportedIssueDetails } from './ReportedIssueDetails'
 import { pickingIssueTypeLabel } from './ordersApi'
-import type { ReportIssueRequest } from './ordersApi'
+import type { PickingIssueDetail, ReportIssueRequest } from './ordersApi'
 
 /**
  * Picking one card at a time (016-mobile-picking, PRD §8, §12, §18).
@@ -58,6 +59,8 @@ export function FocusedPickView({
   )
   const [isReviewing, setIsReviewing] = useState(false)
   const [isReportingIssue, setIsReportingIssue] = useState(false)
+  /** The reported-issue sheet, opened only from the chip (018 FR-009). */
+  const [isShowingIssue, setIsShowingIssue] = useState(false)
   const [enteredSet, setEnteredSet] = useState<SetGroup | null>(null)
   const [touchStartX, setTouchStartX] = useState<number | null>(null)
 
@@ -74,6 +77,7 @@ export function FocusedPickView({
     setEnteredSet(entering)
     setIsReviewing(false)
     setIsReportingIssue(false)
+    setIsShowingIssue(false)
   }
 
   function goNext() {
@@ -108,6 +112,10 @@ export function FocusedPickView({
 
   const isRecording = recordingLineId === line.id
   const isPicked = line.pickOutcome === 'picked'
+  const isReported = line.pickOutcome === 'hasIssue'
+  // Shown only while the product is still reported (018 research §2): a correction that saves
+  // takes the sheet away with the report, and one that fails leaves both where they were.
+  const issue = isShowingIssue && isReported ? line.currentIssue : null
   // Mirrors the "2 of 3" beside it, so the bar and the number never disagree. It shows where
   // the picker is, not what has been pulled — the review screen is where that gets checked.
   const boxFill = progress.currentSetSize
@@ -179,10 +187,21 @@ export function FocusedPickView({
           </p>
         )}
 
-        {line.currentIssue && (
-          <p className="focused-pick__issue">
+        {/* A reported product names its issue here, always by type: the counts belong in the
+            detail, and a number on the card beside the quantity would be read as the quantity
+            (018 FR-001, FR-002). */}
+        {isReported && line.currentIssue && (
+          <button
+            type="button"
+            className="focused-pick__issue"
+            onClick={() => setIsShowingIssue(true)}
+          >
+            <span className="focused-pick__issueMark" aria-hidden="true">
+              !
+            </span>
             {pickingIssueTypeLabel(line.currentIssue.issueType)}
-          </p>
+            <span aria-hidden="true">›</span>
+          </button>
         )}
       </article>
 
@@ -190,6 +209,9 @@ export function FocusedPickView({
         <ReportIssueForm
           lineId={line.id}
           isSubmitting={isRecording}
+          // On a reported product the form is only reachable from Edit report, so it starts
+          // from the report being changed (018 FR-016).
+          initial={isReported ? line.currentIssue : null}
           onCancel={() => setIsReportingIssue(false)}
           onSubmit={(request) => {
             setIsReportingIssue(false)
@@ -200,7 +222,14 @@ export function FocusedPickView({
 
       {/* Pinned in thumb reach: the record action is never scrolled past. */}
       <div className="focused-pick__dock">
-        {canRecordOutcome && !isReportingIssue ? (
+        {canRecordOutcome && isReported && line.currentIssue && !isReportingIssue ? (
+          // A reported product offers only moving on. The Picked button used to stay, reading
+          // "Pulled all 4" on a product reported as 3 of 4, and one tap on it replaced the report
+          // (018 FR-005, FR-006). Corrections live behind the chip, not in the dock.
+          <button type="button" className="focused-pick__picked" onClick={goNext}>
+            Next card ›
+          </button>
+        ) : canRecordOutcome && !isReportingIssue ? (
           <>
             <button
               type="button"
@@ -266,6 +295,76 @@ export function FocusedPickView({
           </button>
         </nav>
       </div>
+
+      {issue && (
+        <ReportedIssueSheet
+          issue={issue}
+          // Corrections are recording, so they follow the same rule the dock does (018 FR-018).
+          corrections={
+            canRecordOutcome
+              ? {
+                  isSaving: isRecording,
+                  onResolved: () => onPicked(line.id),
+                  onEdit: () => {
+                    setIsShowingIssue(false)
+                    setIsReportingIssue(true)
+                  },
+                }
+              : null
+          }
+          onClose={() => setIsShowingIssue(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * What was reported on the current product (018 US2), and the two corrections (US3). The details
+ * follow the rules shared with the desktop's issue panel (`ReportedIssueDetails`).
+ */
+function ReportedIssueSheet({
+  issue,
+  corrections,
+  onClose,
+}: {
+  issue: PickingIssueDetail
+  /** Present only when the picker can record; otherwise the sheet is read-only. */
+  corrections: {
+    isSaving: boolean
+    onResolved: () => void
+    onEdit: () => void
+  } | null
+  onClose: () => void
+}) {
+  return (
+    <div className="focused-pick__sheetBackdrop">
+      <section role="dialog" aria-label="Reported issue" className="focused-pick__sheet">
+        <h3 className="focused-pick__sheetTitle">Reported issue</h3>
+        <ReportedIssueDetails issue={issue} className="focused-pick__sheetFacts" />
+        <div className="focused-pick__sheetActions">
+          {corrections && (
+            <>
+              {/* Records the product as picked, replacing the report as any later outcome does
+                  (015), whatever the issue was (018 FR-015). The sheet stays up until that lands,
+                  so a failed save changes nothing. */}
+              <button
+                type="button"
+                disabled={corrections.isSaving}
+                onClick={corrections.onResolved}
+              >
+                Resolved
+              </button>
+              <button type="button" disabled={corrections.isSaving} onClick={corrections.onEdit}>
+                Edit report
+              </button>
+            </>
+          )}
+          <button type="button" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </section>
     </div>
   )
 }

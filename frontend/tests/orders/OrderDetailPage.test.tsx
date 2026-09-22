@@ -6,7 +6,7 @@ import { OrderDetailPage } from '../../src/features/orders/OrderDetailPage'
 import * as ordersApi from '../../src/features/orders/ordersApi'
 import { AuthProvider } from '../../src/features/auth/AuthContext'
 import * as authApi from '../../src/features/auth/authApi'
-import { buildLine, buildMultiGameLines } from '../support/orderBuilders'
+import { buildIssueLine, buildLine, buildMultiGameLines } from '../support/orderBuilders'
 import { installMatchMedia } from '../support/matchMedia'
 
 vi.mock('../../src/features/orders/ordersApi', async (original) => ({
@@ -889,7 +889,7 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
     await screen.findByRole('article')
 
     // Past the last card is the review screen.
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     await user.click(await screen.findByRole('button', { name: /finish picking/i }))
 
     // Completing without releasing leaves the picker holding an order they have finished, and
@@ -937,13 +937,13 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
 
     renderPage()
     await screen.findByRole('article')
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     await user.click(await screen.findByRole('button', { name: /finish picking/i }))
     await screen.findByText('Pick complete')
 
     await user.click(screen.getByRole('button', { name: /next order/i }))
     await screen.findByRole('article')
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     await user.click(await screen.findByRole('button', { name: /finish picking/i }))
 
     expect(await screen.findByText('Pick complete')).toBeInTheDocument()
@@ -990,7 +990,7 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
     await user.click(screen.getByRole('button', { name: /submit issue/i }))
 
     // The report is still in flight: move on and finish anyway, as a quick thumb does.
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     await user.click(await screen.findByRole('button', { name: /finish picking/i }))
 
     expect(ordersApi.getOrderLabel).not.toHaveBeenCalled()
@@ -1024,7 +1024,7 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
 
     renderPage()
     await screen.findByRole('article')
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     await user.click(await screen.findByRole('button', { name: /finish picking/i }))
     await screen.findByText('Pick complete')
 
@@ -1064,7 +1064,7 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
 
     renderPage()
     await screen.findByRole('article')
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     await user.click(await screen.findByRole('button', { name: /finish picking/i }))
     await screen.findByText('Pick complete')
 
@@ -1086,7 +1086,7 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
 
     renderPage()
     await screen.findByRole('article')
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     await user.click(await screen.findByRole('button', { name: /finish picking/i }))
 
     // Navigating away on a failed release would report work as handed off when it was not.
@@ -1109,7 +1109,7 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
     renderPage()
     await screen.findByRole('article')
 
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     // The button says what it does: nothing is being finished here.
     expect(screen.queryByRole('button', { name: /finish picking/i })).not.toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: /^close$/i }))
@@ -1164,5 +1164,197 @@ describe('OrderDetailPage — a packed order is not claimable', () => {
     await screen.findByRole('article')
 
     expect(screen.getByRole('button', { name: /^claim$/i })).toBeInTheDocument()
+  })
+})
+
+// 018 US4 (amended 2026-09-22). A reported row on the desktop kept Picked, which replaced the report
+// with no hint that it would, and Report Issue opened a blank form, so changing a report meant
+// entering it all again. A reported row now shows what was reported, with Resolved and Edit report.
+describe('OrderDetailPage — a reported row (018 US4)', () => {
+  const report: ordersApi.PickingIssueDetail = {
+    issueType: 'cardNotFound',
+    requiredQuantity: 4,
+    foundQuantity: 3,
+    note: 'Only 3 in the binder slot',
+    reportedByEmployeeName: 'Sam',
+    reportedAt: '2026-09-22T10:51:00Z',
+  }
+  const when = new Date(report.reportedAt).toLocaleString()
+
+  function desktopOrder(
+    currentIssue: ordersApi.PickingIssueDetail = report,
+    claimedByEmployeeId = 1,
+  ): ordersApi.OrderDetail {
+    return {
+      ...claimedOrder([
+        buildIssueLine({ id: 1, productName: 'Charizard ex', quantity: 4, currentIssue }),
+        buildLine({ id: 2, productName: 'Untouched Card' }),
+        buildLine({ id: 3, productName: 'Pulled Card', pickOutcome: 'picked' }),
+      ]),
+      status: 'needsAttention',
+      claimedByEmployeeId,
+      claimedByEmployeeName: claimedByEmployeeId === 1 ? 'Test Picker' : 'Sam',
+    }
+  }
+
+  const row = (name: string) => screen.getByRole('article', { name: `Product ${name}` })
+  const reportedRow = async () => {
+    await screen.findByRole('article', { name: 'Product Charizard ex' })
+    return row('Charizard ex')
+  }
+
+  beforeEach(() => {
+    vi.resetAllMocks()
+    installMatchMedia(1280)
+    vi.mocked(authApi.me).mockResolvedValue({
+      employeeId: 1,
+      displayName: 'Test Picker',
+      role: 'Picker',
+    })
+  })
+
+  // T030
+  it('shows what was reported, and offers Resolved and Edit report instead of Picked', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(desktopOrder())
+
+    renderPage()
+    const reported = await reportedRow()
+
+    const panel = within(reported).getByRole('status')
+    expect(within(panel).getByText('Card Not Found')).toBeInTheDocument()
+    expect(within(panel).getByText('Required 4 · Found 3')).toBeInTheDocument()
+    expect(within(panel).getByText('Only 3 in the binder slot')).toBeInTheDocument()
+    expect(within(panel).getByText(`Sam · ${when}`)).toBeInTheDocument()
+    expect(panel).not.toHaveTextContent(/pulled|short/i)
+    expect(within(reported).getByRole('button', { name: 'Resolved' })).toBeInTheDocument()
+    expect(within(reported).getByRole('button', { name: 'Edit report' })).toBeInTheDocument()
+    expect(within(reported).queryByRole('button', { name: 'Picked' })).not.toBeInTheDocument()
+    expect(within(reported).queryByRole('button', { name: 'Report Issue' })).not.toBeInTheDocument()
+  })
+
+  it('shows a damaged-card report with no counts line', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      desktopOrder({
+        ...report,
+        issueType: 'damaged',
+        requiredQuantity: null,
+        foundQuantity: null,
+        note: 'Corner crease, and it is the only copy',
+      }),
+    )
+
+    renderPage()
+    const panel = within(await reportedRow()).getByRole('status')
+
+    expect(within(panel).getByText('Damaged')).toBeInTheDocument()
+    expect(within(panel).getByText('Corner crease, and it is the only copy')).toBeInTheDocument()
+    expect(panel).not.toHaveTextContent(/Required/)
+  })
+
+  it('records the product as picked when the report is resolved', async () => {
+    const order = desktopOrder()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(order)
+    vi.mocked(ordersApi.recordPicked).mockResolvedValue({
+      ...order,
+      lines: order.lines.map((l) =>
+        l.id === 1 ? { ...l, pickOutcome: 'picked' as const, currentIssue: null } : l,
+      ),
+    })
+
+    renderPage()
+    await userEvent.click(within(await reportedRow()).getByRole('button', { name: 'Resolved' }))
+
+    expect(ordersApi.recordPicked).toHaveBeenCalledWith(42, 1)
+    expect(
+      await within(row('Charizard ex')).findByRole('button', { name: 'Picked' }),
+    ).toHaveAttribute('aria-pressed', 'true')
+    expect(within(row('Charizard ex')).queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('cannot be tapped again while resolving, and keeps the report if it fails', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(desktopOrder())
+    let fail: (reason: Error) => void = () => {}
+    vi.mocked(ordersApi.recordPicked).mockImplementation(
+      () => new Promise((_resolve, reject) => (fail = reject)),
+    )
+
+    renderPage()
+    const reported = await reportedRow()
+    await userEvent.click(within(reported).getByRole('button', { name: 'Resolved' }))
+
+    expect(within(reported).getByRole('button', { name: 'Resolved' })).toBeDisabled()
+    expect(within(reported).getByRole('button', { name: 'Edit report' })).toBeDisabled()
+
+    fail(new Error('network'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/couldn't record/i)
+    expect(within(row('Charizard ex')).getByRole('status')).toHaveTextContent('Card Not Found')
+  })
+
+  it('edits the report in the row, starting from what was reported', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(desktopOrder())
+    vi.mocked(ordersApi.reportIssue).mockResolvedValue(desktopOrder())
+
+    renderPage()
+    const reported = await reportedRow()
+    await userEvent.click(within(reported).getByRole('button', { name: 'Edit report' }))
+
+    expect(within(reported).getByLabelText('Issue type')).toHaveValue('cardNotFound')
+    expect(within(reported).getByLabelText('Quantity required')).toHaveValue(4)
+    expect(within(reported).getByLabelText('Quantity found')).toHaveValue(3)
+    expect(within(reported).getByLabelText('Note (optional)')).toHaveValue(
+      'Only 3 in the binder slot',
+    )
+    expect(within(reported).queryByRole('button', { name: 'Resolved' })).not.toBeInTheDocument()
+    expect(within(reported).queryByRole('button', { name: 'Edit report' })).not.toBeInTheDocument()
+
+    const note = within(reported).getByLabelText('Note (optional)')
+    await userEvent.clear(note)
+    await userEvent.type(note, 'Found one more in the back')
+    await userEvent.click(within(reported).getByRole('button', { name: 'Submit Issue' }))
+
+    expect(ordersApi.reportIssue).toHaveBeenCalledWith(42, 1, {
+      issueType: 'cardNotFound',
+      requiredQuantity: 4,
+      foundQuantity: 3,
+      note: 'Found one more in the back',
+    })
+  })
+
+  it('changes nothing when editing is cancelled', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(desktopOrder())
+
+    renderPage()
+    const reported = await reportedRow()
+    await userEvent.click(within(reported).getByRole('button', { name: 'Edit report' }))
+    await userEvent.click(within(reported).getByRole('button', { name: 'Cancel' }))
+
+    expect(ordersApi.reportIssue).not.toHaveBeenCalled()
+    expect(within(reported).getByRole('button', { name: 'Edit report' })).toBeInTheDocument()
+  })
+
+  it('shows the report, with no way to change it, to someone who does not hold the order', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(desktopOrder(report, 2))
+
+    renderPage()
+    const reported = await reportedRow()
+
+    expect(within(reported).getByRole('status')).toHaveTextContent('Card Not Found')
+    expect(within(reported).queryByRole('button', { name: 'Resolved' })).not.toBeInTheDocument()
+    expect(within(reported).queryByRole('button', { name: 'Edit report' })).not.toBeInTheDocument()
+  })
+
+  // T031 — what must not change.
+  it('leaves rows without a report as they were', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(desktopOrder())
+
+    renderPage()
+    await reportedRow()
+
+    for (const name of ['Untouched Card', 'Pulled Card']) {
+      expect(within(row(name)).getByRole('button', { name: 'Picked' })).toBeInTheDocument()
+      expect(within(row(name)).getByRole('button', { name: 'Report Issue' })).toBeInTheDocument()
+      expect(within(row(name)).queryByRole('status')).not.toBeInTheDocument()
+    }
   })
 })

@@ -14,7 +14,6 @@ import {
   recordPicked,
   reportIssue,
   orderStatusLabel,
-  pickingIssueTypeLabel,
   OrderNotFoundError,
 } from './ordersApi'
 import type { OrderDetail, ReportIssueRequest } from './ordersApi'
@@ -26,6 +25,7 @@ import { PickEnding } from './PickEnding'
 import { PrintLabelButton } from '../labels/PrintLabelButton'
 import type { LabelContent } from './ordersApi'
 import { ReportIssueForm } from './ReportIssueForm'
+import { ReportedIssueDetails } from './ReportedIssueDetails'
 import './OrderDetailPage.css'
 
 type LoadState = 'loading' | 'loaded' | 'not-found' | 'error'
@@ -534,46 +534,69 @@ export function OrderDetailPage() {
                         </dd>
                       </div>
                     </dl>
-                    {line.currentIssue && (
-                      <p className="order-detail-line__issue" role="status">
-                        <strong data-emphasis="high">
-                          {pickingIssueTypeLabel(line.currentIssue.issueType)}
-                        </strong>
-                        {line.currentIssue.requiredQuantity !== null &&
-                          line.currentIssue.foundQuantity !== null &&
-                          ` · found ${line.currentIssue.foundQuantity} of ${line.currentIssue.requiredQuantity}`}
-                        {line.currentIssue.note && ` · ${line.currentIssue.note}`}
-                        {line.currentIssue.reportedByEmployeeName &&
-                          ` · reported by ${line.currentIssue.reportedByEmployeeName}`}
-                      </p>
-                    )}
-                    {canRecordOutcome && (
-                      <div className="order-detail-line__actions">
-                        <button
-                          type="button"
-                          className="order-detail-line__picked"
-                          aria-pressed={line.pickOutcome === 'picked'}
-                          disabled={recordingLineId === line.id}
-                          onClick={() => handlePicked(line.id)}
-                        >
-                          Picked
-                        </button>
-                        {issueFormLineId !== line.id && (
-                          <button
-                            type="button"
-                            className="order-detail-line__report"
-                            disabled={recordingLineId === line.id}
-                            onClick={() => setIssueFormLineId(line.id)}
-                          >
-                            Report Issue
-                          </button>
+                    {line.pickOutcome === 'hasIssue' && line.currentIssue ? (
+                      // A reported row shows what was reported, by the rules the phone's sheet uses,
+                      // and offers the two corrections in place of Picked and Report Issue. Picked
+                      // used to sit here, replacing the report with no hint that it would, and Report
+                      // Issue opened a blank form (018 FR-022-FR-024).
+                      <div className="order-detail-line__issue" role="status">
+                        <ReportedIssueDetails
+                          issue={line.currentIssue}
+                          className="order-detail-line__issueFacts"
+                        />
+                        {canRecordOutcome && issueFormLineId !== line.id && (
+                          <div className="order-detail-line__actions">
+                            <button
+                              type="button"
+                              className="order-detail-line__picked"
+                              disabled={recordingLineId === line.id}
+                              onClick={() => handlePicked(line.id)}
+                            >
+                              Resolved
+                            </button>
+                            <button
+                              type="button"
+                              className="order-detail-line__report"
+                              disabled={recordingLineId === line.id}
+                              onClick={() => setIssueFormLineId(line.id)}
+                            >
+                              Edit report
+                            </button>
+                          </div>
                         )}
                       </div>
+                    ) : (
+                      canRecordOutcome && (
+                        <div className="order-detail-line__actions">
+                          <button
+                            type="button"
+                            className="order-detail-line__picked"
+                            aria-pressed={line.pickOutcome === 'picked'}
+                            disabled={recordingLineId === line.id}
+                            onClick={() => handlePicked(line.id)}
+                          >
+                            Picked
+                          </button>
+                          {issueFormLineId !== line.id && (
+                            <button
+                              type="button"
+                              className="order-detail-line__report"
+                              disabled={recordingLineId === line.id}
+                              onClick={() => setIssueFormLineId(line.id)}
+                            >
+                              Report Issue
+                            </button>
+                          )}
+                        </div>
+                      )
                     )}
                     {canRecordOutcome && issueFormLineId === line.id && (
                       <ReportIssueForm
                         lineId={line.id}
                         isSubmitting={recordingLineId === line.id}
+                        // Edit report starts from the report being changed; a first report starts
+                        // blank, as it always has (018 FR-023).
+                        initial={line.pickOutcome === 'hasIssue' ? line.currentIssue : null}
                         onCancel={() => setIssueFormLineId(null)}
                         onSubmit={(request) => handleReportIssue(line.id, request)}
                       />
