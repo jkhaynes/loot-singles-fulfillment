@@ -21,6 +21,7 @@ public sealed class MigrationTests(SqlServerContainerFixture fixture)
                 "20260821170809_AddEmployeeAuthentication",
                 "20260826201114_AddOrderClaiming",
                 "20260919205246_AddPickCompletion",
+                "20260921155303_AddPackingHandoff",
             ],
             migrations
         );

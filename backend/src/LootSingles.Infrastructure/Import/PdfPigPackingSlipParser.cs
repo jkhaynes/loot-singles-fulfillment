@@ -41,6 +41,7 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
                 {
                     OrderIdentifier = ExtractOrderIdentifier(lines),
                     ProductLines = ExtractProductLines(words, lines, tableHeader),
+                    PageNumbers = [page.Number],
                 }
             );
             return;
@@ -261,6 +262,9 @@ public sealed partial class PdfPigPackingSlipParser : IPackingSlipParser
                     {
                         OrderIdentifier = existing.OrderIdentifier,
                         ProductLines = existing.ProductLines.Concat(block.ProductLines).ToList(),
+                        // Pages merge with the rows they carried, so a multi-page order's slip is
+                        // every page it spans and no other order's.
+                        PageNumbers = existing.PageNumbers.Concat(block.PageNumbers).ToList(),
                     };
                     continue;
                 }

@@ -7,6 +7,7 @@ using LootSingles.Application.CardCatalog;
 using LootSingles.Application.Dashboard;
 using LootSingles.Application.Import;
 using LootSingles.Application.Orders;
+using LootSingles.Application.Packing;
 using LootSingles.Application.Picking;
 using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.CardCatalog;
@@ -47,6 +48,7 @@ builder.Services.AddDbContext<LootSinglesDbContext>(options =>
 );
 builder.Services.AddScoped<IImportPersistence, ImportRepository>();
 builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
+builder.Services.AddScoped<IPackingSlipSlicer, PdfPigPackingSlipSlicer>();
 builder.Services.AddScoped<IPackingSlipImportService, PackingSlipImportService>();
 
 builder.Services.AddScoped<IPinHasher, Pbkdf2PinHasher>();
@@ -65,6 +67,7 @@ builder.Services.AddScoped<BootstrapAdminService>();
 builder.Services.AddScoped<BootstrapAdminCommand>();
 builder.Services.AddScoped<EmployeeSessionCookieEvents>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+builder.Services.AddScoped<IPackingRepository, PackingRepository>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IPickingRepository, PickingRepository>();

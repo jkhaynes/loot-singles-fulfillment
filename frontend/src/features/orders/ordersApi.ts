@@ -101,6 +101,40 @@ export interface OrderClaimUpdate {
   claimedByEmployeeName: string | null
 }
 
+/** One employee who recorded a pick outcome on the order (FR-041). */
+export interface LabelContributor {
+  employeeId: number
+  displayName: string
+}
+
+/**
+ * Everything printed on an order's label. Derived server-side from the order, so the label
+ * cannot disagree with what it identifies and a reprint matches the original (FR-016, FR-017).
+ */
+export interface LabelContent {
+  orderId: number
+  tcgplayerOrderId: string
+  /** Physical cards pulled — the only count on the label (FR-004). */
+  cardCount: number
+  /** Every contributor, ordered by when they first contributed. */
+  pickedBy: LabelContributor[]
+  pickedAt: string | null
+  isHeld: boolean
+  unresolvedProducts: string[]
+  /** Null until the issue-resolution feature records set-aside cards (FR-046). */
+  setAsideCount: number | null
+  /** Always false here; write-offs arrive with the issue-resolution feature (FR-014). */
+  shipsShort: boolean
+}
+
+/** Nothing has been recorded on the order, so there is no label to print (FR-009). */
+export class OrderNotStartedError extends Error {
+  constructor() {
+    super('Nothing has been picked on this order yet')
+    this.name = 'OrderNotStartedError'
+  }
+}
+
 export class OrderNotFoundError extends Error {
   constructor() {
     super('Order not found')
@@ -136,6 +170,18 @@ export class EmployeeHasActiveClaimError extends Error {
     super('You already have an order claimed')
     this.name = 'EmployeeHasActiveClaimError'
     this.claimedOrderId = claimedOrderId
+  }
+}
+
+/**
+ * The order has been packed, so it has left the picking workflow entirely (FR-045).
+ * Separate from OrderAlreadyClaimedError because nobody is holding it — saying it is claimed
+ * by someone would be false, and would send the picker looking for a person who does not exist.
+ */
+export class OrderAlreadyPackedError extends Error {
+  constructor() {
+    super('This order has already been packed')
+    this.name = 'OrderAlreadyPackedError'
   }
 }
 
@@ -248,6 +294,26 @@ export async function pickNextOrder(): Promise<OrderClaimUpdate> {
   return (await response.json()) as OrderClaimUpdate
 }
 
+export async function getOrderLabel(orderId: number): Promise<LabelContent> {
+  const response = await fetch(`/api/orders/${orderId}/label`, {
+    credentials: 'include',
+  })
+
+  if (response.status === 404) {
+    throw new OrderNotFoundError()
+  }
+
+  if (response.status === 409) {
+    throw new OrderNotStartedError()
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to load the label (status ${response.status})`)
+  }
+
+  return (await response.json()) as LabelContent
+}
+
 export async function claimOrder(orderId: number): Promise<OrderClaimUpdate> {
   const response = await fetch(`/api/orders/${orderId}/claim`, {
     method: 'POST',
@@ -262,6 +328,9 @@ export async function claimOrder(orderId: number): Promise<OrderClaimUpdate> {
     const body = (await response.json()) as ClaimConflictBody
     if (body.error === 'order_already_claimed') {
       throw new OrderAlreadyClaimedError(body.claimedByEmployeeName ?? null)
+    }
+    if (body.error === 'order_already_packed') {
+      throw new OrderAlreadyPackedError()
     }
     throw new EmployeeHasActiveClaimError(body.claimedOrderId ?? null)
   }

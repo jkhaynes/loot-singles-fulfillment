@@ -1,0 +1,156 @@
+/*
+ * The hand-off label, sized for standard address label stock (017-pick-completion-handoff
+ * FR-009).
+ *
+ * EVERY physical dimension is a token in this block, and nothing below hard-codes one. That is
+ * deliberate: T001 — printing a label on the real printer and measuring it — is deferred, so if
+ * the stock or the driver disagrees with these numbers, the correction happens here and the
+ * label's structure, the ending screens and the packing desk are untouched.
+ *
+ * What tokens cannot absorb is a browser that cannot honour physical units at all. That is why
+ * T001 stays open rather than being closed out (tasks.md Phase 1).
+ */
+
+.order-label {
+  --label-width: 3.5in;
+  --label-height: 1.125in;
+  --label-pad-x: 0.09in;
+  --label-pad-y: 0.06in;
+  --label-gap: 0.09in;
+  --label-qr-size: 0.78in;
+  --label-barcode-height: 0.2in;
+  --label-band-width: 0.16in;
+
+  --label-code-size: 15pt;
+  --label-count-size: 9pt;
+  --label-picker-size: 6.5pt;
+
+  width: var(--label-width);
+  height: var(--label-height);
+  padding: var(--label-pad-y) var(--label-pad-x);
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: 1fr auto;
+  gap: 0 var(--label-gap);
+  align-items: center;
+
+  /* A thermal printer has one colour. Everything below reads in pure monochrome. */
+  background: #fff;
+  color: #000;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.15;
+}
+
+/* A hold label is distinguished by an inverted band, never by colour, so it survives a monochrome
+   printer, a low-toner print, and a glance from across the bench (FR-013). */
+.order-label--held {
+  grid-template-columns: auto auto 1fr;
+}
+
+.order-label__band {
+  grid-row: 1 / 3;
+  align-self: stretch;
+  background: #000;
+  color: #fff;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  display: grid;
+  place-items: center;
+  width: var(--label-band-width);
+  font-size: var(--label-picker-size);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.order-label__qr {
+  grid-row: 1 / 3;
+  width: var(--label-qr-size);
+  height: var(--label-qr-size);
+}
+
+.order-label__qr svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.order-label__text {
+  min-width: 0;
+}
+
+.order-label__code {
+  margin: 0;
+  font-size: var(--label-code-size);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.order-label__counts {
+  margin: 1pt 0 0;
+  font-size: var(--label-count-size);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.order-label__short {
+  border: 1pt solid #000;
+  border-radius: 1pt;
+  padding: 0 2pt;
+  margin-left: 3pt;
+  font-size: var(--label-picker-size);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.order-label__picker {
+  margin: 1pt 0 0;
+  font-size: var(--label-picker-size);
+}
+
+.order-label__barcode {
+  grid-column: -2;
+  min-width: 0;
+}
+
+.order-label__barcode svg {
+  width: 100%;
+  height: calc(var(--label-barcode-height) + 0.1in);
+  display: block;
+}
+
+/* On screen the printable label is kept out of view, so a page that carries one never turns into
+   one. It is portalled to <body> (PrintableLabel.tsx) so that the print rules below can isolate it;
+   off-screen positioning here is undone for print. */
+.order-label-print {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+}
+
+/* Printing is client-side because the hosted API cannot reach a printer on the shop LAN. The page
+   becomes the label and nothing else, at exactly the stock's size. */
+@media print {
+  @page {
+    size: 3.5in 1.125in;
+    margin: 0;
+  }
+
+  /* Removed rather than hidden. `visibility: hidden` keeps an element's layout, so hiding the app
+     that way left its full height on the page — nine blank 1⅛-inch pages and no label. With
+     `display: none` the rest of the app takes up no space at all. */
+  body > :not(.order-label-print) {
+    display: none !important;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Back on the page, at its top-left corner, instead of wherever the screen rule parked it. */
+  .order-label-print {
+    position: static;
+  }
+}

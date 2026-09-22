@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   getOrderDetail,
   releaseOrder,
+  getOrderLabel,
+  pickNextOrder,
+  NoOrdersAvailableError,
   claimOrder,
   OrderAlreadyClaimedError,
   EmployeeHasActiveClaimError,
@@ -19,6 +22,9 @@ import { useAuth } from '../auth/AuthContext'
 import { computeProgress, groupOrderLines } from './orderGrouping'
 import { useIsPhone } from './useIsPhone'
 import { FocusedPickView } from './FocusedPickView'
+import { PickEnding } from './PickEnding'
+import { PrintLabelButton } from '../labels/PrintLabelButton'
+import type { LabelContent } from './ordersApi'
 import { ReportIssueForm } from './ReportIssueForm'
 import './OrderDetailPage.css'
 
@@ -32,6 +38,13 @@ export function OrderDetailPage() {
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [actionError, setActionError] = useState<ReactNode | null>(null)
   const [isClaiming, setIsClaiming] = useState(false)
+  /** Non-null once the pick has ended; the ending screen replaces the picking view. */
+  const [ending, setEnding] = useState<LabelContent | null>(null)
+  const isFinishing = useRef(false)
+  // Outcome writes still in flight. Moving between cards never waits for one (016 FR-019a), so
+  // Finish can be tapped before a report has committed — and a label read then sees the order as
+  // it was before the report (BR-002).
+  const pendingWrites = useRef(new Set<Promise<unknown>>())
   const [isReleasing, setIsReleasing] = useState(false)
   const [isForceReleasing, setIsForceReleasing] = useState(false)
   const [recordingLineId, setRecordingLineId] = useState<number | null>(null)
@@ -39,6 +52,9 @@ export function OrderDetailPage() {
 
   useEffect(() => {
     let cancelled = false
+    // Next order navigates to this same route, so the page stays mounted and only the id changes.
+    // The finish guard belongs to one order; carried over, the next order's Finish did nothing.
+    isFinishing.current = false
 
     getOrderDetail(Number(orderId))
       .then((result) => {
@@ -58,6 +74,7 @@ export function OrderDetailPage() {
     }
   }, [orderId])
 
+  /** Giving up an order without finishing it. Unchanged since feature 013. */
   async function handleRelease() {
     if (!order) return
 
@@ -71,6 +88,61 @@ export function OrderDetailPage() {
       setActionError("Couldn't release this order. Try refreshing the page.")
     } finally {
       setIsReleasing(false)
+    }
+  }
+
+  /**
+   * Finishing a pick ends on a screen rather than a navigation (PRD §22).
+   *
+   * Distinct from handleRelease even though both give up the claim: releasing abandons an
+   * order, finishing completes one. Only the second produces a sleeve that needs labelling.
+   *
+   * The label is fetched before the claim is released, so a failure on either side leaves the
+   * picker where they were rather than half-finished with nothing to print.
+   */
+  async function handleFinish() {
+    // A ref rather than state: a double tap lands both calls before React has re-rendered, so
+    // isReleasing would still read false for the second. Without this the second release
+    // answered 409 — the first had already given the claim up — and the screen reported a
+    // failure over a finish that had worked.
+    if (!order || isFinishing.current) return
+    isFinishing.current = true
+
+    // The label must describe every outcome the picker recorded, including one still being saved.
+    // Settled, not resolved: a write that failed has already said so, and the label then reports
+    // what the server actually holds.
+    await Promise.allSettled(pendingWrites.current)
+
+    setIsReleasing(true)
+    setActionError(null)
+    try {
+      const label = await getOrderLabel(order.orderId)
+      await releaseOrder(order.orderId)
+      setEnding(label)
+      // Left set on success: the picking view is gone, and nothing should finish it again.
+    } catch {
+      isFinishing.current = false
+      setActionError("Couldn't finish this order. Try refreshing the page.")
+    } finally {
+      setIsReleasing(false)
+    }
+  }
+
+  /** The fast path off the ending screen: claim and open the next order, as Pick Next does. */
+  async function handleNextOrder() {
+    setActionError(null)
+    try {
+      const next = await pickNextOrder()
+      setEnding(null)
+      navigate(`/orders/${next.orderId}`)
+    } catch (error) {
+      // Said, as Pick Next says it (FR-007). Moving the picker to Browse Orders without a word
+      // left them to work out why the next order never came.
+      setActionError(
+        error instanceof NoOrdersAvailableError
+          ? 'No orders are currently available to pick.'
+          : "Couldn't start the next order. Try the dashboard.",
+      )
     }
   }
 
@@ -155,13 +227,20 @@ export function OrderDetailPage() {
     }
   }
 
+  function tracked<T>(write: Promise<T>): Promise<T> {
+    pendingWrites.current.add(write)
+    const forget = () => pendingWrites.current.delete(write)
+    write.then(forget, forget)
+    return write
+  }
+
   async function handlePicked(lineId: number) {
     if (!order) return
 
     setRecordingLineId(lineId)
     setActionError(null)
     try {
-      setOrder(withLoadedImages(await recordPicked(order.orderId, lineId), order))
+      setOrder(withLoadedImages(await tracked(recordPicked(order.orderId, lineId)), order))
       setIssueFormLineId(null)
     } catch {
       setActionError("Couldn't record that pick. Try refreshing the page.")
@@ -176,7 +255,7 @@ export function OrderDetailPage() {
     setRecordingLineId(lineId)
     setActionError(null)
     try {
-      setOrder(withLoadedImages(await reportIssue(order.orderId, lineId, request), order))
+      setOrder(withLoadedImages(await tracked(reportIssue(order.orderId, lineId, request)), order))
       setIssueFormLineId(null)
     } catch {
       setActionError("Couldn't report that issue. Try refreshing the page.")
@@ -196,7 +275,19 @@ export function OrderDetailPage() {
   const canRecordOutcome = canRelease
   // Offered only when the order is free: claiming one someone else holds is refused by the
   // server anyway, and offering a button known to fail is the dead end FR-027 removes.
-  const canClaim = order !== null && employee !== null && order.claimedByEmployeeId === null
+  // Whether picking has produced anything to print. Deliberately not "is the order Picked":
+  // a held order is NeedsAttention and still has a label (FR-009).
+  const hasStartedPicking = order !== null && order.lines.some((line) => line.pickOutcome !== null)
+
+  // A packed order has physically left, so there is nothing a claim could accomplish — unlike
+  // a picked one, which stays claimable on purpose so a picker can revise lines before the
+  // sleeve is sealed (feature 015). The server enforces this too; hiding the button only keeps
+  // the app from offering something that cannot work (FR-045).
+  const canClaim =
+    order !== null &&
+    employee !== null &&
+    order.claimedByEmployeeId === null &&
+    order.status !== 'packed'
   const confirmedLineCount =
     order?.lines.filter((line) => line.pickOutcome === 'picked').length ?? 0
   // Set-aware picking (PRD §13): one group per storage box, ordered for the walk.
@@ -219,7 +310,12 @@ export function OrderDetailPage() {
 
   return (
     <main className={`order-detail-page${isFocused ? ' order-detail-page--focused' : ''}`}>
-      {isFocused ? (
+      {/* Once the pick has ended there is no header of either kind. The claim has been released,
+          so a Release button would answer 409 not_your_claim; the progress line describes work
+          that is over; and the ending screen has its own print action. An earlier build hid the
+          phone header by making isFocused false, which swapped in the desktop header and its
+          Release button instead of removing anything (PRD §22). */}
+      {ending !== null ? null : isFocused ? (
         <header className="order-detail-bar">
           {/* One exit, on every card. Until this replaced the view toggle a picker was stuck on
               an order until they reached the end of it. */}
@@ -244,6 +340,13 @@ export function OrderDetailPage() {
             >
               {isReleasing ? 'Releasing…' : 'Release'}
             </button>
+          )}
+
+          {/* A label that jammed, misprinted or fell off needs replacing without re-picking
+              the order. Offered once picking has produced something to print, held orders
+              included — theirs is the label most likely to be needed twice (FR-016). */}
+          {hasStartedPicking && (
+            <PrintLabelButton orderId={order!.orderId} className="order-detail-bar__release" />
           )}
         </header>
       ) : (
@@ -306,13 +409,23 @@ export function OrderDetailPage() {
         </header>
       )}
 
-      {actionError && isFocused && (
+      {/* The ending has no header on either device, so it is the one place the desktop shows an
+          error outside the header. */}
+      {actionError && (isFocused || ending !== null) && (
         <p role="alert" className="order-detail-bar__error">
           {actionError}
         </p>
       )}
 
-      {loadState === 'loading' ? (
+      {ending !== null ? (
+        // The pick has ended. The picking view is gone deliberately: there is nothing left to
+        // record here, and the claim has already been released (PRD §22).
+        <PickEnding
+          label={ending}
+          onNextOrder={handleNextOrder}
+          onBackToDashboard={() => navigate('/')}
+        />
+      ) : loadState === 'loading' ? (
         <p className="order-detail-state">Loading order…</p>
       ) : loadState === 'not-found' ? (
         <p role="alert" className="order-detail-state order-detail-state--error">
@@ -334,7 +447,7 @@ export function OrderDetailPage() {
           // picker still holding a finished order could never start another. Someone who never
           // held it is only closing a screen: releasing there asks the server to give up a claim
           // they do not have, which simply fails. Feature 017's label print plugs in here.
-          onCompleted={canRelease ? handleRelease : () => navigate('/orders')}
+          onCompleted={canRelease ? handleFinish : () => navigate('/orders')}
           canClaim={canClaim}
           isClaiming={isClaiming}
           onClaim={handleClaim}

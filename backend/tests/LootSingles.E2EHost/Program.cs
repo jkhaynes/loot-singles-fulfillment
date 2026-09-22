@@ -7,6 +7,7 @@ using LootSingles.Application.CardCatalog;
 using LootSingles.Application.Dashboard;
 using LootSingles.Application.Import;
 using LootSingles.Application.Orders;
+using LootSingles.Application.Packing;
 using LootSingles.Application.Picking;
 using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
@@ -14,6 +15,7 @@ using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Testcontainers.MsSql;
 
@@ -25,6 +27,27 @@ const string SqlServerImage = "mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-2
 await using var container = new MsSqlBuilder(SqlServerImage).Build();
 await container.StartAsync();
 
+// A database of its own rather than the container's default master, so it can run under
+// production's isolation level. Azure SQL Database has READ_COMMITTED_SNAPSHOT on; the container
+// has it off, and without it two pickers recording picks at the same moment deadlocked on the
+// status derivation's reads of OrderLines: a failure production cannot have, which failed the
+// suite whenever two specs picked at once. The integration tests do the same
+// (SqlServerDatabaseLease).
+const string E2EDatabaseName = "LootSinglesE2E";
+await using (var master = new SqlConnection(container.GetConnectionString()))
+{
+    await master.OpenAsync();
+    await using var create = master.CreateCommand();
+    create.CommandText =
+        $"CREATE DATABASE [{E2EDatabaseName}]; "
+        + $"ALTER DATABASE [{E2EDatabaseName}] SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE;";
+    await create.ExecuteNonQueryAsync();
+}
+var e2eConnectionString = new SqlConnectionStringBuilder(container.GetConnectionString())
+{
+    InitialCatalog = E2EDatabaseName,
+}.ConnectionString;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Dedicated E2E port, deliberately not the dev API's 5098/7166, so the Playwright suite and
@@ -32,7 +55,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls("http://127.0.0.1:5199");
 
 builder.Services.AddDbContext<LootSinglesDbContext>(options =>
-    options.UseSqlServer(container.GetConnectionString())
+    options.UseSqlServer(e2eConnectionString)
 );
 
 builder
@@ -55,9 +78,11 @@ builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IImportPersistence, ImportRepository>();
 builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
+builder.Services.AddScoped<IPackingSlipSlicer, PdfPigPackingSlipSlicer>();
 builder.Services.AddScoped<PackingSlipImportService>();
 builder.Services.AddScoped<IPackingSlipImportService, ObservableProgressImportService>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IPackingRepository, PackingRepository>();
 builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvider(
     "Pokemon",
     FakePikachuImageUrl,
@@ -113,7 +138,34 @@ app.MapGet(
 );
 
 await SeedAsync(app.Services);
+await WarmUpAsync(app.Services);
 await app.RunAsync();
+
+/// <summary>
+/// Compiles the queries the first request would otherwise pay for, before Playwright starts.
+/// </summary>
+/// <remarks>
+/// EF builds and compiles a query the first time it is used, and the status derivation is a
+/// correlated subquery inside an ExecuteUpdate — the most expensive shape in this application.
+/// Paid on the first pick of a run, it pushed that request past the suite's assertion timeout, so
+/// whichever spec happened to pick first failed and the failure moved between runs. Paying it here
+/// means the host is ready when it says it is, rather than merely responding (branch review
+/// BR-004).
+/// </remarks>
+static async Task WarmUpAsync(IServiceProvider services)
+{
+    await using var scope = services.CreateAsyncScope();
+    var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
+
+    // Matches no row by construction, so it compiles the statement without touching data.
+    await context
+        .Orders.Where(order => order.Id == -1)
+        .ExecuteUpdateAsync(setters =>
+            setters.SetProperty(order => order.Status, order => order.Status)
+        );
+
+    await context.Orders.AsNoTracking().Where(order => order.Id == -1).ToListAsync();
+}
 
 static async Task SeedAsync(IServiceProvider services)
 {
@@ -332,6 +384,12 @@ static async Task SeedAsync(IServiceProvider services)
         {
             ("e2epickersix", "E2E Picker Six"),
             ("e2epickerseven", "E2E Picker Seven"),
+            ("e2epickereight", "E2E Picker Eight"),
+            ("e2epickernine", "E2E Picker Nine"),
+            ("e2epickerten", "E2E Picker Ten"),
+            ("e2epickereleven", "E2E Picker Eleven"),
+            ("e2epickertwelve", "E2E Picker Twelve"),
+            ("e2epickerthirteen", "E2E Picker Thirteen"),
         }
     )
     {
@@ -385,6 +443,90 @@ static async Task SeedAsync(IServiceProvider services)
                 // No recorded set. Must remain visible and pickable rather than being grouped
                 // out of existence (spec FR-005, Constitution V).
                 SetAwareLine("Pokemon", "", "Mystery Promo", "#PR-01", 1),
+            ],
+        }
+    );
+    // 017-pick-completion-handoff T030: one order that finishes clean and one that ends held,
+    // so quickstart scenarios 1 and 2 each get an order nothing else touches. Both are newer
+    // than every other seeded order so "Pick Next Order" never selects them.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00009",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(35),
+            OrderLines =
+            [
+                SetAwareLine("Pokemon", "Handoff Set", "Handoff First", "#001/050", 3),
+                SetAwareLine("Pokemon", "Handoff Set", "Handoff Second", "#002/050", 5),
+            ],
+        }
+    );
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00010",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(40),
+            OrderLines =
+            [
+                SetAwareLine("Pokemon", "Hold Set", "Hold Pulled", "#001/050", 7),
+                SetAwareLine("Pokemon", "Hold Set", "Hold Missing", "#002/050", 1),
+            ],
+        }
+    );
+    // 017 T060: two orders for the packing desk spec — one packed clean, one blocked by an issue.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00011",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(45),
+            OrderLines = [SetAwareLine("Pokemon", "Desk Set", "Desk Packable", "#001/050", 2)],
+        }
+    );
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00012",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(50),
+            OrderLines = [SetAwareLine("Pokemon", "Desk Set", "Desk Blocker", "#002/050", 1)],
+        }
+    );
+    // 017 T064/T068: the reprint and awaiting-packing-count spec, with an order of its own so
+    // the dashboard number it watches is not moved by another worker mid-assertion.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00013",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(55),
+            OrderLines = [SetAwareLine("Pokemon", "Reprint Set", "Reprint Card", "#003/050", 1)],
+        }
+    );
+    // 017 T101: the order "Next order" hands to pick-handoff's first test. Pick Next itself takes
+    // the oldest Ready order, which other specs own, so that test steers the choice here.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00014",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(60),
+            OrderLines = [SetAwareLine("Pokemon", "Second Set", "Second Sleeve", "#004/050", 1)],
+        }
+    );
+    // 017 T108: finishing with a product never looked at ends held, not complete.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00015",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(65),
+            OrderLines =
+            [
+                SetAwareLine("Pokemon", "Skip Set", "Skip Pulled", "#001/050", 2),
+                SetAwareLine("Pokemon", "Skip Set", "Skip Untouched", "#002/050", 1),
             ],
         }
     );

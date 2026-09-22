@@ -6,6 +6,7 @@ import './App.css'
 import { ImportPage } from './features/import/ImportPage'
 import { OrderDetailPage } from './features/orders/OrderDetailPage'
 import { OrdersPage } from './features/orders/OrdersPage'
+import { PackingDeskPage } from './features/packing/PackingDeskPage'
 import { AdminPage } from './features/admin/AdminPage'
 import { RequireManagerAdmin } from './features/admin/RequireManagerAdmin'
 
@@ -25,6 +26,8 @@ function App() {
       <Route path="/" element={<DashboardPage employee={employee} onLogout={logout} />} />
       <Route path="/import" element={<ImportPage />} />
       <Route path="/orders" element={<OrdersPage />} />
+      <Route path="/packing" element={<PackingDeskPage />} />
+      <Route path="/packing/:orderId" element={<PackingDeskPage />} />
       <Route path="/orders/:orderId" element={<OrderDetailPage />} />
       <Route
         path="/admin"

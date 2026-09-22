@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -17,6 +17,14 @@ vi.mock('../../src/features/orders/ordersApi', async (original) => ({
   releaseOrder: vi.fn(),
   claimOrder: vi.fn(),
   forceReleaseOrder: vi.fn(),
+  getOrderLabel: vi.fn(),
+  pickNextOrder: vi.fn(),
+}))
+
+// Both encoders measure text through a canvas 2D context, which jsdom does not implement.
+vi.mock('jsbarcode', () => ({ default: vi.fn() }))
+vi.mock('qrcode-generator', () => ({
+  default: () => ({ addData: vi.fn(), make: vi.fn(), createSvgTag: () => '<svg />' }),
 }))
 
 vi.mock('../../src/features/auth/authApi', async (original) => ({
@@ -865,6 +873,17 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
       claimedOrder([buildLine({ productName: 'Only Card', pickOutcome: 'picked' })]),
     )
     vi.mocked(ordersApi.releaseOrder).mockResolvedValue(undefined)
+    vi.mocked(ordersApi.getOrderLabel).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      cardCount: 1,
+      pickedBy: [{ employeeId: 1, displayName: 'Test Picker' }],
+      pickedAt: '2026-09-21T14:14:00Z',
+      isHeld: false,
+      unresolvedProducts: [],
+      setAsideCount: null,
+      shipsShort: false,
+    })
 
     renderPage()
     await screen.findByRole('article')
@@ -876,7 +895,186 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
     // Completing without releasing leaves the picker holding an order they have finished, and
     // unable to claim another.
     expect(ordersApi.releaseOrder).toHaveBeenCalledWith(42)
-    expect(await screen.findByText('Browse Orders list')).toBeInTheDocument()
+    // Feature 017 changed where this lands. A finished pick used to drop the picker back on the
+    // order list with nothing to show for it; now it ends on a screen that states the count and
+    // prints the label (PRD §22). Releasing an order without finishing it still returns to the
+    // list — that is the test above, and the two acts are deliberately separate.
+    expect(await screen.findByText('Pick complete')).toBeInTheDocument()
+    expect(screen.queryByText('Browse Orders list')).not.toBeInTheDocument()
+  })
+
+  // BR-001 (review round 2). "Next order" navigates to the same route, so React Router keeps this
+  // page mounted and only the order id changes. The double-tap guard on Finish was left set after
+  // the first order finished, and the second order's Finish did nothing at all.
+  it('finishes the order that Next order opened, not only the first', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockImplementation(async (orderId: number) => ({
+      ...claimedOrder([
+        buildLine({ id: orderId * 10, productName: 'Only Card', pickOutcome: 'picked' }),
+      ]),
+      orderId,
+      tcgplayerOrderId: `ORDER-DETAIL-${orderId}`,
+    }))
+    vi.mocked(ordersApi.releaseOrder).mockResolvedValue(undefined)
+    vi.mocked(ordersApi.getOrderLabel).mockImplementation(async (orderId: number) => ({
+      orderId,
+      tcgplayerOrderId: `ORDER-DETAIL-${orderId}`,
+      cardCount: 1,
+      pickedBy: [{ employeeId: 1, displayName: 'Test Picker' }],
+      pickedAt: '2026-09-21T14:14:00Z',
+      isHeld: false,
+      unresolvedProducts: [],
+      setAsideCount: null,
+      shipsShort: false,
+    }))
+    vi.mocked(ordersApi.pickNextOrder).mockResolvedValue({
+      orderId: 43,
+      tcgplayerOrderId: 'ORDER-DETAIL-43',
+      status: 'inProgress',
+      claimedByEmployeeId: 1,
+      claimedByEmployeeName: 'Test Picker',
+    })
+
+    renderPage()
+    await screen.findByRole('article')
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(await screen.findByRole('button', { name: /finish picking/i }))
+    await screen.findByText('Pick complete')
+
+    await user.click(screen.getByRole('button', { name: /next order/i }))
+    await screen.findByRole('article')
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(await screen.findByRole('button', { name: /finish picking/i }))
+
+    expect(await screen.findByText('Pick complete')).toBeInTheDocument()
+    expect(ordersApi.releaseOrder).toHaveBeenLastCalledWith(43)
+  })
+
+  // BR-002 (review round 2). Moving between cards never waits for a write, so Finish can be tapped
+  // while an issue report is still in flight. The label was requested at once and, under the
+  // snapshot isolation production runs, read the order from before the report: "Pick complete"
+  // and a ready-to-pack label for an order with an unresolved issue.
+  it('waits for an in-flight issue report before finishing, and ends held', async () => {
+    const user = userEvent.setup()
+    const order = claimedOrder([buildLine({ id: 7, productName: 'Only Card' })])
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(order)
+    let reportCommitted = false
+    let commitReport: () => void = () => {}
+    vi.mocked(ordersApi.reportIssue).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          commitReport = () => {
+            reportCommitted = true
+            resolve({ ...order, status: 'needsAttention' })
+          }
+        }),
+    )
+    vi.mocked(ordersApi.releaseOrder).mockResolvedValue(undefined)
+    // Answers the way the server would: held only once the report has been committed.
+    vi.mocked(ordersApi.getOrderLabel).mockImplementation(async () => ({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      cardCount: 0,
+      pickedBy: [{ employeeId: 1, displayName: 'Test Picker' }],
+      pickedAt: '2026-09-21T14:14:00Z',
+      isHeld: reportCommitted,
+      unresolvedProducts: reportCommitted ? ['Only Card'] : [],
+      setAsideCount: null,
+      shipsShort: false,
+    }))
+
+    renderPage()
+    await screen.findByRole('article')
+    await user.click(screen.getByRole('button', { name: /report an issue/i }))
+    await user.selectOptions(screen.getByLabelText('Issue type'), 'cardNotFound')
+    await user.click(screen.getByRole('button', { name: /submit issue/i }))
+
+    // The report is still in flight: move on and finish anyway, as a quick thumb does.
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(await screen.findByRole('button', { name: /finish picking/i }))
+
+    expect(ordersApi.getOrderLabel).not.toHaveBeenCalled()
+
+    commitReport()
+
+    expect(await screen.findByText(/needs a manager/i)).toBeInTheDocument()
+    expect(screen.queryByText('Pick complete')).not.toBeInTheDocument()
+  })
+
+  // 017 convergence, FR-007: Next order behaves as Pick Next does, including when there is nothing
+  // to pick. Pick Next says so; Next order used to drop the picker on Browse Orders without a word.
+  it('says so when Next order finds nothing to pick, as Pick Next does', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      claimedOrder([buildLine({ productName: 'Only Card', pickOutcome: 'picked' })]),
+    )
+    vi.mocked(ordersApi.releaseOrder).mockResolvedValue(undefined)
+    vi.mocked(ordersApi.getOrderLabel).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      cardCount: 1,
+      pickedBy: [{ employeeId: 1, displayName: 'Test Picker' }],
+      pickedAt: '2026-09-21T14:14:00Z',
+      isHeld: false,
+      unresolvedProducts: [],
+      setAsideCount: null,
+      shipsShort: false,
+    })
+    vi.mocked(ordersApi.pickNextOrder).mockRejectedValue(new ordersApi.NoOrdersAvailableError())
+
+    renderPage()
+    await screen.findByRole('article')
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(await screen.findByRole('button', { name: /finish picking/i }))
+    await screen.findByText('Pick complete')
+
+    await user.click(screen.getByRole('button', { name: /next order/i }))
+
+    expect(
+      await screen.findByText('No orders are currently available to pick.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Browse Orders list')).not.toBeInTheDocument()
+  })
+
+  // Branch review round 5 (T112). The ending is reached only from the phone's card view, but a
+  // phone turned sideways is wider than the breakpoint, and the page switches to the desktop
+  // layout with the ending still up. That layout shows errors in a header the ending hides, so
+  // Next order's "nothing to pick" message was drawn nowhere.
+  it('still says so after the phone is turned sideways on the ending', async () => {
+    restore?.()
+    const media = installMatchMedia(390)
+    restore = media.restore
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      claimedOrder([buildLine({ productName: 'Only Card', pickOutcome: 'picked' })]),
+    )
+    vi.mocked(ordersApi.releaseOrder).mockResolvedValue(undefined)
+    vi.mocked(ordersApi.getOrderLabel).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      cardCount: 1,
+      pickedBy: [{ employeeId: 1, displayName: 'Test Picker' }],
+      pickedAt: '2026-09-21T14:14:00Z',
+      isHeld: false,
+      unresolvedProducts: [],
+      setAsideCount: null,
+      shipsShort: false,
+    })
+    vi.mocked(ordersApi.pickNextOrder).mockRejectedValue(new ordersApi.NoOrdersAvailableError())
+
+    renderPage()
+    await screen.findByRole('article')
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(await screen.findByRole('button', { name: /finish picking/i }))
+    await screen.findByText('Pick complete')
+
+    // Landscape on a 390x844 phone.
+    act(() => media.setWidth(844))
+    await user.click(screen.getByRole('button', { name: /next order/i }))
+
+    expect(
+      await screen.findByText('No orders are currently available to pick.'),
+    ).toBeInTheDocument()
   })
 
   it('keeps the picker on the order when completing fails', async () => {
@@ -919,5 +1117,52 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
     expect(ordersApi.releaseOrder).not.toHaveBeenCalled()
     expect(await screen.findByText('Browse Orders list')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+// FR-045. A packed sleeve has already left the building, so offering to claim it is offering
+// something that cannot help. Note the boundary being drawn: a *picked* order stays claimable on
+// purpose (feature 015 lets a picker re-claim one and revise its lines to fix a mis-pick).
+// Packing is where that stops, which is why these two cases are tested against each other.
+describe('OrderDetailPage — a packed order is not claimable', () => {
+  beforeEach(() => {
+    installMatchMedia(false)
+    vi.mocked(authApi.me).mockResolvedValue({
+      employeeId: 1,
+      displayName: 'Test Picker',
+      role: 'Picker',
+    })
+  })
+
+  it('offers no Claim action for a packed order', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'packed',
+      lines: [line(1, 'Pikachu', 'picked')],
+      claimedByEmployeeId: null,
+      claimedByEmployeeName: null,
+    })
+
+    renderPage()
+    await screen.findByRole('article')
+
+    expect(screen.queryByRole('button', { name: /^claim$/i })).not.toBeInTheDocument()
+  })
+
+  it('still offers Claim for a picked order that has not been packed', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      status: 'picked',
+      lines: [line(1, 'Pikachu', 'picked')],
+      claimedByEmployeeId: null,
+      claimedByEmployeeName: null,
+    })
+
+    renderPage()
+    await screen.findByRole('article')
+
+    expect(screen.getByRole('button', { name: /^claim$/i })).toBeInTheDocument()
   })
 })

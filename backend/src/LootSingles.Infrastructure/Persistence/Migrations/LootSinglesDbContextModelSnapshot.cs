@@ -177,6 +177,12 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("ImportedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<DateTimeOffset?>("PackedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("PackedByEmployeeId")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -189,6 +195,8 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                     b.HasIndex("ClaimedByEmployeeId")
                         .IsUnique()
                         .HasFilter("[ClaimedByEmployeeId] IS NOT NULL");
+
+                    b.HasIndex("PackedByEmployeeId");
 
                     b.HasIndex("TcgplayerOrderId")
                         .IsUnique();
@@ -263,6 +271,49 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                     b.ToTable("OrderLines");
                 });
 
+            modelBuilder.Entity("LootSingles.Domain.Orders.OrderPackingSlip", b =>
+                {
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<DateTimeOffset>("StoredAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("OrderId");
+
+                    b.ToTable("OrderPackingSlips");
+                });
+
+            modelBuilder.Entity("LootSingles.Domain.Orders.PackingSlipAccess", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("RetrievedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("OrderId", "RetrievedAt");
+
+                    b.ToTable("PackingSlipAccesses");
+                });
+
             modelBuilder.Entity("LootSingles.Domain.Orders.PickingIssue", b =>
                 {
                     b.Property<int>("Id")
@@ -323,7 +374,13 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("ClaimedByEmployeeId");
 
+                    b.HasOne("LootSingles.Domain.Employees.Employee", "PackedByEmployee")
+                        .WithMany()
+                        .HasForeignKey("PackedByEmployeeId");
+
                     b.Navigation("ClaimedByEmployee");
+
+                    b.Navigation("PackedByEmployee");
                 });
 
             modelBuilder.Entity("LootSingles.Domain.Orders.OrderLine", b =>
@@ -347,6 +404,36 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                     b.Navigation("CurrentPickingIssue");
                 });
 
+            modelBuilder.Entity("LootSingles.Domain.Orders.OrderPackingSlip", b =>
+                {
+                    b.HasOne("LootSingles.Domain.Orders.Order", "Order")
+                        .WithOne()
+                        .HasForeignKey("LootSingles.Domain.Orders.OrderPackingSlip", "OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("LootSingles.Domain.Orders.PackingSlipAccess", b =>
+                {
+                    b.HasOne("LootSingles.Domain.Employees.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LootSingles.Domain.Orders.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("Order");
+                });
+
             modelBuilder.Entity("LootSingles.Domain.Orders.PickingIssue", b =>
                 {
                     b.HasOne("LootSingles.Domain.Orders.OrderLine", null)
@@ -355,11 +442,13 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("LootSingles.Domain.Employees.Employee", null)
+                    b.HasOne("LootSingles.Domain.Employees.Employee", "ReportedByEmployee")
                         .WithMany()
                         .HasForeignKey("ReportedByEmployeeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("ReportedByEmployee");
                 });
 
             modelBuilder.Entity("LootSingles.Application.Import.ImportAttempt", b =>

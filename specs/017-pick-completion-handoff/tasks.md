@@ -1,0 +1,502 @@
+---
+
+description: "Task list for 017-pick-completion-handoff"
+---
+
+# Tasks: Pick Completion and Hand-off
+
+**Input**: Design documents from `/specs/017-pick-completion-handoff/`
+
+**Prerequisites**: [plan.md](plan.md), [spec.md](spec.md), [research.md](research.md),
+[data-model.md](data-model.md), [contracts/packing-api.md](contracts/packing-api.md),
+[quickstart.md](quickstart.md)
+
+**Tests**: **Required, not optional.** Constitution Principle IV is NON-NEGOTIABLE: every
+behavioural change follows Red → Green → Refactor, and a behaviour's test task appears before its
+implementation task. Tests written after the fact to satisfy coverage are a violation, not a
+shortcut.
+
+**Organization**: Grouped by user story so each can be implemented, tested and demonstrated
+independently.
+
+## Format: `[ID] [P?] [Story] Description`
+
+- **[P]**: Can run in parallel (different files, no dependencies on incomplete tasks)
+- **[Story]**: Which user story the task serves (US1–US4)
+
+## Path Conventions
+
+Web application layout per plan.md: `backend/src/`, `backend/tests/`, `frontend/src/`,
+`frontend/tests/`, `frontend/e2e/`.
+
+---
+
+## Phase 1: Setup (printer validation deferred)
+
+**Purpose**: Get the dependencies in place, and record that the hardware gate has moved to the end
+of the feature rather than the start.
+
+- [ ] T001 **DEFERRED — validate the printed label on the real printer** (quickstart.md scenario 0): print the label at 1⅛ × 3½ inches on the shop's small label printer, measure it against the stock, and scan both codes off the physical label. Adjust the `label.css` tokens from T024 if the size is wrong
+- [x] T002 [P] Record the deferral decision and its mitigation in `specs/017-pick-completion-handoff/research.md` §9 and in `spec.md`'s Risks section
+- [X] T003 [P] Add a QR encoder and a Code 128 encoder to `frontend/package.json`, pinned, and record the chosen packages in `research.md` §8
+
+> **Product Owner decision, 2026-09-21**: the printer is not available yet and the feature proceeds
+> without waiting for it, on the explicit understanding that print problems are debugged or
+> designed around later. T001 moves from a blocking gate to outstanding work that must be completed
+> before the feature is done — it is deferred, not cancelled.
+>
+> **What makes the deferral affordable**: T024 requires every physical dimension to be a named
+> token in one stylesheet. If the printer disagrees with our assumptions, the correction is a
+> handful of values in `label.css`, not a redesign of the label, the ending screens or the desk.
+> That containment is the reason this is a reasonable risk to carry rather than a gamble.
+>
+> **What the deferral does not make affordable**: if browser printing turns out to be unable to
+> produce a correctly sized label *at all* — as opposed to needing different numbers — the label's
+> form changes and the work resting on it moves. That possibility is not mitigated by tokens, and
+> is the reason T001 stays on the list rather than being closed out.
+
+---
+
+## Phase 2: Foundational (Blocking Prerequisites)
+
+**Purpose**: The governance correction that must land before any slip code exists, and the schema
+plus status change that US2 and US4 both depend on.
+
+**⚠️ US2 and US4 may not begin until this phase is complete.** US1 depends only on Phase 1 — it's
+the ending screens and the label, and needs neither the packed state nor slip storage.
+
+### Governance
+
+- [X] T004 Annotate `specs/001-tcgplayer-order-import/spec.md` FR-019, SC-004, User Story 3 and Assumptions as superseded by 017 and PRD v0.5 §27 (amendment A14), stating precisely what survives — FR-020 still forbids retaining the batch document — per research.md §1
+- [X] T005 [P] Correct the doc comment on `backend/src/LootSingles.Application/Import/IPackingSlipParser.cs`, which currently instructs implementations never to persist the stream or any copy of it "(FR-019)"
+
+> T004 and T005 are not housekeeping. Leaving two contradictory hard requirements in the repository
+> misleads whoever reads the wrong one first, and `/branch-review` would be right to flag it.
+
+### Schema and status
+
+- [X] T006 [P] Add `Packed` to `backend/src/LootSingles.Domain/Orders/OrderStatus.cs`, documenting that it is the only value not derived from line outcomes
+- [X] T007 [P] Add `PackedAt` and `PackedByEmployeeId` to `backend/src/LootSingles.Domain/Orders/Order.cs`, documenting the null-together invariant
+- [X] T008 [P] Create `backend/src/LootSingles.Domain/Orders/OrderPackingSlip.cs` per data-model.md
+- [X] T009 [P] Create `backend/src/LootSingles.Domain/Orders/PackingSlipAccess.cs` per data-model.md
+- [X] T010 Add EF configurations for the two new entities in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/`, with the slip in its own table so order queries never materialise its bytes
+- [X] T011 Generate one migration covering T006–T010 in `backend/src/LootSingles.Infrastructure/Persistence/Migrations/`
+
+### The status short-circuit (test first)
+
+- [X] T012 Write failing integration tests in `backend/tests/LootSingles.IntegrationTests/Orders/` asserting a packed order's status survives **every** existing write path that recomputes status — claim, release, force-release, and recording a line outcome — per plan.md's named regression
+- [X] T013 Write a failing test asserting an order with an unresolved issue cannot reach `Packed` (FR-034)
+- [X] T014 Implement the packed short-circuit ahead of `OrderStatusComputation.FromCurrentLines` in `backend/src/LootSingles.Infrastructure/Persistence/`, leaving the existing derivation expression **unmodified** (research.md §6), making T012 and T013 pass
+
+### A packed order is not claimable (FR-045, added 2026-09-21)
+
+> Found while reviewing Phase 2, not by a test: status correctly stays `Packed`, but nothing stopped
+> a picker claiming one. `ClaimSpecificAsync` filters on the claim being free, not on status, and
+> Browse Orders has no status filter — so the order was listed, openable, and claimable. A **picked**
+> order stays re-claimable by design (015 lets a picker revise lines); packing is where that ends.
+
+- [X] T084 Write failing tests: an integration test that claiming a packed order is refused with a distinct reason (`backend/tests/LootSingles.IntegrationTests/Orders/PackedOrderStatusTests.cs`), and an RTL test that `OrderDetailPage` offers no claim action for a packed order (`frontend/tests/`)
+- [X] T085 Add an `OrderAlreadyPacked` claim outcome and guard `ClaimSpecificAsync` on it in `backend/src/LootSingles.Application/Orders/OrderClaimResult.cs`, `backend/src/LootSingles.Infrastructure/Persistence/OrderRepository.cs` and `backend/src/LootSingles.Api/Controllers/OrdersController.cs` — server-side enforcement, per Constitution VI
+- [X] T086 Hide the claim action for a packed order in `frontend/src/features/orders/OrderDetailPage.tsx`, and surface the refusal as a typed error in `frontend/src/features/orders/ordersApi.ts`
+
+---
+
+## Phase 3: User Story 1 — A finished pick produces a labelled sleeve (Priority: P1) 🎯 MVP
+
+**Goal**: A pick ends on a screen stating the physical card count, and prints a label that ties the
+sleeve to its order.
+
+**Independent test**: Complete a pick and confirm the ending screen shows the correct card count
+and a label prints. Complete a pick with an unresolved line and confirm the hold ending appears
+with a monochrome-distinguishable label. Neither needs the packing desk to exist.
+
+### Tests for User Story 1 (write first, watch fail)
+
+- [X] T015 [P] [US1] Unit tests for label content derivation in `backend/tests/LootSingles.UnitTests/Packing/` — card count, hold state, set-aside count, and that **no product-line count is produced** (FR-004)
+- [X] T016 [P] [US1] Integration tests for `GET /api/orders/{orderId}/label` in `backend/tests/LootSingles.IntegrationTests/Orders/` — success shape, `orderNotFound`, `orderNotStarted`, that a **held** order returns a label rather than a conflict (FR-013), and that **no customer field appears in the payload** (FR-015)
+- [X] T017 [P] [US1] RTL tests for the completion ending in `frontend/tests/` — states the card count, shows no product count, and opens no print dialog unprompted (FR-005)
+- [X] T018 [P] [US1] RTL tests for the needs-a-manager ending — cards pulled, cards set aside, and the unresolved products named (FR-003)
+- [X] T019 [P] [US1] RTL test asserting that after a label is requested, continuing to the next order becomes the primary action (FR-006)
+
+### Implementation for User Story 1
+
+- [X] T080 [P] [US1] Unit tests for the contributor list in `backend/tests/LootSingles.UnitTests/Packing/` — one employee, two, and an order whose lines were recorded by three; distinct, ordered by first contribution; pick time is the **most recent** outcome (FR-041, FR-042)
+- [X] T081 [P] [US1] Unit tests for the label's name formatting in `frontend/tests/` — one name, two names, and three or more rendering as the first two plus a remainder count (FR-043)
+- [X] T020 [US1] Create `backend/src/LootSingles.Application/Packing/LabelContent.cs` deriving every printed value from the order (FR-017), including the contributor list as a distinct projection over line pick outcomes (FR-041, FR-044) — **not** a single picker, since an order released and re-claimed has more than one
+- [X] T021 [US1] Add the label endpoint to `backend/src/LootSingles.Api/Controllers/OrdersController.cs` per contracts/packing-api.md
+- [X] T022 [P] [US1] Add the label client and typed errors to `frontend/src/features/orders/ordersApi.ts`, matching the existing error-class pattern
+- [X] T023 [US1] Create `frontend/src/features/labels/OrderLabel.tsx` rendering text, QR and Code 128 — the QR encoding a link to the order's packing view, the Code 128 encoding the bare TCGplayer identifier with its printed value serving as the human-readable one (FR-011, FR-012)
+- [X] T024 [US1] Create `frontend/src/features/labels/label.css` — physical units and an explicit page size, with **every physical dimension expressed as a named custom property in one block at the top of the file** (stock width and height, page margins, QR module size, barcode height, type sizes), so that correcting T001 later is a change to those values and nothing else
+- [X] T025 [US1] Implement the hold variant's inverted band in `label.css`, distinguishable **in monochrome**, never by colour (FR-013)
+- [X] T026 [US1] Add the ships-short marker to `OrderLabel.tsx`, set by nothing in this feature (FR-014)
+- [X] T082 [US1] Create the name-formatting helper beside `frontend/src/features/labels/OrderLabel.tsx` — first two contributors then `+N`, making T081 pass (FR-043)
+- [X] T027 [US1] Create `frontend/src/features/orders/PickEnding.tsx` presenting both endings, with printing as an explicit action
+- [X] T028 [US1] Route finishing a pick to `PickEnding` in `frontend/src/features/orders/OrderDetailPage.tsx`, replacing the current navigation to `/orders`, preserving the existing claim release (FR-008)
+- [X] T029 [US1] Wire continuing to the next order to the existing pick-next path in `PickEnding.tsx` (FR-007), including the no-orders-available case
+- [X] T030 [US1] E2E coverage of quickstart.md scenarios 1 and 2 in `frontend/e2e/`
+
+**Checkpoint**: A pick ends somewhere and the sleeve carries a label. Demonstrable on its own.
+
+---
+
+## Phase 4: User Story 2 — A packer finds the order and ships it (Priority: P1)
+
+**Goal**: A labelled sleeve is scanned at the bench, its packing slip prints, and the order is
+recorded as packed.
+
+**Independent test**: Scan or type a picked order's code at the packing desk, confirm its details
+and slip are produced, mark it packed, and confirm it leaves the awaiting-packing list.
+
+### Tests for User Story 2 (write first, watch fail)
+
+- [X] T031 [P] [US2] Unit tests for slip slicing in `backend/tests/LootSingles.UnitTests/Import/` against `backend/tests/LootSingles.Fixtures/PackingSlips/valid-multi-order-batch.pdf` — one order's pages only, reopens cleanly, text intact
+- [X] T032 [P] [US2] Unit test for slicing a multi-page order using `multi-page-order-no-total-on-continuation-pages.pdf` — all of its pages, none of another order's
+- [X] T033 [P] [US2] Unit tests for `PackingCodeResolver` — a QR link, a bare order number, a full TCGplayer identifier, plus whitespace, case and scanner terminators (research.md §10)
+- [X] T034 [US2] Add a fixture to `backend/tests/LootSingles.Fixtures/PackingSlips/` whose slip cannot be sliced, for T035
+- [X] T035 [US2] Write a failing integration test asserting a slip that cannot be sliced **does not reject its order and does not fail its batch** (FR-021) — the regression plan.md names as most likely
+- [X] T036 [P] [US2] Integration tests for `GET /api/packing/orders/{code}` — all three input shapes, `orderNotFound`, and `canPack` reflecting the order's **current** state rather than the printed label's
+- [X] T037 [P] [US2] Integration tests for `POST /api/orders/{orderId}/packed` — success, `orderAlreadyPacked`, `orderNotAwaitingPacking`, and `orderHasUnresolvedIssue` **naming the unresolved products** (FR-028)
+- [X] T038 [US2] Write a failing concurrency test asserting two simultaneous pack attempts record exactly one pack (FR-033), following the existing `PickingConcurrencyTests` pattern
+- [X] T039 [P] [US2] Integration tests for `GET /api/orders/{orderId}/packing-slip` — success, `packingSlipUnavailable` as distinct from `orderNotFound` (FR-022), and that a durable access row naming employee and time is written (FR-038)
+- [X] T040 [P] [US2] Integration tests for `GET /api/packing/awaiting`
+- [X] T041 [P] [US2] RTL tests for the packing desk — resolve, refuse a held order by name, state plainly when no slip is stored, and show **every** contributor rather than a truncated list (FR-043)
+- [X] T083 [P] [US2] Write failing integration tests asserting an employee with the `Picker` role can retrieve a packing slip and mark an order packed (FR-037) — the codebase has `RequireManagerAdmin`, and a role check added reflexively to a PII endpoint would silently break packing
+
+### Implementation for User Story 2
+
+- [X] T042 [US2] Add `PageNumbers` to `backend/src/LootSingles.Application/Import/RawOrderBlock.cs`
+- [X] T043 [US2] Record page numbers through parsing and continuation-page merging in `backend/src/LootSingles.Infrastructure/Import/PdfPigPackingSlipParser.cs`
+- [X] T044 [US2] Create `backend/src/LootSingles.Application/Import/IPackingSlipSlicer.cs` — bytes plus page numbers in, one document out, nothing else (research.md §2)
+- [X] T045 [US2] Implement `backend/src/LootSingles.Infrastructure/Import/PdfPigPackingSlipSlicer.cs` using `PdfMerger`, making T031 and T032 pass
+- [X] T046 [US2] Rewind the upload between parse and slice in `backend/src/LootSingles.Application/Import/PackingSlipImportService.cs`, buffering only when the stream cannot seek (research.md §3)
+- [X] T047 [US2] Slice and store each order's slip in `PackingSlipImportService.cs` as a **subordinate** step that records and swallows its own failure, making T035 pass
+- [X] T048 [US2] Extend `backend/src/LootSingles.Application/Import/IImportPersistence.cs` and its implementation to store a slip alongside its order
+- [X] T049 [P] [US2] Create `backend/src/LootSingles.Application/Packing/PackingCodeResolver.cs`, making T033 pass
+- [X] T050 [US2] Create `backend/src/LootSingles.Application/Packing/IPackingRepository.cs` and `PackingService.cs` — resolve, pack, awaiting, slip retrieval
+- [X] T051 [US2] Implement `backend/src/LootSingles.Infrastructure/Persistence/PackingRepository.cs`, projecting the awaiting list to the fields the desk shows and never loading slip bytes with it
+- [X] T052 [US2] Implement the packed transition as a conditional write in `PackingRepository.cs`, mirroring feature 013's claiming rather than a read-then-write check, making T037 and T038 pass
+- [X] T053 [US2] Create `backend/src/LootSingles.Api/Controllers/PackingController.cs` with the resolve and awaiting endpoints
+- [X] T054 [US2] Add the packed and packing-slip endpoints to `OrdersController.cs`
+- [X] T055 [US2] Write the access record and an `ILogger<T>` line on every slip retrieval — naming order and employee, never slip content — making T039 pass
+- [X] T056 [P] [US2] Create `frontend/src/features/packing/packingApi.ts` with typed errors matching the contract's codes
+- [X] T057 [US2] Create `frontend/src/features/packing/ScanBox.tsx` holding focus so a handheld scanner needs no clicking
+- [X] T058 [US2] Create `frontend/src/features/packing/PackingDeskPage.tsx` — resolve, details, print slip, mark packed, awaiting list
+- [X] T059 [US2] Add the packing route to `frontend/src/App.tsx`
+- [X] T060 [US2] E2E coverage of quickstart.md scenarios 3, 4 and 5 in `frontend/e2e/`
+
+**Checkpoint**: The lifecycle closes. A sleeve can be picked, labelled, scanned, packed.
+
+---
+
+## Phase 5: User Story 3 — A lost or ruined label is replaced (Priority: P2)
+
+**Goal**: Anyone can produce an order's label again without re-picking it.
+
+**Independent test**: Print a label, reprint from the order, reprint from the desk; all three match,
+including the original picker and time.
+
+- [X] T061 [P] [US3] Write a failing test asserting a reprint carries the **original** picker and pick time, not the reprinting employee or moment (FR-016)
+- [X] T062 [US3] Add a reprint action to `frontend/src/features/orders/OrderDetailPage.tsx` for any order whose picking has ended, **including a held one** — the label most likely to be reprinted (FR-016)
+- [X] T063 [US3] Add a reprint action to `frontend/src/features/packing/PackingDeskPage.tsx`
+- [X] T064 [US3] E2E coverage of quickstart.md scenario 6 in `frontend/e2e/`
+
+---
+
+## Phase 6: User Story 4 — The queue shows what is still on the shelf (Priority: P3)
+
+**Goal**: The dashboard counts orders awaiting packing rather than orders ever picked.
+
+**Independent test**: Pick an order and watch the count rise; pack it and watch the count fall.
+
+- [X] T065 [P] [US4] Write failing tests in `backend/tests/LootSingles.UnitTests/Dashboard/` and `backend/tests/LootSingles.IntegrationTests/Dashboard/` asserting the count excludes packed orders (FR-036)
+- [X] T066 [US4] Change the count's meaning in `backend/src/LootSingles.Application/Dashboard/DashboardService.cs` and `backend/src/LootSingles.Infrastructure/Persistence/DashboardRepository.cs`
+- [X] T067 [US4] Relabel the tile in `frontend/src/features/dashboard/DashboardPage.tsx` from *Picked* to *Awaiting packing*
+- [X] T068 [US4] E2E coverage of quickstart.md scenario 7 in `frontend/e2e/`
+
+---
+
+## Phase 7: Polish and Cross-Cutting Concerns
+
+**Purpose**: Verify the bounds that make this feature's privacy position defensible, then the
+ordinary gates.
+
+### The PRD §27 bounds — these are the mitigation, not a checklist
+
+- [X] T069 Verify one order per file: assert a stored slip names exactly one customer (quickstart.md privacy check 1, FR-019)
+- [X] T070 Verify the batch is not retained: assert no stored artifact holds the whole batch document after an import (privacy check 2, FR-020)
+- [X] T071 Verify picking surfaces cannot reach a slip: assert no payload consumed by a picking screen carries slip content or customer fields, and no picking screen links to one (privacy check 3, FR-039)
+- [X] T072 Verify access is attributable: retrieve a slip and assert a durable record names the employee and time (privacy check 4, SC-010)
+- [X] T073 Verify logs are clean: assert no log line carries customer name, address or slip content, per the constitution's logging rule (privacy check 5)
+
+> If any of T069–T073 cannot be made to pass, **stop**. PRD §27's four bounds hold together or not
+> at all, and weakening one re-opens amendment A14 with the Product Owner — it is not an
+> implementation decision (plan.md, Note on Principle VII).
+
+### Branch review remediation (2026-09-21)
+
+> From `/branch-review` on this branch. Two Required findings and four Optional ones the Product
+> Owner approved. Behavioural fixes are test-first: the regression task proves the defect against
+> the current implementation before the task that corrects it.
+
+**BR-001 (Required) — a packed order must never carry an unresolved issue.**
+`MarkPackedAsync` checks for unresolved issues on an `AsNoTracking` read, but its conditional
+update guards only `PackedAt == null`. A picker re-claiming a picked order to revise a line —
+which feature 015 deliberately allows — can report an issue between that read and the write, and
+the order is packed anyway. Because `Packed` short-circuits the derivation, the status never
+self-corrects. Violates FR-034 and Constitution VI.
+
+- [X] T087 Write a failing concurrency test in `backend/tests/LootSingles.IntegrationTests/Packing/PackingDeskTests.cs` that interleaves `POST /orders/{id}/packed` with `POST /orders/{id}/lines/{lineId}/report-issue` across repeated iterations and asserts the invariant **no order is ever `Packed` while a line is `HasIssue`**. Follow the existing `PickingConcurrencyTests` shape. The reproduction is probabilistic by nature — a deterministic one would need an interception seam the production code should not carry — so iterate enough to fail reliably against the current implementation, and note in the test why
+- [X] T088 Move the unresolved-issue and `Status == Picked` conditions into the conditional update’s `WHERE` in `backend/src/LootSingles.Infrastructure/Persistence/PackingRepository.cs` `MarkPackedAsync`, re-reading on zero rows affected to choose between `AlreadyPacked`, `HasUnresolvedIssue` and `NotAwaitingPacking`, so T087 passes
+- [X] T089 Confirm the existing single-threaded refusals still hold after T088 — held order, already packed, not awaiting packing — in the same test file, so the re-read path is covered as well as the race
+
+**BR-002 (Required) — the awaiting list contradicts its own plan.**
+`GetAwaitingPackingAsync` materialises every awaiting order with all of its `OrderLines` and
+computes counts in memory, and is unbounded. plan.md and T051 both say this list is projected to
+the fields the desk shows; the constitution's EF standards require projection for read models and
+limiting potentially large result sets. Batches of ~200 orders are documented as real.
+
+- [X] T090 Write a failing integration test in `backend/tests/LootSingles.IntegrationTests/Packing/PackingDeskTests.cs` seeding more awaiting orders than the intended cap and asserting `GET /api/packing/awaiting` returns at most that many, oldest first
+- [X] T091 Project card count, contributors and picked time in SQL rather than `Include`-ing `OrderLines`, and apply the bound, in `backend/src/LootSingles.Infrastructure/Persistence/PackingRepository.cs` `GetAwaitingPackingAsync`, so T090 passes
+- [X] T092 Assert the desk still shows correct card counts and contributor names for a multi-line, multi-picker order after the projection, in the same test file — the counts are what the projection could silently get wrong
+
+> **Not asserted by test:** that the query no longer materialises line graphs. Proving it would
+> mean asserting on generated SQL, which is brittle and would fail on unrelated EF upgrades. T091
+> is verified by reading the query; T090 and T092 protect the behaviour it must preserve.
+
+**BR-003 (Optional, approved) — redundant URL decode.** Non-behavioural today: no TCGplayer
+identifier contains a percent sequence, so no regression test is written for a defect that cannot
+currently occur. The existing `Resolve_ByScannedLinkOrIdentifier_ReachesTheSameOrder` test is the
+safety net for the scanned-link path this touches.
+
+- [X] T093 **Investigated and rejected.** ASP.NET Core does *not* deliver the route value fully
+  decoded — it deliberately leaves `%2F` encoded to avoid path confusion, and the client sends a
+  scanned link through `encodeURIComponent`. Removing `Uri.UnescapeDataString` made every scanned
+  link resolve to nothing, which `Resolve_ByScannedLinkOrIdentifier_ReachesTheSameOrder` caught on
+  the next run. The call is load-bearing, and `PackingController.Resolve` now says so in a comment
+  so it is not removed again. BR-003 was a wrong finding, and the safety net named in its task is
+  what proved it.
+
+**BR-006 (Optional, approved) — the label borrows another feature’s stylesheet.**
+`PrintLabelButton` positions its print host with `pick-ending__labelHost`, owned by
+`PickEnding.css`. It works only because `OrderDetailPage` statically imports `PickEnding`.
+Non-behavioural — existing RTL tests already assert the label renders.
+
+- [X] T094 [P] Move the off-screen print-host rule into `frontend/src/features/labels/label.css` under a label-owned class, and point both `frontend/src/features/labels/PrintLabelButton.tsx` and `frontend/src/features/orders/PickEnding.tsx` at it
+
+**BR-005 (Optional, approved) — no end-to-end proof that a stored slip prints.**
+Every E2E-seeded order is created directly rather than imported, so all of them take the
+"no slip stored" path. The happy path of US2’s central action is proven by integration tests but
+never through the UI. This adds missing coverage rather than fixing a defect, so there is no
+failing-first regression task.
+
+- [X] T095 Import `backend/tests/LootSingles.Fixtures/PackingSlips/valid-multi-order-batch.pdf` through the import screen inside `frontend/e2e/packing-desk.spec.ts`, so at least one order in the E2E database has a stored slip
+- [X] T096 Add E2E coverage scanning that imported order at the packing desk and confirming **Print packing slip** is offered and resolves, completing quickstart scenario 3 end to end
+
+**BR-004 (Optional, approved) — the suite-wide timeout treats a symptom.**
+The expect timeout was raised to 15s to absorb EF query compilation on the first write after the
+E2E host starts. It works, but slows every genuine failure by ten seconds. Test infrastructure
+only; no application behaviour changes.
+
+- [X] T097 Warm the status-derivation query after seeding in `backend/tests/LootSingles.E2EHost/Program.cs` — a zero-row `ExecuteUpdateAsync` against `Orders` is enough to compile it — so the host is ready rather than merely responding when Playwright starts
+- [X] T098 Restore the default expect timeout in `frontend/playwright.config.ts`, then run the full E2E suite twice and confirm both runs are green before keeping the change
+
+### Branch review remediation, round 2 (2026-09-21)
+
+**BR-001 (Required, High) — Finish does nothing on the order after "Next order".**
+`handleFinish` in `frontend/src/features/orders/OrderDetailPage.tsx` leaves the `isFinishing` ref
+set on success. "Next order" navigates to `/orders/{next}`, which is the same route, so React Router
+keeps the same `OrderDetailPage` instance and the ref survives. On the next order Finish returns at
+the guard: no release, no ending screen, no label, no error.
+
+- [X] T099 [US1] Write a failing regression test in `frontend/tests/orders/OrderDetailPage.test.tsx`: finish order A to its ending screen, tap **Next order** (mock `pickNextOrder` to return order B) so the route param changes on the **same mounted** page, reach B's final review and tap Finish, then assert `releaseOrder` is called for B and B's ending screen appears. It must fail against the current code because the second Finish never calls `releaseOrder`
+- [X] T100 [US1] Reset `isFinishing.current` to `false` when a new order loads, in the `orderId` effect of `frontend/src/features/orders/OrderDetailPage.tsx`, keeping the double-tap guard for a single order, so T099 passes and the existing double-tap E2E in `frontend/e2e/pick-handoff.spec.ts` still passes
+- [X] T101 [US1] Extend the completed-pick test in `frontend/e2e/pick-handoff.spec.ts`: after the first ending, tap **Next order**, pick the claimed order through to Finish, and assert an ending screen appears. Don't assume which order Pick Next returns: other specs run in parallel and claim from the same seed (see the E2E host gotchas). Assert the ending, not a particular order number
+
+> **Found while doing T101: the E2E database did not match production.** The E2E host kept its
+> tables in the container's `master` database with `READ_COMMITTED_SNAPSHOT` off. Azure SQL has it on,
+> and so do the integration tests (`SqlServerDatabaseLease`). Under locking reads, two pickers
+> recording picks at the same moment deadlocked on the status derivation's reads of `OrderLines`
+> (500, 3 runs out of 3). That failure can't happen in production, and the setting also hid BR-002
+> below. `backend/tests/LootSingles.E2EHost/Program.cs` now creates its own database with snapshot
+> isolation on. This is test infrastructure only, so there's no regression task for it.
+
+**BR-002 (Required, High) — Finish can print a ready-to-pack label for an order with an unresolved issue.**
+Moving between cards never waits for a write (016 FR-019a), so a picker can reach the review and
+tap Finish while an issue report is still in flight. `handleFinish` then asks for the label at
+once. Under snapshot isolation that read sees the last committed state, from before the report, so
+the ending says "Pick complete" and the label reads ready to pack. The server log shows the label
+request starting before the report finished. The packing desk would still refuse the order, but
+the sleeve is already labelled and in the wrong bin (PRD §22; CLAUDE.md: an order with an
+unresolved issue must never be represented as successfully picked).
+
+- [X] T102 [US1] Write a failing regression test in `frontend/tests/orders/OrderDetailPage.test.tsx`: report an issue with `reportIssue` held on an unresolved promise, go to the review and tap Finish, then resolve the report. Assert `getOrderLabel` is not called until the report has resolved, and that the hold ending appears (mock `getOrderLabel` to answer held only once the report has resolved). It must fail against the current code because the label is requested straight away
+- [X] T103 [US1] Make Finish wait for any in-flight outcome write before it requests the label, in `frontend/src/features/orders/OrderDetailPage.tsx`: track the pending record/report promises and await them at the start of `handleFinish`. Moving between cards stays unblocked (016 FR-019a). This makes T102 pass
+- [X] T104 [US1] Make the held E2E in `frontend/e2e/pick-handoff.spec.ts` deterministic: delay the `report-issue` response with `page.route` and tap Finish while it is still pending, so the race runs on every run instead of by chance, and the test asserts the hold ending
+- [X] T105 Verify the server side of the same race in `backend/tests/LootSingles.IntegrationTests/`, beside `PickingConcurrencyTests`: interleave `report-issue` with `release` on one order across repeated iterations under snapshot isolation, and assert that no order ends in `Picked` while a line is `HasIssue`. If it fails, stop and raise it as a new finding. Don't patch it inside this task
+
+### Branch review remediation, round 3 (2026-09-21)
+
+**BR-001 (Required, High) — a pick finished with products not looked at ends "Pick complete".**
+`LabelContent.From` (`backend/src/LootSingles.Application/Packing/LabelContent.cs`) treats an order as
+held only if a line is `HasIssue`, and lists only those lines as unresolved. The review screen
+correctly lets a picker finish with lines still open (016 FR-019a), so a picker who pulls one of
+three products and taps Finish gets the completion ending, a count covering only what they pulled,
+and a ready-to-pack label. That contradicts 017's definition of a complete pick ("every line
+confirmed, nothing unresolved"), 016 FR-019 and CLAUDE.md. The packing desk refuses the order,
+because its status is not `Picked`, but by then the sleeve is already in the wrong bin. The specs
+agree an open line is unresolved, so no clarification is needed. A different ending for "not looked
+at" than for "reported" would be a new product decision and belongs in `/speckit-clarify`.
+
+**BR-002 (Optional, not selected):** a failed in-flight report's error message is cleared when
+Finish proceeds. Once BR-001 is fixed the ending is honest regardless, so this was not selected.
+
+- [X] T106 [US1] Write failing unit tests in `backend/tests/LootSingles.UnitTests/Packing/LabelContentTests.cs`: an order with one `Picked` line and one line with no outcome is `IsHeld`, lists the open product in `UnresolvedProducts`, and counts only the picked line's cards. Include an order mixing an open line and a `HasIssue` line, which lists both. It must fail against the current `IsHeld`, which only looks for `HasIssue`
+- [X] T107 [US1] In `backend/src/LootSingles.Application/Packing/LabelContent.cs`, make `IsHeld` true when any line is not `Picked`, and make `UnresolvedProducts` list every line that is not `Picked`, so T106 passes. Confirm `IsHeld_IsFalse_WhenEveryLineIsPicked`, the card-count tests and `HasStarted` are unchanged. Check the packing desk's use of the label content (`PackingRepository`): an awaiting order is `Picked`, so every line is picked and the desk's behaviour must not change
+- [X] T108 [US1] Add E2E coverage in `frontend/e2e/pick-handoff.spec.ts`: pick one product of a two-product order, skip the other, tap Finish from the review, and assert the needs-a-manager ending naming the skipped product, with a hold label. Seed a dedicated order and picker for it in `backend/tests/LootSingles.E2EHost/Program.cs` (E2E-ORDER-00015 and a new picker), since the suite runs fully parallel and the existing pickers and orders are in use
+
+> **Done alongside T107.** The packing desk used `IsHeld` for its refusal message. With the wider
+> rule, an order still being picked would have read "a manager still has to decide". The desk now
+> decides held from `Status == NeedsAttention` (derived from a reported issue) and lists reported
+> issues only, so its behaviour is unchanged. `frontend/e2e/mobile-picking.spec.ts` expected
+> "Pick complete" for an order finished with a product never looked at. That assertion recorded
+> the defect as intended behaviour, and now expects the held ending.
+
+### Branch review remediation, round 4 (2026-09-21)
+
+Round 4 found no Required findings, which per CLAUDE.md is the point to stop reviewing.
+
+**BR-001 (Optional, approved): the desk's "still being picked" case is untested.**
+Round 3 rewrote `Packability` and `ToView` in
+`backend/src/LootSingles.Infrastructure/Persistence/PackingRepository.cs` to keep the desk unchanged,
+but no test pins the case the rewrite exists for. The rewrite was behaviour-preserving, so the
+behaviour is already correct and a test written now would pass straight away. This adds coverage
+rather than fixing a defect, so there is no failing-first regression task. That is the same
+treatment BR-005 had in round 1.
+
+**BR-002 (Optional, not selected):** the mark-packed 409 lists skipped products as needing a
+manager. It's a rare race path, and the order is correctly refused either way.
+
+- [X] T109 [US2] Add an integration test to `backend/tests/LootSingles.IntegrationTests/Packing/PackingDeskTests.cs`: resolve an order that is claimed and in progress, with one line picked and one line with no outcome and no reported issue, and assert `canPack` is false, the blocked reason says the order has not finished picking, and `unresolvedProducts` is empty. Confirm it would catch the round-3 mistake by temporarily switching `Packability` back to `label.IsHeld` and watching it fail, then restore it
+
+### Branch review remediation, round 5 (2026-09-21)
+
+**BR-001 (Required, Low): the desktop half of T111 was changed without a test.** T111 also made
+the ending screen show its own errors on desktop, where the header that normally shows them is
+hidden. The T110 test runs at phone width, where errors were already shown, so it passes with or
+without that change. Constitution Principle IV requires a failing test before any behaviour
+change. The code change is already in place, so this test is proven by temporarily reverting the
+display condition, not by writing a fix after it.
+
+- [X] T112 [US1] Add an RTL test in `frontend/tests/orders/OrderDetailPage.test.tsx` at desktop width (`installMatchMedia(false)`, as the packed-order tests do): finish an order, tap **Next order** with `pickNextOrder` rejecting with `NoOrdersAvailableError`, and assert the "No orders are currently available to pick." message is shown. Prove it: temporarily put the display condition in `frontend/src/features/orders/OrderDetailPage.tsx` back to `actionError && isFocused`, watch the test fail, then restore it
+
+> **Done differently from the wording above, because its premise was wrong.** Finish exists only in
+> the phone's card view, so a desktop picker never reaches the ending screen and a desktop-width test
+> of it cannot be built. What makes the desktop layout show up on the ending is a phone turned
+> sideways: 844px in landscape is wider than the 767px breakpoint. The test finishes at phone width,
+> rotates the phone, then taps Next order. It failed with the display rule put back to
+> `actionError && isFocused`, and passes as the code is now.
+
+---
+
+### Ordinary gates
+
+- [X] T074 [P] Review whether the new behaviour warrants production logging beyond slip access and slip-extraction failure, per the constitution's Observability standard — adding none where none is warranted
+- [X] T075 [P] Run `npm --prefix frontend run build` and `npm --prefix frontend run lint`; `tsc --noEmit` checks nothing in this project
+- [X] T076 [P] Run `dotnet build backend/LootSingles.sln` and `dotnet test backend/LootSingles.sln`
+- [X] T077 [P] Run `npm --prefix frontend run format:check` and the C# formatting check
+- [X] T078 Walk quickstart.md end to end against the running application and correct any step that does not match what was built — **scenario 0 depends on T001 and stays outstanding until the printer is available**
+- [ ] T079 Run `/branch-review` and resolve every Required finding before `/speckit-converge`, per CLAUDE.md's Branch Review Gate
+
+> **T001 is still open at this point.** The feature is not done while it is, and `/speckit-converge`
+> should not be treated as closing it out. Everything else can be finished, reviewed and merged;
+> the printed label remains unverified against real hardware until someone prints one.
+
+---
+
+## Dependencies & Execution Order
+
+### Phase dependencies
+
+```text
+Phase 1 (Setup + hardware gate)
+   │  T001 gates every label task: T023, T024, T025, T026
+   ▼
+Phase 2 (Foundational)  ── T004/T005 gate all slip work; T006–T011 gate US2 and US4
+   ▼
+Phase 3 (US1, P1) 🎯 MVP ──┐
+Phase 4 (US2, P1) ─────────┤  US1 and US2 are independent of each other
+   ▼                       │
+Phase 5 (US3, P2) ─────────┘  needs US1's label endpoint and US2's desk page
+   ▼
+Phase 6 (US4, P3)             needs US2's packed state to count against
+   ▼
+Phase 7 (Polish)
+```
+
+### User story dependencies
+
+- **US1** depends only on Phase 1 and the frontend dependencies. It does **not** need Packed, slip
+  storage, or the desk.
+- **US2** depends on Phase 2's schema and status short-circuit.
+- **US3** depends on US1 (the label endpoint) and US2 (the desk page).
+- **US4** depends on US2, because there is nothing to exclude from the count until orders can be
+  packed.
+
+### Within each story
+
+Tests first, always. Then domain → application → API → frontend → E2E.
+
+### Parallel opportunities
+
+- **Phase 2**: T006–T009 are four separate files and run together; T010 and T011 must follow them.
+- **Phase 3**: T015–T019 are five independent test files. T022 runs alongside the backend work.
+- **Phase 4**: T031–T033, T036–T037, T039–T041 are independent test files. T049 and T056 are
+  independent of the import-pipeline work.
+- **Phase 7**: T074–T077 all run together.
+- **US1 and US2 can be built in parallel by two people** once Phase 2 is done — they share no files
+  except `tasks.md` itself.
+
+---
+
+## Implementation Strategy
+
+### MVP scope
+
+**Phases 1–3 (through US1).** A pick ends on a screen and the sleeve carries a label. The sleeve is
+identifiable by a human reading it, which is strictly better than today, and it is demonstrable
+without the packing desk existing.
+
+### Incremental delivery
+
+1. **Phase 1** — the printer answers yes or no. Everything downstream assumes yes.
+2. **Phases 2–3** — MVP: labelled sleeves.
+3. **Phase 4** — the lifecycle closes; orders can be packed.
+4. **Phases 5–6** — recovery from a lost label, and a count that means something.
+5. **Phase 7** — the privacy bounds verified, then the gates.
+
+### Notes
+
+- **T001 first, genuinely.** It is the only task here that code quality cannot influence.
+- **T035 is the regression to fear.** It guards an existing, working, safety-critical pipeline
+  against a new subordinate step. A slip failure must never reject an order whose own data parsed
+  fine.
+- **T012 guards a silent failure.** A packed order recomputed back to `Picked` throws no error — it
+  just reappears on the shelf.
+- Commit after each completed task or coherent group; the Product Owner confirms each commit.
+
+## Phase 8: Convergence
+
+- [X] T110 Write a failing test in `frontend/tests/orders/OrderDetailPage.test.tsx` asserting that when **Next order** finds no order available (`pickNextOrder` rejects with `NoOrdersAvailableError`), the picker is told "No orders are currently available to pick." as Pick Next does on the dashboard, rather than being moved to Browse Orders without a word, per FR-007 (partial)
+- [X] T111 Make **Next order** on the ending screen handle no available order the way the dashboard's Pick Next does, in `frontend/src/features/orders/OrderDetailPage.tsx` `handleNextOrder`, so T110 passes, per FR-007 (partial)
+
+## Phase 9: Reaching the packing desk
+
+> **Product Owner decision, 2026-09-21.** Found while trying the desk by hand: nothing in the
+> application links to `/packing`. The only ways in are scanning a label's QR code or typing the
+> address, and the E2E tests hid this by opening `/packing` directly. FR-023 requires the surface
+> but says nothing about reaching it. The Product Owner chose: the dashboard's **Awaiting Packing**
+> tile opens the desk. No separate button.
+
+- [X] T113 [US2] Write a failing RTL test in `frontend/tests/dashboard/DashboardPage.test.tsx`: the **Awaiting Packing** tile contains a link that opens the packing desk (`/packing`), and following it lands there. The tile keeps its count
+- [X] T114 [US2] Make the Awaiting Packing tile's label and count a link to `/packing` in `frontend/src/features/dashboard/DashboardPage.tsx` (styled in `DashboardPage.css` so the tile still reads as a tile), so T113 passes
+- [X] T115 [US2] In `frontend/e2e/packing-desk.spec.ts`, reach the desk the way a packer would, from the dashboard tile rather than `page.goto('/packing')`, in at least one test

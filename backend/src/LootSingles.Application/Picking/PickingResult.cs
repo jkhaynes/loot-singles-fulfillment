@@ -10,6 +10,13 @@ public enum PickingOutcome
     NotYourClaim,
     InvalidIssueType,
     InvalidIssueDetails,
+
+    /// <summary>
+    /// The order has been packed, so its lines are no longer workable
+    /// (017-pick-completion-handoff FR-031). Distinct from <see cref="NotYourClaim"/> because
+    /// the employee may well hold the claim — the order has simply left.
+    /// </summary>
+    OrderAlreadyPacked,
 }
 
 /// <param name="Order">
@@ -23,6 +30,10 @@ public sealed record PickingResult(PickingOutcome Outcome, OrderDetail? Order = 
     public static readonly PickingResult OrderNotFound = new(PickingOutcome.OrderNotFound);
 
     public static readonly PickingResult LineNotFound = new(PickingOutcome.LineNotFound);
+
+    public static readonly PickingResult OrderAlreadyPacked = new(
+        PickingOutcome.OrderAlreadyPacked
+    );
 
     public static readonly PickingResult NotYourClaim = new(PickingOutcome.NotYourClaim);
 

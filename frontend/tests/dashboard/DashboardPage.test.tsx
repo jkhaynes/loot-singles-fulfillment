@@ -36,6 +36,7 @@ function renderDashboard(onLogout = vi.fn()) {
       <Routes>
         <Route path="/" element={<DashboardPage employee={employee} onLogout={onLogout} />} />
         <Route path="/orders/:orderId" element={<p>Order detail page</p>} />
+        <Route path="/packing" element={<p>Packing desk page</p>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -72,7 +73,10 @@ describe('DashboardPage', () => {
   })
 
   // 015-pick-completion T039: the three placeholder tiles now show live counts (US3 AC1, AC2).
-  it('shows live counts for In Progress, Needs Attention and Picked instead of placeholders', async () => {
+  // 017: the last tile counts orders awaiting packing rather than orders ever picked. The
+  // old number only grew; this one falls when a sleeve is posted, which is the question anyone
+  // actually has (FR-036).
+  it('shows live counts for In Progress, Needs Attention and Awaiting Packing', async () => {
     vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
       dashboardData({
         ready: { count: 1, orders: [] },
@@ -99,9 +103,27 @@ describe('DashboardPage', () => {
     expect(within(inProgressTile).getByText('2')).toBeInTheDocument()
     const needsAttentionTile = screen.getByRole('article', { name: 'Needs Attention' })
     expect(within(needsAttentionTile).getByText('1')).toBeInTheDocument()
-    const pickedTile = screen.getByRole('article', { name: 'Picked' })
+    const pickedTile = screen.getByRole('article', { name: 'Awaiting Packing' })
     expect(within(pickedTile).getByText('5')).toBeInTheDocument()
     expect(screen.queryByText('Not yet available')).not.toBeInTheDocument()
+  })
+
+  // 017 T113 (Product Owner decision, 2026-09-21): nothing linked to the packing desk, so a packer
+  // had no way in short of scanning a label or knowing the address. The tile that counts the
+  // sleeves waiting for them is where they look.
+  it('opens the packing desk from the Awaiting Packing tile', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({ ready: { count: 0, orders: [] }, picked: { count: 3, orders: [] } }),
+    )
+    const user = userEvent.setup()
+
+    renderDashboard()
+    const tile = await screen.findByRole('article', { name: 'Awaiting Packing' })
+    expect(within(tile).getByText('3')).toBeInTheDocument()
+
+    await user.click(within(tile).getByRole('link', { name: /awaiting packing/i }))
+
+    expect(await screen.findByText('Packing desk page')).toBeInTheDocument()
   })
 
   it('names the flagged product on a needs-attention order', async () => {
@@ -245,7 +267,7 @@ describe('DashboardPage', () => {
     renderDashboard()
     await screen.findByText(/no orders ready to pick/i)
 
-    for (const label of ['Ready to Pick', 'In Progress', 'Needs Attention', 'Picked']) {
+    for (const label of ['Ready to Pick', 'In Progress', 'Needs Attention', 'Awaiting Packing']) {
       const tile = screen.getByRole('article', { name: label })
       expect(within(tile).getByText('0')).toBeInTheDocument()
     }
