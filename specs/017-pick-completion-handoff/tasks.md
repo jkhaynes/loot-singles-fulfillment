@@ -300,6 +300,40 @@ only; no application behaviour changes.
 - [X] T097 Warm the status-derivation query after seeding in `backend/tests/LootSingles.E2EHost/Program.cs` — a zero-row `ExecuteUpdateAsync` against `Orders` is enough to compile it — so the host is ready rather than merely responding when Playwright starts
 - [X] T098 Restore the default expect timeout in `frontend/playwright.config.ts`, then run the full E2E suite twice and confirm both runs are green before keeping the change
 
+### Branch review remediation, round 2 (2026-09-21)
+
+**BR-001 (Required, High) — Finish does nothing on the order after "Next order".**
+`handleFinish` in `frontend/src/features/orders/OrderDetailPage.tsx` leaves the `isFinishing` ref
+set on success. "Next order" navigates to `/orders/{next}`, which is the same route, so React Router
+keeps the same `OrderDetailPage` instance and the ref survives. On the next order Finish returns at
+the guard: no release, no ending screen, no label, no error.
+
+- [X] T099 [US1] Write a failing regression test in `frontend/tests/orders/OrderDetailPage.test.tsx`: finish order A to its ending screen, tap **Next order** (mock `pickNextOrder` to return order B) so the route param changes on the **same mounted** page, reach B's final review and tap Finish, then assert `releaseOrder` is called for B and B's ending screen appears. It must fail against the current code because the second Finish never calls `releaseOrder`
+- [X] T100 [US1] Reset `isFinishing.current` to `false` when a new order loads, in the `orderId` effect of `frontend/src/features/orders/OrderDetailPage.tsx`, keeping the double-tap guard for a single order, so T099 passes and the existing double-tap E2E in `frontend/e2e/pick-handoff.spec.ts` still passes
+- [X] T101 [US1] Extend the completed-pick test in `frontend/e2e/pick-handoff.spec.ts`: after the first ending, tap **Next order**, pick the claimed order through to Finish, and assert an ending screen appears. Don't assume which order Pick Next returns: other specs run in parallel and claim from the same seed (see the E2E host gotchas). Assert the ending, not a particular order number
+
+> **Found while doing T101: the E2E database did not match production.** The E2E host kept its
+> tables in the container's `master` database with `READ_COMMITTED_SNAPSHOT` off. Azure SQL has it on,
+> and so do the integration tests (`SqlServerDatabaseLease`). Under locking reads, two pickers
+> recording picks at the same moment deadlocked on the status derivation's reads of `OrderLines`
+> (500, 3 runs out of 3). That failure can't happen in production, and the setting also hid BR-002
+> below. `backend/tests/LootSingles.E2EHost/Program.cs` now creates its own database with snapshot
+> isolation on. This is test infrastructure only, so there's no regression task for it.
+
+**BR-002 (Required, High) — Finish can print a ready-to-pack label for an order with an unresolved issue.**
+Moving between cards never waits for a write (016 FR-019a), so a picker can reach the review and
+tap Finish while an issue report is still in flight. `handleFinish` then asks for the label at
+once. Under snapshot isolation that read sees the last committed state, from before the report, so
+the ending says "Pick complete" and the label reads ready to pack. The server log shows the label
+request starting before the report finished. The packing desk would still refuse the order, but
+the sleeve is already labelled and in the wrong bin (PRD §22; CLAUDE.md: an order with an
+unresolved issue must never be represented as successfully picked).
+
+- [X] T102 [US1] Write a failing regression test in `frontend/tests/orders/OrderDetailPage.test.tsx`: report an issue with `reportIssue` held on an unresolved promise, go to the review and tap Finish, then resolve the report. Assert `getOrderLabel` is not called until the report has resolved, and that the hold ending appears (mock `getOrderLabel` to answer held only once the report has resolved). It must fail against the current code because the label is requested straight away
+- [X] T103 [US1] Make Finish wait for any in-flight outcome write before it requests the label, in `frontend/src/features/orders/OrderDetailPage.tsx`: track the pending record/report promises and await them at the start of `handleFinish`. Moving between cards stays unblocked (016 FR-019a). This makes T102 pass
+- [X] T104 [US1] Make the held E2E in `frontend/e2e/pick-handoff.spec.ts` deterministic: delay the `report-issue` response with `page.route` and tap Finish while it is still pending, so the race runs on every run instead of by chance, and the test asserts the hold ending
+- [X] T105 Verify the server side of the same race in `backend/tests/LootSingles.IntegrationTests/`, beside `PickingConcurrencyTests`: interleave `report-issue` with `release` on one order across repeated iterations under snapshot isolation, and assert that no order ends in `Picked` while a line is `HasIssue`. If it fails, stop and raise it as a new finding. Don't patch it inside this task
+
 ---
 
 ### Ordinary gates

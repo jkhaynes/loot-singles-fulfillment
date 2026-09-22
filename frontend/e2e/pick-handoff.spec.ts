@@ -115,6 +115,37 @@ test('a completed pick ends on a screen stating the card count, and prints a lab
   expect(printed!.x).toBeLessThan(5)
   // And the only thing on it: the ending screen is not printed around the label.
   await expect(page.getByRole('heading', { name: 'Pick complete' })).toBeHidden()
+  await page.emulateMedia({ media: 'screen' })
+
+  // ---- Next order, then finish that one too (BR-001, review round 2) ----
+  // Next order lands on the same route, so the page stays mounted with only the id changed, and
+  // a guard carried over from the first finish once made the second Finish do nothing.
+  //
+  // Pick Next takes the oldest Ready order, and other specs own those. The claim is steered to
+  // an order seeded for this test by making the real claim on it in place of pick-next; the
+  // response has the same shape, and the navigation and finish that follow are untouched.
+  const orders = (await (await page.request.get('/api/orders')).json()) as {
+    orderId: number
+    tcgplayerOrderId: string
+  }[]
+  const second = orders.find((order) => order.tcgplayerOrderId === 'E2E-ORDER-00014')!
+  await page.route('**/api/orders/pick-next', async (route) => {
+    const claimed = await route.fetch({
+      url: route.request().url().replace('pick-next', `${second.orderId}/claim`),
+    })
+    await route.fulfill({ response: claimed })
+  })
+
+  await page.getByRole('button', { name: /next order/i }).click()
+  await expect(page).toHaveURL(new RegExp(`/orders/${second.orderId}$`))
+  await page.getByRole('button', { name: /^picked$/i }).click()
+  await expect(page.getByRole('button', { name: /picked ✓/i })).toBeVisible()
+  await next(page).click()
+  await page.getByRole('button', { name: /finish picking/i }).click()
+
+  await expect(page.getByRole('heading', { name: 'Pick complete' })).toBeVisible()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await expect(page.getByLabel('Ready to pack label')).toContainText('E2E-ORDER-00014')
 })
 
 test('a pick with an unresolved product ends held, and prints a hold label', async ({ page }) => {
@@ -124,16 +155,34 @@ test('a pick with an unresolved product ends held, and prints a hold label', asy
   await expect(page.getByRole('button', { name: /picked ✓/i })).toBeVisible()
 
   await next(page).click()
+  // The report is held back so that Finish is tapped while it is still in flight, on every run
+  // rather than by chance (BR-002). Finishing used to request the label at once, and under
+  // production's snapshot isolation the label read the order from before the report: this order
+  // ended "Pick complete" with a ready-to-pack label.
+  let releaseReport: () => void = () => {}
+  const reportHeld = new Promise<void>((resolve) => (releaseReport = resolve))
+  await page.route('**/api/orders/*/lines/*/report-issue', async (route) => {
+    await reportHeld
+    await route.continue()
+  })
   await page.getByRole('button', { name: /report an issue/i }).click()
   await page.getByLabel('Issue type').selectOption('cardNotFound')
   await page.getByRole('button', { name: /submit issue/i }).click()
 
   await next(page).click()
   await expect(page.getByText(/count the sleeve/i)).toBeVisible()
+  const labelRequested = page.waitForRequest('**/api/orders/*/label')
   // A double tap, deliberately. A thumb on a phone does this, and it used to send two releases:
   // the second answered 409 because the first had already given the claim up, and the screen
   // reported "Couldn't finish this order" over a finish that had worked.
   await page.getByRole('button', { name: /finish picking/i }).dblclick()
+  // Nothing may be asked of the label while the report is outstanding.
+  const early = await Promise.race([
+    labelRequested.then(() => true),
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 500)),
+  ])
+  expect(early).toBe(false)
+  releaseReport()
 
   // ---- The other ending (FR-003) ----
   await expect(page.getByRole('heading', { name: /needs a manager/i })).toBeVisible()

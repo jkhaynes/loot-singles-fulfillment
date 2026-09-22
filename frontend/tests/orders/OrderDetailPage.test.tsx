@@ -903,6 +903,104 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
     expect(screen.queryByText('Browse Orders list')).not.toBeInTheDocument()
   })
 
+  // BR-001 (review round 2). "Next order" navigates to the same route, so React Router keeps this
+  // page mounted and only the order id changes. The double-tap guard on Finish was left set after
+  // the first order finished, and the second order's Finish did nothing at all.
+  it('finishes the order that Next order opened, not only the first', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockImplementation(async (orderId: number) => ({
+      ...claimedOrder([
+        buildLine({ id: orderId * 10, productName: 'Only Card', pickOutcome: 'picked' }),
+      ]),
+      orderId,
+      tcgplayerOrderId: `ORDER-DETAIL-${orderId}`,
+    }))
+    vi.mocked(ordersApi.releaseOrder).mockResolvedValue(undefined)
+    vi.mocked(ordersApi.getOrderLabel).mockImplementation(async (orderId: number) => ({
+      orderId,
+      tcgplayerOrderId: `ORDER-DETAIL-${orderId}`,
+      cardCount: 1,
+      pickedBy: [{ employeeId: 1, displayName: 'Test Picker' }],
+      pickedAt: '2026-09-21T14:14:00Z',
+      isHeld: false,
+      unresolvedProducts: [],
+      setAsideCount: null,
+      shipsShort: false,
+    }))
+    vi.mocked(ordersApi.pickNextOrder).mockResolvedValue({
+      orderId: 43,
+      tcgplayerOrderId: 'ORDER-DETAIL-43',
+      status: 'inProgress',
+      claimedByEmployeeId: 1,
+      claimedByEmployeeName: 'Test Picker',
+    })
+
+    renderPage()
+    await screen.findByRole('article')
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(await screen.findByRole('button', { name: /finish picking/i }))
+    await screen.findByText('Pick complete')
+
+    await user.click(screen.getByRole('button', { name: /next order/i }))
+    await screen.findByRole('article')
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(await screen.findByRole('button', { name: /finish picking/i }))
+
+    expect(await screen.findByText('Pick complete')).toBeInTheDocument()
+    expect(ordersApi.releaseOrder).toHaveBeenLastCalledWith(43)
+  })
+
+  // BR-002 (review round 2). Moving between cards never waits for a write, so Finish can be tapped
+  // while an issue report is still in flight. The label was requested at once and, under the
+  // snapshot isolation production runs, read the order from before the report: "Pick complete"
+  // and a ready-to-pack label for an order with an unresolved issue.
+  it('waits for an in-flight issue report before finishing, and ends held', async () => {
+    const user = userEvent.setup()
+    const order = claimedOrder([buildLine({ id: 7, productName: 'Only Card' })])
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(order)
+    let reportCommitted = false
+    let commitReport: () => void = () => {}
+    vi.mocked(ordersApi.reportIssue).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          commitReport = () => {
+            reportCommitted = true
+            resolve({ ...order, status: 'needsAttention' })
+          }
+        }),
+    )
+    vi.mocked(ordersApi.releaseOrder).mockResolvedValue(undefined)
+    // Answers the way the server would: held only once the report has been committed.
+    vi.mocked(ordersApi.getOrderLabel).mockImplementation(async () => ({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      cardCount: 0,
+      pickedBy: [{ employeeId: 1, displayName: 'Test Picker' }],
+      pickedAt: '2026-09-21T14:14:00Z',
+      isHeld: reportCommitted,
+      unresolvedProducts: reportCommitted ? ['Only Card'] : [],
+      setAsideCount: null,
+      shipsShort: false,
+    }))
+
+    renderPage()
+    await screen.findByRole('article')
+    await user.click(screen.getByRole('button', { name: /report an issue/i }))
+    await user.selectOptions(screen.getByLabelText('Issue type'), 'cardNotFound')
+    await user.click(screen.getByRole('button', { name: /submit issue/i }))
+
+    // The report is still in flight: move on and finish anyway, as a quick thumb does.
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(await screen.findByRole('button', { name: /finish picking/i }))
+
+    expect(ordersApi.getOrderLabel).not.toHaveBeenCalled()
+
+    commitReport()
+
+    expect(await screen.findByText(/needs a manager/i)).toBeInTheDocument()
+    expect(screen.queryByText('Pick complete')).not.toBeInTheDocument()
+  })
+
   it('keeps the picker on the order when completing fails', async () => {
     const user = userEvent.setup()
     vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(

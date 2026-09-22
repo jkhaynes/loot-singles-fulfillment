@@ -167,6 +167,74 @@ public sealed class PickingConcurrencyTests(SqlServerContainerFixture fixture)
         await AssertMatchesPersistedStateAsync(lease, reported.Order!);
     }
 
+    // 017 T105 (branch review round 2, BR-002). The client side of this race was an issue report
+    // still in flight when Finish released the order. This is the server side: release re-derives
+    // status inside an UPDATE, and under snapshot isolation (production's, and this lease's) that
+    // statement's reads of OrderLines could in principle see the lines from before an uncommitted
+    // report. Whichever commits first, an order must never end Picked with a line HasIssue.
+    [Fact]
+    public async Task Concurrent_issue_report_and_release_never_leave_a_held_order_picked()
+    {
+        await using var lease = await fixture.CreateDatabaseLeaseAsync();
+        await using var setupContext = lease.CreateDbContext();
+        var picker = NewEmployee("reportracer");
+        setupContext.Employees.Add(picker);
+        await setupContext.SaveChangesAsync();
+
+        // Probabilistic by nature: a deterministic interleaving would need a seam inside the
+        // repositories that production code should not carry. Enough rounds to hit both orders.
+        for (var round = 0; round < 25; round++)
+        {
+            var order = NewOrder($"REPORT-RELEASE-RACE-{round}");
+            order.OrderLines.Add(NewLine("Already Picked", PickOutcome.Picked));
+            order.OrderLines.Add(NewLine("Being Reported", null));
+            setupContext.Orders.Add(order);
+            await setupContext.SaveChangesAsync();
+            order.ClaimedByEmployeeId = picker.Id;
+            order.ClaimedAt = DateTimeOffset.UtcNow;
+            order.Status = OrderStatus.InProgress;
+            await setupContext.SaveChangesAsync();
+            var reportedLineId = order.OrderLines.Last().Id;
+
+            await using var reportContext = lease.CreateDbContext();
+            await using var releaseContext = lease.CreateDbContext();
+            var reportTask = new PickingRepository(reportContext).RecordOutcomeAsync(
+                order.Id,
+                reportedLineId,
+                picker.Id,
+                new PickOutcomeChange.IssueReport(
+                    PickingIssueType.CardNotFound,
+                    RequiredQuantity: null,
+                    FoundQuantity: null,
+                    Note: null
+                ),
+                CancellationToken.None
+            );
+            var releaseTask = new OrderRepository(releaseContext).ReleaseAsync(
+                order.Id,
+                picker.Id,
+                CancellationToken.None
+            );
+            await Task.WhenAll(reportTask, releaseTask);
+
+            await using var verifyContext = lease.CreateDbContext();
+            var finalOrder = await verifyContext
+                .Orders.AsNoTracking()
+                .Include(o => o.OrderLines)
+                .SingleAsync(o => o.Id == order.Id);
+
+            if (finalOrder.OrderLines.Any(line => line.PickOutcome == PickOutcome.HasIssue))
+            {
+                Assert.Equal(OrderStatus.NeedsAttention, finalOrder.Status);
+            }
+            else
+            {
+                // Release won; the report was refused as no longer this picker's claim.
+                Assert.Equal(PickingOutcome.NotYourClaim, (await reportTask).Outcome);
+            }
+        }
+    }
+
     private static OrderLineDetail LineIn(OrderDetail detail, int lineId) =>
         detail.Lines.Single(line => line.Id == lineId);
 

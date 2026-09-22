@@ -15,6 +15,7 @@ using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Testcontainers.MsSql;
 
@@ -26,6 +27,27 @@ const string SqlServerImage = "mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-2
 await using var container = new MsSqlBuilder(SqlServerImage).Build();
 await container.StartAsync();
 
+// A database of its own rather than the container's default master, so it can run under
+// production's isolation level. Azure SQL Database has READ_COMMITTED_SNAPSHOT on; the container
+// has it off, and without it two pickers recording picks at the same moment deadlocked on the
+// status derivation's reads of OrderLines: a failure production cannot have, which failed the
+// suite whenever two specs picked at once. The integration tests do the same
+// (SqlServerDatabaseLease).
+const string E2EDatabaseName = "LootSinglesE2E";
+await using (var master = new SqlConnection(container.GetConnectionString()))
+{
+    await master.OpenAsync();
+    await using var create = master.CreateCommand();
+    create.CommandText =
+        $"CREATE DATABASE [{E2EDatabaseName}]; "
+        + $"ALTER DATABASE [{E2EDatabaseName}] SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE;";
+    await create.ExecuteNonQueryAsync();
+}
+var e2eConnectionString = new SqlConnectionStringBuilder(container.GetConnectionString())
+{
+    InitialCatalog = E2EDatabaseName,
+}.ConnectionString;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Dedicated E2E port, deliberately not the dev API's 5098/7166, so the Playwright suite and
@@ -33,7 +55,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls("http://127.0.0.1:5199");
 
 builder.Services.AddDbContext<LootSinglesDbContext>(options =>
-    options.UseSqlServer(container.GetConnectionString())
+    options.UseSqlServer(e2eConnectionString)
 );
 
 builder
@@ -480,6 +502,17 @@ static async Task SeedAsync(IServiceProvider services)
             Status = OrderStatus.Ready,
             ImportedAt = DateTimeOffset.UtcNow.AddMinutes(55),
             OrderLines = [SetAwareLine("Pokemon", "Reprint Set", "Reprint Card", "#003/050", 1)],
+        }
+    );
+    // 017 T101: the order "Next order" hands to pick-handoff's first test. Pick Next itself takes
+    // the oldest Ready order, which other specs own, so that test steers the choice here.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00014",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(60),
+            OrderLines = [SetAwareLine("Pokemon", "Second Set", "Second Sleeve", "#004/050", 1)],
         }
     );
     await context.SaveChangesAsync();
