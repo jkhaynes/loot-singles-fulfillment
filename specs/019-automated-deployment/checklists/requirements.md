@@ -37,7 +37,14 @@
 - FR-021 (the running application cannot alter schema) and FR-020 (default-deny database access) are
   privacy controls, not implementation preferences: this database holds the stored packing slips
   described in PRD §27.
-- One open question — whether a production release may be self-approved — was put to the Product
-  Owner during specification rather than left as a marker, because the answer changes what FR-012
-  means. Recorded under Clarifications (2026-09-22).
+- Four questions were put to the Product Owner rather than left as markers, because each changes
+  what a requirement means. All recorded under Clarifications (2026-09-22): production self-approval
+  (FR-012), real customer data in stage (FR-029), releasing during shop hours (FR-030), and database
+  restore expectations (FR-031). A fifth gap — no way to create the first account in a fresh
+  environment — was closed by adding FR-032 without asking, since no alternative answer exists.
+- `/speckit-clarify` re-validated this checklist on 2026-09-22: 16/16 before, 16/16 after. The
+  clarifications added requirements rather than fixing failures.
+- Terminology was normalised during clarification: the non-production environment is **stage**
+  throughout. Earlier drafts also called it "the test environment" and "a non-production
+  environment".
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`.

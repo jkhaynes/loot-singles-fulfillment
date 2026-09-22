@@ -19,6 +19,21 @@
   reliability than it buys oversight (constitution Principle XI). The gate still prevents the
   failure it exists for: production cannot change by merging, the version must be named, and the
   release stops and waits for a decision.
+- Q: May real customer data — imported packing slips carrying customer names and addresses — exist
+  in the stage environment? → A: **Yes, with production-grade protections.** Stage is therefore
+  **not** a lower-security environment. Every privacy and security control that applies to
+  production applies equally to stage: default-deny database access, the split between an
+  application identity and a schema-changing identity, hashed PINs, and logged packing-slip access.
+  Stage differs from production in reliability and cost only, never in how customer data is
+  protected.
+- Q: Can production be released while pickers are actively working? → A: **Yes, at any time.**
+  Claims and recorded outcomes are persisted server-side, so a picker whose request is interrupted
+  retries and loses nothing. No release window is imposed: the times a fix is most needed are during
+  a shift, and a rule forbidding that would be unenforceable and harmful.
+- Q: What recovery must production data have if the database is lost or corrupted? → A: **The
+  platform's included point-in-time restore, at least 7 days.** Imported order data can be
+  re-imported because TCGplayer remains authoritative; what this protects is pick history and stored
+  packing slips. Longer retention is a paid add-on and would need a separate cost decision.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -48,9 +63,9 @@ no automation in place.
 
 ---
 
-### User Story 2 - A Merge Reaches the Test Environment by Itself (Priority: P2)
+### User Story 2 - A Merge Reaches Stage by Itself (Priority: P2)
 
-When a pull request merges, that change appears on a non-production environment without anyone
+When a pull request merges, that change appears on stage without anyone
 typing a command, so it can be exercised against real infrastructure before it reaches the shop.
 
 **Why this priority**: The automation is what makes releasing safe and repeatable, but the shop can
@@ -58,19 +73,19 @@ be served by a hand-deployed application first. This story removes the manual st
 that come with it.
 
 **Independent Test**: Merge a pull request that makes a visible change, then confirm the change is
-live on the test environment without anyone taking an action after the merge.
+live on stage without anyone taking an action after the merge.
 
 **Acceptance Scenarios**:
 
 1. **Given** a pull request is merged, **When** no further human action is taken, **Then** that
-   commit is running on the test environment.
+   commit is running on stage.
 2. **Given** a merge introduces a change that breaks the automated quality checks, **When** the
-   deployment runs, **Then** the test environment is not updated and the failure is reported.
-3. **Given** a deployment updates the test environment and the deployed application then fails its
+   deployment runs, **Then** stage is not updated and the failure is reported.
+3. **Given** a deployment updates stage and the deployed application then fails its
    post-deployment checks, **When** the failure is detected, **Then** the previously working version
    is restored without anyone intervening.
-4. **Given** two merges land close together, **When** both deployments run, **Then** the test
-   environment ends up running the newer of the two, and never an older version.
+4. **Given** two merges land close together, **When** both deployments run, **Then** stage ends up
+   running the newer of the two, and never an older version.
 
 ---
 
@@ -93,7 +108,7 @@ while it waits, approve it, and confirm production ends up running exactly that 
 2. **Given** a production release has been started but not yet approved, **When** a reviewer looks at
    the pending request, **Then** they can see which version is being released before deciding.
 3. **Given** a production release is waiting for approval, **When** a different change is merged and
-   reaches the test environment, **Then** the waiting release still deploys the version it named.
+   reaches stage, **Then** the waiting release still deploys the version it named.
 4. **Given** a production release is waiting for approval, **When** approval is declined or never
    given, **Then** production is never modified.
 5. **Given** a production release is approved, **When** it completes, **Then** production runs the
@@ -160,6 +175,12 @@ live view, then find the corresponding record.
   any recorded outcomes must survive.
 - **The address is opened over an insecure connection.** It must be upgraded or refused, never served
   in a way that would transmit the session cookie in the clear.
+- **A release goes out while a picker is mid-order.** The claim and every already-recorded outcome
+  must survive; the picker may see one failed request and must be able to continue by retrying
+  (FR-030).
+- **Someone treats stage as disposable because it is "only stage".** Stage may hold real customer
+  data, so every control that protects production protects stage too (FR-029). Relaxing a control
+  there is the same failure as relaxing it in production.
 
 ## Requirements *(mandatory)*
 
@@ -178,15 +199,20 @@ live view, then find the corresponding record.
 
 #### Environments
 
-- **FR-005**: There MUST be exactly two environments, a test environment and production, each with
-  its own database, its own credentials, and its own retained records.
+- **FR-005**: There MUST be exactly two environments, **stage** and **production**, each with its
+  own database, its own credentials, and its own retained records.
 - **FR-006**: Neither environment MUST be able to read or modify the other's data, and credentials
   issued for deploying to one MUST NOT grant access to the other.
 - **FR-007**: Neither environment MUST use the developer's local database.
+- **FR-029**: Stage MAY hold real customer data, and therefore MUST carry **every** privacy and
+  security control that applies to production — FR-020, FR-021 and FR-022 without exception, plus
+  the hashed-PIN and logged packing-slip-access rules already in force. Stage MUST differ from
+  production in reliability and cost only, never in how customer data is protected. No control may
+  be relaxed on the grounds that an environment is "only stage".
 
-#### Releasing to the test environment
+#### Releasing to stage
 
-- **FR-008**: Merging to the main branch MUST deploy that commit to the test environment with no
+- **FR-008**: Merging to the main branch MUST deploy that commit to stage with no
   further human action.
 - **FR-009**: Deployments to a single environment MUST NOT overlap. A failing deployment's recovery
   MUST NOT replace a newer successful deployment.
@@ -204,7 +230,7 @@ live view, then find the corresponding record.
 - **FR-013**: The version being released MUST be identifiable by the approver at the moment of
   approval, and MUST NOT change between approval and deployment.
 - **FR-014**: Production MUST run the artifact already built for the named version. Nothing MUST be
-  rebuilt between the test environment and production.
+  rebuilt between stage and production.
 
 #### Releasing, both environments
 
@@ -215,6 +241,9 @@ live view, then find the corresponding record.
   version MUST be restored without human action.
 - **FR-018**: Post-deployment checks MUST confirm that the web interface is served, that an unmatched
   API route returns not-found, and that an unauthenticated API request is rejected.
+- **FR-030**: A release MUST be permitted at any time, including while pickers are working. No
+  release window MUST be imposed. A request interrupted by a release MUST NOT lose work that was
+  already recorded, and the picker MUST be able to continue by retrying.
 
 #### Security and privacy
 
@@ -248,13 +277,17 @@ live view, then find the corresponding record.
   in both environments.
 - **FR-028**: Recurring infrastructure cost MUST NOT exceed $10 per month, and a cost alert MUST be
   in place to report if it does.
+- **FR-031**: The production database MUST support restoring to a point in time at least 7 days in
+  the past, at no additional cost. This MUST be verified when the database is created, not assumed.
+- **FR-032**: A newly created environment MUST provide a way to create its first manager account
+  without an existing signed-in user, and that way MUST NOT leave a credential behind once used.
 
 ### Key Entities
 
-- **Environment**: A named, isolated place the application runs — the test environment or production.
+- **Environment**: A named, isolated place the application runs — stage or production.
   Owns its own database, its own identities, its own retained records and its own address.
 - **Release**: A specific version of the application, built once and identified by the commit it was
-  built from. The same release may run in the test environment and later in production.
+  built from. The same release may run in stage and later in production.
 - **Session key material**: Data the application stores so that a signed-in session survives the
   application restarting. Shared by every instance of one environment, never across environments.
 
@@ -264,7 +297,7 @@ live view, then find the corresponding record.
 
 - **SC-001**: A picker at the shop can sign in, claim an order and record a pick on a store device,
   with no developer machine running and no manual startup step.
-- **SC-002**: A merged pull request reaches the test environment with **zero** manual actions after
+- **SC-002**: A merged pull request reaches stage with **zero** manual actions after
   the merge.
 - **SC-003**: Production cannot be changed without a person naming a version and a reviewer
   approving; attempting to reach production by merging alone leaves it unchanged.
@@ -280,6 +313,13 @@ live view, then find the corresponding record.
   reports if it does not.
 - **SC-009**: A reviewer inspecting the repository finds no committed secret, credential, connection
   string or PIN.
+- **SC-010**: Comparing stage's and production's privacy and security controls side by side finds no
+  difference: both deny database access by default, both separate the application identity from the
+  schema-changing identity, both hash PINs, both log packing-slip access.
+- **SC-011**: A release issued while a picker is mid-order leaves that picker's claim and every
+  already-recorded outcome intact, and the picker can continue by retrying.
+- **SC-012**: Production data can be restored to a chosen point in time at least 7 days earlier, and
+  this has been confirmed against the created database rather than assumed.
 
 ## Assumptions
 
@@ -291,8 +331,12 @@ live view, then find the corresponding record.
   storefront. The custom address may be configured after the first successful release.
 - **30 days' record retention** is the assumed minimum because it matches what the platform includes
   at no cost. A longer period would be a cost decision.
-- **The test environment may be slow or unavailable at times**, because it runs on free-tier
+- **Stage may be slow or unavailable at times**, because it runs on free-tier
   resources that pause when unused. This is acceptable; production does not share that behaviour.
+  Reliability is the only axis on which stage is permitted to be weaker than production — never
+  privacy or security (FR-029).
+- **Restoring the database is a manual operation.** This feature requires that restore be *possible*
+  within 7 days (FR-031); it does not automate restoring, rehearse it, or monitor backup health.
 - **Database wake-up behaviour is out of scope.** If a paused database makes a request fail, the
   picker sees an error. Handling that gracefully requires changing order-claiming code and is a
   separate feature.
