@@ -85,9 +85,13 @@ public sealed record LabelContent(
                 .Sum(line => line.Quantity),
             PickedBy: contributors,
             PickedAt: recordedAt.Count == 0 ? null : recordedAt.Max(),
-            IsHeld: lines.Any(line => line.PickOutcome == PickOutcome.HasIssue),
+            // Anything not picked is unresolved: a reported issue, and equally a product nobody
+            // looked at. The review lets a picker finish with those (016 FR-019a), and counting
+            // only reported issues ended such a pick "complete" with a ready-to-pack label for a
+            // short sleeve (016 FR-019; branch review round 3, BR-001).
+            IsHeld: lines.Any(line => line.PickOutcome != PickOutcome.Picked),
             UnresolvedProducts: lines
-                .Where(line => line.PickOutcome == PickOutcome.HasIssue)
+                .Where(line => line.PickOutcome != PickOutcome.Picked)
                 .Select(line => line.ProductName)
                 .ToList(),
             SetAsideCount: null,

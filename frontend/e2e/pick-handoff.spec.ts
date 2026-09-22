@@ -209,3 +209,25 @@ test('a pick with an unresolved product ends held, and prints a hold label', asy
   await expect(label).toContainText('HOLD')
   await expect(page.getByRole('button', { name: /print hold label/i })).toBeVisible()
 })
+
+// Branch review round 3, BR-001. The review lets a picker finish with a product they never looked
+// at (016 FR-019a). That order used to end "Pick complete" with a ready-to-pack label for a short
+// sleeve; a product with no outcome is unresolved (016 FR-019), so it ends held.
+test('finishing with a product never looked at ends held, not complete', async ({ page }) => {
+  await claim(page, 'e2epickerthirteen', 'E2E-ORDER-00015')
+
+  await page.getByRole('button', { name: 'Pulled all 2' }).click()
+  await expect(page.getByRole('button', { name: /picked ✓/i })).toBeVisible()
+
+  // Past the second product without recording anything, straight to the review.
+  await next(page).click()
+  await next(page).click()
+  await expect(page.getByText(/not looked at/i).first()).toBeVisible()
+  await page.getByRole('button', { name: /finish picking/i }).click()
+
+  await expect(page.getByRole('heading', { name: /needs a manager/i })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Pick complete' })).toHaveCount(0)
+  await expect(page.getByText('Skip Untouched')).toBeVisible()
+  await expect(page.getByText(/review area/i)).toBeVisible()
+  await expect(page.getByLabel('Hold label')).toContainText('2 cards')
+})

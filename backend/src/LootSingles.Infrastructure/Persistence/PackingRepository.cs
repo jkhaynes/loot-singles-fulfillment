@@ -229,7 +229,7 @@ public sealed class PackingRepository(LootSinglesDbContext context) : IPackingRe
     )
     {
         var label = LabelContent.From(order, names);
-        var (canPack, blockedReason) = Packability(order, label);
+        var (canPack, blockedReason) = Packability(order);
 
         return new PackingView(
             OrderId: order.Id,
@@ -240,17 +240,21 @@ public sealed class PackingRepository(LootSinglesDbContext context) : IPackingRe
             Status: order.Status.ToString(),
             CanPack: canPack,
             BlockedReason: blockedReason,
-            UnresolvedProducts: label.UnresolvedProducts,
+            // Reported issues only. The label's list also names products nobody looked at, but the
+            // desk tells those apart: an order still being picked says so, and lists nothing.
+            UnresolvedProducts: order
+                .OrderLines.Where(line => line.PickOutcome == PickOutcome.HasIssue)
+                .Select(line => line.ProductName)
+                .ToList(),
             HasPackingSlip: hasPackingSlip
         );
     }
 
-    private static (bool CanPack, string? BlockedReason) Packability(
-        Order order,
-        LabelContent label
-    ) =>
+    // NeedsAttention is derived from a reported issue on any line. The label's IsHeld is wider and
+    // also covers products nobody looked at, which here are "not finished picking", not a manager's.
+    private static (bool CanPack, string? BlockedReason) Packability(Order order) =>
         order.PackedAt is not null ? (false, "This order has already been packed.")
-        : label.IsHeld
+        : order.Status == OrderStatus.NeedsAttention
             ? (false, "A manager still has to decide what happens to one of its products.")
         : order.Status != OrderStatus.Picked ? (false, "This order has not finished picking yet.")
         : (true, null);

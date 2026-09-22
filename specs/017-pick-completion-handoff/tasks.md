@@ -334,6 +334,33 @@ unresolved issue must never be represented as successfully picked).
 - [X] T104 [US1] Make the held E2E in `frontend/e2e/pick-handoff.spec.ts` deterministic: delay the `report-issue` response with `page.route` and tap Finish while it is still pending, so the race runs on every run instead of by chance, and the test asserts the hold ending
 - [X] T105 Verify the server side of the same race in `backend/tests/LootSingles.IntegrationTests/`, beside `PickingConcurrencyTests`: interleave `report-issue` with `release` on one order across repeated iterations under snapshot isolation, and assert that no order ends in `Picked` while a line is `HasIssue`. If it fails, stop and raise it as a new finding. Don't patch it inside this task
 
+### Branch review remediation, round 3 (2026-09-21)
+
+**BR-001 (Required, High) — a pick finished with products not looked at ends "Pick complete".**
+`LabelContent.From` (`backend/src/LootSingles.Application/Packing/LabelContent.cs`) treats an order as
+held only if a line is `HasIssue`, and lists only those lines as unresolved. The review screen
+correctly lets a picker finish with lines still open (016 FR-019a), so a picker who pulls one of
+three products and taps Finish gets the completion ending, a count covering only what they pulled,
+and a ready-to-pack label. That contradicts 017's definition of a complete pick ("every line
+confirmed, nothing unresolved"), 016 FR-019 and CLAUDE.md. The packing desk refuses the order,
+because its status is not `Picked`, but by then the sleeve is already in the wrong bin. The specs
+agree an open line is unresolved, so no clarification is needed. A different ending for "not looked
+at" than for "reported" would be a new product decision and belongs in `/speckit-clarify`.
+
+**BR-002 (Optional, not selected):** a failed in-flight report's error message is cleared when
+Finish proceeds. Once BR-001 is fixed the ending is honest regardless, so this was not selected.
+
+- [X] T106 [US1] Write failing unit tests in `backend/tests/LootSingles.UnitTests/Packing/LabelContentTests.cs`: an order with one `Picked` line and one line with no outcome is `IsHeld`, lists the open product in `UnresolvedProducts`, and counts only the picked line's cards. Include an order mixing an open line and a `HasIssue` line, which lists both. It must fail against the current `IsHeld`, which only looks for `HasIssue`
+- [X] T107 [US1] In `backend/src/LootSingles.Application/Packing/LabelContent.cs`, make `IsHeld` true when any line is not `Picked`, and make `UnresolvedProducts` list every line that is not `Picked`, so T106 passes. Confirm `IsHeld_IsFalse_WhenEveryLineIsPicked`, the card-count tests and `HasStarted` are unchanged. Check the packing desk's use of the label content (`PackingRepository`): an awaiting order is `Picked`, so every line is picked and the desk's behaviour must not change
+- [X] T108 [US1] Add E2E coverage in `frontend/e2e/pick-handoff.spec.ts`: pick one product of a two-product order, skip the other, tap Finish from the review, and assert the needs-a-manager ending naming the skipped product, with a hold label. Seed a dedicated order and picker for it in `backend/tests/LootSingles.E2EHost/Program.cs` (E2E-ORDER-00015 and a new picker), since the suite runs fully parallel and the existing pickers and orders are in use
+
+> **Done alongside T107.** The packing desk used `IsHeld` for its refusal message. With the wider
+> rule, an order still being picked would have read "a manager still has to decide". The desk now
+> decides held from `Status == NeedsAttention` (derived from a reported issue) and lists reported
+> issues only, so its behaviour is unchanged. `frontend/e2e/mobile-picking.spec.ts` expected
+> "Pick complete" for an order finished with a product never looked at. That assertion recorded
+> the defect as intended behaviour, and now expects the held ending.
+
 ---
 
 ### Ordinary gates

@@ -389,6 +389,7 @@ static async Task SeedAsync(IServiceProvider services)
             ("e2epickerten", "E2E Picker Ten"),
             ("e2epickereleven", "E2E Picker Eleven"),
             ("e2epickertwelve", "E2E Picker Twelve"),
+            ("e2epickerthirteen", "E2E Picker Thirteen"),
         }
     )
     {
@@ -513,6 +514,20 @@ static async Task SeedAsync(IServiceProvider services)
             Status = OrderStatus.Ready,
             ImportedAt = DateTimeOffset.UtcNow.AddMinutes(60),
             OrderLines = [SetAwareLine("Pokemon", "Second Set", "Second Sleeve", "#004/050", 1)],
+        }
+    );
+    // 017 T108: finishing with a product never looked at ends held, not complete.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00015",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(65),
+            OrderLines =
+            [
+                SetAwareLine("Pokemon", "Skip Set", "Skip Pulled", "#001/050", 2),
+                SetAwareLine("Pokemon", "Skip Set", "Skip Untouched", "#002/050", 1),
+            ],
         }
     );
     await context.SaveChangesAsync();

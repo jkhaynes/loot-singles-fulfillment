@@ -116,6 +116,58 @@ public sealed class LabelContentTests
         Assert.Equal(["Pikachu ex"], label.UnresolvedProducts);
     }
 
+    // Branch review round 3, BR-001. The review lets a picker finish with products they never
+    // looked at (016 FR-019a), and an order was held only for a reported issue: a picker who pulled
+    // one product of two got "Pick complete" and a ready-to-pack label for a short sleeve. A product
+    // with no outcome is unresolved (016 FR-019), so the order is not complete.
+    [Fact]
+    public void IsHeld_WhenAnyLineWasNeverLookedAt()
+    {
+        var order = OrderWith(
+            Line(quantity: 2, PickOutcome.Picked, employeeId: 1, at: At("09:00")),
+            Line(
+                quantity: 3,
+                pickOutcome: null,
+                employeeId: null,
+                at: null,
+                productName: "Charizard ex"
+            )
+        );
+
+        var label = LabelContent.From(order, Names((1, "Jordan")));
+
+        Assert.True(label.IsHeld);
+        Assert.Equal(["Charizard ex"], label.UnresolvedProducts);
+        Assert.Equal(2, label.CardCount);
+    }
+
+    [Fact]
+    public void UnresolvedProducts_ListsBothReportedAndNeverLookedAt()
+    {
+        var order = OrderWith(
+            Line(quantity: 1, PickOutcome.Picked, employeeId: 1, at: At("09:00")),
+            Line(
+                quantity: 1,
+                PickOutcome.HasIssue,
+                employeeId: 1,
+                at: At("09:01"),
+                productName: "Reported Card"
+            ),
+            Line(
+                quantity: 1,
+                pickOutcome: null,
+                employeeId: null,
+                at: null,
+                productName: "Skipped Card"
+            )
+        );
+
+        var label = LabelContent.From(order, Names((1, "Jordan")));
+
+        Assert.True(label.IsHeld);
+        Assert.Equal(["Reported Card", "Skipped Card"], label.UnresolvedProducts);
+    }
+
     [Fact]
     public void IsHeld_IsFalse_WhenEveryLineIsPicked()
     {
@@ -203,13 +255,14 @@ public sealed class LabelContentTests
         int quantity,
         PickOutcome? pickOutcome,
         int? employeeId,
-        DateTimeOffset? at
+        DateTimeOffset? at,
+        string productName = "Pikachu ex"
     ) =>
         new()
         {
             RawDescription = "Pikachu ex - 001/197 - Near Mint",
             ProductLine = "Pokemon",
-            ProductName = "Pikachu ex",
+            ProductName = productName,
             Set = "Surging Sparks",
             CollectorNumber = "001/197",
             Condition = "Near Mint",
