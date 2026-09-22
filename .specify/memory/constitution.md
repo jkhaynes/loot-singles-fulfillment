@@ -1,15 +1,20 @@
 <!--
 Sync Impact Report
-Version change: 3.4.2 → 3.4.3
-PATCH — updated Principle II's approved-PRD reference from
-`docs/prd/Loot_Singles_Fulfillment_PRD_v0.4.md` to
-`docs/prd/Loot_Singles_Fulfillment_PRD_v0.5.md`. No principle was added, removed, or redefined,
-and the requirement itself is unchanged: every requirement MUST still trace to a confirmed Product
-Owner decision, the approved PRD, or an approved Spec Kit feature specification. Only the document
-that reference resolves to has changed.
+Version change: 3.4.3 → 3.5.0
+MINOR — Principle XI's logging requirement is scoped explicitly to how the application emits logs,
+and platform-side log retention is stated to be outside it. The code-level prohibition is unchanged
+and slightly sharpened; what changes is that configuring the hosting platform to keep and search
+the container's stdout is no longer forbidden by implication.
 
 Modified principles:
-  II. No Invented Requirements — approved-PRD path now points at v0.5. Substance unchanged.
+  XI. Reliability During Fulfillment — the logging paragraph is split into three. The delivery
+  requirement (`ILogger<T>`, structured, console/stdout only) is unchanged. A new middle paragraph
+  states that the requirement governs application logging, not what the platform does with the
+  output; keeps the ban on logging packages, SDKs and custom abstractions; adds an explicit ban on
+  the application writing to a file, a database or any external sink of its own; and permits
+  platform-side retention subject to no new application dependency, the PII rules, and approved
+  cost constraints. Paid APM and log-analysis products remain out of scope absent an explicit
+  Product Owner cost decision. The PII and proportionality rules are unchanged.
 
 Modified sections:
   None.
@@ -21,19 +26,30 @@ Removed sections:
   None.
 
 Rationale:
-PRD v0.5 was approved by the Product Owner on 2026-09-21 and supersedes v0.4. It folds in
-amendments A14–A16 arising from the pick completion and hand-off design recorded in
-`docs/discovery/2026-09-21-pick-completion-handoff.md`. One changed approved V1 scope materially:
-§27 Customer Privacy now requires the application to store one TCGplayer packing slip per order,
-reversing v0.4's instruction not to persist customer shipping PII, bounded by one-order-per-file,
-no picking surface reaching a slip, logged access, and a deferred retention rule recorded as open
-question 59. Leaving this constitution pointing at v0.4 would make the highest governing document
-cite a superseded PRD, so every later feature would trace its requirements through the wrong
-artifact. `CLAUDE.md` and `README.md` were updated in the same change.
+The previous wording listed "Log Analytics" alongside Serilog, Seq and Datadog. Four of those five
+are NuGet packages added to a `.csproj`; Log Analytics is a destination the hosting platform writes
+to with no application involvement. Read strictly, the list forbade provisioning a Log Analytics
+workspace at all, which left the only permitted option a live-only log stream — evidence that
+expires before anyone can look at it.
 
-Note for Principle V (Product Safety): the PRD's standing rule that customer PII is minimized and
-not exposed to pickers is unchanged. What changed is that the application now stores a slip for the
-packing workflow; no picking surface may reach it.
+That reading was never the intent. Feature 006, which introduced this principle, said so in its own
+specification: FR-002 requires stdout-only delivery "so it is visible through the hosting platform's
+log stream", and its Assumptions record that "log retention, search, and alerting within Azure
+Container Apps' log stream are operational concerns outside this feature". Retention was deferred,
+not prohibited.
+
+Feature 019 (automated deployment) is where those operational concerns are settled, and the Product
+Owner stated the requirement directly on 2026-09-22: logs must be viewable in both stage and
+production. That feature ships without alerting by deliberate decision, which makes a report from
+the shop the way problems surface — workable only if the evidence outlives the report. Azure Monitor
+includes the first 5 GB/month per billing account and ~31 days' retention at no charge, and this
+application logs only attempt- and outcome-level events (006 FR-009), so the cost constraint in
+Principle XI's first paragraph is not threatened.
+
+Amended under Governance ("Amendments to this constitution require documentation of the change and
+rationale"). Principle XI is not among the safety principles (V, VI, VII) that require explicit
+Product Owner and Developer approval to weaken, and this amendment does not weaken it in any case:
+no application-side allowance is added, one prohibition is added, and the PII rules are untouched.
 
 Follow-up TODOs: None.
 -->
@@ -174,7 +190,11 @@ Reliability during active fulfillment work takes priority over marginal cost sav
 
 Failure modes that affect fulfillment MUST be explicit and observable. The application MUST NOT report an operation as successful when required persistence, validation, concurrency enforcement, or authoritative processing has failed.
 
-When implementing or materially changing application behavior, the design MUST evaluate whether important events and failures warrant production logging. Where warranted, they MUST be logged through ASP.NET Core's built-in `ILogger<T>` (constructor-injected per class, structured logging) writing to console/stdout only; no third-party or paid logging platform (for example Serilog, Application Insights, Log Analytics, Seq, or Datadog) and no custom logging abstraction (for example an `ILoggingService`) MAY be introduced. Logs MUST NOT contain customer PII, raw imported-document content, passwords, PINs, tokens, connection strings, or other secrets, and MUST stay proportional to meaningful attempt- and outcome-level events rather than every parsing step, loop iteration, or method call.
+When implementing or materially changing application behavior, the design MUST evaluate whether important events and failures warrant production logging. Where warranted, they MUST be logged through ASP.NET Core's built-in `ILogger<T>` (constructor-injected per class, structured logging) writing to console/stdout only.
+
+This requirement governs **how the application emits logs**, not what the hosting platform does with that output afterwards. No logging package, third-party logging SDK, or custom logging abstraction (for example Serilog, the Application Insights SDK, Seq, Datadog, or an `ILoggingService`) MAY be added to the application, and the application MUST NOT write logs to a file, a database, or any external sink of its own. Configuring the hosting platform to retain, search, or route the container's standard output — for example an Azure Container Apps environment sending its log stream to a Log Analytics workspace — is an operational concern outside this principle and is permitted, provided it adds no application dependency, emits nothing the paragraph below forbids, and stays within approved cost constraints. Paid application-performance-monitoring and log-analysis products remain out of scope unless approved as an explicit Product Owner cost decision.
+
+Logs MUST NOT contain customer PII, raw imported-document content, passwords, PINs, tokens, connection strings, or other secrets, and MUST stay proportional to meaningful attempt- and outcome-level events rather than every parsing step, loop iteration, or method call.
 
 ### XII. Maintainable and Extensible Design
 
@@ -429,4 +449,4 @@ Safety-related principles, including Sections V, VI, and VII, MUST NOT be weaken
 
 Changes to maintainability or simplicity principles MUST preserve the balance between reasonable extensibility and avoiding speculative over-engineering.
 
-**Version**: 3.4.3 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-09-21
+**Version**: 3.5.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-09-22
