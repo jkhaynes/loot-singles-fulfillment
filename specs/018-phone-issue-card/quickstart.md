@@ -1,15 +1,17 @@
-# Quickstart: Reported Issues on the Phone's Card
+# Quickstart: Reported Issues on the Card and the List
 
 Manual validation of the feature end to end. Each scenario names what it proves.
 
 ## Prerequisites
 
 - The dev stack running (`scripts/start-dev.ps1`), with at least one imported order that has a
-  product of **quantity 4 or more** and another of **quantity 1**.
-- A phone, or a desktop browser at phone width (390 × 844).
-- Two employee logins, for scenario 5.
+  product of **quantity 4 or more** and at least two other products.
+- A phone, or a desktop browser at phone width (390 × 844), and a desktop browser.
+- Two employee logins, for scenarios 5 and 8.
 
-## 1. A reported product stops offering to be picked (US1, FR-001–FR-007)
+## Phone
+
+### 1. A reported product stops offering to be picked (US1, FR-001–FR-007)
 
 1. Claim the order and open it on the phone. Go to the quantity-4 product.
 2. Tap **Report an issue**. Choose **Card Not Found**, required **4**, found **3**, note "Only 3 in
@@ -22,50 +24,68 @@ Manual validation of the feature end to end. Each scenario names what it proves.
    has changed.
 5. Tap ‹ to go back. **Expected**: the chip and the issue dock are still there.
 
-## 2. The sheet shows what was reported (US2, FR-009–FR-014)
+### 2. The sheet shows what was reported, for any issue type (US2, FR-009–FR-014)
 
 1. On the reported product, tap the chip.
-2. **Expected**: a sheet opens showing:
-   - Card Not Found;
-   - 3 of 4 pulled, 1 short;
-   - the note;
-   - your name and the time.
+2. **Expected**: a sheet showing Card Not Found, **Required 4 · Found 3**, the note, and your name
+   and the time. Nothing reads "pulled" or "short".
 3. Tap **Close**. **Expected**: the sheet closes and the card is unchanged.
-4. Report a different product with **no counts and no note**, then open its sheet. **Expected**: no
-   quantity line and no note line; the problem, reporter and time only.
+4. Report another product as **Card Damaged** with a note and **no counts**, then open its sheet.
+   **Expected**: the problem, the note, and the reporter and time; no counts line.
 
-## 3. Found it after all (US3, FR-015)
+### 3. Resolved (US3, FR-015)
 
-1. On the quantity-4 reported product, open the sheet and tap **I found all 4**.
+1. On the quantity-4 reported product, open the sheet and tap **Resolved**.
 2. **Expected**:
    - The sheet closes.
    - The card shows its picked look, and the dock shows **Picked ✓**.
    - On the final review, the product counts as pulled.
-3. Report the quantity-1 product, then open its sheet. **Expected**: the found action reads **I found
-   it**.
 
-## 4. Change the report (US3, FR-016, FR-017)
+### 4. Edit the report (US3, FR-016, FR-017)
 
-1. On a reported product, open the sheet and tap **Change report**.
+1. On a reported product, open the sheet and tap **Edit report**.
 2. **Expected**: the issue form opens with the current type, counts and note already filled in.
 3. Change the type to **Wrong Variant** and submit. **Expected**: the chip now reads **Wrong
    Variant**, and the sheet shows the new report.
-4. Tap **Change report** again, then **Cancel**. **Expected**: the report is unchanged.
+4. Tap **Edit report** again, then **Cancel**. **Expected**: the report is unchanged.
 
-## 5. Viewing without the claim (edge case, FR-018)
+### 5. Viewing without the claim (FR-018)
 
-1. Log in as the second employee and open the same order without claiming it.
+1. Log in as the second employee and open the same order on a phone without claiming it.
 2. Go to a reported product. **Expected**:
    - The chip is there.
-   - Tapping it opens the sheet with **Close** only.
+   - Its sheet offers **Close** only.
    - The dock shows what it shows today for an order you don't hold.
 
-## 6. Unchanged elsewhere (FR-021)
+## Desktop
 
-1. Open the same order on a desktop browser. **Expected**: the list view shows the report exactly as
-   it did before this feature.
-2. Finish the order on the phone. **Expected**: the review and the ending screen behave as in
-   feature 017. A reported product still ends the pick held, with a hold label.
+### 6. The issue panel (US4, FR-022, FR-024)
+
+1. Open an order with a reported product on a desktop browser, holding the claim.
+2. **Expected**:
+   - The reported row shows an amber issue panel with the issue type, the reporter and time, and
+     the counts and note when they were recorded.
+   - The row offers **Resolved** and **Edit report**, and no **Picked** or **Report Issue**.
+   - Rows without a report look and behave exactly as before.
+
+### 7. Resolved and Edit report on the desktop (US4, FR-023)
+
+1. On the reported row, tap **Edit report**. **Expected**: the issue form opens in the row with the
+   current report filled in, and the panel's buttons are hidden while it's open.
+2. Change the note and submit. **Expected**: the panel shows the new note.
+3. Tap **Resolved**. **Expected**: the row returns to its picked state, with **Picked** pressed.
+
+### 8. Viewing without the claim, on the desktop (FR-025)
+
+1. As the second employee, open the same order on a desktop without claiming it.
+2. **Expected**: the reported row shows the issue panel with no **Resolved** or **Edit report**.
+
+## Unchanged
+
+### 9. Review, endings and labels (FR-021)
+
+1. Finish an order with a reported product on the phone. **Expected**: the review and the ending
+   screen behave as in feature 017. A reported product still ends the pick held, with a hold label.
 
 ## Automated
 
