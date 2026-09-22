@@ -18,7 +18,12 @@ export function ReportIssueForm({
   isSubmitting: boolean
   /**
    * A report to start from, so changing one is an edit rather than re-entering it (018 FR-016).
-   * Without one the form starts blank, as the desktop list uses it.
+   * Without one the form starts blank, as a first report does.
+   *
+   * Read once, when the form opens: the fields are state from here on, so the picker keeps what
+   * they typed. A caller showing a different report must therefore unmount this form and mount it
+   * again — which every caller does today, by closing the form before opening another (branch
+   * review BR-002).
    */
   initial?: PickingIssueDetail | null
   onCancel: () => void

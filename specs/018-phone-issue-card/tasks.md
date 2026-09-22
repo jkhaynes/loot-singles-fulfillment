@@ -179,7 +179,7 @@ beyond the chip.
 - [X] T019 [P] Review whether anything here warrants production logging, per the constitution's Observability standard. Expected answer: none new, because the pick and report calls are already logged server-side. Record the decision in `plan.md` if it differs
 - [X] T020 [P] Run `npm --prefix frontend run build`, `npm --prefix frontend run lint` and `npm --prefix frontend run format:check`; `tsc --noEmit` checks nothing in this project
 - [X] T021 [P] Run `npm --prefix frontend test` and the full Playwright suite, and confirm both are green
-- [ ] T022 Walk quickstart.md on a real phone against the dev stack, and correct any step that does not match what was built
+- [x] T022 Walk quickstart.md on a real phone against the dev stack, and correct any step that does not match what was built
 - [ ] T023 Run `/branch-review` and resolve every Required finding before `/speckit-converge`, per CLAUDE.md's Branch Review Gate
 
 > **T022 and T023 now run after Phase 7.** The amendment below changes what the quickstart describes
@@ -270,6 +270,29 @@ match new code.
 
 **Checkpoint**: The amendment is complete. Then T022 (the quickstart, now nine scenarios, on a phone
 and a desktop) and T023 (`/branch-review`).
+
+### Branch review remediation (2026-09-22)
+
+Round 1 of `/branch-review` on this branch: **0 Required**, 3 Optional. The Product Owner selected
+the two recommended ones; BR-003 was declined.
+
+**BR-001 (Optional, approved) — the phone's chip and dock disagree on what "reported" means.**
+The chip renders only when the line is `hasIssue` **and** carries a `currentIssue`
+(`FocusedPickView.tsx`), but the dock switches to its issue form on the outcome alone. A line that
+was `hasIssue` with no `currentIssue` would leave the picker a screen with no chip (so no sheet, so
+no corrections), no Picked and no Report an issue — only **Next card ›**. The desktop row already
+guards on both (`OrderDetailPage.tsx`). The state should not occur, since the server writes the
+outcome and the issue together, so this is defensive.
+
+**BR-002 (Optional, approved) — `ReportIssueForm` reads `initial` only when it mounts.**
+Every caller unmounts the form between reports, so it is correct today, but nothing says so.
+
+**BR-003 (Optional, declined)** — the desktop panel's `role="status"` now wraps its buttons. No
+accessibility scope, no user impact, and changing it would churn the tests that use the role.
+
+- [X] T038 [US1] Write a failing RTL test in `frontend/tests/orders/FocusedPickView.test.tsx`: a line with `pickOutcome: 'hasIssue'` and `currentIssue: null`, with `canRecordOutcome`, still offers the ordinary actions (the Picked button and **Report an issue**) and **not** the issue dock's **Next card ›**, so the picker is never left with nothing to record. It must fail against the current dock condition, which reads the outcome alone
+- [X] T039 [US1] Guard the dock's issue branch on `isReported && line.currentIssue` in `frontend/src/features/orders/FocusedPickView.tsx`, matching the chip above it and the desktop row, so T038 passes
+- [X] T040 [P] Record the constraint in the `initial` doc comment on `frontend/src/features/orders/ReportIssueForm.tsx`: the report is read once, when the form opens, so a caller must unmount the form between reports rather than swap `initial` on a mounted one. **No test**: this is a comment on behaviour that is already correct, and a test that mounted the form twice would assert React's own semantics rather than anything this feature decides
 
 ---
 

@@ -767,3 +767,26 @@ describe('FocusedPickView — correcting a report (018 US3)', () => {
     ).toEqual(['Close'])
   })
 })
+
+// T038 (branch review BR-001). The chip needs both a reported outcome and a report; the dock used
+// to switch on the outcome alone. A line marked reported but carrying no report would then show
+// neither the chip (so no sheet, so no corrections) nor anything to record — a screen the picker
+// could do nothing with. The server writes the two together, so this guards the gap rather than a
+// live defect, and it is what the desktop row already does.
+describe('FocusedPickView — reported with no report to show (018 BR-001)', () => {
+  it('keeps the ordinary actions rather than leaving nothing to record', () => {
+    renderView([
+      buildLine({
+        set: 'Alpha',
+        productName: 'Half Reported',
+        quantity: 4,
+        pickOutcome: 'hasIssue',
+        currentIssue: null,
+      }),
+    ])
+
+    expect(screen.getByRole('button', { name: 'Pulled all 4' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /report an issue/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Next card ›' })).not.toBeInTheDocument()
+  })
+})

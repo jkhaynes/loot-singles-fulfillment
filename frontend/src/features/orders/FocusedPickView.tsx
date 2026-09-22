@@ -222,7 +222,7 @@ export function FocusedPickView({
 
       {/* Pinned in thumb reach: the record action is never scrolled past. */}
       <div className="focused-pick__dock">
-        {canRecordOutcome && isReported && !isReportingIssue ? (
+        {canRecordOutcome && isReported && line.currentIssue && !isReportingIssue ? (
           // A reported product offers only moving on. The Picked button used to stay, reading
           // "Pulled all 4" on a product reported as 3 of 4, and one tap on it replaced the report
           // (018 FR-005, FR-006). Corrections live behind the chip, not in the dock.
