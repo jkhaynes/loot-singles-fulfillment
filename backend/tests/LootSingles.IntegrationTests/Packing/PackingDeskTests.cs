@@ -93,6 +93,37 @@ public sealed class PackingDeskTests
         );
     }
 
+    // Branch review round 4 (T109). The label calls an order held when any product is not picked,
+    // which is right for a picker's ending but wrong at the desk: an order still being picked is
+    // not a manager's problem. Round 3 nearly shipped "a manager still has to decide" here, with
+    // the untouched product listed beneath it.
+    [Fact]
+    public async Task Resolve_OrderStillBeingPicked_SaysSoAndNamesNothing()
+    {
+        await using var factory = new AuthWebApplicationFactory();
+        var (client, employee) = await LoginAsync(factory, "deskpicking");
+        var order = NewOrder("DESK-PICKING", OrderStatus.InProgress);
+        order.OrderLines.Add(Line(1, PickOutcome.Picked, employee.Id, "Pulled So Far"));
+        var untouched = Line(1, PickOutcome.Picked, employee.Id, "Not Yet Looked At");
+        untouched.PickOutcome = null;
+        untouched.PickOutcomeRecordedByEmployeeId = null;
+        untouched.PickOutcomeRecordedAt = null;
+        order.OrderLines.Add(untouched);
+        await factory.SeedAsync(context =>
+        {
+            context.Orders.Add(order);
+            return Task.CompletedTask;
+        });
+
+        var response = await client.GetAsync($"/api/packing/orders/{order.Id}");
+        var root = await JsonAsync(response);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False(root.GetProperty("canPack").GetBoolean());
+        Assert.Contains("not finished picking", root.GetProperty("blockedReason").GetString());
+        Assert.Empty(root.GetProperty("unresolvedProducts").EnumerateArray());
+    }
+
     [Fact]
     public async Task MarkPacked_AwaitingOrder_RecordsWhoAndWhen()
     {

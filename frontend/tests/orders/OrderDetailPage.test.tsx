@@ -1001,6 +1001,41 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
     expect(screen.queryByText('Pick complete')).not.toBeInTheDocument()
   })
 
+  // 017 convergence, FR-007: Next order behaves as Pick Next does, including when there is nothing
+  // to pick. Pick Next says so; Next order used to drop the picker on Browse Orders without a word.
+  it('says so when Next order finds nothing to pick, as Pick Next does', async () => {
+    const user = userEvent.setup()
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      claimedOrder([buildLine({ productName: 'Only Card', pickOutcome: 'picked' })]),
+    )
+    vi.mocked(ordersApi.releaseOrder).mockResolvedValue(undefined)
+    vi.mocked(ordersApi.getOrderLabel).mockResolvedValue({
+      orderId: 42,
+      tcgplayerOrderId: 'ORDER-DETAIL-42',
+      cardCount: 1,
+      pickedBy: [{ employeeId: 1, displayName: 'Test Picker' }],
+      pickedAt: '2026-09-21T14:14:00Z',
+      isHeld: false,
+      unresolvedProducts: [],
+      setAsideCount: null,
+      shipsShort: false,
+    })
+    vi.mocked(ordersApi.pickNextOrder).mockRejectedValue(new ordersApi.NoOrdersAvailableError())
+
+    renderPage()
+    await screen.findByRole('article')
+    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(await screen.findByRole('button', { name: /finish picking/i }))
+    await screen.findByText('Pick complete')
+
+    await user.click(screen.getByRole('button', { name: /next order/i }))
+
+    expect(
+      await screen.findByText('No orders are currently available to pick.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Browse Orders list')).not.toBeInTheDocument()
+  })
+
   it('keeps the picker on the order when completing fails', async () => {
     const user = userEvent.setup()
     vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(

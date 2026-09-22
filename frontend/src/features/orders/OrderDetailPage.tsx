@@ -136,11 +136,13 @@ export function OrderDetailPage() {
       setEnding(null)
       navigate(`/orders/${next.orderId}`)
     } catch (error) {
-      if (error instanceof NoOrdersAvailableError) {
-        navigate('/orders')
-        return
-      }
-      setActionError("Couldn't start the next order. Try the dashboard.")
+      // Said, as Pick Next says it (FR-007). Moving the picker to Browse Orders without a word
+      // left them to work out why the next order never came.
+      setActionError(
+        error instanceof NoOrdersAvailableError
+          ? 'No orders are currently available to pick.'
+          : "Couldn't start the next order. Try the dashboard.",
+      )
     }
   }
 
@@ -407,7 +409,9 @@ export function OrderDetailPage() {
         </header>
       )}
 
-      {actionError && isFocused && (
+      {/* The ending has no header on either device, so it is the one place the desktop shows an
+          error outside the header. */}
+      {actionError && (isFocused || ending !== null) && (
         <p role="alert" className="order-detail-bar__error">
           {actionError}
         </p>

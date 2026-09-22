@@ -361,6 +361,23 @@ Finish proceeds. Once BR-001 is fixed the ending is honest regardless, so this w
 > "Pick complete" for an order finished with a product never looked at. That assertion recorded
 > the defect as intended behaviour, and now expects the held ending.
 
+### Branch review remediation, round 4 (2026-09-21)
+
+Round 4 found no Required findings, which per CLAUDE.md is the point to stop reviewing.
+
+**BR-001 (Optional, approved): the desk's "still being picked" case is untested.**
+Round 3 rewrote `Packability` and `ToView` in
+`backend/src/LootSingles.Infrastructure/Persistence/PackingRepository.cs` to keep the desk unchanged,
+but no test pins the case the rewrite exists for. The rewrite was behaviour-preserving, so the
+behaviour is already correct and a test written now would pass straight away. This adds coverage
+rather than fixing a defect, so there is no failing-first regression task. That is the same
+treatment BR-005 had in round 1.
+
+**BR-002 (Optional, not selected):** the mark-packed 409 lists skipped products as needing a
+manager. It's a rare race path, and the order is correctly refused either way.
+
+- [X] T109 [US2] Add an integration test to `backend/tests/LootSingles.IntegrationTests/Packing/PackingDeskTests.cs`: resolve an order that is claimed and in progress, with one line picked and one line with no outcome and no reported issue, and assert `canPack` is false, the blocked reason says the order has not finished picking, and `unresolvedProducts` is empty. Confirm it would catch the round-3 mistake by temporarily switching `Packability` back to `label.IsHeld` and watching it fail, then restore it
+
 ---
 
 ### Ordinary gates
@@ -448,3 +465,8 @@ without the packing desk existing.
 - **T012 guards a silent failure.** A packed order recomputed back to `Picked` throws no error — it
   just reappears on the shelf.
 - Commit after each completed task or coherent group; the Product Owner confirms each commit.
+
+## Phase 8: Convergence
+
+- [X] T110 Write a failing test in `frontend/tests/orders/OrderDetailPage.test.tsx` asserting that when **Next order** finds no order available (`pickNextOrder` rejects with `NoOrdersAvailableError`), the picker is told "No orders are currently available to pick." as Pick Next does on the dashboard, rather than being moved to Browse Orders without a word, per FR-007 (partial)
+- [X] T111 Make **Next order** on the ending screen handle no available order the way the dashboard's Pick Next does, in `frontend/src/features/orders/OrderDetailPage.tsx` `handleNextOrder`, so T110 passes, per FR-007 (partial)
