@@ -205,11 +205,11 @@ match new code.
 
 ### Setup
 
-- [ ] T024 Seed an order `E2E-ORDER-00017` and a picker `e2epickerfifteen` in `backend/tests/LootSingles.E2EHost/Program.cs`, following T001's entry, for the desktop E2E (T036). It needs three products in one set: "Panel Card Four" (quantity 4), "Panel Card Damaged" (quantity 1) and "Panel Card Clean" (quantity 1)
+- [X] T024 Seed an order `E2E-ORDER-00017` and a picker `e2epickerfifteen` in `backend/tests/LootSingles.E2EHost/Program.cs`, following T001's entry, for the desktop E2E (T036). It needs three products in one set: "Panel Card Four" (quantity 4), "Panel Card Damaged" (quantity 1) and "Panel Card Clean" (quantity 1)
 
 ### A report's details, shared by both views (research.md §8)
 
-- [ ] T025 [P] Write failing RTL tests in a new `frontend/tests/orders/ReportedIssueDetails.test.tsx` for a `ReportedIssueDetails` component given a `PickingIssueDetail`:
+- [X] T025 [P] Write failing RTL tests in a new `frontend/tests/orders/ReportedIssueDetails.test.tsx` for a `ReportedIssueDetails` component given a `PickingIssueDetail`:
   - it shows the issue type label;
   - with both counts it shows "Required 4 · Found 3"; with only one count, or neither, there is no counts line (FR-011; research.md §5);
   - the note is shown when present and absent otherwise (FR-012);
@@ -217,18 +217,18 @@ match new code.
   - for **every** entry in `pickingIssueTypes`, with counts and a note, no text matches `/pulled|short/i` (FR-011, SC-001).
 
   It must fail because the component does not exist yet.
-- [ ] T026 Create `frontend/src/features/orders/ReportedIssueDetails.tsx` from the details the phone sheet renders today (`ReportedIssueSheet` in `FocusedPickView.tsx`), with the counts in the form's own words, making T025 pass
+- [X] T026 Create `frontend/src/features/orders/ReportedIssueDetails.tsx` from the details the phone sheet renders today (`ReportedIssueSheet` in `FocusedPickView.tsx`), with the counts in the form's own words, making T025 pass
 
 ### Phone: the sheet reworded (US2, US3)
 
-- [ ] T027 [US2] [US3] Reword the first round's sheet tests in `frontend/tests/orders/FocusedPickView.test.tsx` **before any code changes**:
+- [X] T027 [US2] [US3] Reword the first round's sheet tests in `frontend/tests/orders/FocusedPickView.test.tsx` **before any code changes**:
   - "3 of 4 pulled" and "1 short" become "Required 4 · Found 3";
   - "I found all 4" and "I found it" become **Resolved**; the single-copy test becomes "reads Resolved whatever the quantity";
   - "Change report" becomes **Edit report**.
 
-  Add a case: a Card Damaged report with a note and no counts shows no counts line, and nothing in the sheet matches `/pulled|short/i`. Run the file and confirm the reworded tests fail on the old wording.
-- [ ] T028 [US2] [US3] Reword `frontend/e2e/mobile-issue-card.spec.ts` the same way ("Required 4 · Found 3", **Resolved**, **Edit report**, and no "pulled" or "short" in the sheet). Run it against the current code and confirm it fails on the old wording
-- [ ] T029 [US2] [US3] In `frontend/src/features/orders/FocusedPickView.tsx`, make the sheet render `ReportedIssueDetails`, label the correction **Resolved** and the edit action **Edit report**. Delete `frontend/src/features/orders/foundActionLabel.ts` and `frontend/tests/orders/foundActionLabel.test.ts` (research.md §7). This makes T027 and T028 pass
+  Add a case: a Damaged report with a note and no counts shows no counts line, and nothing in the sheet matches `/pulled|short/i`. Run the file and confirm the reworded tests fail on the old wording.
+- [X] T028 [US2] [US3] Reword `frontend/e2e/mobile-issue-card.spec.ts` the same way ("Required 4 · Found 3", **Resolved**, **Edit report**, and no "pulled" or "short" in the sheet). Run it against the current code and confirm it fails on the old wording
+- [X] T029 [US2] [US3] In `frontend/src/features/orders/FocusedPickView.tsx`, make the sheet render `ReportedIssueDetails`, label the correction **Resolved** and the edit action **Edit report**. Delete `frontend/src/features/orders/foundActionLabel.ts` and `frontend/tests/orders/foundActionLabel.test.ts` (research.md §7). This makes T027 and T028 pass
 
 ### Desktop: the issue panel (US4)
 
@@ -239,34 +239,34 @@ match new code.
 · Found 3", the note, and the reporter and time) with **Resolved** and **Edit report**, and no
 **Picked** or **Report Issue**. **Edit report** opens the form filled in.
 
-- [ ] T030 [US4] Write failing RTL tests in `frontend/tests/orders/OrderDetailPage.test.tsx`, in a new `describe('OrderDetailPage — a reported row (018 US4)')` at desktop width (`installMatchMedia(false)`), with an order claimed by the viewer:
+- [X] T030 [US4] Write failing RTL tests in `frontend/tests/orders/OrderDetailPage.test.tsx`, in a new `describe('OrderDetailPage — a reported row (018 US4)')` at desktop width (`installMatchMedia(false)`), with an order claimed by the viewer:
   - a row reported as Card Not Found, required 4, found 3, with a note, shows the issue type, "Required 4 · Found 3", the note, and the reporter and time; it offers **Resolved** and **Edit report**, and no **Picked** or **Report Issue** (FR-022–FR-024);
-  - a row reported as Card Damaged with a note and no counts shows no counts line;
+  - a row reported as Damaged with a note and no counts shows no counts line;
   - **Resolved** calls `recordPicked` for that line, and after it resolves the row shows **Picked** pressed;
   - while the pick records, **Resolved** and **Edit report** are disabled; when `recordPicked` rejects, the panel is still there and the page shows its error (FR-026);
   - **Edit report** opens the issue form in the row, pre-filled from the current report, with the panel's actions hidden; submitting a changed note calls `reportIssue` with the edited request; **Cancel** calls nothing (FR-023);
   - on an order someone else holds, the panel shows the report with neither **Resolved** nor **Edit report** (FR-025).
-- [ ] T031 [US4] Write RTL tests in the same describe pinning what must not change: a row with no outcome and a picked row both keep **Picked** and **Report Issue**, and show no issue panel (FR-027). These pass before and after the change. Their job is to fail if T032 overreaches
-- [ ] T032 [US4] In `frontend/src/features/orders/OrderDetailPage.tsx`, render the issue panel for a `hasIssue` row in place of the one-line `order-detail-line__issue` summary and the Picked and Report Issue buttons (research.md §9):
+- [X] T031 [US4] Write RTL tests in the same describe pinning what must not change: a row with no outcome and a picked row both keep **Picked** and **Report Issue**, and show no issue panel (FR-027). These pass before and after the change. Their job is to fail if T032 overreaches
+- [X] T032 [US4] In `frontend/src/features/orders/OrderDetailPage.tsx`, render the issue panel for a `hasIssue` row in place of the one-line `order-detail-line__issue` summary and the Picked and Report Issue buttons (research.md §9):
   - the panel shows `ReportedIssueDetails`;
   - when `canRecordOutcome`, it offers **Resolved** (`handlePicked(line.id)`) and **Edit report** (`setIssueFormLineId(line.id)`), both disabled while `recordingLineId === line.id`;
   - while the form is open for that row, the panel's actions are hidden and the form gets `initial={line.currentIssue}`.
 
   This makes T030 pass with T031 still green.
-- [ ] T033 [P] [US4] Style the issue panel in `frontend/src/features/orders/OrderDetailPage.css`: amber border and tint from the existing warning tokens, the details in a row, and the actions beneath, matching the final mockups
-- [ ] T034 [US4] Run the whole of `frontend/tests/orders/OrderDetailPage.test.tsx` and confirm the tests that existed before T030 pass unchanged (research.md §10). If one fails, it was asserting the old summary or buttons on a reported row. Update it to the panel's behaviour and record why in this task
+- [X] T033 [P] [US4] Style the issue panel in `frontend/src/features/orders/OrderDetailPage.css`: amber border and tint from the existing warning tokens, the details in a row, and the actions beneath, matching the final mockups
+- [X] T034 [US4] Run the whole of `frontend/tests/orders/OrderDetailPage.test.tsx` and confirm the tests that existed before T030 pass unchanged (research.md §10). If one fails, it was asserting the old summary or buttons on a reported row. Update it to the panel's behaviour and record why in this task
 
 ### End to end and gates
 
-- [ ] T035 [US4] Write `frontend/e2e/desktop-issue-panel.spec.ts` at desktop size, as `e2epickerfifteen` on `E2E-ORDER-00017`:
+- [X] T035 [US4] Write `frontend/e2e/desktop-issue-panel.spec.ts` at desktop size, as `e2epickerfifteen` on `E2E-ORDER-00017`:
   - report 3 of 4 with a note on "Panel Card Four" through **Report Issue**; assert the panel, and that the row has no **Picked** or **Report Issue**;
-  - report "Panel Card Damaged" as Card Damaged with a note and no counts; assert no counts line;
+  - report "Panel Card Damaged" as Damaged with a note and no counts; assert no counts line;
   - **Edit report** on "Panel Card Four": assert the form is filled in, change the note, submit, and assert the new note;
   - **Resolved**: assert **Picked** pressed;
-  - as `e2emanager` in a second context, assert the Card Damaged panel shows no **Resolved** or **Edit report**;
+  - as `e2emanager` in a second context, assert the Damaged panel shows no **Resolved** or **Edit report**;
   - "Panel Card Clean" keeps **Picked** and **Report Issue** throughout.
-- [ ] T036 [P] Run `npm --prefix frontend run build`, `npm --prefix frontend run lint`, `npm --prefix frontend run format:check`, and `dotnet csharpier check backend`
-- [ ] T037 [P] Run `npm --prefix frontend test` and the full Playwright suite, and confirm both are green
+- [X] T036 [P] Run `npm --prefix frontend run build`, `npm --prefix frontend run lint`, `npm --prefix frontend run format:check`, and `dotnet csharpier check backend`
+- [X] T037 [P] Run `npm --prefix frontend test` and the full Playwright suite, and confirm both are green
 
 **Checkpoint**: The amendment is complete. Then T022 (the quickstart, now nine scenarios, on a phone
 and a desktop) and T023 (`/branch-review`).

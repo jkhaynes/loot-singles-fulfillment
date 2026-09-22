@@ -391,6 +391,7 @@ static async Task SeedAsync(IServiceProvider services)
             ("e2epickertwelve", "E2E Picker Twelve"),
             ("e2epickerthirteen", "E2E Picker Thirteen"),
             ("e2epickerfourteen", "E2E Picker Fourteen"),
+            ("e2epickerfifteen", "E2E Picker Fifteen"),
         }
     )
     {
@@ -544,6 +545,22 @@ static async Task SeedAsync(IServiceProvider services)
             [
                 SetAwareLine("Pokemon", "Issue Set", "Issue Card Four", "#001/050", 4),
                 SetAwareLine("Pokemon", "Issue Set", "Issue Card One", "#002/050", 1),
+            ],
+        }
+    );
+    // 018 T024: the desktop issue-panel spec. A quantity-4 product for counts, a single card for a
+    // report with no counts, and a clean product that must keep its ordinary row throughout.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00017",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(75),
+            OrderLines =
+            [
+                SetAwareLine("Pokemon", "Panel Set", "Panel Card Four", "#001/050", 4),
+                SetAwareLine("Pokemon", "Panel Set", "Panel Card Damaged", "#002/050", 1),
+                SetAwareLine("Pokemon", "Panel Set", "Panel Card Clean", "#003/050", 1),
             ],
         }
     );

@@ -19,7 +19,7 @@ Nothing reads "pulled" or "short", for any issue type (FR-011).
 
 ### The chip
 
-- `button`, named by the issue type label, e.g. **Card Not Found**, **Card Damaged** (FR-001, FR-002).
+- `button`, named by the issue type label, e.g. **Card Not Found**, **Damaged** (FR-001, FR-002).
 - Present only when the line is reported, whether or not the picker can record.
 - Activating it opens the sheet. Nothing else opens the sheet (FR-009).
 

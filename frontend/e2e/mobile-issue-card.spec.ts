@@ -19,11 +19,17 @@ async function login(page: Page, username: string) {
 const chip = (page: Page, issue: string) => page.getByRole('button', { name: issue, exact: true })
 const sheet = (page: Page) => page.getByRole('dialog', { name: 'Reported issue' })
 
-async function report(page: Page, required: string, found: string, note: string) {
+async function report(
+  page: Page,
+  required: string,
+  found: string,
+  note: string,
+  issueType = 'cardNotFound',
+) {
   await page.getByRole('button', { name: /report an issue/i }).click()
-  await page.getByLabel('Issue type').selectOption('cardNotFound')
-  await page.getByLabel('Quantity required').fill(required)
-  await page.getByLabel('Quantity found').fill(found)
+  await page.getByLabel('Issue type').selectOption(issueType)
+  if (required) await page.getByLabel('Quantity required').fill(required)
+  if (found) await page.getByLabel('Quantity found').fill(found)
   if (note) await page.getByLabel('Note (optional)').fill(note)
   await page.getByRole('button', { name: 'Submit Issue' }).click()
 }
@@ -64,8 +70,9 @@ test('a reported product shows its issue, and is corrected from the sheet', asyn
 
   // ---- Scenario 2: the sheet shows what was reported ----
   await chip(page, 'Card Not Found').click()
-  await expect(sheet(page)).toContainText('3 of 4 pulled')
-  await expect(sheet(page)).toContainText('1 short')
+  await expect(sheet(page)).toContainText('Required 4 · Found 3')
+  // Amended 2026-09-22: nothing assumes the issue was a shortage.
+  await expect(sheet(page)).not.toContainText(/pulled|short/i)
   await expect(sheet(page)).toContainText('Only 3 in the binder slot')
   await expect(sheet(page)).toContainText('E2E Picker Fourteen')
 
@@ -77,7 +84,7 @@ test('a reported product shows its issue, and is corrected from the sheet', asyn
   await onlooker.context().close()
 
   // ---- Scenario 4: change the report ----
-  await sheet(page).getByRole('button', { name: 'Change report' }).click()
+  await sheet(page).getByRole('button', { name: 'Edit report' }).click()
   await expect(page.getByLabel('Quantity found')).toHaveValue('3')
   await page.getByLabel('Issue type').selectOption('wrongVariant')
   await page.getByRole('button', { name: 'Submit Issue' }).click()
@@ -85,15 +92,17 @@ test('a reported product shows its issue, and is corrected from the sheet', asyn
 
   // ---- Scenario 3: found them all after all ----
   await chip(page, 'Wrong Variant').click()
-  await sheet(page).getByRole('button', { name: 'I found all 4' }).click()
+  await sheet(page).getByRole('button', { name: 'Resolved' }).click()
   await expect(page.getByRole('button', { name: /picked ✓/i })).toBeVisible()
   await expect(sheet(page)).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Wrong Variant' })).toHaveCount(0)
 
-  // ---- A single copy is "it" ----
+  // ---- Any issue type: a damaged card, reported with a note and no counts ----
   await page.getByRole('button', { name: 'Next card', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Issue Card One', level: 2 })).toBeVisible()
-  await report(page, '1', '0', '')
-  await chip(page, 'Card Not Found').click()
-  await expect(sheet(page).getByRole('button', { name: 'I found it' })).toBeVisible()
+  await report(page, '', '', 'Corner crease', 'damaged')
+  await chip(page, 'Damaged').click()
+  await expect(sheet(page)).toContainText('Corner crease')
+  await expect(sheet(page)).not.toContainText(/Required|pulled|short/i)
+  await expect(sheet(page).getByRole('button', { name: 'Resolved' })).toBeVisible()
 })

@@ -314,18 +314,40 @@
   gap: var(--space-2);
 }
 
+/* A reported row's issue panel (018 US4). Amber like every other warning, bordered all round and
+   tinted so it reads as the row's state, not a caption under it. The details inside follow the
+   phone sheet's rules (ReportedIssueDetails); only the frame differs. */
 .order-detail-line__issue {
   margin-top: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border-left: 3px solid var(--color-warning);
-  border-radius: var(--radius-small);
-  background: var(--color-surface-elevated);
-  color: var(--color-text-secondary);
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--color-warning);
+  border-radius: var(--radius-medium);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  color: var(--color-text-primary);
   font-size: var(--font-size-body-small);
 }
 
-.order-detail-line__issue strong[data-emphasis='high'] {
+.order-detail-line__issueFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  margin: 0;
+}
+
+.order-detail-line__issueFacts dt {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+}
+
+.order-detail-line__issueFacts dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* The issue type leads, in the warning colour, as the one thing to read first. */
+.order-detail-line__issueFacts > div:first-child dd {
   color: var(--color-warning);
+  font-weight: 800;
 }
 
 .order-detail-line__issue-form {
@@ -717,10 +739,6 @@
   gap: var(--space-2);
   font-weight: 700;
   text-align: right;
-}
-
-.focused-pick__sheetShort {
-  color: var(--color-warning);
 }
 
 .focused-pick__sheetActions {

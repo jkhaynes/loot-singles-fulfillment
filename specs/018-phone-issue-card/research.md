@@ -74,7 +74,7 @@ anything "pulled" or "short".
 
 **Rationale**: The Product Owner rejected wording that assumes a shortage (spec.md, Clarifications).
 Counts are optional for every issue type, and the server only checks that they aren't negative.
-Their meaning depends on the type: for Card Damaged, "found" might mean found in good condition;
+Their meaning depends on the type: for Damaged, "found" might mean found in good condition;
 for Wrong Variant, found in the right variant. The form's own labels are the only wording that's
 true for all of them. A count missing either half can't be written as "R · F" without inventing the
 other half.
@@ -145,6 +145,11 @@ would be a refactor of 016's list for a change that touches one branch of it.
 the note appear (for example /Insufficient Quantity/ and /Only one left/), and that the order reads
 Needs Attention. The panel keeps showing both. None asserts the old one-line summary ("found N of
 M", "reported by …"), or Picked and Report Issue on a reported row.
+
+**Correction, found while running the gates**: that scan covered the unit tests only. One E2E,
+`frontend/e2e/pick-completion.spec.ts`, resolved a reported line by clicking **Picked** on it, which
+FR-024 removes. It now clicks **Resolved**. The behaviour it guards (a reported line reaching Picked
+after release and re-claim) is unchanged.
 
 **Consequence**: The desktop tasks run this file after the row changes and confirm it stays green.
 The new behaviour (the panel's contents, Resolved, Edit report, and no Picked or Report Issue on a

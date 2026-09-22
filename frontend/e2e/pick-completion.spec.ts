@@ -110,9 +110,11 @@ test('a reported issue survives release and re-claim, then resolves to Picked', 
     'Needs Attention',
   )
 
-  // Re-claimed and resolved, it reaches Picked with no special-case action.
+  // Re-claimed and resolved, it reaches Picked with no special-case action. The reported row's
+  // action is Resolved: 018 took Picked off a reported row, where it replaced the report with no
+  // hint that it would (018 FR-024).
   await claimOrder(page, 'E2E-ORDER-00005')
   await expect(page.getByLabel(/Order status: Needs Attention/)).toBeVisible()
-  await lineCard(page, 'Venusaur').getByRole('button', { name: 'Picked' }).click()
+  await lineCard(page, 'Venusaur').getByRole('button', { name: 'Resolved' }).click()
   await expect(page.getByLabel(/Order status: Picked/)).toBeVisible()
 })

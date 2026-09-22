@@ -551,9 +551,10 @@ describe('FocusedPickView — the reported-issue sheet (018 US2)', () => {
     await openSheet(user)
 
     expect(within(sheet()).getByText('Card Not Found')).toBeInTheDocument()
-    expect(within(sheet()).getByText('3 of 4 pulled')).toBeInTheDocument()
-    expect(within(sheet()).getByText('1 short')).toBeInTheDocument()
+    expect(within(sheet()).getByText('Required 4 · Found 3')).toBeInTheDocument()
     expect(within(sheet()).getByText('Only 3 in the binder slot')).toBeInTheDocument()
+    // Amended 2026-09-22: the design holds for every issue type, so nothing assumes a shortage.
+    expect(sheet()).not.toHaveTextContent(/pulled|short/i)
     expect(within(sheet()).getByText(`Sam · ${reportedAt}`)).toBeInTheDocument()
   })
 
@@ -563,8 +564,7 @@ describe('FocusedPickView — the reported-issue sheet (018 US2)', () => {
 
     await openSheet(user)
 
-    expect(within(sheet()).queryByText(/pulled/)).not.toBeInTheDocument()
-    expect(within(sheet()).queryByText(/short/)).not.toBeInTheDocument()
+    expect(sheet()).not.toHaveTextContent(/Required/)
   })
 
   it('omits the quantity when neither count was recorded', async () => {
@@ -578,7 +578,25 @@ describe('FocusedPickView — the reported-issue sheet (018 US2)', () => {
 
     await openSheet(user)
 
-    expect(within(sheet()).queryByText(/pulled/)).not.toBeInTheDocument()
+    expect(sheet()).not.toHaveTextContent(/Required/)
+  })
+
+  it('shows a report with no counts, such as a damaged card, without a counts line', async () => {
+    const user = userEvent.setup()
+    renderView(
+      reportedWith({
+        issueType: 'damaged',
+        requiredQuantity: null,
+        foundQuantity: null,
+        note: 'Corner crease, and it is the only copy',
+      }),
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Damaged' }))
+
+    expect(within(sheet()).getByText('Damaged')).toBeInTheDocument()
+    expect(within(sheet()).getByText('Corner crease, and it is the only copy')).toBeInTheDocument()
+    expect(sheet()).not.toHaveTextContent(/Required|pulled|short/i)
   })
 
   it('omits the note when none was recorded', async () => {
@@ -588,7 +606,7 @@ describe('FocusedPickView — the reported-issue sheet (018 US2)', () => {
     await openSheet(user)
 
     expect(within(sheet()).queryByText('Only 3 in the binder slot')).not.toBeInTheDocument()
-    expect(within(sheet()).getByText('3 of 4 pulled')).toBeInTheDocument()
+    expect(within(sheet()).getByText('Required 4 · Found 3')).toBeInTheDocument()
   })
 
   it('shows the time alone when the reporter is unknown', async () => {
@@ -627,18 +645,18 @@ describe('FocusedPickView — the reported-issue sheet (018 US2)', () => {
 // T013 — correcting a report from the sheet. Both corrections are outcomes the picker could always
 // record (015: a later outcome replaces a report); they have moved from the dock to the sheet.
 describe('FocusedPickView — correcting a report (018 US3)', () => {
-  it('offers the found action, Change report and Close to someone who can record', async () => {
+  it('offers Resolved, Edit report and Close to someone who can record', async () => {
     const user = userEvent.setup()
     renderView(reportedFirst())
 
     await openSheet(user)
 
-    expect(within(sheet()).getByRole('button', { name: 'I found all 4' })).toBeInTheDocument()
-    expect(within(sheet()).getByRole('button', { name: 'Change report' })).toBeInTheDocument()
+    expect(within(sheet()).getByRole('button', { name: 'Resolved' })).toBeInTheDocument()
+    expect(within(sheet()).getByRole('button', { name: 'Edit report' })).toBeInTheDocument()
     expect(within(sheet()).getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
-  it('says "I found it" for a single copy', async () => {
+  it('reads Resolved whatever the quantity', async () => {
     const user = userEvent.setup()
     renderView([
       buildIssueLine({
@@ -651,16 +669,16 @@ describe('FocusedPickView — correcting a report (018 US3)', () => {
 
     await openSheet(user)
 
-    expect(within(sheet()).getByRole('button', { name: 'I found it' })).toBeInTheDocument()
+    expect(within(sheet()).getByRole('button', { name: 'Resolved' })).toBeInTheDocument()
   })
 
-  it('records the product as picked when every copy was found', async () => {
+  it('records the product as picked when the report is resolved', async () => {
     const user = userEvent.setup()
     const lines = reportedFirst()
     const { props } = renderView(lines)
 
     await openSheet(user)
-    await user.click(within(sheet()).getByRole('button', { name: 'I found all 4' }))
+    await user.click(within(sheet()).getByRole('button', { name: 'Resolved' }))
 
     expect(props.onPicked).toHaveBeenCalledWith(lines[0].id)
   })
@@ -673,8 +691,8 @@ describe('FocusedPickView — correcting a report (018 US3)', () => {
     await openSheet(user)
     rerender(<FocusedPickView {...props} recordingLineId={lines[0].id} />)
 
-    expect(within(sheet()).getByRole('button', { name: 'I found all 4' })).toBeDisabled()
-    expect(within(sheet()).getByRole('button', { name: 'Change report' })).toBeDisabled()
+    expect(within(sheet()).getByRole('button', { name: 'Resolved' })).toBeDisabled()
+    expect(within(sheet()).getByRole('button', { name: 'Edit report' })).toBeDisabled()
   })
 
   // A save that fails leaves the line reported, so the sheet and chip stay as they were.
@@ -684,7 +702,7 @@ describe('FocusedPickView — correcting a report (018 US3)', () => {
     const { rerender, props } = renderView(lines)
 
     await openSheet(user)
-    await user.click(within(sheet()).getByRole('button', { name: 'I found all 4' }))
+    await user.click(within(sheet()).getByRole('button', { name: 'Resolved' }))
     rerender(<FocusedPickView {...props} recordingLineId={null} />)
 
     expect(sheet()).toBeInTheDocument()
@@ -696,7 +714,7 @@ describe('FocusedPickView — correcting a report (018 US3)', () => {
     renderView(reportedFirst())
 
     await openSheet(user)
-    await user.click(within(sheet()).getByRole('button', { name: 'Change report' }))
+    await user.click(within(sheet()).getByRole('button', { name: 'Edit report' }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Issue type')).toHaveValue('cardNotFound')
@@ -711,7 +729,7 @@ describe('FocusedPickView — correcting a report (018 US3)', () => {
     const { props } = renderView(lines)
 
     await openSheet(user)
-    await user.click(within(sheet()).getByRole('button', { name: 'Change report' }))
+    await user.click(within(sheet()).getByRole('button', { name: 'Edit report' }))
     await user.selectOptions(screen.getByLabelText('Issue type'), 'wrongVariant')
     await user.click(screen.getByRole('button', { name: 'Submit Issue' }))
 
@@ -728,7 +746,7 @@ describe('FocusedPickView — correcting a report (018 US3)', () => {
     const { props } = renderView(reportedFirst())
 
     await openSheet(user)
-    await user.click(within(sheet()).getByRole('button', { name: 'Change report' }))
+    await user.click(within(sheet()).getByRole('button', { name: 'Edit report' }))
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(props.onReportIssue).not.toHaveBeenCalled()

@@ -30,7 +30,7 @@ Manual validation of the feature end to end. Each scenario names what it proves.
 2. **Expected**: a sheet showing Card Not Found, **Required 4 · Found 3**, the note, and your name
    and the time. Nothing reads "pulled" or "short".
 3. Tap **Close**. **Expected**: the sheet closes and the card is unchanged.
-4. Report another product as **Card Damaged** with a note and **no counts**, then open its sheet.
+4. Report another product as **Damaged** with a note and **no counts**, then open its sheet.
    **Expected**: the problem, the note, and the reporter and time; no counts line.
 
 ### 3. Resolved (US3, FR-015)

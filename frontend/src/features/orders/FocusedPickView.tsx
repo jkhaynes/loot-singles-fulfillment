@@ -3,7 +3,7 @@ import { advanceFrom, computeProgress, setGroupOf } from './orderGrouping'
 import type { SetGroup } from './orderGrouping'
 import { OrderFinish } from './OrderFinish'
 import { ReportIssueForm } from './ReportIssueForm'
-import { foundActionLabel } from './foundActionLabel'
+import { ReportedIssueDetails } from './ReportedIssueDetails'
 import { pickingIssueTypeLabel } from './ordersApi'
 import type { PickingIssueDetail, ReportIssueRequest } from './ordersApi'
 
@@ -209,7 +209,7 @@ export function FocusedPickView({
         <ReportIssueForm
           lineId={line.id}
           isSubmitting={isRecording}
-          // On a reported product the form is only reachable from Change report, so it starts
+          // On a reported product the form is only reachable from Edit report, so it starts
           // from the report being changed (018 FR-016).
           initial={isReported ? line.currentIssue : null}
           onCancel={() => setIsReportingIssue(false)}
@@ -303,10 +303,9 @@ export function FocusedPickView({
           corrections={
             canRecordOutcome
               ? {
-                  foundLabel: foundActionLabel(line.quantity),
                   isSaving: isRecording,
-                  onFound: () => onPicked(line.id),
-                  onChange: () => {
+                  onResolved: () => onPicked(line.id),
+                  onEdit: () => {
                     setIsShowingIssue(false)
                     setIsReportingIssue(true)
                   },
@@ -321,9 +320,8 @@ export function FocusedPickView({
 }
 
 /**
- * What was reported on the current product (018 US2). Everything a report can hold is shown, and
- * nothing is invented where it holds nothing: no count line unless both counts were recorded, no
- * note line without a note, and the time alone when the reporter is unknown.
+ * What was reported on the current product (018 US2), and the two corrections (US3). The details
+ * follow the rules shared with the desktop's issue panel (`ReportedIssueDetails`).
  */
 function ReportedIssueSheet({
   issue,
@@ -333,60 +331,32 @@ function ReportedIssueSheet({
   issue: PickingIssueDetail
   /** Present only when the picker can record; otherwise the sheet is read-only. */
   corrections: {
-    foundLabel: string
     isSaving: boolean
-    onFound: () => void
-    onChange: () => void
+    onResolved: () => void
+    onEdit: () => void
   } | null
   onClose: () => void
 }) {
-  const { requiredQuantity: required, foundQuantity: found } = issue
-  const hasCounts = required !== null && found !== null
-  const when = new Date(issue.reportedAt).toLocaleString()
-
   return (
     <div className="focused-pick__sheetBackdrop">
       <section role="dialog" aria-label="Reported issue" className="focused-pick__sheet">
         <h3 className="focused-pick__sheetTitle">Reported issue</h3>
-        <dl className="focused-pick__sheetFacts">
-          <div>
-            <dt>Problem</dt>
-            <dd>{pickingIssueTypeLabel(issue.issueType)}</dd>
-          </div>
-          {hasCounts && (
-            <div>
-              <dt>Pulled</dt>
-              <dd>
-                <span>{`${found} of ${required} pulled`}</span>
-                {required > found && (
-                  <span className="focused-pick__sheetShort">{`${required - found} short`}</span>
-                )}
-              </dd>
-            </div>
-          )}
-          {issue.note && (
-            <div>
-              <dt>Note</dt>
-              <dd>{issue.note}</dd>
-            </div>
-          )}
-          <div>
-            <dt>Reported</dt>
-            <dd>
-              {issue.reportedByEmployeeName ? `${issue.reportedByEmployeeName} · ${when}` : when}
-            </dd>
-          </div>
-        </dl>
+        <ReportedIssueDetails issue={issue} className="focused-pick__sheetFacts" />
         <div className="focused-pick__sheetActions">
           {corrections && (
             <>
               {/* Records the product as picked, replacing the report as any later outcome does
-                  (015). The sheet stays up until that lands, so a failed save changes nothing. */}
-              <button type="button" disabled={corrections.isSaving} onClick={corrections.onFound}>
-                {corrections.foundLabel}
+                  (015), whatever the issue was (018 FR-015). The sheet stays up until that lands,
+                  so a failed save changes nothing. */}
+              <button
+                type="button"
+                disabled={corrections.isSaving}
+                onClick={corrections.onResolved}
+              >
+                Resolved
               </button>
-              <button type="button" disabled={corrections.isSaving} onClick={corrections.onChange}>
-                Change report
+              <button type="button" disabled={corrections.isSaving} onClick={corrections.onEdit}>
+                Edit report
               </button>
             </>
           )}

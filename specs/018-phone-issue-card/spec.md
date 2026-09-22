@@ -39,7 +39,7 @@ Product Owner design decisions, made against the mockups at
 https://claude.ai/artifact/XdfCTKJHRt4XPJMGDcM55p (final row), after the phone work had been built:
 
 - Q: Does the design assume the issue is a shortage? → A: No. It must hold for every issue type
-  (Card Damaged, Wrong Variant, Other and the rest), not only Card Not Found. Counts are shown in
+  (Damaged, Wrong Variant, Other and the rest), not only Card Not Found. Counts are shown in
   the issue form's own words, "Required N · Found M", only when both were recorded; nothing is
   described as "pulled" or "short". This supersedes "3 of 4 pulled" and "1 short".
 - Q: What does the correction that records the product as picked say? → A: "Resolved", on the phone
@@ -103,7 +103,7 @@ shows the issue type, "Required 4 · Found 3", the note, and the reporter and ti
 1. **Given** a product reported as Card Not Found, 3 found of 4 needed, with the note "Only 3 in
    the binder slot", **When** the picker taps the chip, **Then** a sheet opens showing the problem
    ("Card Not Found"), the counts ("Required 4 · Found 3"), the note, and who reported it and when.
-2. **Given** a product reported as Card Damaged with a note and no counts, **When** the picker taps
+2. **Given** a product reported as Damaged with a note and no counts, **When** the picker taps
    the chip, **Then** the sheet shows the problem, the note, and who reported it and when, and no
    counts line.
 3. **Given** a report with only one of the two counts recorded, **When** the sheet opens, **Then** it
@@ -165,7 +165,7 @@ confirm the form opens filled in.
 1. **Given** a desktop order with a row reported as Card Not Found, required 4, found 3, with a
    note, **When** the picker views it, **Then** the row shows an issue panel with the issue type, who
    reported it and when, "Required 4 · Found 3", and the note.
-2. **Given** a row reported as Card Damaged with a note and no counts, **When** the picker views it,
+2. **Given** a row reported as Damaged with a note and no counts, **When** the picker views it,
    **Then** the panel shows the type, the reporter and time, and the note, and no counts line.
 3. **Given** a reported row, **When** the picker holds the claim, **Then** the row offers
    **Resolved** and **Edit report**, and no **Picked** or **Report Issue** button.
