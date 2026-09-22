@@ -183,10 +183,12 @@ export function DashboardPage({ employee, onLogout }: DashboardPageProps) {
           <span className="dashboard-stat__icon" data-status="picked">
             <CheckCircleIcon />
           </span>
-          <div>
+          {/* The way into the packing desk (T113). The count of sleeves waiting is where a packer
+              looks, and until this nothing in the application linked to the desk at all. */}
+          <Link to="/packing" className="dashboard-stat__link">
             <p className="dashboard-stat__label">Awaiting Packing</p>
             <p className="dashboard-stat__value">{statValue(data?.picked.count)}</p>
-          </div>
+          </Link>
         </article>
       </div>
 

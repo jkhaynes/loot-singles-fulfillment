@@ -144,6 +144,17 @@
   box-sizing: border-box;
 }
 
+/* The Awaiting Packing tile opens the packing desk. It reads as the other tiles do, with a cue on
+   hover that it goes somewhere. */
+.dashboard-stat__link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.dashboard-stat__link:hover .dashboard-stat__label {
+  text-decoration: underline;
+}
+
 .dashboard-stat__icon {
   display: flex;
   align-items: center;

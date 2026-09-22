@@ -48,7 +48,15 @@ test('scans a picked order at the desk, packs it, and refuses a second attempt',
   await login(page, 'e2epickerten')
   const orderId = await pickWholeOrder(page, 'E2E-ORDER-00011', 'Desk Packable')
 
-  await page.goto('/packing')
+  // In the way a packer would: from the dashboard tile that counts the sleeves waiting for them
+  // (T115). Every test here used to open /packing directly, which is how nobody noticed that
+  // nothing in the application linked to it.
+  await page.goto('/')
+  await page
+    .getByRole('article', { name: 'Awaiting Packing' })
+    .getByRole('link', { name: /awaiting packing/i })
+    .click()
+  await expect(page).toHaveURL(/\/packing$/)
   await expect(page.getByRole('heading', { name: 'Packing', exact: true })).toBeVisible()
 
   // ---- Scenario 3: resolve, see the counts and the picker ----

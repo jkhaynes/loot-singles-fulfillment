@@ -36,6 +36,7 @@ function renderDashboard(onLogout = vi.fn()) {
       <Routes>
         <Route path="/" element={<DashboardPage employee={employee} onLogout={onLogout} />} />
         <Route path="/orders/:orderId" element={<p>Order detail page</p>} />
+        <Route path="/packing" element={<p>Packing desk page</p>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -105,6 +106,24 @@ describe('DashboardPage', () => {
     const pickedTile = screen.getByRole('article', { name: 'Awaiting Packing' })
     expect(within(pickedTile).getByText('5')).toBeInTheDocument()
     expect(screen.queryByText('Not yet available')).not.toBeInTheDocument()
+  })
+
+  // 017 T113 (Product Owner decision, 2026-09-21): nothing linked to the packing desk, so a packer
+  // had no way in short of scanning a label or knowing the address. The tile that counts the
+  // sleeves waiting for them is where they look.
+  it('opens the packing desk from the Awaiting Packing tile', async () => {
+    vi.mocked(dashboardApi.getDashboard).mockResolvedValue(
+      dashboardData({ ready: { count: 0, orders: [] }, picked: { count: 3, orders: [] } }),
+    )
+    const user = userEvent.setup()
+
+    renderDashboard()
+    const tile = await screen.findByRole('article', { name: 'Awaiting Packing' })
+    expect(within(tile).getByText('3')).toBeInTheDocument()
+
+    await user.click(within(tile).getByRole('link', { name: /awaiting packing/i }))
+
+    expect(await screen.findByText('Packing desk page')).toBeInTheDocument()
   })
 
   it('names the flagged product on a needs-attention order', async () => {

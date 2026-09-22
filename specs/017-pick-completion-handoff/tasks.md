@@ -488,3 +488,15 @@ without the packing desk existing.
 
 - [X] T110 Write a failing test in `frontend/tests/orders/OrderDetailPage.test.tsx` asserting that when **Next order** finds no order available (`pickNextOrder` rejects with `NoOrdersAvailableError`), the picker is told "No orders are currently available to pick." as Pick Next does on the dashboard, rather than being moved to Browse Orders without a word, per FR-007 (partial)
 - [X] T111 Make **Next order** on the ending screen handle no available order the way the dashboard's Pick Next does, in `frontend/src/features/orders/OrderDetailPage.tsx` `handleNextOrder`, so T110 passes, per FR-007 (partial)
+
+## Phase 9: Reaching the packing desk
+
+> **Product Owner decision, 2026-09-21.** Found while trying the desk by hand: nothing in the
+> application links to `/packing`. The only ways in are scanning a label's QR code or typing the
+> address, and the E2E tests hid this by opening `/packing` directly. FR-023 requires the surface
+> but says nothing about reaching it. The Product Owner chose: the dashboard's **Awaiting Packing**
+> tile opens the desk. No separate button.
+
+- [X] T113 [US2] Write a failing RTL test in `frontend/tests/dashboard/DashboardPage.test.tsx`: the **Awaiting Packing** tile contains a link that opens the packing desk (`/packing`), and following it lands there. The tile keeps its count
+- [X] T114 [US2] Make the Awaiting Packing tile's label and count a link to `/packing` in `frontend/src/features/dashboard/DashboardPage.tsx` (styled in `DashboardPage.css` so the tile still reads as a tile), so T113 passes
+- [X] T115 [US2] In `frontend/e2e/packing-desk.spec.ts`, reach the desk the way a packer would, from the dashboard tile rather than `page.goto('/packing')`, in at least one test
