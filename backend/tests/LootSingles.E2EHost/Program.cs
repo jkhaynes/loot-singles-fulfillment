@@ -390,6 +390,7 @@ static async Task SeedAsync(IServiceProvider services)
             ("e2epickereleven", "E2E Picker Eleven"),
             ("e2epickertwelve", "E2E Picker Twelve"),
             ("e2epickerthirteen", "E2E Picker Thirteen"),
+            ("e2epickerfourteen", "E2E Picker Fourteen"),
         }
     )
     {
@@ -527,6 +528,22 @@ static async Task SeedAsync(IServiceProvider services)
             [
                 SetAwareLine("Pokemon", "Skip Set", "Skip Pulled", "#001/050", 2),
                 SetAwareLine("Pokemon", "Skip Set", "Skip Untouched", "#002/050", 1),
+            ],
+        }
+    );
+    // 018 T001: the reported-issue card spec, on a phone. Quantity 4 is the case the feature exists
+    // for (a dock that read "Pulled all 4" on a product reported as 3 of 4); quantity 1 is the
+    // found action's other wording.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00016",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(70),
+            OrderLines =
+            [
+                SetAwareLine("Pokemon", "Issue Set", "Issue Card Four", "#001/050", 4),
+                SetAwareLine("Pokemon", "Issue Set", "Issue Card One", "#002/050", 1),
             ],
         }
     );

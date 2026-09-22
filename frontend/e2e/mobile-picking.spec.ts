@@ -19,7 +19,7 @@ async function claimTheOrder(page: Page) {
   await expect(page).toHaveURL(/\/orders\/\d+$/)
 }
 
-const next = (page: Page) => page.getByRole('button', { name: /next card/i })
+const next = (page: Page) => page.getByRole('button', { name: 'Next card', exact: true })
 const previous = (page: Page) => page.getByRole('button', { name: /previous card/i })
 const recordButton = (page: Page) => page.getByRole('button', { name: /^picked|^pulled all/i })
 

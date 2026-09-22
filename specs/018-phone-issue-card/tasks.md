@@ -36,7 +36,7 @@ Frontend only (plan.md), plus the E2E host's seed: `frontend/src/features/orders
 **Purpose**: The E2E data this feature's end-to-end tests need. The suite runs fully parallel, so
 the new spec gets an order and a picker of its own.
 
-- [ ] T001 Seed an order `E2E-ORDER-00016` with one product of quantity 4 ("Issue Card Four") and one of quantity 1 ("Issue Card One"), both in one set, and a picker `e2epickerfourteen`, in `backend/tests/LootSingles.E2EHost/Program.cs`, following the 017 T101/T108 seed entries
+- [X] T001 Seed an order `E2E-ORDER-00016` with one product of quantity 4 ("Issue Card Four") and one of quantity 1 ("Issue Card One"), both in one set, and a picker `e2epickerfourteen`, in `backend/tests/LootSingles.E2EHost/Program.cs`, following the 017 T101/T108 seed entries
 
 ---
 
@@ -46,7 +46,7 @@ the new spec gets an order and a picker of its own.
 exists (research.md §6). Otherwise a later red phase could fail on an ambiguous locator rather than
 on the behaviour under test.
 
-- [ ] T002 Change every `/next card/i` button locator to the exact name `'Next card'` (`{ name: 'Next card', exact: true }`) in `frontend/tests/orders/FocusedPickView.test.tsx`, `frontend/tests/orders/OrderDetailPage.test.tsx` and `frontend/e2e/pick-handoff.spec.ts`, and any other file where a test reports an issue and then moves on. Run the unit and E2E suites and confirm they are unchanged and green. This changes no behaviour
+- [X] T002 Change every `/next card/i` button locator to the exact name `'Next card'` (`{ name: 'Next card', exact: true }`) in `frontend/tests/orders/FocusedPickView.test.tsx`, `frontend/tests/orders/OrderDetailPage.test.tsx` and `frontend/e2e/pick-handoff.spec.ts`, and any other file where a test reports an issue and then moves on. Run the unit and E2E suites and confirm they are unchanged and green. This changes no behaviour
 
 **Checkpoint**: The suites pass with exact locators. User story work can begin.
 
@@ -63,15 +63,15 @@ moving on. Nothing on the screen states a quantity the picker did not pull.
 
 ### Tests for User Story 1 (write first, watch fail)
 
-- [ ] T003 [US1] Write failing RTL tests in `frontend/tests/orders/FocusedPickView.test.tsx`, in a new `describe('FocusedPickView — a reported product')`, using a line with `pickOutcome: 'hasIssue'` and a `currentIssue` of Card Not Found, required 4, found 3, on a quantity-4 line:
+- [X] T003 [US1] Write failing RTL tests in `frontend/tests/orders/FocusedPickView.test.tsx`, in a new `describe('FocusedPickView — a reported product')`, using a line with `pickOutcome: 'hasIssue'` and a `currentIssue` of Card Not Found, required 4, found 3, on a quantity-4 line:
   - the card shows a `button` named **Card Not Found**, and the chip names the type even though counts exist (FR-001, FR-002);
   - with `canRecordOutcome` true, the dock has a `button` named **Next card ›** and the ‹ › arrows, and no button whose name starts with "Picked" or "Pulled all", and no **Report an issue** (FR-005, FR-006);
   - the product's identity, image and quantity emphasis are still shown (FR-004).
-- [ ] T004 [US1] Write failing RTL tests in the same file:
+- [X] T004 [US1] Write failing RTL tests in the same file:
   - tapping **Next card ›** shows the next product and calls neither `onPicked` nor `onReportIssue`;
   - from the last product it opens the final review, exactly as the › arrow does (FR-007);
   - moving away and back to the reported product still shows the chip and the issue dock.
-- [ ] T005 [US1] Write RTL tests in the same file pinning what must not change:
+- [X] T005 [US1] Write RTL tests in the same file pinning what must not change:
   - a line with no outcome keeps **Pulled all 4** and **Report an issue**;
   - a picked line keeps **Picked ✓** and has no chip (FR-008);
   - a reported line with `canRecordOutcome` false shows the chip, and its dock shows what it shows today (the Claim action or the blocked reason), not **Next card ›**.
@@ -80,8 +80,8 @@ moving on. Nothing on the screen states a quantity the picker did not pull.
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] In `frontend/src/features/orders/FocusedPickView.tsx`, replace the small issue text with a chip button naming `pickingIssueTypeLabel(line.currentIssue.issueType)` (it does nothing yet; US2 opens the sheet). When the line is `hasIssue` and `canRecordOutcome` is true, render the issue dock: **Next card ›** calling `goNext`, plus the existing navigation, in place of the Picked and Report buttons. This makes T003 and T004 pass with T005 still green
-- [ ] T007 [P] [US1] Style the chip (amber, from the existing warning tokens, reading as tappable) and the issue dock's primary button in `frontend/src/features/orders/OrderDetailPage.css`, matching direction C
+- [X] T006 [US1] In `frontend/src/features/orders/FocusedPickView.tsx`, replace the small issue text with a chip button naming `pickingIssueTypeLabel(line.currentIssue.issueType)` (it does nothing yet; US2 opens the sheet). When the line is `hasIssue` and `canRecordOutcome` is true, render the issue dock: **Next card ›** calling `goNext`, plus the existing navigation, in place of the Picked and Report buttons. This makes T003 and T004 pass with T005 still green
+- [X] T007 [P] [US1] Style the chip (amber, from the existing warning tokens, reading as tappable) and the issue dock's primary button in `frontend/src/features/orders/OrderDetailPage.css`, matching direction C
 
 **Checkpoint**: US1 is complete and demonstrable. The defect is gone: a reported product can no
 longer offer "Pulled all N".
@@ -98,7 +98,7 @@ note, and the reporter and time, with **Close**.
 
 ### Tests for User Story 2 (write first, watch fail)
 
-- [ ] T008 [US2] Write failing RTL tests in `frontend/tests/orders/FocusedPickView.test.tsx`:
+- [X] T008 [US2] Write failing RTL tests in `frontend/tests/orders/FocusedPickView.test.tsx`:
   - no `dialog` is present on arriving at a reported product;
   - tapping the chip opens a `dialog` named **Reported issue** (FR-009) showing the issue type, "3 of 4 pulled" and "1 short", the note, and the reporter's name with the time (FR-010–FR-013);
   - omission cases, each asserted separately:
@@ -111,14 +111,14 @@ note, and the reporter and time, with **Close**.
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] In `frontend/src/features/orders/FocusedPickView.tsx`, add `isShowingIssue` local state:
+- [X] T009 [US2] In `frontend/src/features/orders/FocusedPickView.tsx`, add `isShowingIssue` local state:
   - the chip sets it;
   - `goTo` clears it;
   - the sheet renders only while it is set **and** the line is `hasIssue` (research.md §2);
   - the sheet is an element with `role="dialog"` and `aria-label="Reported issue"` (research.md §3), showing the fields per data-model.md, with **Close**.
 
   This makes T008 pass.
-- [ ] T010 [P] [US2] Style the sheet in `frontend/src/features/orders/OrderDetailPage.css`: a bottom sheet over a dimmed card, from the existing tokens, matching direction C
+- [X] T010 [P] [US2] Style the sheet in `frontend/src/features/orders/OrderDetailPage.css`: a bottom sheet over a dimmed card, from the existing tokens, matching direction C
 
 **Checkpoint**: US1 and US2 are complete. A picker can see everything that was reported, without
 leaving the product.
@@ -135,11 +135,11 @@ Separately, tap **Change report**, change the type, submit, and see the chip sho
 
 ### Tests for User Story 3 (write first, watch fail)
 
-- [ ] T011 [P] [US3] Write failing unit tests for `foundActionLabel` in `frontend/tests/orders/foundActionLabel.test.ts`: `1` → "I found it"; `2` and `4` → "I found all 2" and "I found all 4" (FR-015; research.md §7)
-- [ ] T012 [P] [US3] Write failing RTL tests in a new `frontend/tests/orders/ReportIssueForm.test.tsx`:
+- [X] T011 [P] [US3] Write failing unit tests for `foundActionLabel` in `frontend/tests/orders/foundActionLabel.test.ts`: `1` → "I found it"; `2` and `4` → "I found all 2" and "I found all 4" (FR-015; research.md §7)
+- [X] T012 [P] [US3] Write failing RTL tests in a new `frontend/tests/orders/ReportIssueForm.test.tsx`:
   - given `initial` (Wrong Variant, required 4, found 3, a note), every field starts from it, and submitting unchanged sends that same request;
   - without `initial` the form starts blank, as today, which is the desktop path (FR-016; research.md §4).
-- [ ] T013 [US3] Write failing RTL tests in `frontend/tests/orders/FocusedPickView.test.tsx`, on the open sheet:
+- [X] T013 [US3] Write failing RTL tests in `frontend/tests/orders/FocusedPickView.test.tsx`, on the open sheet:
   - with `canRecordOutcome` true, it offers **I found all 4**, **Change report** and **Close**; on a quantity-1 line the found action reads **I found it** (FR-015);
   - **I found all 4** calls `onPicked` with the line's id;
   - while `recordingLineId` is that line, the correction buttons are disabled (FR-020);
@@ -149,9 +149,9 @@ Separately, tap **Change report**, change the type, submit, and see the chip sho
 
 ### Implementation for User Story 3
 
-- [ ] T014 [P] [US3] Create `frontend/src/features/orders/foundActionLabel.ts`, making T011 pass
-- [ ] T015 [P] [US3] Add an optional `initial?: PickingIssueDetail` prop to `frontend/src/features/orders/ReportIssueForm.tsx` that seeds each field's initial state, making T012 pass. The desktop call site in `OrderDetailPage.tsx` passes nothing and is unchanged
-- [ ] T016 [US3] In `frontend/src/features/orders/FocusedPickView.tsx`, add the sheet's correction actions when `canRecordOutcome` is true:
+- [X] T014 [P] [US3] Create `frontend/src/features/orders/foundActionLabel.ts`, making T011 pass
+- [X] T015 [P] [US3] Add an optional `initial?: PickingIssueDetail` prop to `frontend/src/features/orders/ReportIssueForm.tsx` that seeds each field's initial state, making T012 pass. The desktop call site in `OrderDetailPage.tsx` passes nothing and is unchanged
+- [X] T016 [US3] In `frontend/src/features/orders/FocusedPickView.tsx`, add the sheet's correction actions when `canRecordOutcome` is true:
   - the found action, labelled by `foundActionLabel(line.quantity)`, calls `onPicked`, disabled while recording;
   - **Change report** clears `isShowingIssue` and opens `ReportIssueForm` with `initial={line.currentIssue}`.
 
@@ -166,19 +166,19 @@ beyond the chip.
 
 ### End to end
 
-- [ ] T017 Write `frontend/e2e/mobile-issue-card.spec.ts` at phone size, as `e2epickerfourteen` on `E2E-ORDER-00016`, covering quickstart.md scenarios 1–4:
+- [X] T017 Write `frontend/e2e/mobile-issue-card.spec.ts` at phone size, as `e2epickerfourteen` on `E2E-ORDER-00016`, covering quickstart.md scenarios 1–4:
   - Report 3 of 4 on the quantity-4 product. Assert the **Card Not Found** chip, the **Next card ›** dock, and that no button reads "Pulled all 4" or "Report an issue".
   - Open the sheet and assert its contents.
   - **Change report** to Wrong Variant and assert the chip changes.
   - **I found all 4** and assert **Picked ✓**.
   - On the quantity-1 product, report, then assert the sheet's **I found it**.
-- [ ] T018 In the same file, cover quickstart.md scenario 5 with a second, read-only context. As an employee who does not hold the claim, open the order while it has a reported product. Assert the chip, a sheet with **Close** only, and no **Next card ›** dock. Use an employee that is not the claim holder; `e2emanager` is already seeded
+- [X] T018 In the same file, cover quickstart.md scenario 5 with a second, read-only context. As an employee who does not hold the claim, open the order while it has a reported product. Assert the chip, a sheet with **Close** only, and no **Next card ›** dock. Use an employee that is not the claim holder; `e2emanager` is already seeded
 
 ### Ordinary gates
 
-- [ ] T019 [P] Review whether anything here warrants production logging, per the constitution's Observability standard. Expected answer: none new, because the pick and report calls are already logged server-side. Record the decision in `plan.md` if it differs
-- [ ] T020 [P] Run `npm --prefix frontend run build`, `npm --prefix frontend run lint` and `npm --prefix frontend run format:check`; `tsc --noEmit` checks nothing in this project
-- [ ] T021 [P] Run `npm --prefix frontend test` and the full Playwright suite, and confirm both are green
+- [X] T019 [P] Review whether anything here warrants production logging, per the constitution's Observability standard. Expected answer: none new, because the pick and report calls are already logged server-side. Record the decision in `plan.md` if it differs
+- [X] T020 [P] Run `npm --prefix frontend run build`, `npm --prefix frontend run lint` and `npm --prefix frontend run format:check`; `tsc --noEmit` checks nothing in this project
+- [X] T021 [P] Run `npm --prefix frontend test` and the full Playwright suite, and confirm both are green
 - [ ] T022 Walk quickstart.md on a real phone against the dev stack, and correct any step that does not match what was built
 - [ ] T023 Run `/branch-review` and resolve every Required finding before `/speckit-converge`, per CLAUDE.md's Branch Review Gate
 

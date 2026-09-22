@@ -630,11 +630,119 @@
   opacity: 0.5;
 }
 
+/* A reported product's issue, as a chip that opens the detail (018 direction C). Amber like every
+   other warning in the application, bordered and tinted so it reads as something to tap rather than
+   a caption. */
 .focused-pick__issue {
-  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.75rem;
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid var(--color-warning);
+  border-radius: var(--radius-medium);
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
   color: var(--color-warning);
+  font: inherit;
+  font-size: var(--font-size-body);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.focused-pick__issueMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: 50%;
+  background: var(--color-warning);
+  color: var(--color-background);
   font-size: var(--font-size-body-small);
+}
+
+/* ---- The reported-issue sheet (018) -------------------------------------- */
+
+/* Rises from the bottom over a dimmed card, so the product it describes stays in view above it.
+   Fixed to the viewport: the phone view is one screen tall and clips overflow. */
+.focused-pick__sheetBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  background: color-mix(in srgb, var(--color-background) 70%, transparent);
+}
+
+.focused-pick__sheet {
+  width: 100%;
+  box-sizing: border-box;
+  max-height: 85dvh;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-4) var(--space-6);
+  border-top: 2px solid var(--color-warning);
+  border-radius: var(--radius-large) var(--radius-large) 0 0;
+  background: var(--color-surface-elevated);
+}
+
+.focused-pick__sheetTitle {
+  margin: 0 0 var(--space-3);
+  color: var(--color-warning);
+  font-size: 1.125rem;
+  font-weight: 800;
+}
+
+.focused-pick__sheetFacts {
+  margin: 0;
+}
+
+.focused-pick__sheetFacts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.focused-pick__sheetFacts dt {
+  color: var(--color-text-secondary);
+}
+
+.focused-pick__sheetFacts dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
   font-weight: 700;
+  text-align: right;
+}
+
+.focused-pick__sheetShort {
+  color: var(--color-warning);
+}
+
+.focused-pick__sheetActions {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.focused-pick__sheetActions button {
+  min-height: 3.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.focused-pick__sheetActions button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* ---- The dock ----------------------------------------------------------- */

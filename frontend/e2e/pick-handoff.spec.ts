@@ -23,7 +23,7 @@ async function claim(page: Page, username: string, order: string) {
   await expect(page).toHaveURL(/\/orders\/\d+$/)
 }
 
-const next = (page: Page) => page.getByRole('button', { name: /next card/i })
+const next = (page: Page) => page.getByRole('button', { name: 'Next card', exact: true })
 
 test('a completed pick ends on a screen stating the card count, and prints a label', async ({
   page,

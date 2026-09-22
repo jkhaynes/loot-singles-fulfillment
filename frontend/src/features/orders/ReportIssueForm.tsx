@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { pickingIssueTypes } from './ordersApi'
-import type { PickingIssueType, ReportIssueRequest } from './ordersApi'
+import type { PickingIssueDetail, PickingIssueType, ReportIssueRequest } from './ordersApi'
 
 /**
  * Reporting a picking issue against one line. Extracted from OrderDetailPage in
@@ -10,18 +10,28 @@ import type { PickingIssueType, ReportIssueRequest } from './ordersApi'
 export function ReportIssueForm({
   lineId,
   isSubmitting,
+  initial,
   onCancel,
   onSubmit,
 }: {
   lineId: number
   isSubmitting: boolean
+  /**
+   * A report to start from, so changing one is an edit rather than re-entering it (018 FR-016).
+   * Without one the form starts blank, as the desktop list uses it.
+   */
+  initial?: PickingIssueDetail | null
   onCancel: () => void
   onSubmit: (request: ReportIssueRequest) => void
 }) {
-  const [issueType, setIssueType] = useState<PickingIssueType>(pickingIssueTypes[0].value)
-  const [requiredQuantity, setRequiredQuantity] = useState('')
-  const [foundQuantity, setFoundQuantity] = useState('')
-  const [note, setNote] = useState('')
+  const [issueType, setIssueType] = useState<PickingIssueType>(
+    initial?.issueType ?? pickingIssueTypes[0].value,
+  )
+  const [requiredQuantity, setRequiredQuantity] = useState(
+    initial?.requiredQuantity?.toString() ?? '',
+  )
+  const [foundQuantity, setFoundQuantity] = useState(initial?.foundQuantity?.toString() ?? '')
+  const [note, setNote] = useState(initial?.note ?? '')
 
   function toQuantity(value: string): number | null {
     const trimmed = value.trim()

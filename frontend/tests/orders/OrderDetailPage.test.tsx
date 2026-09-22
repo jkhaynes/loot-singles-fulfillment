@@ -889,7 +889,7 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
     await screen.findByRole('article')
 
     // Past the last card is the review screen.
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     await user.click(await screen.findByRole('button', { name: /finish picking/i }))
 
     // Completing without releasing leaves the picker holding an order they have finished, and
@@ -937,13 +937,13 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
 
     renderPage()
     await screen.findByRole('article')
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     await user.click(await screen.findByRole('button', { name: /finish picking/i }))
     await screen.findByText('Pick complete')
 
     await user.click(screen.getByRole('button', { name: /next order/i }))
     await screen.findByRole('article')
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     await user.click(await screen.findByRole('button', { name: /finish picking/i }))
 
     expect(await screen.findByText('Pick complete')).toBeInTheDocument()
@@ -990,7 +990,7 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
     await user.click(screen.getByRole('button', { name: /submit issue/i }))
 
     // The report is still in flight: move on and finish anyway, as a quick thumb does.
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     await user.click(await screen.findByRole('button', { name: /finish picking/i }))
 
     expect(ordersApi.getOrderLabel).not.toHaveBeenCalled()
@@ -1024,7 +1024,7 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
 
     renderPage()
     await screen.findByRole('article')
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     await user.click(await screen.findByRole('button', { name: /finish picking/i }))
     await screen.findByText('Pick complete')
 
@@ -1064,7 +1064,7 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
 
     renderPage()
     await screen.findByRole('article')
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     await user.click(await screen.findByRole('button', { name: /finish picking/i }))
     await screen.findByText('Pick complete')
 
@@ -1086,7 +1086,7 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
 
     renderPage()
     await screen.findByRole('article')
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     await user.click(await screen.findByRole('button', { name: /finish picking/i }))
 
     // Navigating away on a failed release would report work as handed off when it was not.
@@ -1109,7 +1109,7 @@ describe('OrderDetailPage on a phone — letting go of an order', () => {
     renderPage()
     await screen.findByRole('article')
 
-    await user.click(screen.getByRole('button', { name: /next card/i }))
+    await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
     // The button says what it does: nothing is being finished here.
     expect(screen.queryByRole('button', { name: /finish picking/i })).not.toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: /^close$/i }))
