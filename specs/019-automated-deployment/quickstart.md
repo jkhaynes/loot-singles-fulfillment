@@ -557,6 +557,19 @@ SQL against the database, signed in as yourself (you are the server administrato
 
 Use the portal's query editor, which avoids the MFA problems local `sqlcmd` has:
 
+> **Expect the first connection to fail on stage.** The stage database is serverless and pauses
+> after 60 minutes idle. The first attempt after a pause triggers the resume and returns:
+>
+> > *Database 'lootsingles' on server '…' is not currently available. Please retry the connection
+> > later.*
+>
+> That is the wake-up working, not a fault. **Wait about 30 seconds and try again.** Check it with
+> `az sql db show -g rg-loot-singles-stage -s loot-singles-stage-sql -n lootsingles --query status -o tsv`
+> — you want `Online`.
+>
+> This is also exactly what a picker would see against a paused database, which is why handling it
+> gracefully is its own feature. Production is Basic and always awake, so it does not do this.
+
 1. Open the **database** (`lootsingles`) → **Query editor (preview)**.
 2. Sign in with **Microsoft Entra authentication** as yourself.
 3. **If it refuses to connect**, your own machine is not in the subnet. Temporarily add your IP:
@@ -796,6 +809,7 @@ start:
 | Looking for `az containerapp job logs` | It does not exist. Job output goes to Log Analytics — see C11, or use the job's **Execution history** blade in the portal. |
 | `The subscription is not registered to use namespace…` | A provider is not registered. Register it in Subscriptions → Resource providers (A2). |
 | Resources appear in the wrong place | The wrong subscription is selected. Read the subscription shown on every create form (A1). |
+| `Database '...' is not currently available. Please retry the connection later` | The stage database is serverless and paused after 60 minutes idle. Your attempt triggered the resume. Wait ~30 seconds and retry. Production is Basic and always awake. |
 | No quickstart image option on a Container Apps **Job** | Jobs do not offer one. Use the public sample `mcr.microsoft.com` / `k8se/quickstart-jobs:latest` as a placeholder; the first deployment replaces it (C10). |
 | CPU or memory not on the Scale blade | They live with the container: **Containers → Edit and deploy → click the container**. Scale only carries replica counts. Container Apps allows fixed CPU/memory pairs at a 1:2 ratio (0.25 CPU with 0.5 Gi). |
 | A browse blade has no **+ Create** button | Use **+ Create a resource** at the top left of the portal home and search the resource type there. The Marketplace route always works; some browse blades do not offer Create. |
