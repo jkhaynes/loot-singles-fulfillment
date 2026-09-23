@@ -117,6 +117,30 @@ subscriptions as a table.
 **If no browser opens** (a remote session, for example): `az login --use-device-code` prints a code
 and a URL to enter it on another device.
 
+**If it says authentication failed for a tenant and then "No subscriptions found"**, look for
+`AADSTS50076` and `Status_InteractionRequired` in the message. That means sign-in worked but the
+CLI could not get a token for that directory without multi-factor authentication — either a
+Conditional Access policy or Microsoft's mandatory-MFA requirement for Azure sign-ins. The
+enumeration failing is *why* no subscriptions were listed; it does not mean you have none.
+
+Sign in again scoped to the tenant the error names, which forces an interactive MFA prompt:
+
+```powershell
+az login --tenant <the tenant id from the error>
+```
+
+Then confirm what you actually have:
+
+```powershell
+az account list --query "[].{name:name, id:id, state:state}" -o table
+```
+
+If *that* is empty, the account genuinely has no Azure subscription and one must be created before
+any of Part C can run.
+
+This affects you, not the deployment: GitHub Actions signs in as a workload identity through the
+federated credential in C12, which no user MFA policy applies to.
+
 ### A3. Pick the right subscription
 
 ```powershell
@@ -532,6 +556,16 @@ az sql server firewall-rule create --resource-group $RG --server $SQLSRV `
 
 Run the grants. `-G` means "sign in with Entra"; a browser prompt may appear.
 
+> **If your account requires MFA** (see A2), the `sqlcmd` shipped with the ODBC 17 tools may not be
+> able to complete an interactive multi-factor prompt. Two fallbacks, either is fine:
+>
+> - **The portal's query editor** — open the database in the Azure portal, choose *Query editor*,
+>   sign in with Entra, and run the same SQL. The temporary firewall rule above is still required.
+> - **`go-sqlcmd`** (`winget install sqlcmd`), which supports interactive MFA. Its flags for this
+>   are the same: `sqlcmd -S <server> -d <db> -G -Q "<sql>"`.
+>
+> The SQL itself is identical whichever route you take.
+
 ```powershell
 sqlcmd -S "$SQLSRV.database.windows.net" -d $SQLDB -G -Q @"
 CREATE USER [$IDAPP] FROM EXTERNAL PROVIDER;
@@ -831,7 +865,8 @@ az ad app delete --id "<the appId>"
 | `Specified server name is already used` | SQL server names are globally unique. Change `$SQLSUFFIX` and re-run the variables block. |
 | Subnet rejected as too small | `/27` is the minimum for Container Apps. |
 | Service endpoint will not attach to the delegated subnet | **Stop and raise it** (C0). The fallback costs money and is a Product Owner decision. |
-| `sqlcmd` cannot sign in with `-G` | The temporary firewall rule (C8) is missing or your IP changed. Re-run the `$MYIP` step. |
+| `az login` reports `AADSTS50076` / `Status_InteractionRequired`, then "No subscriptions found" | MFA is required for that directory and a silent token refresh cannot satisfy it. `az login --tenant <id from the error>`, then re-check with `az account list` (A2). The enumeration failing is why nothing was listed — it is not proof you have no subscription. |
+| `sqlcmd` cannot sign in with `-G` | Either the temporary firewall rule (C8) is missing or your IP changed — re-run the `$MYIP` step — or your account needs MFA and the ODBC 17 `sqlcmd` cannot prompt for it. See the fallbacks in C8. |
 | Migrate job fails on login | C8's grants did not apply to the migrate identity. Re-run the role query. |
 | `/health` fine, `/health/database` returns 503 | The **app** identity lacks its roles, or the virtual network rule is missing. Exactly what that endpoint exists to catch. |
 | Deploy fails: "no matching federated identity record found" | The `subject` in C12 does not match. Check the environment name (`production`, not `prod`) and the `owner/repo` spelling. |
