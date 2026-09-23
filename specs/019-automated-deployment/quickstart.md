@@ -249,13 +249,30 @@ Check it took:
 
 Do these in order. Later steps depend on earlier ones.
 
+> **Before C1 and everything after it, paste Part B's variables block into your terminal.** Every
+> step from C1 on uses those variables, and PowerShell forgets them when the window closes — so
+> paste the block again at the start of each session, and again when you switch from `stage` to
+> `prod`. A command reporting `expected one argument` means a variable is empty, not that the
+> command is wrong. C0 below is the exception: it is deliberately self-contained.
+
 ### C0. Verify the one thing that can stop this feature
 
 **Do this before creating anything you intend to keep.** The design assumes a subnet delegated to
 Container Apps will accept a SQL service endpoint. If it will not, the alternative costs about
 $7–8/month and is a decision for the Product Owner, not a workaround to improvise.
 
+> **This step is self-contained on purpose** — it is the first thing anyone runs, and feature 019's
+> task T015 points straight at it. You need only A1–A4 done (a new terminal, `az login`, the right
+> subscription, the providers registered) plus the one variable below. Part B's full variables block
+> is not needed until C1.
+>
+> If any command below reports `expected one argument`, a variable is empty: PowerShell variables do
+> not survive closing the terminal, so set it again.
+
 ```powershell
+# The only variable C0 needs. Use the region you intend for the real environments.
+$LOCATION = "eastus2"
+
 az group create --name "rg-spike-delete-me" --location $LOCATION
 az network vnet create --resource-group "rg-spike-delete-me" --name "vnet-spike" `
   --address-prefix "10.99.0.0/16" --subnet-name "snet-spike" --subnet-prefix "10.99.0.0/27"
@@ -806,6 +823,7 @@ az ad app delete --id "<the appId>"
 | Symptom | Cause and fix |
 |---|---|
 | `az: command not found` | Your terminal started before the CLI was installed. Open a new one (A1). |
+| `argument --location/-l: expected one argument` (or any other `expected one argument`) | A PowerShell variable is empty. They do not survive closing the terminal — paste Part B's variables block again. For C0, set `$LOCATION` alone. Check with `"$RG / $SQLSRV / $LOCATION"`. |
 | `'query' is misspelled or not recognized` under `az monitor log-analytics` | The extension is missing. `az extension add --name log-analytics` (A5). |
 | Looking for `az containerapp job logs` | It does not exist. Job output goes to Log Analytics — see C9, or use the job's **Execution history** blade in the portal. |
 | `The subscription is not registered to use namespace…` | A provider is not registered. Re-run A4 and wait for `Registered`. |
