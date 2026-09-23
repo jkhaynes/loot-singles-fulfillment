@@ -104,8 +104,9 @@ Server=…;Authentication=Active Directory Managed Identity;User Id=<clientId>;D
 ```
 
 It is an ordinary environment variable, not a secret — no Key Vault, no GitHub secret, nothing to
-rotate. Azure sign-in uses OIDC federated credentials scoped per environment resource group, so
-stage's credential cannot reach production (FR-006). Each GitHub environment holds plain variables:
+rotate. Azure sign-in uses OIDC federated credentials scoped to each environment's container app and
+migrate job specifically, so stage's credential cannot reach production (FR-006). Each GitHub
+environment holds plain variables:
 subscription, tenant and client ids, resource group, app and job names, and the public URL.
 
 The only credential-shaped value in the whole design is the bootstrap PIN, which exists for one job

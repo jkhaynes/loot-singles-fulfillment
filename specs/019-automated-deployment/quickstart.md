@@ -711,7 +711,18 @@ register a *trust*: "when GitHub says a workflow is running in this repository, 
 accept that as proof of identity." No password exists, so none can leak.
 
 The portal's wizard for this is genuinely better than the CLI, because it asks for the GitHub details
-by name instead of making you hand-build a subject string.
+field by field instead of making you hand-build a subject string.
+
+**Get GitHub's numeric ids first.** The portal now uses the *immutable id* subject format, which
+pins the trust to GitHub's permanent numeric ids rather than to names. Names can be renamed and
+later claimed by someone else; the numbers cannot. Run this once — the values are the same for both
+environments:
+
+```powershell
+gh api repos/jkhaynes/loot-singles-fulfillment --jq '{owner_id: .owner.id, repo_id: .id}'
+```
+
+At the time of writing: organization id **`7768504`**, repository id **`1340223419`**.
 
 **Register the application:**
 
@@ -723,30 +734,51 @@ by name instead of making you hand-build a subject string.
 
 4. In that app registration → **Certificates & secrets** → **Federated credentials** → **+ Add
    credential**.
-5. **Federated credential scenario**: **GitHub Actions deploying Azure resources**.
-6. Fill in:
-   - **Organization**: `jkhaynes`
-   - **Repository**: `loot-singles-fulfillment`
-   - **Entity type**: **Environment**
-   - **GitHub environment name**: **`stage`** (for production use **`production`**, *not* `prod` —
-     it must match the GitHub environment name exactly)
-   - **Name**: `github-stage`
-7. **Add**.
+5. **Federated credential scenario**: **GitHub Actions deploying Azure resources**. This dropdown is
+   the first field, and it must be set before anything else makes sense. If you see an **Issuer**
+   box you can type into, you are on **Other issuer** instead — the GitHub scenario fills the issuer
+   itself and leaves it read-only.
+6. Fill in — leave **Issuer**, **Subject identifier** and **Audience** alone, they are generated:
 
-**Grant it access to this environment's resource group only:**
+   | Field | Stage | Production |
+   |---|---|---|
+   | Organization | `jkhaynes` | `jkhaynes` |
+   | Organization ID | `7768504` | `7768504` |
+   | Repository | `loot-singles-fulfillment` | `loot-singles-fulfillment` |
+   | Repository ID | `1340223419` | `1340223419` |
+   | Entity type | **Environment** | **Environment** |
+   | GitHub environment name | `stage` | `production` — *not* `prod` |
+   | Name | `github-stage` | `github-production` |
 
-8. Open **`rg-loot-singles-stage`** → **Access control (IAM)** → **+ Add** → **Add role assignment**.
-9. **Role**: **Contributor** → **Next**.
-10. **Members**: **User, group, or service principal** → **+ Select members** → search
-    `github-loot-singles-stage` → select it.
-11. **Review + assign**.
+7. Check the generated **Subject identifier** before pressing Add. For stage it must read exactly:
 
-Scoping to the resource group, not the subscription, is what stops stage's credential from touching
-production (FR-006).
+   ```
+   repo:jkhaynes@7768504/loot-singles-fulfillment@1340223419:environment:stage
+   ```
+
+   If it does not, a field above it is wrong. Do not hand-edit the subject to force it.
+8. **Add**.
+
+**Grant it access to the two resources it deploys, and nothing else:**
+
+The deployment does exactly two things: it starts the migrate job, and it updates the container app.
+So the credential gets Contributor on those two resources individually — not on the resource group,
+which would also hand it the environment's SQL server and managed identities for no reason.
+
+9. Open **`ca-loot-singles-stage`** → **Access control (IAM)** → **+ Add** → **Add role assignment**.
+10. **Role**: **Contributor** → **Next**.
+11. **Members**: **User, group, or service principal** → **+ Select members** → search
+    `github-loot-singles-stage` → select it → **Review + assign**.
+12. Repeat steps 9–11 on **`caj-loot-singles-stage-migrate`**.
+
+Per-resource scope is what stops stage's credential from touching production (FR-006). It replaced
+resource-group scope when the two environments began sharing one Container Apps environment — with
+shared infrastructure, a resource group is no longer the line between them.
 
 > **If a deployment later fails with "no matching federated identity record found"**, the subject did
-> not match. The two things usually wrong are the environment name (`production`, not `prod`) and the
-> organization/repository spelling.
+> not match. Compare the failing run's subject against the string in step 7 character by character.
+> The usual causes are the environment name (`production`, not `prod`) and a mistyped numeric id —
+> and note that an id typo produces exactly the same unhelpful message as a name typo.
 
 ---
 
@@ -789,7 +821,10 @@ az sql server firewall-rule list -g "rg-loot-singles-stage" -s "loot-singles-sta
 az sql server firewall-rule list -g "rg-loot-singles-prod"  -s "loot-singles-prod-sql"  -o table
 ```
 
-**Expected**: both empty. Any `0.0.0.0` entry is a finding, not a preference.
+**Expected**: both empty. Any `0.0.0.0` entry is a finding, not a preference. A leftover
+`QueryEditorClientIPAddress_…` is the one you are most likely to actually find — the portal adds it
+silently every time you open the query editor (C11 step 6), so re-run this check after any visit to
+it, not only once at the end.
 
 **Permissions are split** (FR-021) — run C11's role query against both databases (portal query editor). The app identity
 must never hold `db_ddladmin` or `db_owner`.
@@ -821,13 +856,15 @@ identities. A difference is a finding.
 **Logs are searchable, not just live** (FR-027). Sign in to each environment, then:
 
 ```powershell
-$wid = az monitor log-analytics workspace show -g "rg-loot-singles-prod" -n "log-loot-singles-prod" --query customerId -o tsv
+$wid = az monitor log-analytics workspace show -g "rg-loot-singles-shared" -n "log-loot-singles" --query customerId -o tsv
 az monitor log-analytics query --workspace $wid `
-  --analytics-query "ContainerAppConsoleLogs_CL | take 20" -o table
+  --analytics-query "ContainerAppConsoleLogs_CL | summarize count() by ContainerAppName_s" -o table
 ```
 
-**Expected**: rows, including your application's own log lines. If the live stream shows lines and
-this does not, the environment is not attached to the workspace.
+**Expected**: rows for both `ca-loot-singles-stage` and `ca-loot-singles-prod`. One workspace holds
+both, because they share one Container Apps environment — `ContainerAppName_s` is what keeps them
+apart, so filter on it whenever you read logs. If the live stream shows lines and this does not, the
+environment is not attached to the workspace.
 
 ---
 
@@ -921,7 +958,8 @@ start:
 | `sqlcmd` cannot sign in with `-G` | Either the temporary firewall rule (C11) is missing or your IP changed — re-add your client IP on the SQL server Networking blade — or your account needs MFA and the ODBC 17 `sqlcmd` cannot prompt for it. C11 uses the portal query editor, which avoids this. |
 | Migrate job fails on login | C11's grants did not apply to the migrate identity. Re-run the role query. |
 | `/health` fine, `/health/database` returns 503 | The **app** identity lacks its roles, or the virtual network rule is missing. Exactly what that endpoint exists to catch. |
-| Deploy fails: "no matching federated identity record found" | The federated credential in C13 does not match. Check the environment name (`production`, not `prod`) and the `owner/repo` spelling. |
+| Deploy fails: "no matching federated identity record found" | The federated credential's subject in C13 does not match what GitHub sent. Compare them character by character against C13 step 7. Usual causes: the environment name (`production`, not `prod`), or a mistyped organization/repository **id** — the subject uses GitHub's numeric ids now, and a wrong digit fails identically to a wrong name. |
+| Federated credential form rejects the **Issuer** as "not a valid URI" | You are on the **Other issuer** scenario. Set **Federated credential scenario** to **GitHub Actions deploying Azure resources** (C13 step 5); that form fills the issuer itself and has no editable Issuer box. |
 | Endless redirects in a browser | Forwarded headers not registered first in `Program.cs` (`research.md` §2). |
 | `/api/...` returns HTML | The `/api` fallback is registered after the web-app fallback (`research.md` §3). |
 | Everyone signed out after a quiet period | Data Protection keys are still in memory (`research.md` §5). |
