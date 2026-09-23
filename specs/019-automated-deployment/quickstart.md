@@ -277,7 +277,12 @@ A private network for this environment. The Container Apps environment will sit 
 which is what later lets SQL trust it *by name* instead of by IP address — and Container Apps
 outbound IP addresses are documented as changing without warning.
 
-1. Search **Virtual networks** → **+ Create**.
+> **Do this before C8.** A Container Apps environment's subnet is fixed at creation and cannot be
+> changed later, so an environment built before this exists has to be deleted and rebuilt.
+
+1. Search **Virtual networks** → **+ Create**. (If a browse blade ever lacks a Create button, use
+   **+ Create a resource** at the top left of the portal home and search the resource type there —
+   that route always works.)
 2. **Basics**: resource group `rg-loot-singles-stage`, name `vnet-loot-singles-stage`, region
    **West US 2**.
 3. **IP addresses** tab:
@@ -413,7 +418,17 @@ The first 5 GB per month is free, with about 31 days of retention included.
 
 The shared space the container runs in, placed inside your subnet.
 
-1. Search **Container Apps Environments** → **+ Create**.
+> **C2 must be finished first, and this is not recoverable later.** A Container Apps environment's
+> infrastructure subnet is fixed when the environment is created and **cannot be changed
+> afterwards**. Create it without the virtual network and you get Azure-managed networking, C6 has
+> no subnet to write a rule against, and the database cannot be locked down at all — the only fix is
+> deleting the environment and building it again. Confirm `snet-apps` exists with both its
+> delegation and its `Microsoft.Sql` service endpoint before starting this step.
+
+1. Click **+ Create a resource** (top left of the portal home) → search
+   **"Container Apps Environment"** → **Create**. The *Container Apps Environments* browse blade
+   does not reliably offer a Create button; the Marketplace route always works. You can also reach
+   the same form through **Create new** beside the Environment field when creating a Container App.
 2. **Basics**: resource group `rg-loot-singles-stage`, name **`cae-loot-singles-stage`**, region
    **West US 2**.
 3. **Networking** tab:
@@ -743,6 +758,7 @@ start:
 | Looking for `az containerapp job logs` | It does not exist. Job output goes to Log Analytics — see C11, or use the job's **Execution history** blade in the portal. |
 | `The subscription is not registered to use namespace…` | A provider is not registered. Register it in Subscriptions → Resource providers (A2). |
 | Resources appear in the wrong place | The wrong subscription is selected. Read the subscription shown on every create form (A1). |
+| A browse blade has no **+ Create** button | Use **+ Create a resource** at the top left of the portal home and search the resource type there. The Marketplace route always works; some browse blades do not offer Create. |
 | A create form shows a red validation error you do not understand | The **Review + create** tab lists every setting about to be applied; read it there. Portal labels drift, so a field named differently from this runbook is expected — the search box at the top finds any resource type or setting by name. |
 | Subnet rejected as too small | `/27` is the minimum for Container Apps. |
 | Service endpoint will not attach to the delegated subnet | **Stop and raise it** (C0). The fallback costs money and is a Product Owner decision. |
