@@ -1,0 +1,160 @@
+name: Deploy to production
+
+# 019 US3 / FR-011, FR-012, FR-013, FR-014.
+#
+# Manual only. Merging code never reaches production. The person pressing the button names the
+# commit, and a reviewer approves before any production resource changes.
+#
+# One gated job, on purpose. A job carrying `environment:` does not start until a reviewer approves,
+# so every step inside it runs AFTER approval. If this workflow resolved "whatever stage is running"
+# at that point, the approver would be agreeing to a lookup rather than to an image — and a pull
+# request merging while the run waits would ship a build nobody reviewed. A required input with no
+# default is a literal value, fixed when the run starts, that nothing can change while it waits.
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "Full commit SHA to deploy. It must already have been built and run on stage."
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # The commit appears in the run's job list, which is the panel holding the "Review deployments"
+    # button — so the approver sees what they are approving at the moment of approving it (FR-013).
+    name: Deploy ${{ inputs.commit }} to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Resolve the image
+        id: image
+        shell: bash
+        run: |
+          repository="ghcr.io/${{ github.repository }}"
+          echo "ref=${repository,,}:sha-${{ inputs.commit }}" >> "$GITHUB_OUTPUT"
+          echo "Deploying ${repository,,}:sha-${{ inputs.commit }}"
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Record the currently deployed image
+        id: current
+        shell: bash
+        run: |
+          image=$(az containerapp show \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --name "${{ vars.CONTAINER_APP }}" \
+            --query "properties.template.containers[0].image" -o tsv)
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "Current image: $image"
+
+      - name: Apply database migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          az containerapp job update \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --name "${{ vars.MIGRATE_JOB }}" \
+            --image "${{ steps.image.outputs.ref }}" --output none
+
+          execution=$(az containerapp job start \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --name "${{ vars.MIGRATE_JOB }}" \
+            --query "name" -o tsv)
+          echo "Migration execution: $execution"
+
+          for _ in $(seq 1 60); do
+            status=$(az containerapp job execution show \
+              --resource-group "${{ vars.RESOURCE_GROUP }}" \
+              --name "${{ vars.MIGRATE_JOB }}" \
+              --job-execution-name "$execution" \
+              --query "properties.status" -o tsv)
+            echo "  status: $status"
+            case "$status" in
+              Succeeded) exit 0 ;;
+              Failed|Degraded)
+                echo "Migration failed. The reason is in the environment's Log Analytics workspace;"
+                echo "it is deliberately not echoed here, because this output is retained."
+                exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "Migration did not finish within 10 minutes."
+          exit 1
+
+      - name: Update the container app
+        shell: bash
+        run: |
+          az containerapp update \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --name "${{ vars.CONTAINER_APP }}" \
+            --image "${{ steps.image.outputs.ref }}" --output none
+
+      - name: Smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${{ vars.APP_URL }}"
+
+          for _ in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$base/health" || true)
+            [ "$code" = "200" ] && break
+            sleep 5
+          done
+
+          check() {
+            actual=$(curl -s -o /tmp/body -w "%{http_code}" "$base$1")
+            if [ "$actual" != "$2" ]; then
+              echo "FAIL $1 expected $2, got $actual"
+              exit 1
+            fi
+            echo "  ok   $1 -> $actual"
+          }
+
+          check /health 200
+          check /api/unknown 404
+          check /api/orders 401
+          check / 200
+
+          grep -q 'id="root"' /tmp/body || {
+            echo "FAIL / did not serve the web app — is the frontend build in the image?"
+            exit 1
+          }
+          echo "  ok   / served the web app"
+
+          # 019 FR-024. Production only. This is the one check that proves the APPLICATION's identity
+          # can read from the database — a successful migration does not, because the migrate job
+          # runs under a different identity that holds db_ddladmin. Without it a release can pass
+          # every other check while the application cannot read a single row.
+          #
+          # No retry loop: production's database is Basic and always awake, so there is nothing to
+          # wait for. Stage does not call this at all — each call on a paused free-tier database
+          # wakes it and bills an hour of a ~55-hour monthly allowance.
+          check /health/database 200
+
+      - name: Roll back
+        if: failure() && steps.current.outputs.image != ''
+        shell: bash
+        run: |
+          echo "Restoring ${{ steps.current.outputs.image }}"
+          az containerapp update \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --name "${{ vars.CONTAINER_APP }}" \
+            --image "${{ steps.current.outputs.image }}" --output none

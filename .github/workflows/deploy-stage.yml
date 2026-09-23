@@ -1,0 +1,196 @@
+name: Deploy to stage
+
+# 019 US2 / FR-008. A merge to main reaches stage with no further human action.
+#
+# Production is deliberately NOT here: it has its own workflow, is manual-only, names the commit it
+# deploys, and waits for an approval (FR-011).
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# 019 FR-009 / research.md §11. Two overlapping runs are safe at the migrate step — since EF Core 9
+# MigrateAsync takes a database lock first — but the container update and the rollback have no lock,
+# so a failing run can roll back over a newer successful one and both finish green. Serialising is
+# cheaper than reasoning about the interleaving.
+#
+# GitHub keeps one run in progress and one pending; a third arrival replaces the pending one. Three
+# merges in a row therefore means the middle commit never reaches stage. That is correct for a
+# deployment — newest wins — and it is why production promotes a commit somebody named rather than
+# one a workflow inferred.
+concurrency:
+  group: deploy-stage
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_REPOSITORY: ghcr.io/${{ github.repository }}
+
+jobs:
+  quality-gate:
+    name: Quality gate
+    uses: ./.github/workflows/pr-quality-gate.yml
+
+  build:
+    name: Build and push image
+    needs: quality-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.name.outputs.image }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compose the image reference
+        id: name
+        shell: bash
+        run: echo "image=${IMAGE_REPOSITORY,,}:sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Sign in to the container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.name.outputs.image }}
+
+  deploy:
+    name: Deploy to stage
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: stage
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # Captured BEFORE anything changes. In single-revision mode a rollback is "deploy the old
+      # image again", so the old image reference is the one piece of state this workflow must keep.
+      - name: Record the currently deployed image
+        id: current
+        shell: bash
+        run: |
+          image=$(az containerapp show \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --name "${{ vars.CONTAINER_APP }}" \
+            --query "properties.template.containers[0].image" -o tsv)
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "Current image: $image"
+
+      # 019 FR-015. Schema first, before the new version serves any request. Run as its own job under
+      # the migrate identity, which is the only one holding db_ddladmin (FR-021).
+      - name: Apply database migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          az containerapp job update \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --name "${{ vars.MIGRATE_JOB }}" \
+            --image "${{ needs.build.outputs.image }}" --output none
+
+          execution=$(az containerapp job start \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --name "${{ vars.MIGRATE_JOB }}" \
+            --query "name" -o tsv)
+          echo "Migration execution: $execution"
+
+          for _ in $(seq 1 60); do
+            status=$(az containerapp job execution show \
+              --resource-group "${{ vars.RESOURCE_GROUP }}" \
+              --name "${{ vars.MIGRATE_JOB }}" \
+              --job-execution-name "$execution" \
+              --query "properties.status" -o tsv)
+            echo "  status: $status"
+            case "$status" in
+              Succeeded) exit 0 ;;
+              Failed|Degraded)
+                echo "Migration failed. The reason is in the environment's Log Analytics workspace;"
+                echo "it is deliberately not echoed here, because this output is retained."
+                exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "Migration did not finish within 10 minutes."
+          exit 1
+
+      - name: Update the container app
+        shell: bash
+        run: |
+          az containerapp update \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --name "${{ vars.CONTAINER_APP }}" \
+            --image "${{ needs.build.outputs.image }}" --output none
+
+      # 019 FR-018. Four checks, each catching a specific misconfiguration that would otherwise reach
+      # the shop. Stage deliberately does NOT call /health/database: every call on a paused free-tier
+      # database wakes it and bills an hour of a ~55-hour monthly allowance, and a broken stage
+      # database announces itself the moment anyone opens stage. Production does call it (FR-024).
+      - name: Smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${{ vars.APP_URL }}"
+
+          # The app scales to zero, so the first request pays a cold start.
+          for _ in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$base/health" || true)
+            [ "$code" = "200" ] && break
+            sleep 5
+          done
+
+          check() {
+            actual=$(curl -s -o /tmp/body -w "%{http_code}" "$base$1")
+            if [ "$actual" != "$2" ]; then
+              echo "FAIL $1 expected $2, got $actual"
+              exit 1
+            fi
+            echo "  ok   $1 -> $actual"
+          }
+
+          check /health 200
+          check /api/unknown 404     # not the web app's HTML, or a JSON client fails on parse
+          check /api/orders 401      # authentication is wired and the endpoint is protected
+          check / 200
+
+          grep -q 'id="root"' /tmp/body || {
+            echo "FAIL / did not serve the web app — is the frontend build in the image?"
+            exit 1
+          }
+          echo "  ok   / served the web app"
+
+      # Only reached when something above failed. Restores the image recorded before the deployment.
+      #
+      # This restores the IMAGE, never the schema — which is why migrations must be additive-only
+      # (FR-016). EF Core 10 also reverted EF Core 9's single-transaction behaviour, so a migration
+      # failing partway can leave some applied and some not.
+      - name: Roll back
+        if: failure() && steps.current.outputs.image != ''
+        shell: bash
+        run: |
+          echo "Restoring ${{ steps.current.outputs.image }}"
+          az containerapp update \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --name "${{ vars.CONTAINER_APP }}" \
+            --image "${{ steps.current.outputs.image }}" --output none
