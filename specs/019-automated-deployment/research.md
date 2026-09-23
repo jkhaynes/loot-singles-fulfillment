@@ -227,8 +227,8 @@ this feature". No application dependency is added.
 
 **Cost**: the first 5 GB/month per billing account is free, with ~31 days' retention included. This
 application logs attempt- and outcome-level events only (006 FR-009), so a two-person shop produces
-megabytes. The allowance is per *billing account* and platform logs count toward it, so the $5 budget
-alert is the backstop.
+megabytes. The allowance is per *billing account* and platform logs count toward it, so the $10
+budget alert (§13) is the backstop.
 
 **Alternatives considered**: destination `none` (free, but fails FR-027); Application Insights
 (a paid APM product and an application dependency, banned by Principle XI as amended); diagnostic
@@ -310,8 +310,10 @@ some migrations applied and others not. Additive-only is what makes that surviva
 
 ## 13. Cost model and the free grant
 
-**Decision**: Azure SQL Basic for production (~$5/month); free offer for stage; everything else on
-free tiers. Budget alert at $5. Expected total **$5–8/month** against the $10 ceiling of FR-028.
+**Decision**: Azure SQL Basic for production (~$4.90/month); free offer for stage; one shared
+Container Apps environment carrying the single $3.65/month static public IPv4; everything else on
+free tiers. Budget alert at **$10** — FR-028's ceiling — with notifications at 80%, 90% and 100%
+(Product Owner decision, 2026-09-23). Expected total **$8.55/month**.
 
 **Rationale**: The production database is the only resource that must be paid for.
 

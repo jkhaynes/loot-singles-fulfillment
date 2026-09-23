@@ -787,9 +787,16 @@ shared infrastructure, a resource group is no longer the line between them.
 The actual guard on "stay cheap" (FR-028).
 
 1. Search **Cost Management** → **Budgets** → **+ Add**.
-2. Scope: the subscription. Amount: **$10**. Reset period: **Monthly**.
-3. Add an alert at **50%** and **90%** of budget, with your email address.
+2. Scope: the subscription. Amount: **$10** — FR-028's ceiling. Reset period: **Monthly**.
+3. Add alerts at **80%** and **90%** of actual cost, with your email address.
 4. **Create**.
+
+80% of $10 is $8, just under the expected $8.55, so the first alert arrives every month as a
+statement that the model still holds. 90% ($9) is the one that means something changed. Product
+Owner decision, 2026-09-23.
+
+> A third alert at **100%** is also live, carried over from an earlier $1 budget. It is harmless and
+> worth keeping — it is the one that fires when the ceiling itself is breached.
 
 ---
 
