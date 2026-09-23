@@ -24,6 +24,22 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
+        <!-- Data Protection key persistence (019 research.md #5). Microsoft.AspNetCore.DataProtection
+         itself is in the ASP.NET Core shared framework referenced below, but the EF Core key-storage
+         provider is a separate package, so this reference is required rather than redundant. It lives
+         here, not in LootSingles.Api, because LootSinglesDbContext implements IDataProtectionKeyContext;
+         the API reaches it transitively.
+
+         Pinned to 10.0.12, not 10.0.0 like the EF Core packages above. 10.0.0 drags in
+         Microsoft.AspNetCore.DataProtection 10.0.0, which carries a CRITICAL advisory
+         (GHSA-9mv3-2cwr-p262) plus a HIGH one on System.Security.Cryptography.Xml. Both reach the
+         test projects transitively, which resolve them from NuGet rather than the shared framework.
+         Before this reference existed, a NuGet vulnerability audit reported zero findings across all
+         eight projects; keeping it that way is the reason for the version bump. -->
+        <PackageReference
+            Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore"
+            Version="10.0.12"
+        />
         <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
         <!-- Microsoft.Extensions.Identity.Core (PasswordHasher<T>, research.md #1) is now part of the
          ASP.NET Core shared framework this project already references below, so .NET 10's NuGet

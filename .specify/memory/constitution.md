@@ -1,15 +1,15 @@
 <!--
 Sync Impact Report
-Version change: 3.4.2 → 3.4.3
+Version change: 3.5.0 → 3.5.1
 PATCH — updated Principle II's approved-PRD reference from
-`docs/prd/Loot_Singles_Fulfillment_PRD_v0.4.md` to
-`docs/prd/Loot_Singles_Fulfillment_PRD_v0.5.md`. No principle was added, removed, or redefined,
+`docs/prd/Loot_Singles_Fulfillment_PRD_v0.5.md` to
+`docs/prd/Loot_Singles_Fulfillment_PRD_v0.6.md`. No principle was added, removed, or redefined,
 and the requirement itself is unchanged: every requirement MUST still trace to a confirmed Product
 Owner decision, the approved PRD, or an approved Spec Kit feature specification. Only the document
 that reference resolves to has changed.
 
 Modified principles:
-  II. No Invented Requirements — approved-PRD path now points at v0.5. Substance unchanged.
+  II. No Invented Requirements — approved-PRD path now points at v0.6. Substance unchanged.
 
 Modified sections:
   None.
@@ -21,19 +21,23 @@ Removed sections:
   None.
 
 Rationale:
-PRD v0.5 was approved by the Product Owner on 2026-09-21 and supersedes v0.4. It folds in
-amendments A14–A16 arising from the pick completion and hand-off design recorded in
-`docs/discovery/2026-09-21-pick-completion-handoff.md`. One changed approved V1 scope materially:
-§27 Customer Privacy now requires the application to store one TCGplayer packing slip per order,
-reversing v0.4's instruction not to persist customer shipping PII, bounded by one-order-per-file,
-no picking surface reaching a slip, logged access, and a deferred retention rule recorded as open
-question 59. Leaving this constitution pointing at v0.4 would make the highest governing document
-cite a superseded PRD, so every later feature would trace its requirements through the wrong
-artifact. `CLAUDE.md` and `README.md` were updated in the same change.
+PRD v0.6 was approved by the Product Owner on 2026-09-22 and supersedes v0.5. It carries a single
+amendment, A17, arising from feature 019 (automated stage and production deployment): hosting
+(§40.8) now serves the web application and the API from one origin per environment, from the same
+container, superseding v0.5's use of Azure Static Web Apps. The session cookie is `SameSite=Strict`,
+and a browser does not attach a `Strict` cookie to a request originating from a different site, so a
+separate origin for the web application would break authentication outright. The alternative —
+relaxing the cookie to `Lax` or `None` — would have weakened a credential control to satisfy a
+hosting arrangement, which is a Principle VII deviation and needs explicit Product Owner and
+Developer approval; amending the PRD was the cheaper and safer of the two. No product behavior
+changed. `CLAUDE.md` and `README.md` were updated in the same change.
 
-Note for Principle V (Product Safety): the PRD's standing rule that customer PII is minimized and
-not exposed to pickers is unchanged. What changed is that the application now stores a slip for the
-packing workflow; no picking surface may reach it.
+Leaving this constitution pointing at v0.5 would make the highest governing document cite a
+superseded PRD, so every later feature would trace its requirements through the wrong artifact.
+
+The previous amendment (3.4.3 → 3.5.0, 2026-09-22) scoped Principle XI's logging requirement to how
+the application emits logs rather than what the hosting platform does with stdout; its full
+rationale is in this file's git history.
 
 Follow-up TODOs: None.
 -->
@@ -56,7 +60,7 @@ When artifacts at different levels conflict, work MUST stop for clarification ra
 
 ### II. No Invented Requirements
 
-Product functionality MUST NOT be added because it seems useful, standard, or convenient. Every requirement MUST trace to a confirmed Product Owner decision, the approved PRD (`docs/prd/Loot_Singles_Fulfillment_PRD_v0.5.md`), or an approved Spec Kit feature specification.
+Product functionality MUST NOT be added because it seems useful, standard, or convenient. Every requirement MUST trace to a confirmed Product Owner decision, the approved PRD (`docs/prd/Loot_Singles_Fulfillment_PRD_v0.6.md`), or an approved Spec Kit feature specification.
 
 Open questions documented in the PRD remain open; they MUST NOT be silently converted into implementation assumptions.
 
@@ -174,7 +178,11 @@ Reliability during active fulfillment work takes priority over marginal cost sav
 
 Failure modes that affect fulfillment MUST be explicit and observable. The application MUST NOT report an operation as successful when required persistence, validation, concurrency enforcement, or authoritative processing has failed.
 
-When implementing or materially changing application behavior, the design MUST evaluate whether important events and failures warrant production logging. Where warranted, they MUST be logged through ASP.NET Core's built-in `ILogger<T>` (constructor-injected per class, structured logging) writing to console/stdout only; no third-party or paid logging platform (for example Serilog, Application Insights, Log Analytics, Seq, or Datadog) and no custom logging abstraction (for example an `ILoggingService`) MAY be introduced. Logs MUST NOT contain customer PII, raw imported-document content, passwords, PINs, tokens, connection strings, or other secrets, and MUST stay proportional to meaningful attempt- and outcome-level events rather than every parsing step, loop iteration, or method call.
+When implementing or materially changing application behavior, the design MUST evaluate whether important events and failures warrant production logging. Where warranted, they MUST be logged through ASP.NET Core's built-in `ILogger<T>` (constructor-injected per class, structured logging) writing to console/stdout only.
+
+This requirement governs **how the application emits logs**, not what the hosting platform does with that output afterwards. No logging package, third-party logging SDK, or custom logging abstraction (for example Serilog, the Application Insights SDK, Seq, Datadog, or an `ILoggingService`) MAY be added to the application, and the application MUST NOT write logs to a file, a database, or any external sink of its own. Configuring the hosting platform to retain, search, or route the container's standard output — for example an Azure Container Apps environment sending its log stream to a Log Analytics workspace — is an operational concern outside this principle and is permitted, provided it adds no application dependency, emits nothing the paragraph below forbids, and stays within approved cost constraints. Paid application-performance-monitoring and log-analysis products remain out of scope unless approved as an explicit Product Owner cost decision.
+
+Logs MUST NOT contain customer PII, raw imported-document content, passwords, PINs, tokens, connection strings, or other secrets, and MUST stay proportional to meaningful attempt- and outcome-level events rather than every parsing step, loop iteration, or method call.
 
 ### XII. Maintainable and Extensible Design
 
@@ -429,4 +437,4 @@ Safety-related principles, including Sections V, VI, and VII, MUST NOT be weaken
 
 Changes to maintainability or simplicity principles MUST preserve the balance between reasonable extensibility and avoiding speculative over-engineering.
 
-**Version**: 3.4.3 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-09-21
+ **Version**: 3.5.1 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-09-22
