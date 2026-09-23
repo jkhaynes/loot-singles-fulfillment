@@ -22,6 +22,10 @@ public sealed class MigrationTests(SqlServerContainerFixture fixture)
                 "20260826201114_AddOrderClaiming",
                 "20260919205246_AddPickCompletion",
                 "20260921155303_AddPackingHandoff",
+                // 019 T034. Additive only — one CreateTable for the framework-owned Data Protection
+                // key ring, so restoring the previous application version after a failed release
+                // still works: it simply ignores a table it does not know about (FR-016).
+                "20260923044233_AddDataProtectionKeys",
             ],
             migrations
         );

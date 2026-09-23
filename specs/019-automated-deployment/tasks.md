@@ -170,13 +170,13 @@ repeat across a release.
 
 ### Tests
 
-- [ ] T032 [US4] Write a failing test that a cookie issued by one hosted instance is still accepted by a **new** instance sharing the same database, in `backend/tests/LootSingles.IntegrationTests/Hosting/DataProtectionPersistenceTests.cs`. Fails today: keys are held in memory, so the second instance rejects the cookie with 401
+- [X] T032 [US4] Write a failing test that a cookie issued by one hosted instance is still accepted by a **new** instance sharing the same database, in `backend/tests/LootSingles.IntegrationTests/Hosting/DataProtectionPersistenceTests.cs`. Fails today: keys are held in memory, so the second instance rejects the cookie with 401
 
 ### Implementation
 
-- [ ] T033 [US4] Implement `IDataProtectionKeyContext` on `LootSinglesDbContext` with a `DbSet<DataProtectionKey> DataProtectionKeys`, in `backend/src/LootSingles.Infrastructure/Persistence/LootSinglesDbContext.cs` (data-model.md)
-- [ ] T034 [US4] Generate the additive EF Core migration creating the `DataProtectionKeys` table in `backend/src/LootSingles.Infrastructure/Persistence/Migrations/`. Additive only — rollback restores the image and never the schema (FR-016)
-- [ ] T035 [US4] Register `AddDataProtection().PersistKeysToDbContext<LootSinglesDbContext>().SetApplicationName(<fixed name>)` in `backend/src/LootSingles.Api/Program.cs`. The application name is a constant: changing it invalidates every active session. Makes T032 pass
+- [X] T033 [US4] Implement `IDataProtectionKeyContext` on `LootSinglesDbContext` with a `DbSet<DataProtectionKey> DataProtectionKeys`, in `backend/src/LootSingles.Infrastructure/Persistence/LootSinglesDbContext.cs` (data-model.md)
+- [X] T034 [US4] Generate the additive EF Core migration creating the `DataProtectionKeys` table in `backend/src/LootSingles.Infrastructure/Persistence/Migrations/`. Additive only — rollback restores the image and never the schema (FR-016)
+- [X] T035 [US4] Register `AddDataProtection().PersistKeysToDbContext<LootSinglesDbContext>().SetApplicationName(<fixed name>)` in `backend/src/LootSingles.Api/Program.cs`. The application name is a constant: changing it invalidates every active session. Makes T032 pass
 - [ ] T036 [US4] [MANUAL] Verify against a real environment: sign in, trigger a release, and confirm you are still signed in afterwards (SC-005)
 
 **Checkpoint**: Releases and idle periods no longer sign pickers out.

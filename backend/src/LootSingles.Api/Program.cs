@@ -14,6 +14,7 @@ using LootSingles.Infrastructure.CardCatalog;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -123,6 +124,21 @@ builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();
 builder.Services.AddScoped<OrderClaimService>();
 builder.Services.AddScoped<PickingService>();
+
+// 019 T035 / research.md §5 / FR-026. Data Protection encrypts the session cookie, and its key ring
+// defaults to memory. The container scales to zero when idle — that is what keeps it inside the free
+// compute grant — so an in-memory key ring would sign every picker out after any quiet spell, not
+// just across a release. Persisting to the application's own database keeps sessions alive without a
+// paid Key Vault.
+//
+// SetApplicationName is a constant on purpose: changing it invalidates every active session. Each
+// environment has its own database and therefore its own key ring, so a stage cookie is never valid
+// in production.
+builder
+    .Services.AddDataProtection()
+    .SetApplicationName("LootSinglesFulfillment")
+    .PersistKeysToDbContext<LootSinglesDbContext>();
+
 builder
     .Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
