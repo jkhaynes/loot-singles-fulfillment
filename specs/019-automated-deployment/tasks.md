@@ -51,23 +51,32 @@ Web application layout: `backend/src/`, `backend/tests/`, `frontend/src/`, workf
 ## Phase 2: Foundational — host the application behind a TLS-terminating ingress
 
 **Purpose**: The application cannot run in any environment until it survives being proxied, serves
-the web app, and answers a liveness probe.
+the web app, and answers both health endpoints.
 
 **⚠️ CRITICAL**: Blocks every user story.
+
+> **T047 and T048 have out-of-sequence IDs because they were added after the first numbering, by
+> `/speckit-analyze`, which found that nothing created the `/health/database` endpoint even though
+> the plan, the contract, T014 and T029 all depend on it. IDs are never reused or renumbered, so
+> read this phase in the order written, not in numeric order.**
 
 ### Tests (write first, confirm they fail)
 
 - [ ] T004 [P] Write a failing test that a request carrying `X-Forwarded-Proto: https` is served rather than redirected, and that one without it still redirects, in `backend/tests/LootSingles.IntegrationTests/Hosting/ForwardedHeadersTests.cs`. Fails today: `UseHttpsRedirection()` runs with no forwarded-header handling, so the proxied request is answered with a 307
 - [ ] T005 [P] Write a failing test that `GET /health` returns 200 anonymously **and still returns 200 when the database is unreachable**, in `backend/tests/LootSingles.IntegrationTests/Health/HealthEndpointTests.cs`. Point the factory at an unreachable connection string for the second case, per contracts/health-api.md
 - [ ] T006 [P] Write a failing test that `/` and a deep link such as `/orders/42` return the web app's HTML, `GET /api/unknown` returns **404 not HTML**, and `GET /api/orders` unauthenticated returns **401 not HTML**, in `backend/tests/LootSingles.IntegrationTests/Hosting/SpaFallbackTests.cs`. Use `WithWebHostBuilder(b => b.UseWebRoot(<temp dir>))` seeded with a fixture `index.html` containing `id="root"`, so the test does not depend on `frontend/` having been built
+- [ ] T047 [P] Write a failing test that `GET /health/database` returns **200** against a reachable database and **503** against an unreachable one, that `/health` returns 200 in the *same* run where `/health/database` returns 503 — the deliberate asymmetry, pinned — and that the 503 body contains no connection string, server or database name, identity client id, exception message or stack trace, in `backend/tests/LootSingles.IntegrationTests/Health/DatabaseHealthEndpointTests.cs`. Per contracts/health-api.md (FR-024, FR-025, SC-007)
 
 ### Implementation
 
 - [ ] T007 Register forwarded headers first in the pipeline in `backend/src/LootSingles.Api/Program.cs`: accept `ForwardedHeaders.XForwardedProto` only, clear `KnownNetworks` and `KnownProxies`, placed before `app.UseHttpsRedirection()`. Add a comment recording why trusting the header is safe here — only the environment's ingress can reach the container port (research.md §2). Makes T004 pass
 - [ ] T008 Add `GET /health` as an anonymous endpoint performing **no database access**, returning 200 with an empty body, in `backend/src/LootSingles.Api/Program.cs`. Makes T005 pass
 - [ ] T009 Add `UseDefaultFiles()`, `UseStaticFiles()`, then after `MapControllers()` add `MapFallback("/api/{**path}", () => Results.NotFound())` **before** `MapFallbackToFile("index.html")`, in `backend/src/LootSingles.Api/Program.cs`. Ordering is the requirement (FR-004); reversing it returns HTML for unmatched API routes. Makes T006 pass
+- [ ] T048 Add `GET /health/database` as an anonymous endpoint in `backend/src/LootSingles.Api/Program.cs`: one lightweight read (`Employees.AnyAsync()`), returning 200 with an empty body or **503 with a fixed body**, writing the reason to `ILogger<T>` and never to the caller. **The container probe must never use it** — that is `/health` (T008), and wiring this one to the probe reintroduces the exact failure FR-023 forbids. Makes T047 pass
 
-**Checkpoint**: The application can be hosted behind a proxy and serves both the API and the web app.
+**Checkpoint**: The application can be hosted behind a proxy, serves both the API and the web app,
+and can report separately that it is alive (`/health`) and that it can reach its database
+(`/health/database`). T014 and T029 both depend on the second endpoint existing.
 
 ---
 
@@ -94,7 +103,7 @@ and complete a pick.
 
 - [ ] T015 [US1] [MANUAL] Verify **before creating anything**: that a subnet delegated to `Microsoft.App/environments` accepts a `Microsoft.Sql` service endpoint; the Azure SQL free-offer allowance and Basic price in region; the Container Apps free grant and overage rate; the Log Analytics free allowance; and that Basic point-in-time restore covers ≥ 7 days (FR-031). **If the service endpoint is not permitted, stop and raise it** — the private-endpoint fallback at ~$7–8/month is a Product Owner cost decision — **runbook: Part 2 C0**
 - [ ] T016 [US1] [MANUAL] Create per environment: resource group, virtual network, `/27` subnet delegated to `Microsoft.App/environments` with the `Microsoft.Sql` service endpoint, and **both** managed identities (`id-loot-singles-<env>-app`, `id-loot-singles-<env>-migrate`) — **runbook: Part 2 C1–C3**
-- [ ] T017 [US1] [MANUAL] Create per environment: SQL server with **Entra-only authentication** and the database; add the virtual network rule naming the subnet; confirm **no `0.0.0.0` rule exists** and public access is default-deny (FR-020); confirm point-in-time restore ≥ 7 days is enabled (FR-031) — **runbook: Part 2 C4–C5**
+- [ ] T017 [US1] [MANUAL] Create per environment: SQL server with **Entra-only authentication** and the database; add the virtual network rule naming the subnet; confirm **no `0.0.0.0` rule exists** and public access is default-deny (FR-020); confirm point-in-time restore ≥ 7 days by reading the policy off the created database (FR-031, SC-012) — **runbook: Part 2 C4–C5**
 - [ ] T018 [US1] [MANUAL] Create per environment: Log Analytics workspace, then the Container Apps environment against the subnet with logs pointed at that workspace, then the Container App on the **app** identity and the migrate job on the **migrate** identity. Both connection strings use managed-identity auth and differ only in `User Id=<clientId>` — neither contains a password (FR-019) — **runbook: Part 2 C6–C7**
 - [ ] T019 [US1] [MANUAL] Through a temporary firewall rule for your own machine, create both database users and grant their roles — `db_datareader`/`db_datawriter` for the app identity, plus `db_ddladmin` for the migrate identity, **neither `db_owner`** (FR-021) — then remove that rule and run the migrate job once — **runbook: Part 2 C8**
 - [ ] T020 [US1] [MANUAL] Run a throwaway bootstrap job on the **migrate** identity to create the first manager account, delete the job, and change the PIN at first sign-in (FR-032) — **runbook: Part 2 C10**
@@ -114,7 +123,7 @@ nobody acting after the merge.
 
 ### Tests
 
-- [ ] T023 [P] [US2] Write a failing text assertion that both deploy workflows declare a `concurrency` group with `cancel-in-progress: false`, in `backend/tests/LootSingles.IntegrationTests/Configuration/DeploymentConfigurationTests.cs`, following the `DatabaseConfigurationTests` precedent. Fails today: neither workflow file exists (research.md §11, §16)
+- [ ] T023 [P] [US2] Write a failing text assertion that **`deploy-stage.yml`** declares a `concurrency` group with `cancel-in-progress: false`, in `backend/tests/LootSingles.IntegrationTests/Configuration/DeploymentConfigurationTests.cs`, following the `DatabaseConfigurationTests` precedent. Fails today: the file does not exist. Scoped to stage only so it goes green inside this phase — asserting both workflows here would leave the suite red for the whole of Phase 4, which reads as a broken build rather than intentional Red. Production's group is asserted in T028 (research.md §11, §16)
 
 ### Implementation
 
@@ -137,15 +146,18 @@ waits, approve, and confirm production runs exactly that commit.
 
 ### Tests
 
-- [ ] T028 [P] [US3] Write a failing text assertion that `.github/workflows/deploy-production.yml` declares a `commit` input with `required: true` and **no `default`**, and that its gated job's `name` interpolates that input, in `backend/tests/LootSingles.IntegrationTests/Configuration/DeploymentConfigurationTests.cs`. A default would silently restore the approve-a-lookup bug (research.md §10)
+- [ ] T028 [P] [US3] Write failing text assertions that `.github/workflows/deploy-production.yml` declares a `commit` input with `required: true` and **no `default`**, that its gated job's `name` interpolates that input, and that it declares a `concurrency` group with `cancel-in-progress: false` (the production half of the check T023 scoped to stage), in `backend/tests/LootSingles.IntegrationTests/Configuration/DeploymentConfigurationTests.cs`. A default would silently restore the approve-a-lookup bug (research.md §10, §11)
 
 ### Implementation
 
-- [ ] T029 [US3] Create `.github/workflows/deploy-production.yml` per contracts/deployment.md: manual dispatch only; a required `commit` input with no default; `concurrency: deploy-production`; **one job** carrying `environment: production` so nothing runs before approval, its `name` interpolating the commit; deploying `ghcr.io/…:sha-<commit>` with the same migrate → update → smoke → rollback sequence, and `/health/database` added to the smoke test (FR-024). Makes T028 and the rest of T023 pass
+- [ ] T029 [US3] Create `.github/workflows/deploy-production.yml` per contracts/deployment.md: manual dispatch only; a required `commit` input with no default; `concurrency: deploy-production`; **one job** carrying `environment: production` so nothing runs before approval, its `name` interpolating the commit; deploying `ghcr.io/…:sha-<commit>` with the same migrate → update → smoke → rollback sequence, and `/health/database` added to the smoke test (FR-024). Makes T028 pass
 - [ ] T030 [US3] [MANUAL] Create the GitHub `production` environment: plain variables, an OIDC credential scoped to **production's resource group only**, a required reviewer, deployment branches restricted to `main`, and **"Prevent self-review" left unchecked** — Product Owner decision 2026-09-22 (spec.md Clarifications) — **runbook: Part 2 C11–C12**
 - [ ] T031 [US3] [MANUAL] Verify the gate: confirm a merge to `main` leaves production unchanged (SC-003); start a release, confirm the commit is visible in the job list before approving and that production is untouched while it waits; **merge a different change while it waits** and confirm the release still deploys the commit it named (SC-004); then approve and confirm production runs exactly that commit
 
-**Checkpoint**: Production is reachable only through a deliberate, approved, named release.
+- [ ] T049 [US3] [MANUAL] Verify a release is safe to issue during a shift: with an order claimed and at least one outcome recorded on a device, run a production release to completion, then confirm on that device that the claim and every recorded outcome survived and that the picker can continue by retrying. One failed request is acceptable; losing recorded work is not (FR-030, SC-011)
+
+**Checkpoint**: Production is reachable only through a deliberate, approved, named release, and
+releasing during a shift costs a picker at most a retry.
 
 ---
 
@@ -187,7 +199,7 @@ it.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T039 [P] Add a text assertion that **no tracked file contains a `0.0.0.0` firewall rule**, in `backend/tests/LootSingles.IntegrationTests/Configuration/DeploymentConfigurationTests.cs`. This is a guard rather than a Red → Green pair: it passes when written and exists to fail on a later careless edit (FR-020, research.md §16)
+- [ ] T039 [P] Add two text assertions to `backend/tests/LootSingles.IntegrationTests/Configuration/DeploymentConfigurationTests.cs`: that **no tracked file contains a `0.0.0.0` firewall rule** (FR-020), and that no tracked file contains a credential-shaped value — a SQL connection string with `Password=`, or a `Uid=`/`User ID=` paired with a password (FR-019, SC-009). Both are guards rather than Red → Green pairs: they pass when written and exist to fail on a later careless edit (research.md §16). The design means neither should ever be possible — Entra-only authentication leaves no password to commit — but nothing proved it until now
 - [ ] T040 [P] [MANUAL] Confirm privacy parity between stage and production side by side: both default-deny database access, both split the application and migration identities, both hash PINs, both log packing-slip access (FR-029, SC-010) — **runbook: Part 2 Part D**
 - [ ] T041 [P] [MANUAL] Create the $5 budget alert and record the first month's actual cost against the $5–8 estimate (FR-028, SC-008)
 - [ ] T042 [P] Update `README.md` with how to run the container locally and where the deployment workflows live, and `CLAUDE.md` if any rule of engagement changed
@@ -215,7 +227,7 @@ it.
 
 - T023 and T028 are both text assertions in the same file; write T023 first and extend the file in T028 rather than creating it twice
 - T025 must precede T029: production reuses the smoke-test and rollback steps stage establishes
-- T029 completes T023, because that assertion covers **both** workflows
+- T023 covers stage only and T028 covers production, so each goes green inside its own phase. An earlier draft had T023 assert both, which left the suite red across the Phase 4/5 boundary
 - T031's middle step — merging a change while a release waits for approval — is the single most valuable verification in this feature. It is the failure mode the whole promotion design exists to prevent (research.md §10). Do not skip it because the release "obviously" works
 
 ### Within each story

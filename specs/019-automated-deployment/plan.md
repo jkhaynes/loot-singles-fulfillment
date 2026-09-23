@@ -57,9 +57,10 @@ a container start against an always-awake production database.
 - Stage carries production's protections exactly (FR-029)
 - Migrations additive-only, because rollback restores the image and never the schema (FR-016)
 
-**Scale/Scope**: Two Azure environments; ~6 files changed or added under
-`backend/src/LootSingles.Api/`; one Dockerfile; two workflows plus one line in an existing one; six
-new test classes.
+**Scale/Scope**: Two Azure environments; three files changed or added under
+`backend/src/LootSingles.Api/` (`Program.cs`, `MigrateCommand.cs`, the `.csproj`) plus the DbContext
+and one migration under `LootSingles.Infrastructure/`; one Dockerfile; two workflows plus one line in
+an existing one; **seven new test classes** — six behavioural, one configuration.
 
 ## Constitution Check
 
@@ -72,7 +73,7 @@ Constitution v3.5.0. Re-checked after Phase 1 — no change in any verdict.
 | **I. Product Owner Authority** | Every decision traces to a confirmed decision of 2026-09-22, recorded either in the spec's Clarifications (self-approval, stage data, release timing, restore) or in the approved design session (two environments, Basic for production, promotion by approval, custom domain). PASS |
 | **II. No Invented Requirements** | No product functionality is added. The feature changes where the application runs, not what it does. Requirements trace to the spec; PRD §40.8 approves Container Apps and Azure SQL. **One deviation**: §40.8 specifies Static Web Apps for the frontend, and this serves it from the API origin instead — a PRD amendment is required before `/speckit-implement` (see Complexity Tracking). PASS with the amendment pending |
 | **III. Small, Reviewable Changes** | Three independently reviewable groups: application changes with their tests, the Dockerfile, and the workflows. The spec's user stories map to them in that order. PASS |
-| **IV. Test-Driven Development (NON-NEGOTIABLE)** | Red → Green for every behavioural change. Six test classes are written first and fail against today's code: no forwarded-header handling, no health endpoints, no static files, in-memory keys, no `migrate` command. The infrastructure itself cannot be unit-tested, which is why §6 of the spec separates what tests prove from what only a deployment proves. PASS |
+| **IV. Test-Driven Development (NON-NEGOTIABLE)** | Red → Green for every behavioural change. Six behavioural test classes are written first and fail against today's code: no forwarded-header handling, neither health endpoint, no static files, in-memory keys, no `migrate` command. Each has a task, and each task precedes the implementation that makes it pass — verified by `/speckit-analyze` on 2026-09-22, which caught that `DatabaseHealthEndpointTests` and the `/health/database` endpoint had no tasks at all despite this gate claiming otherwise (now T047/T048). The infrastructure itself cannot be unit-tested, which is why §6 of the spec separates what tests prove from what only a deployment proves. PASS |
 | **V. Safe Failure Over Silent Corruption** | The feature's core argument. `/health` stays database-free so a database fault cannot destroy a working container (FR-023); `/health/database` fails a release rather than letting a broken application look deployed (FR-024); the `/api` fallback stops a 404 masquerading as HTML (FR-004); rollback restores the previous revision on any check failure (FR-017). PASS |
 | **VI. Server-Enforced Critical Business Rules** | Unchanged — no rule moves. Strengthened operationally: withholding `db_ddladmin` from the application means the filtered unique index enforcing one active claim cannot be dropped through the application (research.md §7). PASS |
 | **VII. Data Minimization and Credential Security** | No new customer data. No secret exists to commit — Entra-only auth removes the password entirely (contracts/deployment.md). Two identities limit blast radius on the database holding PRD §27's packing slips. Stage carries identical protections (FR-029). The Data Protection `Xml` column holds key material and is never logged or returned. PASS |

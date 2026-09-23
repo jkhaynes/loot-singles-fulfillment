@@ -326,8 +326,9 @@ live view, then find the corresponding record.
   schema-changing identity, both hash PINs, both log packing-slip access.
 - **SC-011**: A release issued while a picker is mid-order leaves that picker's claim and every
   already-recorded outcome intact, and the picker can continue by retrying.
-- **SC-012**: Production data can be restored to a chosen point in time at least 7 days earlier, and
-  this has been confirmed against the created database rather than assumed.
+- **SC-012**: The production database's point-in-time restore policy is **read from the created
+  database** and confirms a window of at least 7 days. Performing an actual restore is out of scope
+  — this criterion is that the capability is verified rather than assumed from documentation.
 
 ## Assumptions
 

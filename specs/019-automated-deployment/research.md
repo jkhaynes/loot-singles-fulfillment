@@ -319,8 +319,9 @@ covers at least 7 days (FR-031).
 here or nowhere. Imported orders can be re-imported because TCGplayer remains authoritative (PRD);
 what the retention window actually protects is pick history and the stored packing slips of PRD §27.
 
-**Scope boundary**: FR-031 requires restore to be *possible*. This feature does not automate
-restoring, rehearse it, or monitor backup health.
+**Scope boundary**: FR-031 requires restore to be *possible*, verified by reading the policy off the
+created database (SC-012). This feature does not perform a restore, automate one,
+rehearse it, or monitor backup health.
 
 **Alternatives considered**: long-term retention — a paid add-on that would breach FR-028 and needs a
 separate cost decision.
