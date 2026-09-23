@@ -90,14 +90,14 @@ and complete a pick.
 
 ### Tests
 
-- [ ] T010 [US1] Write a failing test that the `migrate` command applies pending migrations, is safe to run twice, and on failure reports without echoing the connection string, in `backend/tests/LootSingles.IntegrationTests/Hosting/MigrateCommandTests.cs`. Follow the assertion style of the existing `Configuration/DatabaseConfigurationTests.cs` for the no-echo check
+- [X] T010 [US1] Write a failing test that the `migrate` command applies pending migrations, is safe to run twice, and on failure reports without echoing the connection string, in `backend/tests/LootSingles.IntegrationTests/Hosting/MigrateCommandTests.cs`. Follow the assertion style of the existing `Configuration/DatabaseConfigurationTests.cs` for the no-echo check
 
 ### Implementation
 
-- [ ] T011 [US1] Create `backend/src/LootSingles.Api/MigrateCommand.cs` mirroring `BootstrapAdminCommand.cs`: apply pending migrations, log their names through `ILogger<T>`, return 0 or 1, never echo the connection string
-- [ ] T012 [US1] Register `MigrateCommand` in the service collection and dispatch on the `migrate` argument in `backend/src/LootSingles.Api/Program.cs`, beside the existing `bootstrap-admin` branch and before the HTTP pipeline is configured. Makes T010 pass
-- [ ] T013 [US1] Create `Dockerfile` at the repository root: multi-stage with `node:24-alpine` building `frontend/`, the .NET SDK publishing **`backend/src/LootSingles.Api/LootSingles.Api.csproj`** (not the solution — it pulls in the E2E host and Testcontainers), and a final `mcr.microsoft.com/dotnet/aspnet:10.0` stage copying the web build to `wwwroot`, setting `ASPNETCORE_HTTP_PORTS=8080`, running as a **non-root** user, with `ENTRYPOINT ["dotnet", "LootSingles.Api.dll"]` and **no `CMD`** so the image also runs `migrate` and `bootstrap-admin`
-- [ ] T014 [US1] Verify the built image locally per quickstart.md Part 1: the five routing checks, `whoami` is not root, `migrate` without a connection string fails without echoing one, and — the check that matters most — `/health` still returns 200 while `/health/database` returns 503 against a stopped database
+- [X] T011 [US1] Create `backend/src/LootSingles.Api/MigrateCommand.cs` mirroring `BootstrapAdminCommand.cs`: apply pending migrations, log their names through `ILogger<T>`, return 0 or 1, never echo the connection string
+- [X] T012 [US1] Register `MigrateCommand` in the service collection and dispatch on the `migrate` argument in `backend/src/LootSingles.Api/Program.cs`, beside the existing `bootstrap-admin` branch and before the HTTP pipeline is configured. Makes T010 pass
+- [X] T013 [US1] Create `Dockerfile` at the repository root: multi-stage with `node:24-alpine` building `frontend/`, the .NET SDK publishing **`backend/src/LootSingles.Api/LootSingles.Api.csproj`** (not the solution — it pulls in the E2E host and Testcontainers), and a final `mcr.microsoft.com/dotnet/aspnet:10.0` stage copying the web build to `wwwroot`, setting `ASPNETCORE_HTTP_PORTS=8080`, running as a **non-root** user, with `ENTRYPOINT ["dotnet", "LootSingles.Api.dll"]` and **no `CMD`** so the image also runs `migrate` and `bootstrap-admin`
+- [X] T014 [US1] Verify the built image locally per quickstart.md Part 1: the five routing checks, `whoami` is not root, `migrate` without a connection string fails without echoing one, and — the check that matters most — `/health` still returns 200 while `/health/database` returns 503 against a stopped database
 
 ### Provisioning (both environments)
 

@@ -66,6 +66,7 @@ builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddScoped<EmployeeManagementService>();
 builder.Services.AddScoped<BootstrapAdminService>();
 builder.Services.AddScoped<BootstrapAdminCommand>();
+builder.Services.AddScoped<MigrateCommand>();
 builder.Services.AddScoped<EmployeeSessionCookieEvents>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<IPackingRepository, PackingRepository>();
@@ -144,6 +145,17 @@ if (args.Length == 1 && string.Equals(args[0], "bootstrap-admin", StringComparis
 {
     await using var scope = app.Services.CreateAsyncScope();
     var command = scope.ServiceProvider.GetRequiredService<BootstrapAdminCommand>();
+    Environment.ExitCode = await command.ExecuteAsync(Console.Out, CancellationToken.None);
+    return;
+}
+
+// 019 T012. Applies pending migrations and exits without ever building the HTTP pipeline, so the
+// migrate job never starts a listener (contracts/deployment.md). The same image serves HTTP with no
+// argument, migrates with this one, and bootstraps with the one above.
+if (args.Length == 1 && string.Equals(args[0], "migrate", StringComparison.Ordinal))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var command = scope.ServiceProvider.GetRequiredService<MigrateCommand>();
     Environment.ExitCode = await command.ExecuteAsync(Console.Out, CancellationToken.None);
     return;
 }

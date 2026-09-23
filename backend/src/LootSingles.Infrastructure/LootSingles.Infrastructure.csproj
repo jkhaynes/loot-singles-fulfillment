@@ -36,7 +36,10 @@
          test projects transitively, which resolve them from NuGet rather than the shared framework.
          Before this reference existed, a NuGet vulnerability audit reported zero findings across all
          eight projects; keeping it that way is the reason for the version bump. -->
-        <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.12" />
+        <PackageReference
+            Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore"
+            Version="10.0.12"
+        />
         <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
         <!-- Microsoft.Extensions.Identity.Core (PasswordHasher<T>, research.md #1) is now part of the
          ASP.NET Core shared framework this project already references below, so .NET 10's NuGet
