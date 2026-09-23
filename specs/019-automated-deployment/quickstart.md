@@ -473,18 +473,30 @@ first deployment replace it.
 Then set the three things the create form does not cover:
 
 6. **Settings → Identity → User assigned → + Add** → `id-loot-singles-stage-app` → **Add**.
-7. **Application → Containers → Edit and deploy** → select the container → **Environment variables**
-   → **+ Add**:
-   - **Name**: `ConnectionStrings__LootSingles`
-   - **Value**:
-     ```
-     Server=tcp:loot-singles-stage-sql.database.windows.net,1433;Database=lootsingles;Authentication=Active Directory Managed Identity;User Id=<APP identity Client ID from C3>;Encrypt=True;
-     ```
-     Note there is **no password** in that string — that is the point of C4.
-8. **Application → Scale**: **Min replicas 0**, **Max replicas 1**. CPU **0.25**, Memory **0.5Gi**.
-   Min 0 is what keeps it inside the free grant; it also means the container shuts down when idle,
-   which is why the application persists its session keys to the database.
-9. **Save** / **Create** the revision.
+7. **Application → Containers → Edit and deploy**. This opens a *Create and deploy new revision*
+   form. Do everything below inside this one form, then deploy once — each deploy creates a new
+   revision, so doing it in one pass avoids stacking up revisions for no reason.
+
+8. **Click the container name** to open its settings. **CPU and memory live here, with the
+   container — not on the Scale blade**, which only carries replica counts. Set:
+   - **CPU cores**: `0.25`
+   - **Memory**: `0.5 Gi`
+   - **Environment variables** → **+ Add**:
+     - **Name**: `ConnectionStrings__LootSingles`
+     - **Value**:
+       ```
+       Server=tcp:loot-singles-stage-sql.database.windows.net,1433;Database=lootsingles;Authentication=Active Directory Managed Identity;User Id=<APP identity Client ID from C3>;Encrypt=True;
+       ```
+       Note there is **no password** in that string — that is the point of C4.
+
+   > Container Apps only allows **fixed CPU/memory pairs**, at a 1:2 ratio. `0.25` CPU goes with
+   > `0.5 Gi`. If `0.5 Gi` is not offered, set the CPU value first — the memory list changes with it.
+
+9. **Scale** section of the same form: **Min replicas 0**, **Max replicas 1**. Min 0 is what keeps
+   this inside the free grant; it also means the container shuts down when idle, which is why the
+   application persists its session keys to the database rather than memory.
+
+10. **Create** the revision.
 
 **Record the application URL**: **Overview** → **Application Url**. You need it for the GitHub
 environment variables in C12.
@@ -758,6 +770,7 @@ start:
 | Looking for `az containerapp job logs` | It does not exist. Job output goes to Log Analytics — see C11, or use the job's **Execution history** blade in the portal. |
 | `The subscription is not registered to use namespace…` | A provider is not registered. Register it in Subscriptions → Resource providers (A2). |
 | Resources appear in the wrong place | The wrong subscription is selected. Read the subscription shown on every create form (A1). |
+| CPU or memory not on the Scale blade | They live with the container: **Containers → Edit and deploy → click the container**. Scale only carries replica counts. Container Apps allows fixed CPU/memory pairs at a 1:2 ratio (0.25 CPU with 0.5 Gi). |
 | A browse blade has no **+ Create** button | Use **+ Create a resource** at the top left of the portal home and search the resource type there. The Marketplace route always works; some browse blades do not offer Create. |
 | A create form shows a red validation error you do not understand | The **Review + create** tab lists every setting about to be applied; read it there. Portal labels drift, so a field named differently from this runbook is expected — the search box at the top finds any resource type or setting by name. |
 | Subnet rejected as too small | `/27` is the minimum for Container Apps. |
