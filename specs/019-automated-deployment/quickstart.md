@@ -250,7 +250,18 @@ the protections production does. That is why **Part D is not optional** — it i
 two environments really match. Part D stays as CLI commands because "show me every firewall rule" is
 a precise question, and confirming an *absence* by clicking through blades is where mistakes hide.
 
-**Do the whole of Part C for `stage` first, then repeat it for `prod`.** Names come from Part B.
+**Some steps are done once, some twice.** Names come from Part B.
+
+| Steps | How often | Into |
+|---|---|---|
+| **C1** resource groups | once — creates all three | — |
+| **C2** virtual network and subnet, **C7** Log Analytics, **C8** Container Apps environment | **once** | `rg-loot-singles-shared` |
+| **C3** identities, **C4** SQL server, **C5** database, **C6** network rule, **C9** container app, **C10** migrate job, **C11** database grants | **twice** — once for `stage`, once for `prod` | `rg-loot-singles-<env>` |
+| **C12–C15** GitHub, credentials, budget, domain | see each step | — |
+
+Do the shared steps first, then everything per-environment for `stage`, then the same for `prod`.
+The shared Container Apps environment must exist before either container app can be created, and its
+subnet is fixed at creation — so C2 and C8 genuinely cannot be reordered.
 
 > **Check the Resource group field on every single create form.** The portal pre-fills it with
 > whichever group you used last, across sessions and across resource types. That default is silent,
@@ -289,9 +300,11 @@ and its service endpoint to `Microsoft.Sql`, confirm both stuck, then delete the
 Everything for one environment lives in one resource group, which is what makes "delete it and start
 over" safe (Part E).
 
+Create **three**: `rg-loot-singles-shared`, `rg-loot-singles-stage`, `rg-loot-singles-prod`.
+
 1. In the portal search box, type **Resource groups**, open it, click **+ Create**.
 2. **Subscription**: `Azure subscription 1`.
-3. **Resource group**: `rg-loot-singles-stage`.
+3. **Resource group**: the name you are creating. Repeat for all three.
 4. **Region**: **(US) West US 2**.
 5. **Review + create** → **Create**.
 
@@ -318,7 +331,7 @@ outbound IP addresses are documented as changing without warning.
 1. Search **Virtual networks** → **+ Create**. (If a browse blade ever lacks a Create button, use
    **+ Create a resource** at the top left of the portal home and search the resource type there —
    that route always works.)
-2. **Basics**: resource group `rg-loot-singles-stage`, name `vnet-loot-singles-stage`, region
+2. **Basics**: resource group **`rg-loot-singles-shared`**, name `vnet-loot-singles`, region
    **West US 2**.
 3. **IP addresses** tab:
    - Set the address space to **`10.20.0.0/16`** (use `10.30.0.0/16` when you do `prod`).
@@ -419,7 +432,7 @@ This is the control that replaces a password with a network boundary.
 2. **Public network access**: **Selected networks**.
 3. Under **Virtual networks**, click **+ Add existing virtual network**:
    - **Name**: `allow-snet-apps`
-   - **Virtual network**: `vnet-loot-singles-stage`
+   - **Virtual network**: `vnet-loot-singles`
    - **Subnet**: `snet-apps`
    - **Save**.
 4. **Firewall rules**: confirm the list is **empty**.
@@ -442,7 +455,7 @@ Where the application's log output is kept so it can be searched later. Without 
 stream only, and the evidence is gone before anyone looks.
 
 1. Search **Log Analytics workspaces** → **+ Create**.
-2. Resource group `rg-loot-singles-stage`, name **`log-loot-singles-stage`**, region **West US 2**.
+2. Resource group **`rg-loot-singles-shared`**, name **`log-loot-singles`**, region **West US 2**.
 3. **Review + create** → **Create**.
 
 The first 5 GB per month is free, with about 31 days of retention included.
@@ -464,15 +477,15 @@ The shared space the container runs in, placed inside your subnet.
    **"Container Apps Environment"** → **Create**. The *Container Apps Environments* browse blade
    does not reliably offer a Create button; the Marketplace route always works. You can also reach
    the same form through **Create new** beside the Environment field when creating a Container App.
-2. **Basics**: resource group `rg-loot-singles-stage`, name **`cae-loot-singles-stage`**, region
+2. **Basics**: resource group **`rg-loot-singles-shared`**, name **`cae-loot-singles`**, region
    **West US 2**.
 3. **Networking** tab:
    - **Use your own virtual network**: **Yes**
-   - **Virtual network**: `vnet-loot-singles-stage`
+   - **Virtual network**: `vnet-loot-singles`
    - **Infrastructure subnet**: `snet-apps`
    - Leave the environment **externally accessible** — the shop reaches it over the internet.
 4. **Monitoring** tab: **Logs destination** = **Azure Log Analytics**, workspace
-   `log-loot-singles-stage`.
+   `log-loot-singles`.
 5. **Review + create** → **Create**. This one takes several minutes.
 
 **Confirm**: the environment's **Overview** shows the virtual network and subnet you chose.
@@ -497,7 +510,7 @@ first deployment replace it.
 
 1. Search **Container Apps** → **+ Create**.
 2. **Basics**: resource group `rg-loot-singles-stage`, name **`ca-loot-singles-stage`**, region
-   **West US 2**, environment `cae-loot-singles-stage`.
+   **West US 2**, environment `cae-loot-singles`.
 3. **Container** tab: tick **Use quickstart image** for now.
 4. **Ingress** tab:
    - **Ingress**: **Enabled**
@@ -544,7 +557,7 @@ Eventually this runs the *same image* as the container app, with a `migrate` arg
 **migrate** identity. It exists so schema changes are applied by something that is not the
 internet-facing application (FR-021).
 
-**It uses the same environment as the container app: `cae-loot-singles-stage`.** Not a new one. The
+**It uses the same environment as the container app: `cae-loot-singles`.** Not a new one. The
 environment is what places the job inside `snet-apps`, so its outbound traffic comes from the subnet
 the SQL virtual network rule trusts. A job in any other environment could not reach the database.
 
@@ -553,7 +566,7 @@ the SQL virtual network rule trusts. A job in any other environment could not re
    - Resource group `rg-loot-singles-stage`
    - Job name **`caj-loot-singles-stage-migrate`**
    - Region **West US 2**
-   - **Container Apps Environment**: **`cae-loot-singles-stage`** — the same one as C9
+   - **Container Apps Environment**: **`cae-loot-singles`** — the same one as C9
    - **Trigger type**: **Manual**
 3. **Container** tab. **Jobs do not offer a quickstart image** — that is a Container *App*
    convenience this form does not have — so give it Microsoft's sample job image as a placeholder:
@@ -990,7 +1003,7 @@ Open `ca-loot-singles-stage` → **Monitoring** → **Metrics**, and pin one til
 
 ### G8. Recent errors
 
-Open `log-loot-singles-stage` → **Logs**, run this, then **Pin to dashboard**:
+Open `log-loot-singles` → **Logs**, run this, then **Pin to dashboard**:
 
 ```kusto
 ContainerAppConsoleLogs_CL
