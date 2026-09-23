@@ -241,9 +241,9 @@ Paste this at the start of each environment's run, editing the first three lines
 terminal, paste it again — variables do not survive.
 
 ```powershell
-$ENVNAME = "stage"                      # or "prod"
+$ENVNAME = "stage"                      
 $LOCATION = "eastus2"
-$SQLSUFFIX = "jh01"                     # your own unique suffix
+$SQLSUFFIX = "jh01"                     
 
 $RG      = "rg-loot-singles-$ENVNAME"
 $VNET    = "vnet-loot-singles-$ENVNAME"
@@ -496,6 +496,25 @@ az containerapp env create --resource-group $RG --name $CAE --location $LOCATION
 This one takes several minutes. **Expected**: `"provisioningState": "Succeeded"`.
 
 **Check**: `az containerapp env show -g $RG -n $CAE --query "{state:properties.provisioningState}" -o tsv`
+
+> **Come back to this about 24 hours after creating the *first* environment**, and confirm what is
+> actually being billed. This is the one cost question documentation cannot settle: the billing
+> guide states that private endpoints and planned maintenance incur a $0.10/hour Dedicated Plan
+> Management charge — neither of which this design uses — but it also warns that "if you use
+> Container Apps with your own virtual network… additional charges might apply", and this design
+> does use its own virtual network.
+>
+> In the portal: **Cost Management** → **Cost analysis**, scope to the subscription, group by
+> **Meter**.
+>
+> **Expected**: nothing from Container Apps at all while usage stays inside the free grant, and the
+> SQL database meter at about $0.16/day.
+>
+> **If you see an "Environment Management Hour" or "Dedicated Plan Management" meter accruing**,
+> that is roughly $73/month per environment and it breaks the cost model (FR-028). Stop and raise
+> it before creating the second environment — the fix would be a design change, not a setting.
+
+
 
 ### C7. The container app and the migrate job
 

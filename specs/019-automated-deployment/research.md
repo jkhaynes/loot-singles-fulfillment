@@ -312,8 +312,31 @@ stage and unacceptable for production.
 **The container grant is tighter than it looks**: 180,000 vCPU-seconds per subscription per month, at
 0.25 vCPU, is **200 active hours across both environments combined**. A shop open 8h/day × 22 days is
 about 176 hours and fits; 10h/day × 26 days is about 260 and does not. Overage is single-digit
-dollars, not tens, but "free container" is not unconditional. Verify the grant and the overage rate
-at provisioning along with every other figure here.
+dollars, not tens, but "free container" is not unconditional.
+
+**VERIFIED 2026-09-23** against Azure's public Retail Prices API and the Container Apps billing
+documentation:
+
+| Figure | Verified value | How |
+|---|---|---|
+| Azure SQL Basic, `eastus2` | **$0.161/day** (`SQL Database Single Basic`, meter `B DTU`) = **$4.90/month** | Retail Prices API |
+| Container Apps vCPU overage | **$0.000024 / vCPU-second** | Retail Prices API |
+| Container Apps memory overage | **$0.000003 / GiB-second** | Retail Prices API |
+| Free grant | **180,000 vCPU-s, 360,000 GiB-s, 2M requests**, per subscription per calendar month | Billing documentation |
+
+**The $0.10/hour environment management charge does not apply to this design.** The billing guide
+attaches it to "private endpoints and planned maintenance… regardless of whether you use the
+Consumption or Dedicated plans". This design uses a *service* endpoint (§8), configures no
+maintenance window, and runs Consumption only. Had it applied it would have been roughly $73/month
+per environment, so it was worth resolving rather than assuming.
+
+**One cost question documentation cannot settle.** The same guide warns that "if you use Container
+Apps with your own virtual network… additional charges might apply", and this design does use its
+own virtual network. A plain VNet and service endpoints are documented as free, so this reads as a
+generic caveat about NAT gateways and private endpoints — but "might apply" is not a number.
+Settled empirically instead: quickstart.md C6 now says to read Cost Analysis grouped by meter about
+24 hours after the first environment exists, and to stop before creating the second if a management
+meter is accruing.
 
 ---
 
@@ -375,7 +398,10 @@ Every number in this document is from documentation, not measurement. Confirm ag
 
 1. ~~A subnet delegated to `Microsoft.App/environments` accepts a `Microsoft.Sql` service
    endpoint (§8).~~ **Verified 2026-09-23 — it does.** The riskiest assumption in the plan, cleared.
-2. Azure SQL free offer allowance and Basic tier price in the target region (§13).
-3. Container Apps free grant and overage rate (§13).
-4. Log Analytics free ingestion allowance and included retention (§9).
+2. ~~Azure SQL Basic tier price in the target region (§13).~~ **Verified 2026-09-23 — $0.161/day in
+   `eastus2`, about $4.90/month.** The free-offer allowance for *stage* is still unconfirmed.
+3. ~~Container Apps free grant and overage rate (§13).~~ **Verified 2026-09-23** — grant and both
+   overage rates exact. The "own virtual network" caveat is settled empirically at C6, not here.
+4. Log Analytics free ingestion allowance and included retention (§9). Documented as 5 GB/month per
+   billing account with ~31 days retention; not independently re-checked.
 5. Azure SQL Basic point-in-time restore window ≥ 7 days (§14).
