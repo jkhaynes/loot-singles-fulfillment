@@ -99,7 +99,20 @@ and complete a pick.
 - [X] T013 [US1] Create `Dockerfile` at the repository root: multi-stage with `node:24-alpine` building `frontend/`, the .NET SDK publishing **`backend/src/LootSingles.Api/LootSingles.Api.csproj`** (not the solution — it pulls in the E2E host and Testcontainers), and a final `mcr.microsoft.com/dotnet/aspnet:10.0` stage copying the web build to `wwwroot`, setting `ASPNETCORE_HTTP_PORTS=8080`, running as a **non-root** user, with `ENTRYPOINT ["dotnet", "LootSingles.Api.dll"]` and **no `CMD`** so the image also runs `migrate` and `bootstrap-admin`
 - [X] T014 [US1] Verify the built image locally per quickstart.md Part 1: the five routing checks, `whoami` is not root, `migrate` without a connection string fails without echoing one, and — the check that matters most — `/health` still returns 200 while `/health/database` returns 503 against a stopped database
 
-### Provisioning (both environments)
+### Provisioning
+
+> **Amended 2026-09-23.** T016 and T018 were written as "create per environment" and were done that
+> way for stage before the cost check in C6 found that each Container Apps environment carries a
+> Standard static public IPv4 at $3.65/month. Two of them plus production's database came to $12.20
+> against FR-028's $10 ceiling.
+>
+> The Product Owner chose to **share one Container Apps environment, virtual network and Log
+> Analytics workspace** between both environments (spec.md Clarifications), which brings it to $8.55
+> and keeps stage. Those three resources are now built **once**, in `rg-loot-singles-shared`;
+> identities, SQL servers, databases, container apps and migrate jobs remain per environment.
+>
+> Stage was rebuilt into that layout on 2026-09-23. The tasks below are marked against the amended
+> shape, not the original wording.
 
 - [ ] T015 [US1] [MANUAL] Verify **before creating anything**: that a subnet delegated to `Microsoft.App/environments` accepts a `Microsoft.Sql` service endpoint; the Azure SQL free-offer allowance and Basic price in region; the Container Apps free grant and overage rate; the Log Analytics free allowance; and that Basic point-in-time restore covers ≥ 7 days (FR-031). **If the service endpoint is not permitted, stop and raise it** — the private-endpoint fallback at ~$7–8/month is a Product Owner cost decision — **runbook: Part 2 C0**. **Mostly done 2026-09-23**: the service endpoint **is** permitted on a delegated subnet (verified live, research.md §8), so the cost decision does not arise. Pricing verified against Azure's public Retail Prices API and the billing documentation — SQL Basic $0.161/day in `eastus2`, Container Apps overage $0.000024/vCPU-s and $0.000003/GiB-s, free grant 180,000 vCPU-s / 360,000 GiB-s / 2M requests per subscription per month. The $0.10/hour environment management charge attaches to private endpoints and planned maintenance, neither of which this design uses. Still outstanding, and neither is answerable from documentation: the **stage free-offer SQL allowance**, and whether using our own virtual network adds a meter — resolved by reading Cost Analysis ~24h after the first environment exists (runbook C6). Point-in-time restore is confirmed at C5 once a database exists.
 - [X] T016 [US1] [MANUAL] Create per environment: resource group, virtual network, `/27` subnet delegated to `Microsoft.App/environments` with the `Microsoft.Sql` service endpoint, and **both** managed identities (`id-loot-singles-<env>-app`, `id-loot-singles-<env>-migrate`) — **runbook: Part 2 C1–C3**

@@ -165,22 +165,42 @@ Use these exactly. Consistency between the two environments is a requirement, no
 FR-029 says stage must carry every protection production does, and mismatched names are how that
 quietly stops being true.
 
+**Shared by both environments** — built once, in `rg-loot-singles-shared`:
+
+| What | Name |
+|---|---|
+| Resource group | `rg-loot-singles-shared` |
+| Virtual network | `vnet-loot-singles` (`10.20.0.0/16`) |
+| Subnet | `snet-apps` (`10.20.0.0/27`) |
+| Container Apps environment | `cae-loot-singles` |
+| Log Analytics workspace | `log-loot-singles` |
+
+**Per environment** — built twice:
+
 | What | `stage` | `prod` |
 |---|---|---|
 | Resource group | `rg-loot-singles-stage` | `rg-loot-singles-prod` |
-| Virtual network | `vnet-loot-singles-stage` | `vnet-loot-singles-prod` |
-| Address space | `10.20.0.0/16` | `10.30.0.0/16` |
-| Subnet | `snet-apps` (`10.20.0.0/27`) | `snet-apps` (`10.30.0.0/27`) |
 | App identity | `id-loot-singles-stage-app` | `id-loot-singles-prod-app` |
 | Migrate identity | `id-loot-singles-stage-migrate` | `id-loot-singles-prod-migrate` |
 | SQL server | `loot-singles-stage-sql` | `loot-singles-prod-sql` |
-| Database | `lootsingles` | `lootsingles` |
-| Log Analytics | `log-loot-singles-stage` | `log-loot-singles-prod` |
-| Container Apps env | `cae-loot-singles-stage` | `cae-loot-singles-prod` |
+| Database | `lootsingles` (free offer) | `lootsingles` (**Basic**) |
 | Container App | `ca-loot-singles-stage` | `ca-loot-singles-prod` |
 | Migrate job | `caj-loot-singles-stage-migrate` | `caj-loot-singles-prod-migrate` |
 | App registration | `github-loot-singles-stage` | `github-loot-singles-prod` |
 | GitHub environment | `stage` | **`production`** |
+
+> **Why one Container Apps environment rather than two** (Product Owner decision, 2026-09-23): each
+> one carries a Standard static public IPv4 at **$3.65/month**, and two of them plus production's
+> database came to $12.20 against the $10 ceiling. Sharing brings it to **$8.55** and keeps stage.
+>
+> The cost is the **network boundary**: both apps sit in one subnet, so stage can reach production's
+> SQL server at the network level. Data isolation is unaffected and is the real control — each app
+> authenticates as its own managed identity, and stage's has **no database user** in production's
+> database, so it cannot read a row however reachable the server is.
+>
+> Two knock-on effects: **retained records are shared** (one environment logs to one workspace;
+> entries carry the app name so they stay separable), and **the two environments can no longer be
+> torn down independently** at the resource-group level (Part E).
 
 Two of those are easy to get wrong:
 
