@@ -9,11 +9,10 @@ Three parts:
    anything on Azure.
 3. **What only a real deployment proves** — the handful of checks no script or test can stand in for.
 
-Part 2 ends with an optional operator dashboard (Part G).
-
 Part 2 is done in the Azure portal, by Product Owner decision (2026-09-22): it is run twice, ever,
 seeing each resource before it exists is worth more than reproducibility, and it is how you learn
-where things live. Nothing in this repository forbids scripting it later.
+where things live. Nothing in this repository forbids scripting it later. It ends with an optional
+operator dashboard (Part G).
 
 ---
 
