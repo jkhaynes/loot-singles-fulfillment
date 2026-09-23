@@ -192,10 +192,17 @@ The `0.0.0.0` rule is never acceptable: it admits every Azure tenant's resources
 
 **Cost**: free. Microsoft documents "There's no extra charge for using service endpoints."
 
-**To verify before provisioning**: that a subnet delegated to `Microsoft.App/environments` accepts a
-`Microsoft.Sql` service endpoint. If it does not, the fallback is a private endpoint at roughly
-$7–8/month, which is a Product Owner cost decision rather than an implementation detail — stop and
-raise it.
+**VERIFIED 2026-09-23.** A subnet delegated to `Microsoft.App/environments` **does** accept a
+`Microsoft.Sql` service endpoint. Confirmed against a live subscription with the throwaway spike in
+quickstart.md C0, reading the values back off the created subnet rather than trusting the create
+command's exit code:
+
+```json
+{ "delegations": ["Microsoft.App/environments"], "endpoints": ["Microsoft.Sql"] }
+```
+
+This was the one item that could have stopped the feature. The private-endpoint fallback at roughly
+$7–8/month does not arise, and the cost model in §13 holds.
 
 **Alternatives considered**: private endpoint (works, costs money, only needed if the check fails);
 IP rule (unstable, above); NAT Gateway for a stable egress IP (~$32/month, defeats the cost ceiling).
@@ -366,7 +373,8 @@ request diff, and neither fails silently in production the way the three kept on
 Every number in this document is from documentation, not measurement. Confirm against the portal
 **before** creating anything, per §5 of the setup checklist:
 
-1. A subnet delegated to `Microsoft.App/environments` accepts a `Microsoft.Sql` service endpoint (§8).
+1. ~~A subnet delegated to `Microsoft.App/environments` accepts a `Microsoft.Sql` service
+   endpoint (§8).~~ **Verified 2026-09-23 — it does.** The riskiest assumption in the plan, cleared.
 2. Azure SQL free offer allowance and Basic tier price in the target region (§13).
 3. Container Apps free grant and overage rate (§13).
 4. Log Analytics free ingestion allowance and included retention (§9).
