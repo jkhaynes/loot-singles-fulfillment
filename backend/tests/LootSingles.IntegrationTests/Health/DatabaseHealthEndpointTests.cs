@@ -18,8 +18,26 @@ namespace LootSingles.IntegrationTests.Health;
 /// deliberate — see <see cref="HealthEndpointTests"/>.
 /// </summary>
 [Collection(SqlServerTestCollection.Name)]
-public sealed class DatabaseHealthEndpointTests(SqlServerContainerFixture fixture)
+public sealed class DatabaseHealthEndpointTests(SqlServerContainerFixture fixture) : IDisposable
 {
+    // 019 BR-004 / T056. Every host here gets a web root holding index.html, because a real container
+    // always has one — the web build is copied into wwwroot. Without it the web-app fallback has
+    // nothing to serve and quietly 404s, so a test asserting "absent means 404" passed against code
+    // that actually answers 200 with the web app. Tests must run the shape production runs.
+    private readonly string _webRoot = CreateWebRoot();
+
+    public void Dispose()
+    {
+        try
+        {
+            Directory.Delete(_webRoot, recursive: true);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // Already gone; nothing to clean up.
+        }
+    }
+
     [Fact]
     public async Task Returns_ok_when_the_database_is_reachable()
     {
@@ -115,6 +133,27 @@ public sealed class DatabaseHealthEndpointTests(SqlServerContainerFixture fixtur
         Assert.Equal(HttpStatusCode.OK, health.StatusCode);
     }
 
+    [Fact]
+    public async Task Opted_in_endpoints_outrank_the_health_fallback()
+    {
+        // 019 BR-004 / T058. The fix for an absent /health/database is a /health/{**path} fallback,
+        // and a catch-all like that can match an empty remainder. That is harmless only because
+        // explicit routes outrank fallbacks — so pin it. If this ever fails, the fallback has started
+        // answering for the real endpoints, and every release check would see 404.
+        using var factory = CreateFactory(UnreachableConnectionString);
+        using var client = factory.CreateClient();
+
+        var databaseHealth = await client.GetAsync("/health/database");
+        var databaseBody = await databaseHealth.Content.ReadAsStringAsync();
+        var health = await client.GetAsync("/health");
+
+        // The real check ran: it reached for the unreachable database and reported 503, rather than
+        // the fallback answering 404 or the web app answering 200.
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, databaseHealth.StatusCode);
+        Assert.DoesNotContain("id=\"root\"", databaseBody, StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.OK, health.StatusCode);
+    }
+
     private const string UnreachableServerName = "database-health-unreachable.invalid";
 
     private const string UnreachableConnectionString =
@@ -125,17 +164,29 @@ public sealed class DatabaseHealthEndpointTests(SqlServerContainerFixture fixtur
     /// setting absent as a fresh environment would. The FR-024/FR-025 tests above opt in, because
     /// they exist to prove what the endpoint does; only the opt-in test itself leaves it unset.
     /// </param>
-    private static WebApplicationFactory<Program> CreateFactory(
+    private WebApplicationFactory<Program> CreateFactory(
         string connectionString,
         string? exposeDatabaseEndpoint = "true"
     ) =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Production");
+            builder.UseWebRoot(_webRoot);
             builder.UseSetting("ConnectionStrings:LootSingles", connectionString);
             if (exposeDatabaseEndpoint is not null)
             {
                 builder.UseSetting("HealthChecks:ExposeDatabaseEndpoint", exposeDatabaseEndpoint);
             }
         });
+
+    private static string CreateWebRoot()
+    {
+        var webRoot = Path.Combine(Path.GetTempPath(), $"loot-singles-health-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(webRoot);
+        File.WriteAllText(
+            Path.Combine(webRoot, "index.html"),
+            "<!doctype html><html><body><div id=\"root\"></div></body></html>"
+        );
+        return webRoot;
+    }
 }

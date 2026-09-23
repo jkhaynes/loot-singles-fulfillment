@@ -265,7 +265,13 @@ app.MapControllers();
 // 019 T009 / FR-004. Order matters: an unmatched /api route must return a real 404, never the web
 // app's HTML with status 200. Without this first fallback, a client expecting JSON fails on parse
 // rather than on status, and a test asserting 404 passes for the wrong reason.
+//
+// 019 T057 / BR-004. /health is server-owned for the same reason. /health/database exists only
+// where an environment opts in, and without this line an absent one answered 200 with the web app —
+// which production's release check reads as success, silently dropping the FR-024 proof. Explicit
+// routes outrank fallbacks, so /health and an opted-in /health/database are unaffected.
 app.MapFallback("/api/{**path}", () => Results.NotFound());
+app.MapFallback("/health/{**path}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 
 app.Run();
