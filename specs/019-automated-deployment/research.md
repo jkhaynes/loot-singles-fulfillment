@@ -304,10 +304,41 @@ some migrations applied and others not. Additive-only is what makes that surviva
 **Decision**: Azure SQL Basic for production (~$5/month); free offer for stage; everything else on
 free tiers. Budget alert at $5. Expected total **$5–8/month** against the $10 ceiling of FR-028.
 
-**Rationale**: The production database is the only resource that must be paid for. The free SQL offer
-provides roughly 100,000 vCore-seconds — about 55 awake hours a month — which a shop picking all day
-exhausts in roughly a week, after which the database stops until the 1st. That is acceptable for
-stage and unacceptable for production.
+**Rationale**: The production database is the only resource that must be paid for.
+
+**Re-examined 2026-09-23** at the Product Owner's request, after asking whether a different region
+would be free. It would not: SQL Basic is **$0.161/day in eastus2, westus2, westus3 and centralus
+alike** (Retail Prices API). No region makes a paid SKU free.
+
+The free offer is real and was re-checked against its documentation. **Correction to an earlier
+draft of this document**: a subscription gets **up to 10** free databases, not one. Each carries
+100,000 vCore-seconds, 32 GB data and 32 GB backup, free with no time limit. Production *could*
+therefore have had one.
+
+It still should not, and the reason is the exhaustion behaviour rather than the allowance:
+
+- The free offer is serverless General Purpose at a 0.5 vCore minimum, so 100,000 vCore-seconds is
+  about **55 awake hours a month**. A shop open 8h/day × 22 days needs roughly 176. Light use does
+  not rescue it either — serverless auto-pause has a **60-minute minimum delay**, so every burst of
+  activity costs at least an hour, and two picking sessions a day already exceeds the allowance.
+- When it runs out, the documented default is that **"the database is inaccessible until the start
+  of the next calendar month"**. Not throttled — inaccessible, potentially for three weeks, with no
+  alerting in this feature to warn anyone beforehand.
+- The escape hatch is **one-way**: "once you have chosen Continue using database for additional
+  charges, it's not possible to go back to the free amount with auto-pause", and it bills at
+  serverless General Purpose rates, which exceed Basic's $4.90.
+
+So the trade is **$59 a year against the shop being unable to fulfil orders for up to three weeks**,
+discovered mid-month. Constitution Principle XI settles it: cost optimisation must not knowingly
+make the production picking workflow unreliable. **Product Owner decision reaffirmed 2026-09-23:
+Basic for production.**
+
+Stage keeps the free offer, where being inaccessible until the 1st is an inconvenience rather than a
+business problem.
+
+**Irreversible setting to know about**: once a region is chosen for the first free database in a
+subscription, **the same region applies to every free database in that subscription and cannot be
+changed**. Stage's region choice is therefore permanent for any future free database.
 
 **The container grant is tighter than it looks**: 180,000 vCPU-seconds per subscription per month, at
 0.25 vCPU, is **200 active hours across both environments combined**. A shop open 8h/day × 22 days is

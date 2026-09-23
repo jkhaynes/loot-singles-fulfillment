@@ -235,6 +235,13 @@ initials plus a number, for example `sql-loot-singles-prod-jh01`.
 choose another. Not every service is in every region, so if a later command complains about the
 location, that is why.
 
+> **The region you use for stage's free database is permanent.** Azure applies the region of the
+> *first* free-offer database to every free database in the subscription, and it cannot be changed
+> afterwards. Choose deliberately.
+>
+> Region does **not** affect price: SQL Basic is $0.161/day in eastus2, westus2, westus3 and
+> centralus alike. Pick for latency to the shop, not for cost.
+
 ### The variables block
 
 Paste this at the start of each environment's run, editing the first three lines. If you close the
