@@ -37,9 +37,13 @@ the argument selects the behaviour.
 | Concurrency | Group `deploy-stage`, `cancel-in-progress: false` |
 | Environment | `stage`, branch-restricted to `main` |
 
-**Sequence**: quality gate against the merge commit → build and push `sha-<commit>` → run the migrate
-job and wait → update the Container App → post-deployment check → **on any failure, reactivate the
-previous revision**.
+**Sequence**: quality gate against the merge commit → build and push `sha-<commit>` → **record the
+running image** → run the migrate job and wait → update the Container App → post-deployment check →
+**on any failure, redeploy the recorded image**.
+
+The image is recorded *before* the migration, so a failure anywhere after that point has something to
+restore. Reactivating a previous revision would be simpler but does not work in single-revision mode
+(research.md §12).
 
 **Guarantees**
 
@@ -60,7 +64,8 @@ previous revision**.
 
 **Sequence**: the single job is gated, so **nothing runs until approval**. Then: run the migrate job
 and wait → update the Container App → post-deployment check including `/health/database` → on any
-failure, reactivate the previous revision.
+failure, redeploy the image recorded before the migration began (research.md §12 — reactivating a
+previous revision does not work in single-revision mode).
 
 **Guarantees**
 

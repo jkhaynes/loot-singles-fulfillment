@@ -798,6 +798,48 @@ this does not, the environment is not attached to the workspace.
 
 ---
 
+### Nothing exists that should not — run this last
+
+Provisioning leaves debris. Half-finished attempts, resources created in the wrong group, and
+Azure's own auto-created groups all accumulate quietly, and some of them cost money.
+
+```powershell
+az group list --query "sort_by([].{name:name, location:location}, &name)" -o table
+az resource list --query "sort_by([].{rg:resourceGroup, name:name, type:type}, &rg)" -o table
+```
+
+**What belongs:**
+
+| Resource group | Contains | |
+|---|---|---|
+| `rg-loot-singles-dev` | `loot-singles-dev-sql` and its database | **Never touch this.** It is the local development database and has nothing to do with this feature. |
+| `rg-loot-singles-shared` | virtual network, Container Apps environment, Log Analytics workspace | |
+| `rg-loot-singles-stage` | two identities, SQL server + free-offer database, container app, migrate job | |
+| `rg-loot-singles-prod` | two identities, SQL server + Basic database, container app, migrate job | |
+| `ME_cae-loot-singles_…` | `capp-svc-lb`, `capp-svc-lb-ip` | **Azure-managed, do not delete directly.** It holds the environment's load balancer and its public IP — the $3.65/month meter. It appears and disappears with the Container Apps environment. |
+| `NetworkWatcherRG` | `NetworkWatcher_<region>` | Azure creates this automatically with any virtual network. Free, and it comes straight back if deleted. Leave it. |
+
+**Anything else is debris.** Check it is genuinely empty before removing it:
+
+```powershell
+az resource list -g "<the group>" -o table          # confirm what is inside
+az group delete --name "<the group>" --yes --no-wait
+```
+
+`DefaultResourceGroup-<REGION>` is a common one — Azure creates it for default monitoring settings
+and it is often empty.
+
+**Then confirm the cost picture matches**, which is the point of all this:
+
+```powershell
+az consumption budget list --query "[].{name:name, amount:amount, spend:currentSpend.amount}" -o table
+```
+
+Expect exactly **one** `Standard IPv4 Static Public IP` meter across the whole subscription. Two
+means a second Container Apps environment exists somewhere and the cost model is broken.
+
+---
+
 ## Part E — Starting over
 
 If an environment gets into a state you do not understand, delete it and run Part C again. It is
