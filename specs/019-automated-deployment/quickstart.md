@@ -537,6 +537,10 @@ the SQL virtual network rule trusts. A job in any other environment could not re
    - **Image and tag**: `k8se/quickstart-jobs:latest`
    - **CPU and Memory**: `0.25` CPU, `0.5 Gi` — same pairing rule as C9
    - **Command override**: leave empty. **Arguments**: `migrate`
+   - **Replica timeout**: `600` seconds
+   - **Replica retry limit**: `1` — **this field is required**; the create fails without it. One
+     retry is right here: `migrate` checks for pending migrations before doing anything, so a retry
+     after a transient network blip is a safe no-op rather than a second attempt at the same work.
 
    > The placeholder is thrown away by the first deployment, which replaces the image with the real
    > one from GHCR. The job only needs to *exist* now, so the workflow has something to update and so
