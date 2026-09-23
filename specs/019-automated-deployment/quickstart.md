@@ -231,6 +231,13 @@ a precise question, and confirming an *absence* by clicking through blades is wh
 
 **Do the whole of Part C for `stage` first, then repeat it for `prod`.** Names come from Part B.
 
+> **Check the Resource group field on every single create form.** The portal pre-fills it with
+> whichever group you used last, across sessions and across resource types. That default is silent,
+> it is often wrong, and the consequences are not always recoverable — a virtual network created in
+> the wrong group cannot be moved afterwards, because the Container Apps environment stores its
+> subnet's full resource ID and that ID is immutable. The fix is deleting and rebuilding the
+> environment, the app and the job. Read the field; do not trust it.
+>
 > **Portal wording drifts.** Field labels and blade layouts change between visits. Where a label
 > below does not match what you see, the **search box at the top of the portal** finds any resource
 > type or setting by name, and the **Review + create** tab always lists what is actually about to be
@@ -277,8 +284,10 @@ A private network for this environment. The Container Apps environment will sit 
 which is what later lets SQL trust it *by name* instead of by IP address — and Container Apps
 outbound IP addresses are documented as changing without warning.
 
-> **Do this before C8.** A Container Apps environment's subnet is fixed at creation and cannot be
-> changed later, so an environment built before this exists has to be deleted and rebuilt.
+> **Do this before C8, and check the Resource group field.** A Container Apps environment's subnet
+> is fixed at creation and cannot be
+> changed later, so an environment built before this exists — or pointing at a virtual network in
+> the wrong resource group — has to be deleted and rebuilt along with the app and the job.
 
 1. Search **Virtual networks** → **+ Create**. (If a browse blade ever lacks a Create button, use
    **+ Create a resource** at the top left of the portal home and search the resource type there —
@@ -608,8 +617,14 @@ fix it before going on — that is the control FR-021 requires:
 ALTER ROLE db_ddladmin DROP MEMBER [id-loot-singles-stage-app];
 ```
 
-6. **Remove the temporary IP rule** from step 3 if you added one. Leaving it means your home address
-   keeps standing access to a database holding customer addresses.
+6. **Remove every firewall rule — including one you did not create.** The portal's query editor adds
+   its own rule automatically when you connect, named `QueryEditorClientIPAddress_…`, whether or not
+   you added one in step 3. Go to the SQL **server** → **Networking**, delete **all** entries under
+   *Firewall rules*, and **Save**. Leaving any of them means a home IP address keeps standing access
+   to a database holding customer names and addresses.
+
+   Confirm the list is empty afterwards — this is one of Part D's checks, and it is easier to get
+   right now than to discover later.
 
 ---
 
@@ -812,6 +827,7 @@ start:
 | `Database '...' is not currently available. Please retry the connection later` | The stage database is serverless and paused after 60 minutes idle. Your attempt triggered the resume. Wait ~30 seconds and retry. Production is Basic and always awake. |
 | No quickstart image option on a Container Apps **Job** | Jobs do not offer one. Use the public sample `mcr.microsoft.com` / `k8se/quickstart-jobs:latest` as a placeholder; the first deployment replaces it (C10). |
 | CPU or memory not on the Scale blade | They live with the container: **Containers → Edit and deploy → click the container**. Scale only carries replica counts. Container Apps allows fixed CPU/memory pairs at a 1:2 ratio (0.25 CPU with 0.5 Gi). |
+| A resource landed in the wrong resource group | The portal pre-fills Resource group with whichever you used last. A virtual network cannot be moved out afterwards — a Container Apps environment stores its subnet's full resource ID and that ID is immutable — so the fix is deleting and rebuilding the environment, app and job. Check the field on every create form. |
 | A browse blade has no **+ Create** button | Use **+ Create a resource** at the top left of the portal home and search the resource type there. The Marketplace route always works; some browse blades do not offer Create. |
 | A create form shows a red validation error you do not understand | The **Review + create** tab lists every setting about to be applied; read it there. Portal labels drift, so a field named differently from this runbook is expected — the search box at the top finds any resource type or setting by name. |
 | Subnet rejected as too small | `/27` is the minimum for Container Apps. |
