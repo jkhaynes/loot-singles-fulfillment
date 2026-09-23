@@ -9,6 +9,8 @@ Three parts:
    anything on Azure.
 3. **What only a real deployment proves** — the handful of checks no script or test can stand in for.
 
+Part 2 ends with an optional operator dashboard (Part G).
+
 Part 2 is done in the Azure portal, by Product Owner decision (2026-09-22): it is run twice, ever,
 seeing each resource before it exists is worth more than reproducibility, and it is how you learn
 where things live. Nothing in this repository forbids scripting it later.
@@ -844,6 +846,105 @@ start:
 | Endless redirects in a browser | Forwarded headers not registered first in `Program.cs` (`research.md` §2). |
 | `/api/...` returns HTML | The `/api` fallback is registered after the web-app fallback (`research.md` §3). |
 | Everyone signed out after a quiet period | Data Protection keys are still in memory (`research.md` §5). |
+| The dashboard tile gallery has no Cost tile | It never will. The gallery holds only generic tiles; everything specific is pinned **from its own blade** in the opposite direction (Part G). |
+
+---
+
+## Part G — An operator dashboard
+
+Optional, free, and useful once an environment is running. Added at the Product Owner's request
+(2026-09-23).
+
+**Scope note, so the boundary stays clear**: the specification puts *"alerting, paging or uptime
+monitoring of any kind"* out of scope, deferred to its own feature. A read-only dashboard is neither
+— it warns nobody and pages nobody, you have to go and look at it. The cost half serves FR-028's $10
+ceiling directly. But it sits next to the deferred work, so it is recorded here rather than in the
+task list, and it does not replace the budget alert in C14.
+
+### The thing that trips everyone up first
+
+**You do not build this dashboard from the tile gallery.** The gallery you are shown on creating a
+dashboard holds only generic tiles — Markdown, Clock, All resources, Service Health, a blank Metrics
+chart. There is no Cost tile in it and there never will be.
+
+Everything useful is pinned in the **opposite direction**: you go to the service's own blade,
+configure the view you want, and pin *that* onto a dashboard that already exists. So create the
+dashboard empty first, close the gallery, and then go collecting.
+
+### G1. Create the empty dashboard
+
+1. Portal search → **Dashboard** → **+ New dashboard** → **Blank dashboard**.
+2. Name it `Loot Singles — Stage`.
+3. **Close the tile gallery** without adding anything.
+4. **Save**.
+
+### G2. Cost, grouped by meter — the most important tile
+
+1. Search **Cost Management** → **Cost analysis**.
+2. Set the scope to **Azure subscription 1**.
+3. Choose the **Daily costs** view, then **Group by** → **Meter**.
+4. **Pin to dashboard** (in the toolbar; on some portal versions it is under the **…** menu) → pick
+   `Loot Singles — Stage`.
+
+**What to expect**: the SQL meter at about $0.16/day once production exists, and **nothing at all
+from Container Apps**. A Container Apps meter appearing means the free grant is exhausted.
+
+### G3 and G4. SQL free-offer headroom — the only real gauge
+
+1. Open the `lootsingles` database → **Monitoring** → **Metrics**.
+2. Metric **`free_amount_remaining`**, aggregation **Min**, time range **This month** → **Pin to
+   dashboard**.
+3. Repeat with **`free_amount_consumed`**, aggregation **Max**.
+
+These exist only because stage uses the free offer. Production is Basic and has no such metric,
+because it has no allowance to run out of.
+
+### G5 to G7. Container app health
+
+Open `ca-loot-singles-stage` → **Monitoring** → **Metrics**, and pin one tile each:
+
+| Metric | Aggregation | Why |
+|---|---|---|
+| `Replicas` | Avg, last 30 days | The **free-grant proxy** — see the caveat below. Sustained 1 means it is not scaling to zero. |
+| `Requests` | Sum | Whether anyone is actually using it. |
+| `RestartCount` | Sum | A climbing count means the container is crash-looping — worth seeing before the shop phones. |
+
+### G8. Recent errors
+
+Open `log-loot-singles-stage` → **Logs**, run this, then **Pin to dashboard**:
+
+```kusto
+ContainerAppConsoleLogs_CL
+| where TimeGenerated > ago(24h)
+| where Log_s has_any ("Error", "Exception", "Fail")
+| project TimeGenerated, ContainerName_s, Log_s
+| order by TimeGenerated desc
+| take 50
+```
+
+If the column names are rejected, run `ContainerAppConsoleLogs_CL | take 5` first and adjust — the
+table's shape is Azure's, not ours.
+
+### G9. The resource group itself
+
+Open `rg-loot-singles-stage` → **Overview** → pin, for an at-a-glance inventory of what exists.
+
+Then **Share** the dashboard if you want it on other devices, and **Set as default** to make it your
+portal landing page.
+
+### What this dashboard cannot tell you
+
+**There is no metric for the Container Apps free grant.** Azure exposes `free_amount_remaining` for
+the SQL free offer but nothing equivalent for the 180,000 vCPU-seconds. Free usage does not appear on
+a bill, so **a cost tile reading $0 does not mean you have headroom — it means you have not exceeded
+yet.** You find out by a meter appearing, not by a gauge filling.
+
+That is why `Replicas` is on the dashboard: it is 0 or 1, so time-spent-at-1 × 0.25 vCPU is the burn,
+against roughly 200 active hours a month across both environments. It is an eyeball estimate, and it
+is the best available.
+
+**It also warns nobody.** A dashboard is passive. The budget alert in C14 is the thing that emails
+you, and this does not replace it.
 
 ---
 
