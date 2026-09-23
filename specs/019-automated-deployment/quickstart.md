@@ -239,11 +239,16 @@ a precise question, and confirming an *absence* by clicking through blades is wh
 > subnet's full resource ID and that ID is immutable. The fix is deleting and rebuilding the
 > environment, the app and the job. Read the field; do not trust it.
 >
-> **Portal wording drifts.** Field labels and blade layouts change between visits. Where a label
-> below does not match what you see, the **search box at the top of the portal** finds any resource
-> type or setting by name, and the **Review + create** tab always lists what is actually about to be
-> created. If something looks materially different from what is described here, that is worth
-> telling me rather than guessing.
+> **Portal wording drifts, and this runbook has been wrong about it more than once.** Field labels,
+> blade layouts and left-nav groupings change between visits, and the steps here were written from
+> knowledge rather than from a live portal — so treat a mismatch as expected rather than as your
+> mistake.
+>
+> Two habits cover almost all of it: **search the portal for the thing itself** rather than
+> navigating to its parent and hunting (searching "Cost analysis" beats opening Cost Management),
+> and read the **Review + create** tab, which always lists what is actually about to be created
+> whatever the form called the fields. If something looks materially different from what is
+> described here, that is worth reporting rather than guessing past.
 
 ---
 
@@ -846,6 +851,7 @@ start:
 | `/api/...` returns HTML | The `/api` fallback is registered after the web-app fallback (`research.md` §3). |
 | Everyone signed out after a quiet period | Data Protection keys are still in memory (`research.md` §5). |
 | The dashboard tile gallery has no Cost tile | It never will. The gallery holds only generic tiles; everything specific is pinned **from its own blade** in the opposite direction (Part G). |
+| Cost analysis is not where the runbook says | Cost Management has been reorganised repeatedly. Search the portal for **"Cost analysis"** directly, or go **Subscriptions → the subscription → Cost Management → Cost analysis**. If you get cards instead of a chart you are in *smart views*; the chart type and Group by live in *customizable views* (G2). |
 
 ---
 
@@ -879,14 +885,26 @@ dashboard empty first, close the gallery, and then go collecting.
 
 ### G2. Cost, grouped by meter — the most important tile
 
-1. Search **Cost Management** → **Cost analysis**.
+1. **Search the portal for "Cost analysis" directly.** Do not go via Cost Management and hunt — the
+   page has been reorganised more than once and *Cost analysis* is nested under a grouping such as
+   *Reporting + analytics* rather than sitting at the top level. If the search does not find it, the
+   path that has been stable longest is **Subscriptions** → `Azure subscription 1` → left nav **Cost
+   Management** → **Cost analysis**.
 2. Set the scope to **Azure subscription 1**.
-3. Choose the **Daily costs** view, then **Group by** → **Meter**.
-4. **Pin to dashboard** (in the toolbar; on some portal versions it is under the **…** menu) → pick
+3. **If you see a page of cards rather than a chart**, you are in *smart views*. The chart-type
+   dropdown and **Group by** exist only in **customizable views** — look for a link or button with
+   that name, or an **⋯ / Settings** control offering to switch. Then choose the **Daily costs**
+   view and **Group by** → **Meter**.
+4. **Pin to dashboard** (in the toolbar; on some portal versions under the **…** menu) → pick
    `Loot Singles — Stage`.
 
 **What to expect**: the SQL meter at about $0.16/day once production exists, and **nothing at all
 from Container Apps**. A Container Apps meter appearing means the free grant is exhausted.
+
+> **If the view switch defeats you, pin whatever Cost analysis shows and move on.** This tile is a
+> convenience. Grouping by meter only makes the signal easier to spot; the signal itself is that
+> *any* Container Apps line item exists at all. The thing that actually protects the cost ceiling is
+> the budget alert in C14, which emails you — a dashboard does not.
 
 ### G3 and G4. SQL free-offer headroom — the only real gauge
 
