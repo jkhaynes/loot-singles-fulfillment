@@ -58,7 +58,11 @@ Against the running container:
 | `curl -i localhost:8080/api/orders` | **`401`**, not HTML |
 | `curl -s localhost:8080/ \| grep 'id="root"'` | Matches — the web build is in the image |
 | `curl -s localhost:8080/orders/1 \| grep 'id="root"'` | Matches — deep links serve the web app |
-| `docker run --rm loot-singles:local whoami` | **Not** `root` |
+| `docker inspect -f '{{.Config.User}}' loot-singles:local` | **Not** `root` or empty |
+
+> The image has an `ENTRYPOINT` and no `CMD`, so an argument is passed *to the application*, not run
+> as a command — `docker run … whoami` would start the web server, not tell you the user. Read the
+> configured user with `inspect`, or override with `--entrypoint id`.
 
 ### The failure that matters most
 
@@ -81,8 +85,10 @@ Protection keys are still in memory, and every scale-to-zero would sign out ever
 
 # Part 2 — The Azure runbook
 
-Run this **twice**: once for `stage`, once for `prod`. Roughly an hour per environment the first
-time, less the second.
+**Not everything here runs twice.** The virtual network, Container Apps environment and Log Analytics
+workspace are built **once** and shared; identities, SQL, the container app and the migrate job are
+built once per environment. The table at the top of Part C says which is which. Roughly an hour for
+the shared pieces plus the first environment, less for the second.
 
 **Everything is done in the Azure portal** at [portal.azure.com](https://portal.azure.com), by
 Product Owner decision (2026-09-22): seeing each resource before it exists is worth more here than
@@ -186,8 +192,15 @@ quietly stops being true.
 | Database | `lootsingles` (free offer) | `lootsingles` (**Basic**) |
 | Container App | `ca-loot-singles-stage` | `ca-loot-singles-prod` |
 | Migrate job | `caj-loot-singles-stage-migrate` | `caj-loot-singles-prod-migrate` |
-| App registration | `github-loot-singles-stage` | `github-loot-singles-prod` |
+| App registration | `github-loot-singles-stage` | `github-loot-singles-production` |
 | GitHub environment | `stage` | **`production`** |
+
+Both environments pull the **same image** from the same public registry — production runs the exact
+artifact stage ran, never a rebuild:
+
+| What | Name |
+|---|---|
+| Container image | `ghcr.io/jkhaynes/loot-singles-fulfillment:sha-<commit>` |
 
 > **Why one Container Apps environment rather than two** (Product Owner decision, 2026-09-23): each
 > one carries a Standard static public IPv4 at **$3.65/month**, and two of them plus production's
@@ -257,7 +270,8 @@ a precise question, and confirming an *absence* by clicking through blades is wh
 | **C1** resource groups | once — creates all three | — |
 | **C2** virtual network and subnet, **C7** Log Analytics, **C8** Container Apps environment | **once** | `rg-loot-singles-shared` |
 | **C3** identities, **C4** SQL server, **C5** database, **C6** network rule, **C9** container app, **C10** migrate job, **C11** database grants | **twice** — once for `stage`, once for `prod` | `rg-loot-singles-<env>` |
-| **C12–C15** GitHub, credentials, budget, domain | see each step | — |
+| **C12–C13** GitHub environment and credential | **twice** — `stage`, then `production` | GitHub + Entra |
+| **C14** budget, **C15** custom domain, **C16** image visibility | once | — |
 
 Do the shared steps first, then everything per-environment for `stage`, then the same for `prod`.
 The shared Container Apps environment must exist before either container app can be created, and its
@@ -817,6 +831,29 @@ Do this after the first successful deployment. It needs no redeploy and can wait
 DNS takes a few minutes to tens of minutes to propagate.
 
 ---
+
+### C16. After the first build — confirm the image can be pulled
+
+**Do this between the first successful build and the first successful deploy.** It cannot be done
+earlier: the package does not exist until something pushes it.
+
+The container app holds no registry credentials by design — there is no secret anywhere in this
+setup (FR-019). That only works if the image is **publicly readable**. GitHub creates the package
+when the first build pushes, and whether it lands public or private depends on the account's package
+settings, so this is a check rather than a step you can pre-empt.
+
+1. Go to your GitHub profile → **Packages** → `loot-singles-fulfillment`.
+2. Read the visibility shown next to the name.
+3. If it is **Private**: **Package settings** → **Danger Zone** → **Change visibility** → **Public**.
+
+**Expected**: Public. Nothing in the image is secret — the connection string arrives as an
+environment variable at runtime and carries no password, and the repository itself is public.
+
+**If you skip this and the package is private**, the deploy's own smoke test catches it, but
+indirectly: the container app accepts the update, fails to pull, never starts, and `/health` times
+out. The revision's status in the portal says `ImagePullBackOff`, which is the real answer.
+
+---
 ## Part D — The checks that matter
 
 Run these after both environments exist. They are the requirements made checkable.
@@ -919,17 +956,36 @@ means a second Container Apps environment exists somewhere and the cost model is
 
 ## Part E — Starting over
 
-If an environment gets into a state you do not understand, delete it and run Part C again. It is
-cheap, it is quick, and nothing outside the resource group is affected. **This is the reason
-everything for one environment lives in one resource group.**
+If an environment gets into a state you do not understand, delete it and run Part C's per-environment
+steps again.
+
+**Read this first: the two environments share infrastructure.** The virtual network, the Container
+Apps environment and the Log Analytics workspace live in `rg-loot-singles-shared` and belong to
+*both*. Only the identities, SQL server, database, container app and migrate job sit in an
+environment's own group. So there are two different resets, and picking the wrong one takes the
+other environment down with it.
+
+**Resetting one environment** — safe, and does not touch the other:
 
 1. Search **Resource groups** → open `rg-loot-singles-stage`.
 2. **Delete resource group** at the top.
 3. It asks you to type the group's name to confirm. Read the resource list it shows you first.
 
-This deletes **everything** in that group: the database and its contents, the app, the identities,
-the workspace. It does not touch the other environment, `rg-loot-singles-dev`, your GitHub settings,
-or your DNS records.
+This deletes the database and its contents, the container app, the migrate job and the identities.
+It leaves the shared virtual network, Container Apps environment and workspace standing, which is
+what makes this safe to do while production keeps serving. Re-run only the per-environment steps of
+Part C; the shared ones are still there.
+
+It does not touch the other environment, `rg-loot-singles-dev`, your GitHub settings, or your DNS.
+
+**Resetting the shared infrastructure** — takes **both** environments offline, so treat it as a last
+resort. Delete `rg-loot-singles-shared`, then both environment groups, then run Part C from the top.
+The Container Apps environment is slow to delete (tens of minutes) and its virtual network cannot be
+removed until it has finished, because the subnet is still delegated to it. Azure shows the
+environment as `ScheduledForDelete` throughout; that is normal, not a stuck state.
+
+> The environment's `ME_cae-loot-singles_…` group disappears on its own with the environment. Never
+> delete it directly.
 
 **Three things live outside the resource group** and need removing separately for a completely fresh
 start:
@@ -950,7 +1006,8 @@ start:
 | `az: command not found` | Your terminal started before the CLI was installed. Open a new PowerShell window (A3). Only Part D needs the CLI. |
 | A portal form rejects a name as already taken | Resource names must be unique in their scope; SQL server names are unique across all of Azure. Add a short suffix and use it consistently (Part B). |
 | `'query' is misspelled or not recognized` under `az monitor log-analytics` | The extension is missing. `az extension add --name log-analytics` (A3). |
-| Looking for `az containerapp job logs` | It does not exist. Job output goes to Log Analytics — see C11, or use the job's **Execution history** blade in the portal. |
+| Looking for `az containerapp job logs` | It does not exist. Job output goes to Log Analytics — use the query in Part D, filtered to the job's name, or the job's **Execution history** blade in the portal. |
+| Revision never starts; status `ImagePullBackOff` | The image is not publicly pullable. The container app holds no registry credentials by design, so the GHCR package must be public — see C16. |
 | `The subscription is not registered to use namespace…` | A provider is not registered. Register it in Subscriptions → Resource providers (A2). |
 | Resources appear in the wrong place | The wrong subscription is selected. Read the subscription shown on every create form (A1). |
 | `Database '...' is not currently available. Please retry the connection later` | The stage database is serverless and paused after 60 minutes idle. Your attempt triggered the resume. Wait ~30 seconds and retry. Production is Basic and always awake. |
