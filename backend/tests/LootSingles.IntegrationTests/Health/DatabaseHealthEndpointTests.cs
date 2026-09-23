@@ -87,15 +87,55 @@ public sealed class DatabaseHealthEndpointTests(SqlServerContainerFixture fixtur
         }
     }
 
+    [Fact]
+    public async Task Is_not_exposed_unless_the_environment_opts_in()
+    {
+        // 019 BR-001 / T050. contracts/health-api.md says this check is production-only, because
+        // each call wakes stage's auto-paused free-tier database and spends about an hour of a
+        // ~55-hour monthly allowance. Until now that was enforced only by deploy-stage.yml choosing
+        // not to call it — the endpoint was registered everywhere and anonymous, so anything that
+        // found stage's public address could drain the allowance and take stage offline until the
+        // 1st of the month.
+        //
+        // Opting in rather than out is the point: a new environment is quiet by default, and an
+        // environment that wants the check has to say so.
+        using var factory = CreateFactory(
+            UnreachableConnectionString,
+            exposeDatabaseEndpoint: null
+        );
+        using var client = factory.CreateClient();
+
+        var databaseHealth = await client.GetAsync("/health/database");
+        var health = await client.GetAsync("/health");
+
+        Assert.Equal(HttpStatusCode.NotFound, databaseHealth.StatusCode);
+
+        // In the same host, so a failure here means the endpoint vanished rather than the app
+        // failing to start.
+        Assert.Equal(HttpStatusCode.OK, health.StatusCode);
+    }
+
     private const string UnreachableServerName = "database-health-unreachable.invalid";
 
     private const string UnreachableConnectionString =
         $"Server={UnreachableServerName};Database=loot-singles;Encrypt=True;Connect Timeout=1";
 
-    private static WebApplicationFactory<Program> CreateFactory(string connectionString) =>
+    /// <param name="exposeDatabaseEndpoint">
+    /// <c>"true"</c> for the environments that run the deploy check, <c>null</c> to leave the
+    /// setting absent as a fresh environment would. The FR-024/FR-025 tests above opt in, because
+    /// they exist to prove what the endpoint does; only the opt-in test itself leaves it unset.
+    /// </param>
+    private static WebApplicationFactory<Program> CreateFactory(
+        string connectionString,
+        string? exposeDatabaseEndpoint = "true"
+    ) =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Production");
             builder.UseSetting("ConnectionStrings:LootSingles", connectionString);
+            if (exposeDatabaseEndpoint is not null)
+            {
+                builder.UseSetting("HealthChecks:ExposeDatabaseEndpoint", exposeDatabaseEndpoint);
+            }
         });
 }

@@ -227,7 +227,53 @@ it.
 - [X] T043 Run the full backend regression — `dotnet test` for both test projects — plus `npm run build` and the oxlint check for the frontend, confirming no existing test broke
 - [X] T044 Run CSharpier over the changed C# files, matching the repository's existing formatting gate
 - [ ] T045 Work through quickstart.md end to end as written, correcting anything that does not match what was built. **Pass done 2026-09-23** over everything checkable without a deployment — Parts 1, A, B, C, D, E, F, G read line by line, with Part B's network and database claims verified live against Azure. Corrected: Part B named the production app registration `github-loot-singles-prod` (it is `github-loot-singles-production`) and listed no container image; Part 2's header said to run everything twice, which stopped being true when the environment became shared; **Part E still described one resource group per environment**, the change the 2026-09-23 clarification called for and never received; Part 1's non-root check ran `docker run … whoami`, which with an `ENTRYPOINT` and no `CMD` starts the web server instead of reporting the user, so it could never have failed; three stale cross-references (Part F job logs → C11, T017 → C4–C5, T018 → C6–C7); and **C16 was added** for the GHCR package visibility the runbook never mentioned. **Outstanding**: the bootstrap step for FR-032 (see T020) and the deployment flow itself, neither of which can be written honestly until something has actually deployed.
-- [ ] T046 Run `/branch-review` and resolve every Required finding before `/speckit-converge` (CLAUDE.md Branch Review Gate)
+- [ ] T046 Run `/branch-review` and resolve every Required finding before `/speckit-converge` (CLAUDE.md Branch Review Gate). **Round 1 done 2026-09-23**: verdict **PASS WITH SUGGESTIONS** — zero Required findings, three Optional, all three accepted by the Product Owner and planned below as T050–T055. Re-run after they are implemented. **Round 2 done 2026-09-23**: verdict **CHANGES REQUESTED** — one Required finding (BR-004) introduced by the round-1 remediation itself, planned below as T056–T058. Re-run after they are implemented.
+
+### Review remediation — round 1 (2026-09-23)
+
+Three Optional findings from `/branch-review`, all accepted. Nothing here blocks the merge; each
+closes a gap the design named but did not enforce.
+
+**BR-001 — `/health/database` is anonymous on stage** (Medium). `contracts/health-api.md` says the
+check is production-only because each call wakes stage's auto-paused free-tier database and spends
+about an hour of a ~55-hour monthly allowance. That is enforced only by `deploy-stage.yml` not
+calling it; the endpoint is registered unconditionally, so anything on the internet can.
+
+- [X] T050 [US3] Add a **failing** regression test in `backend/tests/LootSingles.IntegrationTests/Health/DatabaseHealthEndpointTests.cs` proving the endpoint is exposed where it should not be: with the database health endpoint **disabled** by configuration, `GET /health/database` must return **404** while `GET /health` still returns **200** in the same host. Fails today because `Program.cs` registers the endpoint unconditionally — it currently answers 200 or 503, never 404.
+- [X] T051 [US3] Gate the `/health/database` registration in `backend/src/LootSingles.Api/Program.cs` on a single configuration flag that **defaults to disabled**, so an environment must opt in. Makes T050 pass. Keep the existing 200/503 and no-detail assertions passing by enabling the flag in those tests' host configuration — they are the FR-024/FR-025 coverage and must not be weakened. Record the mechanism in `specs/019-automated-deployment/contracts/health-api.md`, whose "Why production only" section currently states the intent without the means.
+- [X] T052 [US3] [MANUAL] Set the flag on **production's** container app only, leaving stage without it, and document the setting in `quickstart.md` (C9, where the app's configuration is created) and in C16's pre-deploy checks. **Do this before the first production release**: `deploy-production.yml`'s smoke test runs `check /health/database 200`, so a production app without the flag fails its own release.
+
+**BR-002 — `inputs.commit` is interpolated into shell and never validated** (Medium). `deploy-production.yml:47–48` expands the input directly inside a `run:` block, which is the injection pattern GitHub's hardening guidance warns about, and nothing checks the value is a full SHA. `deploy-stage.yml:55` already does this correctly with `${GITHUB_SHA}`.
+
+- [X] T053 Add a **failing** text assertion to `backend/tests/LootSingles.IntegrationTests/Configuration/DeploymentConfigurationTests.cs` proving `.github/workflows/deploy-production.yml` does not expand `${{ inputs.commit }}` inside a `run:` block and does carry a 40-hex-character validation of the commit. Fails today on both halves. Follow the text-assertion style T039 established.
+- [X] T054 Fix `.github/workflows/deploy-production.yml` so the commit reaches the shell through `env:` as a quoted variable, matching `deploy-stage.yml`, and add a `^[0-9a-f]{40}$` guard as the **first** step so a short SHA fails before the migrate job is repointed at an image that does not exist. Makes T053 pass. **Leave the job `name:` interpolation at line 33 alone** — it is not shell, and FR-013 depends on the approver seeing the commit in the panel holding the approval button.
+
+**BR-003 — nothing enforces additive-only migrations** (Low). FR-016 requires schema changes to stay backward-compatible so the automatic rollback in FR-017 restores a working application. The only trace of that rule is a comment.
+
+- [X] T055 Add an assertion to `backend/tests/LootSingles.IntegrationTests/Persistence/MigrationTests.cs` that no file under `Persistence/Migrations/` contains `DropColumn`, `DropTable` or `RenameColumn`. **This guard passes the moment it is written**, because every current migration complies — that is the intended state, not a weak test. It is a guard against a future migration silently making rollback destructive, not a reproduction of a present defect, so no test-first red step applies.
+
+### Review remediation — round 2 (2026-09-23)
+
+One Required finding, introduced by the round-1 remediation itself.
+
+**BR-004 — an unset flag serves the web app instead of 404** (High, Required). With
+`HealthChecks:ExposeDatabaseEndpoint` unset, `/health/database` is not mapped, so
+`MapFallbackToFile("index.html")` catches it and answers **200 with the web app's HTML**. Confirmed
+against the real built application: flag off with a web root present → `200 <!doctype html>…`;
+flag on → `503 Database unavailable.` T050 passes only because its test host has no `index.html`.
+
+The consequence inverts the safety net T052 describes. If production ever lacks the flag — a Part E
+reset, or a container app rebuilt from C9 — `deploy-production.yml`'s `check /health/database 200`
+gets the SPA shell's 200 and **passes**, so FR-024's proof silently disappears and a release whose
+application cannot reach its database is reported successful. Stage's database is still never woken,
+so BR-001's actual aim holds; the defect is only in what an *absent* endpoint looks like.
+
+The fix makes the runbook (C9, C16), `contracts/health-api.md` and T052 true as already written, so
+**no documentation changes** — only code and tests.
+
+- [ ] T056 [US3] Make the T050 test in `backend/tests/LootSingles.IntegrationTests/Health/DatabaseHealthEndpointTests.cs` able to fail: seed a temporary web root containing an `index.html` with `id="root"` and point the host at it with `UseWebRoot`, following `Hosting/SpaFallbackTests.cs`. Keep its assertions unchanged — `/health/database` **404** and `/health` **200** in the same host. **Must fail against the current code**, returning 200 with the web app's HTML; confirm that before starting T057. A real container always has `wwwroot/index.html`, so a test host without one is testing a situation production never has.
+- [ ] T057 [US3] Add `app.MapFallback("/health/{**path}", () => Results.NotFound());` in `backend/src/LootSingles.Api/Program.cs`, beside the existing `/api` fallback and **before** `MapFallbackToFile("index.html")`, so an unmapped health path is a real 404 rather than the web app. Extend the comment above the `/api` fallback to say both prefixes are server-owned — it already names this exact trap ("a test asserting 404 passes for the wrong reason"). Makes T056 pass. No client-side route lives under `/health`, so nothing in the web app is shadowed.
+- [ ] T058 [US3] Prove the new catch-all does not shadow the explicit routes, in `backend/tests/LootSingles.IntegrationTests/Health/DatabaseHealthEndpointTests.cs`: with the flag **on** and the same seeded web root, `/health/database` returns **503** whose body is not HTML (no `id="root"`), and `/health` returns **200**. The `{**path}` catch-all can match an empty remainder, so this pins that explicit endpoints still outrank the fallback — the property the whole fix depends on. Passes on creation after T057; it guards the fix rather than reproducing the defect.
 
 ---
 

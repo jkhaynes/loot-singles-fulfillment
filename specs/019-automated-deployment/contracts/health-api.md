@@ -57,6 +57,17 @@ consumes at least an hour of a roughly 55-hour monthly allowance. Production's i
 the check costs nothing and needs no retry loop. A broken stage database announces itself the moment
 anyone opens stage.
 
+**How that is enforced** (amended 2026-09-23, review finding BR-001): the endpoint is registered only
+when `HealthChecks:ExposeDatabaseEndpoint` is true, and it is **absent by default**. Production sets
+it; stage does not. Before this, "production only" described which workflow called the endpoint, not
+where it existed — it was registered in every environment and anonymous, so anything that found
+stage's public address could drain the allowance and take stage offline until the 1st of the month.
+
+Opting in rather than out matters: a new environment is quiet until it asks for the check, so the
+allowance cannot be spent by an environment nobody thought about. Where the flag is unset the route
+does not exist at all, and `GET /health/database` returns `404` — a caller cannot distinguish "not
+exposed here" from "no such endpoint", which is the intended answer.
+
 ## Routing contract (FR-004)
 
 The web app is served from the same origin, which makes fallback order part of this contract.

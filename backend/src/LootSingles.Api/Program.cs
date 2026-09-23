@@ -219,36 +219,46 @@ app.MapGet("/health", () => Results.Ok()).AllowAnonymous();
 // from the database — which a successful migration does not, because the migrate job runs under a
 // different identity (research.md §7). Called by production's deploy smoke test only, and never by
 // the container probe.
-app.MapGet(
-        "/health/database",
-        async (
-            LootSinglesDbContext database,
-            ILoggerFactory loggerFactory,
-            CancellationToken cancellationToken
-        ) =>
-        {
-            try
+//
+// 019 T051 / BR-001. Registered only where an environment opts in, and absent by default. The
+// endpoint is anonymous and touches the database, so on stage — whose free-tier database auto-pauses
+// — every call from anywhere on the internet wakes it and spends about an hour of a ~55-hour monthly
+// allowance. Left always-on, background scanning alone could exhaust that and make stage unusable
+// until the 1st. Production sets the flag because its release checks need the proof and its database
+// is always awake; stage does not set it and deploy-stage.yml does not ask.
+if (builder.Configuration.GetValue<bool>("HealthChecks:ExposeDatabaseEndpoint"))
+{
+    app.MapGet(
+            "/health/database",
+            async (
+                LootSinglesDbContext database,
+                ILoggerFactory loggerFactory,
+                CancellationToken cancellationToken
+            ) =>
             {
-                _ = await database.Employees.AnyAsync(cancellationToken);
-                return Results.Ok();
+                try
+                {
+                    _ = await database.Employees.AnyAsync(cancellationToken);
+                    return Results.Ok();
+                }
+                catch (Exception exception)
+                {
+                    // The reason goes to the operator, never to the caller: an anonymous caller learns
+                    // only that the database is unreachable, which a 500 on the sign-in page already
+                    // reveals. Server names, the identity's client id and exception detail stay out of
+                    // the response body (FR-025).
+                    loggerFactory
+                        .CreateLogger("LootSingles.Api.HealthDatabase")
+                        .LogError(exception, "Database health check failed.");
+                    return Results.Text(
+                        "Database unavailable.",
+                        statusCode: StatusCodes.Status503ServiceUnavailable
+                    );
+                }
             }
-            catch (Exception exception)
-            {
-                // The reason goes to the operator, never to the caller: an anonymous caller learns
-                // only that the database is unreachable, which a 500 on the sign-in page already
-                // reveals. Server names, the identity's client id and exception detail stay out of
-                // the response body (FR-025).
-                loggerFactory
-                    .CreateLogger("LootSingles.Api.HealthDatabase")
-                    .LogError(exception, "Database health check failed.");
-                return Results.Text(
-                    "Database unavailable.",
-                    statusCode: StatusCodes.Status503ServiceUnavailable
-                );
-            }
-        }
-    )
-    .AllowAnonymous();
+        )
+        .AllowAnonymous();
+}
 
 app.MapControllers();
 

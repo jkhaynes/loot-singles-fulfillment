@@ -39,13 +39,35 @@ jobs:
       id-token: write
 
     steps:
+      # The input reaches the shell as an environment variable, never as ${{ }} inside the script.
+      # GitHub expands ${{ }} before bash parses the line, so interpolating caller-supplied text
+      # directly into a run block puts it inside a script running with id-token: write.
+      # deploy-stage.yml has always done it this way with ${GITHUB_SHA}; this now matches.
+      - name: Check the commit is a full SHA
+        shell: bash
+        env:
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "The commit input must be a full 40-character SHA."
+            echo "Got: $COMMIT"
+            echo
+            echo "git log prints short SHAs, so this is an easy mistake. Use:"
+            echo "  git rev-parse <ref>"
+            exit 1
+          fi
+
       - name: Resolve the image
         id: image
         shell: bash
+        env:
+          COMMIT: ${{ inputs.commit }}
         run: |
+          set -euo pipefail
           repository="ghcr.io/${{ github.repository }}"
-          echo "ref=${repository,,}:sha-${{ inputs.commit }}" >> "$GITHUB_OUTPUT"
-          echo "Deploying ${repository,,}:sha-${{ inputs.commit }}"
+          echo "ref=${repository,,}:sha-${COMMIT}" >> "$GITHUB_OUTPUT"
+          echo "Deploying ${repository,,}:sha-${COMMIT}"
 
       - name: Sign in to Azure
         uses: azure/login@v2

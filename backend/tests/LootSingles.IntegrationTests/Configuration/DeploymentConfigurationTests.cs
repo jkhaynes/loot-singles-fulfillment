@@ -146,6 +146,49 @@ public sealed class DeploymentConfigurationTests
             && Path.GetFileName(relative) != "Dockerfile";
     }
 
+    [Fact]
+    public void Production_deploy_workflow_validates_the_commit_and_keeps_it_out_of_the_shell()
+    {
+        // 019 BR-002 / T053. Two problems with one fix.
+        //
+        // GitHub expands ${{ }} before the shell parses the line, so expanding a dispatch input
+        // inside a `run:` block puts caller-supplied text into a script running in a job that holds
+        // id-token: write. deploy-stage.yml already does the equivalent job correctly, passing
+        // ${GITHUB_SHA} as a shell variable — production simply did not follow it.
+        //
+        // And nothing checked the value was a full SHA. `git log` prints short ones, so typing one
+        // is the natural mistake; it yields a tag that does not exist, and the failure surfaces as
+        // an image-pull error after the migrate job has already been repointed at it.
+        var workflow = ReadWorkflow("deploy-production.yml");
+
+        // Every mention of the input below `steps:` must be an `env:` mapping handing it to the
+        // shell as a variable. Asserting "appears nowhere" would also forbid that mapping, which is
+        // the fix itself — the point is where the expansion happens, not whether the name occurs.
+        var steps = workflow[workflow.IndexOf("steps:", StringComparison.Ordinal)..];
+        var mentions = steps
+            .Split('\n')
+            .Where(line => line.Contains("inputs.commit", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.NotEmpty(mentions);
+        foreach (var line in mentions)
+        {
+            Assert.Equal("COMMIT: ${{ inputs.commit }}", line.Trim());
+        }
+
+        // The guard itself. Asserting the pattern rather than a step name, because a renamed step
+        // should not fail this and a removed guard must.
+        Assert.Contains("[0-9a-f]{40}", workflow, StringComparison.Ordinal);
+
+        // The job name is NOT shell, and FR-013 depends on the approver seeing the commit in the
+        // panel holding the "Review deployments" button. Hardening the shell must not cost that.
+        Assert.Contains(
+            "name: Deploy ${{ inputs.commit }} to production",
+            workflow,
+            StringComparison.Ordinal
+        );
+    }
+
     private static string ReadWorkflow(string fileName) =>
         File.ReadAllText(Path.Combine(FindRepositoryRoot(), ".github", "workflows", fileName));
 

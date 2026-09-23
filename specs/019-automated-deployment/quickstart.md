@@ -551,6 +551,21 @@ Then set the three things the create form does not cover:
        ```
        Note there is **no password** in that string — that is the point of C4.
 
+   - **Environment variables** → **+ Add**, **production only** — skip this one entirely on stage:
+     - **Name**: `HealthChecks__ExposeDatabaseEndpoint`
+     - **Value**: `true`
+
+   > **Why only production.** `/health/database` is anonymous and reads from the database, and it
+   > exists only where this variable is set. Production's release check needs it and production's
+   > database is always awake, so it costs nothing there. On stage the database is the free offer and
+   > auto-pauses: every call from anywhere on the internet would wake it and spend about an hour of a
+   > ~55-hour monthly allowance, and exhausting that allowance takes stage offline until the 1st.
+   >
+   > **Production will not deploy without it.** `deploy-production.yml`'s smoke test runs
+   > `check /health/database 200`, so a production app missing this variable fails its own release
+   > with a 404. Two underscores, not a colon — that is how .NET reads nested configuration from an
+   > environment variable.
+
    > Container Apps only allows **fixed CPU/memory pairs**, at a 1:2 ratio. `0.25` CPU goes with
    > `0.5 Gi`. If `0.5 Gi` is not offered, set the CPU value first — the memory list changes with it.
 
@@ -852,6 +867,16 @@ environment variable at runtime and carries no password, and the repository itse
 **If you skip this and the package is private**, the deploy's own smoke test catches it, but
 indirectly: the container app accepts the update, fails to pull, never starts, and `/health` times
 out. The revision's status in the portal says `ImagePullBackOff`, which is the real answer.
+
+**While you are here, confirm production carries its health-check flag** (C9). Without it the
+release fails on `check /health/database 200` with a 404:
+
+```powershell
+az containerapp show -g "rg-loot-singles-prod" -n "ca-loot-singles-prod" `
+  --query "properties.template.containers[0].env[?name=='HealthChecks__ExposeDatabaseEndpoint']" -o table
+```
+
+**Expected**: one row, value `true`. Running the same query against stage must return **nothing**.
 
 ---
 ## Part D — The checks that matter
