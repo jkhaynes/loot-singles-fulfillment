@@ -220,27 +220,36 @@ getting them right once means never typing a name again.
 | Subnet | `snet-apps` (`10.20.0.0/27`) | `snet-apps` (`10.30.0.0/27`) |
 | App identity | `id-loot-singles-stage-app` | `id-loot-singles-prod-app` |
 | Migrate identity | `id-loot-singles-stage-migrate` | `id-loot-singles-prod-migrate` |
-| SQL server | `sql-loot-singles-stage-<suffix>` | `sql-loot-singles-prod-<suffix>` |
+| SQL server | `loot-singles-stage-sql` | `loot-singles-prod-sql` |
 | Database | `lootsingles` | `lootsingles` |
 | Log Analytics | `log-loot-singles-stage` | `log-loot-singles-prod` |
 | Container Apps env | `cae-loot-singles-stage` | `cae-loot-singles-prod` |
 | Container App | `ca-loot-singles-stage` | `ca-loot-singles-prod` |
 | Migrate job | `caj-loot-singles-stage-migrate` | `caj-loot-singles-prod-migrate` |
 
-**`<suffix>` is not optional.** SQL server names must be unique across *all of Azure*, not just your
-subscription, so `sql-loot-singles-prod` is almost certainly taken. Add something of your own — your
-initials plus a number, for example `sql-loot-singles-prod-jh01`.
+**SQL server names must be unique across *all of Azure***, not just your subscription. The names
+above follow the convention the existing `loot-singles-dev-sql` already set. If one is taken, add a
+short suffix of your own (`loot-singles-prod-sql-jh01`) and keep it consistent.
 
-**Pick a region** close to the shop and use it everywhere. `eastus2` is used below; replace it if you
-choose another. Not every service is in every region, so if a later command complains about the
-location, that is why.
+**The region is westus2, and that decision is already made.** The existing `loot-singles-dev`
+database is a free-offer database in westus2, and Azure applies the region of the *first* free-offer
+database to **every** free database in the subscription — permanently, with no way to change it.
+Stage's free database therefore has to be westus2 as well. Using westus2 for everything keeps the
+environments beside dev and avoids cross-region latency between the app and its database.
 
-> **The region you use for stage's free database is permanent.** Azure applies the region of the
-> *first* free-offer database to every free database in the subscription, and it cannot be changed
-> afterwards. Choose deliberately.
+Region does **not** affect price: SQL Basic is $0.161/day in eastus2, westus2, westus3 and centralus
+alike. There was never a cheaper region to find.
+
+> **Existing resources this runbook does not touch.** `rg-loot-singles-dev` holds
+> `loot-singles-dev-sql` and the `loot-singles-dev` database used for local development. Leave it
+> alone — nothing below modifies it, and stage and prod each get their own SQL server rather than
+> sharing that one. Logical servers are free (you pay per database), and virtual network rules are
+> set at *server* level, so sharing one server would place stage's subnet and prod's subnet on the
+> same network boundary. FR-006 requires neither environment to be able to reach the other's data.
 >
-> Region does **not** affect price: SQL Basic is $0.161/day in eastus2, westus2, westus3 and
-> centralus alike. Pick for latency to the shop, not for cost.
+> Worth knowing about dev while you are here: it is configured `FreeLimitExhaustionBehavior:
+> AutoPause`, so if it burns its 100,000 vCore-seconds it becomes **inaccessible until the 1st of
+> the next month**. That is the same behaviour that ruled the free offer out for production.
 
 ### The variables block
 
@@ -248,9 +257,9 @@ Paste this at the start of each environment's run, editing the first three lines
 terminal, paste it again — variables do not survive.
 
 ```powershell
-$ENVNAME = "stage"                      
-$LOCATION = "eastus2"
-$SQLSUFFIX = "jh01"                     
+$ENVNAME = "stage"                      # or "prod" on the second run
+$LOCATION = "westus2"                   # locked: dev's free-offer database fixed the region
+$SQLSUFFIX = ""                         # only if the server name is taken, e.g. "-jh01"
 
 $RG      = "rg-loot-singles-$ENVNAME"
 $VNET    = "vnet-loot-singles-$ENVNAME"
@@ -259,7 +268,7 @@ $VNETCIDR   = if ($ENVNAME -eq "prod") { "10.30.0.0/16" } else { "10.20.0.0/16" 
 $SUBNETCIDR = if ($ENVNAME -eq "prod") { "10.30.0.0/27" } else { "10.20.0.0/27" }
 $IDAPP   = "id-loot-singles-$ENVNAME-app"
 $IDMIG   = "id-loot-singles-$ENVNAME-migrate"
-$SQLSRV  = "sql-loot-singles-$ENVNAME-$SQLSUFFIX"
+$SQLSRV  = "loot-singles-$ENVNAME-sql$SQLSUFFIX"
 $SQLDB   = "lootsingles"
 $LAW     = "log-loot-singles-$ENVNAME"
 $CAE     = "cae-loot-singles-$ENVNAME"
@@ -302,7 +311,7 @@ $7–8/month and is a decision for the Product Owner, not a workaround to improv
 
 ```powershell
 # The only variable C0 needs. Use the region you intend for the real environments.
-$LOCATION = "eastus2"
+$LOCATION = "westus2"                    # locked by the existing free-offer database in dev
 
 az group create --name "rg-spike-delete-me" --location $LOCATION
 az network vnet create --resource-group "rg-spike-delete-me" --name "vnet-spike" `
