@@ -505,22 +505,48 @@ environment variables in C12.
 
 ### C10. The migrate job
 
-Same image, run with a `migrate` argument, under the **migrate** identity.
+Eventually this runs the *same image* as the container app, with a `migrate` argument, under the
+**migrate** identity. It exists so schema changes are applied by something that is not the
+internet-facing application (FR-021).
 
-1. Search **Container App Jobs** → **+ Create**.
-2. **Basics**: resource group `rg-loot-singles-stage`, name **`caj-loot-singles-stage-migrate`**,
-   region **West US 2**, environment `cae-loot-singles-stage`.
-3. **Trigger type**: **Manual**.
-4. **Container** tab: quickstart image for now; **Command override / Arguments**: set arguments to
-   **`migrate`**.
-5. **Review + create** → **Create**.
-6. **Settings → Identity → User assigned → + Add** → **`id-loot-singles-stage-migrate`**.
-7. **Environment variables**: the same `ConnectionStrings__LootSingles` as C9 but with the
-   **migrate** identity's Client ID.
+**It uses the same environment as the container app: `cae-loot-singles-stage`.** Not a new one. The
+environment is what places the job inside `snet-apps`, so its outbound traffic comes from the subnet
+the SQL virtual network rule trusts. A job in any other environment could not reach the database.
 
-> The two connection strings differ **only** in the `User Id=` GUID. Getting them the wrong way round
-> is the single easiest mistake here and it fails in a confusing way — the app would be able to
-> change schema, and the migrate job would not. Paste carefully.
+1. **+ Create a resource** → search **"Container Apps Job"** → **Create**.
+2. **Basics**:
+   - Resource group `rg-loot-singles-stage`
+   - Job name **`caj-loot-singles-stage-migrate`**
+   - Region **West US 2**
+   - **Container Apps Environment**: **`cae-loot-singles-stage`** — the same one as C9
+   - **Trigger type**: **Manual**
+3. **Container** tab. **Jobs do not offer a quickstart image** — that is a Container *App*
+   convenience this form does not have — so give it Microsoft's sample job image as a placeholder:
+   - **Image source**: Docker Hub or other registries
+   - **Image type**: Public
+   - **Registry login server**: `mcr.microsoft.com`
+   - **Image and tag**: `k8se/quickstart-jobs:latest`
+   - **CPU and Memory**: `0.25` CPU, `0.5 Gi` — same pairing rule as C9
+   - **Command override**: leave empty. **Arguments**: `migrate`
+
+   > The placeholder is thrown away by the first deployment, which replaces the image with the real
+   > one from GHCR. The job only needs to *exist* now, so the workflow has something to update and so
+   > you can run the first migration by hand. Running it before the real image is in place just fails
+   > harmlessly — the sample image does not understand a `migrate` argument.
+
+4. **Review + create** → **Create**.
+5. **Settings → Identity → User assigned → + Add** → **`id-loot-singles-stage-migrate`** → **Add**.
+6. **Environment variables** (on the job's container settings, same place as C9): add
+   `ConnectionStrings__LootSingles` with the **migrate** identity's Client ID:
+   ```
+   Server=tcp:loot-singles-stage-sql.database.windows.net,1433;Database=lootsingles;Authentication=Active Directory Managed Identity;User Id=<MIGRATE identity Client ID from C3>;Encrypt=True;
+   ```
+
+> **The two connection strings differ only in the `User Id=` GUID**, and swapping them is the
+> easiest mistake in this whole runbook. It also fails in a way that does not look like a mistake:
+> the application would silently gain permission to change database schema — exactly what FR-021
+> forbids — while the migrate job would lose it and fail on the first deployment. Check the GUID
+> against C3 before saving, rather than after something breaks.
 
 ---
 
@@ -770,6 +796,7 @@ start:
 | Looking for `az containerapp job logs` | It does not exist. Job output goes to Log Analytics — see C11, or use the job's **Execution history** blade in the portal. |
 | `The subscription is not registered to use namespace…` | A provider is not registered. Register it in Subscriptions → Resource providers (A2). |
 | Resources appear in the wrong place | The wrong subscription is selected. Read the subscription shown on every create form (A1). |
+| No quickstart image option on a Container Apps **Job** | Jobs do not offer one. Use the public sample `mcr.microsoft.com` / `k8se/quickstart-jobs:latest` as a placeholder; the first deployment replaces it (C10). |
 | CPU or memory not on the Scale blade | They live with the container: **Containers → Edit and deploy → click the container**. Scale only carries replica counts. Container Apps allows fixed CPU/memory pairs at a 1:2 ratio (0.25 CPU with 0.5 Gi). |
 | A browse blade has no **+ Create** button | Use **+ Create a resource** at the top left of the portal home and search the resource type there. The Marketplace route always works; some browse blades do not offer Create. |
 | A create form shows a red validation error you do not understand | The **Review + create** tab lists every setting about to be applied; read it there. Portal labels drift, so a field named differently from this runbook is expected — the search box at the top finds any resource type or setting by name. |
