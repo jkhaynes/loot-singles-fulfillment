@@ -9,9 +9,9 @@ Three parts:
    anything on Azure.
 3. **What only a real deployment proves** — the handful of checks no script or test can stand in for.
 
-Part 2 is a checklist rather than a script by Product Owner decision (2026-09-22): it is run twice,
-ever, and a script written against a subscription nobody can test first is harder to trust than
-commands you can read. Nothing in this repository forbids scripting it later.
+Part 2 is done in the Azure portal, by Product Owner decision (2026-09-22): it is run twice, ever,
+seeing each resource before it exists is worth more than reproducibility, and it is how you learn
+where things live. Nothing in this repository forbids scripting it later.
 
 ---
 
@@ -80,137 +80,89 @@ Protection keys are still in memory, and every scale-to-zero would sign out ever
 
 # Part 2 — The Azure runbook
 
-Run this **twice**: once for `stage`, once for `prod`. Roughly 45 minutes per environment the first
-time.
+Run this **twice**: once for `stage`, once for `prod`. Roughly an hour per environment the first
+time, less the second.
 
-All commands are **PowerShell**. Open PowerShell, not Git Bash — the variable syntax below is
-PowerShell's, and Azure CLI on Windows is a `.cmd` shim that Git Bash does not always resolve.
+**Everything is done in the Azure portal** at [portal.azure.com](https://portal.azure.com), by
+Product Owner decision (2026-09-22): seeing each resource before it exists is worth more here than
+reproducibility, and it is how you learn where things live for the day something breaks.
 
-## Part A — Before you start (once per machine)
+The one exception is **Part D**, the verification checks, which stay as CLI commands. Those ask
+precise questions — "show me every firewall rule on this server" — and confirming an *absence* by
+clicking through blades is exactly where a missed setting hides.
 
-### A1. Open a *new* terminal
+## Part A — Before you start
 
-Azure CLI was installed after your current terminals were opened. An installer updates the system
-PATH, but already-running shells keep the PATH they started with, so `az` will appear "not found"
-until you open a fresh window. Close PowerShell and open it again.
+### A1. Sign in and confirm the subscription
+
+Open [portal.azure.com](https://portal.azure.com) and sign in.
+
+Check the subscription you are about to build in: click your account avatar (top right), or search
+**Subscriptions**. You should see **`Azure subscription 1`**
+(`5bdba28d-1561-47b0-b51a-d93c55793db1`).
+
+**Why this matters more than it looks**: every resource below lands in whichever subscription the
+form has selected. Building production in the wrong one is invisible until the bill arrives, and the
+portal's create forms always show the subscription — read it each time rather than trusting the
+default.
+
+**If sign-in asks for multi-factor authentication**, that is expected: Azure requires MFA for
+sign-ins. Complete the prompt. This affects you, not the deployment — GitHub Actions signs in as a
+workload identity through the federated credential in C13, and no user MFA policy applies to it.
+
+### A2. Register the resource providers
+
+Azure requires each service to be switched on for a subscription before it can be used. The portal
+usually registers a provider for you when you create the first resource of that type, but doing it
+up front avoids a create failing several fields into a form.
+
+1. Search **Subscriptions** → open `Azure subscription 1` → **Settings** → **Resource providers**.
+2. Search for each of these, select it, and click **Register** if the status is not already
+   *Registered*:
+   - `Microsoft.App` — Container Apps
+   - `Microsoft.OperationalInsights` — Log Analytics
+   - `Microsoft.Sql` — Azure SQL
+   - `Microsoft.Network` — virtual networks
+   - `Microsoft.ManagedIdentity` — managed identities
+
+Registration takes a few minutes and runs in the background. `Microsoft.Sql` and `Microsoft.Network`
+are probably already registered, since `loot-singles-dev-sql` exists.
+
+### A3. Optional — set up the CLI for Part D only
+
+Part C needs no command line. Part D's verification checks do, and they are worth running.
+
+Open a **new** PowerShell window (a shell opened before Azure CLI was installed will not find it),
+then:
 
 ```powershell
 az version
-```
-
-**Expected**: JSON showing `"azure-cli": "2.90.0"` or newer.
-
-**If it fails**: `az` is installed at `C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd`. If a
-new terminal still cannot find it, use that full path everywhere below, or add
-`C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin` to your PATH and open another new terminal.
-
-### A2. Sign in
-
-```powershell
 az login
+az account show --query "{name:name, id:id}" -o table
+az extension add --name log-analytics    # needed by Part D's log query
 ```
 
-**What happens**: a browser window opens asking you to pick an account. Choose the one that owns the
-Azure subscription. The browser will say you can close it; the terminal then prints your
-subscriptions as a table.
-
-**If no browser opens** (a remote session, for example): `az login --use-device-code` prints a code
-and a URL to enter it on another device.
-
-**If it says authentication failed for a tenant and then "No subscriptions found"**, look for
-`AADSTS50076` and `Status_InteractionRequired` in the message. That means sign-in worked but the
-CLI could not get a token for that directory without multi-factor authentication — either a
-Conditional Access policy or Microsoft's mandatory-MFA requirement for Azure sign-ins. The
-enumeration failing is *why* no subscriptions were listed; it does not mean you have none.
-
-Sign in again scoped to the tenant the error names, which forces an interactive MFA prompt:
+**If `az login` reports `AADSTS50076` / `Status_InteractionRequired` and then "No subscriptions
+found"**: sign-in worked, but the CLI could not get a token for the directory without MFA. The
+enumeration failing is *why* nothing was listed — it does not mean you have no subscription. Sign in
+scoped to the tenant the error names, which forces an interactive prompt:
 
 ```powershell
 az login --tenant <the tenant id from the error>
-```
-
-Then confirm what you actually have:
-
-```powershell
 az account list --query "[].{name:name, id:id, state:state}" -o table
 ```
 
-If *that* is empty, the account genuinely has no Azure subscription and one must be created before
-any of Part C can run.
-
-This affects you, not the deployment: GitHub Actions signs in as a workload identity through the
-federated credential in C12, which no user MFA policy applies to.
-
-### A3. Pick the right subscription
-
-```powershell
-az account show --query "{name:name, id:id, tenant:tenantId}" -o table
-```
-
-That is the subscription every command below will use. If it is the wrong one:
-
-```powershell
-az account list --query "[].{name:name, id:id}" -o table
-az account set --subscription "<the name or id you want>"
-```
-
-**Why this matters more than it looks**: every command below silently targets whatever is selected
-here. Creating production resources in the wrong subscription is the single most common way this
-goes wrong, and it is invisible until the bill arrives.
-
-### A4. Register the resource providers
-
-Azure requires each service to be switched on for your subscription before you can use it. A brand
-new subscription usually has none of these registered, and the error you get without them
-("The subscription is not registered to use namespace…") does not obviously tell you to do this.
-
-```powershell
-az provider register --namespace Microsoft.App
-az provider register --namespace Microsoft.OperationalInsights
-az provider register --namespace Microsoft.Sql
-az provider register --namespace Microsoft.Network
-az provider register --namespace Microsoft.ManagedIdentity
-```
-
-Registration takes a few minutes and runs in the background. Check it:
-
-```powershell
-az provider show --namespace Microsoft.App --query registrationState -o tsv
-```
-
-**Expected**: `Registered`. If it says `Registering`, wait a minute and run it again. Do not continue
-until all five say `Registered`.
-
-### A5. Add the Log Analytics extension
-
-Azure CLI ships a core set of commands and adds the rest as extensions. Searching stored logs is one
-of the extras, and you need it in C9 and in Part D. Installing it now avoids being prompted
-mid-troubleshooting.
-
-```powershell
-az extension add --name log-analytics
-az extension list --query "[].name" -o tsv
-```
-
-**Expected**: `log-analytics` appears in the list.
-
-### A6. Get your own Entra object ID
-
-Step C4 makes *you* the SQL server's administrator, which needs your object ID — a GUID identifying
-your account, not your email address.
-
-```powershell
-az ad signed-in-user show --query "{name:displayName, objectId:id}" -o table
-```
-
-Write both values down. You need them in C4.
+**If `az` is not found at all**: it installs to
+`C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd`. Use that full path, or add its folder to
+your PATH and open another new terminal.
 
 ---
 
-## Part B — Decide every name before you start
+## Part B — The names, decided once
 
-Fill this in for the environment you are building. The commands in Part C use these variables, so
-getting them right once means never typing a name again.
+Use these exactly. Consistency between the two environments is a requirement, not a preference:
+FR-029 says stage must carry every protection production does, and mismatched names are how that
+quietly stops being true.
 
 | What | `stage` | `prod` |
 |---|---|---|
@@ -226,174 +178,135 @@ getting them right once means never typing a name again.
 | Container Apps env | `cae-loot-singles-stage` | `cae-loot-singles-prod` |
 | Container App | `ca-loot-singles-stage` | `ca-loot-singles-prod` |
 | Migrate job | `caj-loot-singles-stage-migrate` | `caj-loot-singles-prod-migrate` |
+| App registration | `github-loot-singles-stage` | `github-loot-singles-prod` |
+| GitHub environment | `stage` | **`production`** |
 
-**SQL server names must be unique across *all of Azure***, not just your subscription. The names
-above follow the convention the existing `loot-singles-dev-sql` already set. If one is taken, add a
-short suffix of your own (`loot-singles-prod-sql-jh01`) and keep it consistent.
+Two of those are easy to get wrong:
 
-**The region is westus2, and that decision is already made.** The existing `loot-singles-dev`
-database is a free-offer database in westus2, and Azure applies the region of the *first* free-offer
-database to **every** free database in the subscription — permanently, with no way to change it.
-Stage's free database therefore has to be westus2 as well. Using westus2 for everything keeps the
-environments beside dev and avoids cross-region latency between the app and its database.
+- **SQL server names are unique across all of Azure**, not just your subscription. These follow the
+  convention `loot-singles-dev-sql` already set, so they are likely free. If one is rejected, add a
+  short suffix (`loot-singles-prod-sql-jh01`) and use it everywhere.
+- **The GitHub environment for production is `production`, not `prod`.** The federated credential in
+  C13 matches on that string exactly, and a mismatch fails at deploy time with an unhelpful message.
+
+### The region is West US 2, and it is not a choice
+
+The existing `loot-singles-dev` database uses the SQL free offer, and Azure applies the region of the
+**first** free-offer database to **every** free database in the subscription — permanently, with no
+way to change it. Stage's free database must therefore be West US 2. Putting everything there keeps
+the environments beside dev and avoids cross-region latency between an app and its database.
 
 Region does **not** affect price: SQL Basic is $0.161/day in eastus2, westus2, westus3 and centralus
 alike. There was never a cheaper region to find.
 
-> **Existing resources this runbook does not touch.** `rg-loot-singles-dev` holds
-> `loot-singles-dev-sql` and the `loot-singles-dev` database used for local development. Leave it
-> alone — nothing below modifies it, and stage and prod each get their own SQL server rather than
-> sharing that one. Logical servers are free (you pay per database), and virtual network rules are
-> set at *server* level, so sharing one server would place stage's subnet and prod's subnet on the
-> same network boundary. FR-006 requires neither environment to be able to reach the other's data.
->
-> Worth knowing about dev while you are here: it is configured `FreeLimitExhaustionBehavior:
-> AutoPause`, so if it burns its 100,000 vCore-seconds it becomes **inaccessible until the 1st of
-> the next month**. That is the same behaviour that ruled the free offer out for production.
+### Existing resources this runbook does not touch
 
-### The variables block
+`rg-loot-singles-dev` holds `loot-singles-dev-sql` and the `loot-singles-dev` database used for local
+development. **Leave it alone.** Nothing below modifies it, and stage and prod each get their own SQL
+server rather than sharing that one — logical servers are free (you pay per database), and virtual
+network rules are set at *server* level, so one shared server would place stage's subnet and prod's
+subnet on the same network boundary. FR-006 requires neither environment to be able to reach the
+other's data.
 
-Paste this at the start of each environment's run, editing the first three lines. If you close the
-terminal, paste it again — variables do not survive.
+Worth knowing while you are here: dev is configured to **auto-pause on exhaustion**, so if it burns
+its 100,000 free vCore-seconds it becomes inaccessible until the 1st of the next month. That is the
+same behaviour that ruled the free offer out for production.
 
-```powershell
-$ENVNAME = "stage"                      # or "prod" on the second run
-$LOCATION = "westus2"                   # locked: dev's free-offer database fixed the region
-$SQLSUFFIX = ""                         # only if the server name is taken, e.g. "-jh01"
+---
+## Part C — The steps, in the Azure portal
 
-$RG      = "rg-loot-singles-$ENVNAME"
-$VNET    = "vnet-loot-singles-$ENVNAME"
-$SUBNET  = "snet-apps"
-$VNETCIDR   = if ($ENVNAME -eq "prod") { "10.30.0.0/16" } else { "10.20.0.0/16" }
-$SUBNETCIDR = if ($ENVNAME -eq "prod") { "10.30.0.0/27" } else { "10.20.0.0/27" }
-$IDAPP   = "id-loot-singles-$ENVNAME-app"
-$IDMIG   = "id-loot-singles-$ENVNAME-migrate"
-$SQLSRV  = "loot-singles-$ENVNAME-sql$SQLSUFFIX"
-$SQLDB   = "lootsingles"
-$LAW     = "log-loot-singles-$ENVNAME"
-$CAE     = "cae-loot-singles-$ENVNAME"
-$CAAPP   = "ca-loot-singles-$ENVNAME"
-$CAJOB   = "caj-loot-singles-$ENVNAME-migrate"
-$IMAGE   = "ghcr.io/jkhaynes/loot-singles-fulfillment:sha-<commit>"
-```
+Everything below is done at **[portal.azure.com](https://portal.azure.com)**. Do the steps in order;
+later ones need earlier ones.
 
-Check it took:
+**Why the portal rather than the CLI**: you see what you are creating before it exists, every blade
+has a **Review + create** step that shows the whole configuration, and the subscription is visible on
+every form instead of being whatever the shell last selected. It is also how you learn where things
+live, which matters the first time something breaks.
 
-```powershell
-"$RG / $SQLSRV / $CAE"
-```
+**The cost of that choice, stated plainly**: the portal cannot guarantee stage and production are
+configured identically the way re-running a command can, and FR-029 requires stage to carry exactly
+the protections production does. That is why **Part D is not optional** — it is the check that the
+two environments really match. Part D stays as CLI commands because "show me every firewall rule" is
+a precise question, and confirming an *absence* by clicking through blades is where mistakes hide.
+
+**Do the whole of Part C for `stage` first, then repeat it for `prod`.** Names come from Part B.
+
+> **Portal wording drifts.** Field labels and blade layouts change between visits. Where a label
+> below does not match what you see, the **search box at the top of the portal** finds any resource
+> type or setting by name, and the **Review + create** tab always lists what is actually about to be
+> created. If something looks materially different from what is described here, that is worth
+> telling me rather than guessing.
 
 ---
 
-## Part C — The steps
-
-Do these in order. Later steps depend on earlier ones.
-
-> **Before C1 and everything after it, paste Part B's variables block into your terminal.** Every
-> step from C1 on uses those variables, and PowerShell forgets them when the window closes — so
-> paste the block again at the start of each session, and again when you switch from `stage` to
-> `prod`. A command reporting `expected one argument` means a variable is empty, not that the
-> command is wrong. C0 below is the exception: it is deliberately self-contained.
-
 ### C0. Verify the one thing that can stop this feature
 
-**Do this before creating anything you intend to keep.** The design assumes a subnet delegated to
-Container Apps will accept a SQL service endpoint. If it will not, the alternative costs about
-$7–8/month and is a decision for the Product Owner, not a workaround to improvise.
+**Already done — 2026-09-23.** A subnet delegated to Container Apps accepted a `Microsoft.Sql`
+service endpoint, so the design holds and the ~$7–8/month private-endpoint fallback does not arise.
+Skip to C1.
 
-> **This step is self-contained on purpose** — it is the first thing anyone runs, and feature 019's
-> task T015 points straight at it. You need only A1–A4 done (a new terminal, `az login`, the right
-> subscription, the providers registered) plus the one variable below. Part B's full variables block
-> is not needed until C1.
->
-> If any command below reports `expected one argument`, a variable is empty: PowerShell variables do
-> not survive closing the terminal, so set it again.
+*(If you are ever running this in a fresh subscription, redo it: create a throwaway resource group
+with a virtual network and a `/27` subnet, set the subnet's delegation to `Microsoft.App/environments`
+and its service endpoint to `Microsoft.Sql`, confirm both stuck, then delete the group.)*
 
-```powershell
-# The only variable C0 needs. Use the region you intend for the real environments.
-$LOCATION = "westus2"                    # locked by the existing free-offer database in dev
-
-az group create --name "rg-spike-delete-me" --location $LOCATION
-az network vnet create --resource-group "rg-spike-delete-me" --name "vnet-spike" `
-  --address-prefix "10.99.0.0/16" --subnet-name "snet-spike" --subnet-prefix "10.99.0.0/27"
-az network vnet subnet update --resource-group "rg-spike-delete-me" --vnet-name "vnet-spike" `
-  --name "snet-spike" --delegations "Microsoft.App/environments" --service-endpoints "Microsoft.Sql"
-```
-
-Then read back what actually stuck:
-
-```powershell
-az network vnet subnet show --resource-group "rg-spike-delete-me" --vnet-name "vnet-spike" `
-  --name "snet-spike" --query "{delegations:delegations[].serviceName, endpoints:serviceEndpoints[].service}" -o json
-```
-
-**Expected**: `["Microsoft.App/environments"]` and `["Microsoft.Sql"]` — both present.
-
-**If the service endpoint is missing or the command errored**: **stop and raise it.** Do not continue
-and do not improvise. Record what the command said.
-
-Clean up either way — this costs nothing but leaves clutter:
-
-```powershell
-az group delete --name "rg-spike-delete-me" --yes --no-wait
-```
-
-While you are here, confirm the other figures the design assumes: the Azure SQL Basic price in your
-region, the Container Apps free grant, and the Log Analytics free ingestion allowance. The portal's
-pricing pages are the authority; the numbers in `research.md` came from documentation and have never
-been measured.
+---
 
 ### C1. Resource group
 
-Everything for one environment lives in one resource group, which means deleting the group deletes
-the whole environment — that is what makes Part E safe.
+Everything for one environment lives in one resource group, which is what makes "delete it and start
+over" safe (Part E).
 
-```powershell
-az group create --name $RG --location $LOCATION
-```
+1. In the portal search box, type **Resource groups**, open it, click **+ Create**.
+2. **Subscription**: `Azure subscription 1`.
+3. **Resource group**: `rg-loot-singles-stage`.
+4. **Region**: **(US) West US 2**.
+5. **Review + create** → **Create**.
 
-**Expected**: JSON ending `"provisioningState": "Succeeded"`.
+**Confirm**: the group appears in the Resource groups list, region West US 2.
 
-**Check**: `az group show --name $RG --query name -o tsv` prints the name.
+> **Why West US 2 is not a choice**: the existing `loot-singles-dev` database uses the SQL free
+> offer, and Azure applies the region of the first free-offer database to every free database in the
+> subscription — permanently. Stage's free database must therefore be West US 2, and keeping
+> everything together avoids cross-region latency between an app and its database.
+
+---
 
 ### C2. Virtual network and subnet
 
-A private network for this environment. The Container Apps environment will live inside the subnet,
-which is what later lets SQL trust it by name instead of by IP address — and IP addresses here are
-documented as changing without warning.
+A private network for this environment. The Container Apps environment will sit inside the subnet,
+which is what later lets SQL trust it *by name* instead of by IP address — and Container Apps
+outbound IP addresses are documented as changing without warning.
 
-`--delegations` hands the subnet to Container Apps. `--service-endpoints` is what makes SQL able to
-recognise traffic from it.
+1. Search **Virtual networks** → **+ Create**.
+2. **Basics**: resource group `rg-loot-singles-stage`, name `vnet-loot-singles-stage`, region
+   **West US 2**.
+3. **IP addresses** tab:
+   - Set the address space to **`10.20.0.0/16`** (use `10.30.0.0/16` when you do `prod`).
+   - Remove the `default` subnet if one is pre-filled, then **+ Add a subnet**:
+     - **Name**: `snet-apps`
+     - **Starting address / size**: `10.20.0.0` with size **/27 (32 addresses)**
+     - **`/27` is the minimum Container Apps accepts.** Anything smaller is rejected later.
+   - **Add**.
+4. **Review + create** → **Create**.
 
-```powershell
-az network vnet create --resource-group $RG --name $VNET --location $LOCATION `
-  --address-prefix $VNETCIDR --subnet-name $SUBNET --subnet-prefix $SUBNETCIDR
+Now set the two properties that matter, which are not on the create form:
 
-az network vnet subnet update --resource-group $RG --vnet-name $VNET --name $SUBNET `
-  --delegations "Microsoft.App/environments" --service-endpoints "Microsoft.Sql"
-```
+5. Open the new virtual network → **Subnets** → click **`snet-apps`**.
+6. **Subnet delegation**: choose **`Microsoft.App/environments`**.
+7. **Service endpoints** → **Services**: tick **`Microsoft.Sql`**.
+8. **Save**.
 
-**Check** — both must be present, exactly as in C0:
+**Confirm**: reopen `snet-apps` and check that delegation shows `Microsoft.App/environments` **and**
+service endpoints shows `Microsoft.Sql`. Both must be present — this pairing is the whole reason the
+database can be locked down for free.
 
-```powershell
-az network vnet subnet show --resource-group $RG --vnet-name $VNET --name $SUBNET `
-  --query "{delegations:delegations[].serviceName, endpoints:serviceEndpoints[].service}" -o json
-```
-
-Capture the subnet's resource ID; C6 and C7 both need it:
-
-```powershell
-$SUBNETID = az network vnet subnet show --resource-group $RG --vnet-name $VNET --name $SUBNET --query id -o tsv
-$SUBNETID
-```
-
-**If it fails**: a `/27` is the smallest subnet Container Apps accepts. Anything smaller is rejected.
+---
 
 ### C3. The two identities
 
-A managed identity is an account Azure manages for you — the application proves who it is without a
-password existing anywhere. Two are created, because the application and the migration job are
-allowed to do different things (`research.md` §7):
+A managed identity is an account Azure manages for you, so the application proves who it is without
+any password existing. Two are created because the application and the migration job are allowed to
+do different things:
 
 - **app** — reads and writes rows. This is the internet-facing component.
 - **migrate** — also changes database structure. Runs only during a deployment.
@@ -402,413 +315,345 @@ Keeping structural permission away from the internet-facing component is what st
 application dropping the index that enforces one claim per employee, or wiping the packing-slip
 access log.
 
-```powershell
-az identity create --resource-group $RG --name $IDAPP --location $LOCATION
-az identity create --resource-group $RG --name $IDMIG --location $LOCATION
-```
+1. Search **Managed Identities** → **+ Create**.
+2. Resource group `rg-loot-singles-stage`, region **West US 2**, name
+   **`id-loot-singles-stage-app`** → **Review + create** → **Create**.
+3. Repeat for **`id-loot-singles-stage-migrate`**.
 
-Capture what later steps need:
+**Record the Client ID of each.** Open each identity → **Overview** → copy **Client ID** (a GUID).
+You need both in C7, and they are easy to confuse — label them as you paste them somewhere.
 
-```powershell
-$IDAPP_ID     = az identity show -g $RG -n $IDAPP --query id -o tsv
-$IDAPP_CLIENT = az identity show -g $RG -n $IDAPP --query clientId -o tsv
-$IDMIG_ID     = az identity show -g $RG -n $IDMIG --query id -o tsv
-$IDMIG_CLIENT = az identity show -g $RG -n $IDMIG --query clientId -o tsv
-"app client:     $IDAPP_CLIENT"
-"migrate client: $IDMIG_CLIENT"
-```
-
-Both client IDs must be GUIDs. They go into the connection strings in C7.
+---
 
 ### C4. SQL server
 
-`--enable-ad-only-auth` is the important part: the server is created with **no password at all**.
-Only Microsoft Entra identities can connect, so there is no SQL admin password to store, rotate or
-accidentally commit.
+Created with **Microsoft Entra-only authentication**, which means no SQL admin password exists at
+all. There is nothing to store, rotate, or accidentally commit.
 
-Use the name and object ID from A6:
+1. Search **SQL servers** → **+ Create**.
+2. **Basics**: resource group `rg-loot-singles-stage`, server name **`loot-singles-stage-sql`**,
+   location **West US 2**.
+3. **Authentication method**: choose **Use Microsoft Entra-only authentication**.
+4. Click **Set admin**, find **your own account**, select it.
+5. **Review + create** → **Create**.
 
-```powershell
-az sql server create --resource-group $RG --name $SQLSRV --location $LOCATION `
-  --enable-ad-only-auth --external-admin-principal-type User `
-  --external-admin-name "<your display name from A6>" `
-  --external-admin-sid "<your object ID from A6>"
-```
+**If the name is rejected**: SQL server names are unique across all of Azure, not just your
+subscription. Add a short suffix (`loot-singles-stage-sql-jh01`) and use it consistently.
 
-**Expected**: JSON with `"state": "Ready"`.
+**Confirm**: the server's **Overview** shows *Microsoft Entra-only authentication: Enabled*, and no
+SQL administrator login is listed.
 
-**If it fails with a name error**: the name is taken by someone else in the world. Change
-`$SQLSUFFIX`, re-run the variables block, and try again.
+---
 
-### C5. Database, network rule, and the firewall check
+### C5. Database
 
-Basic tier for production; stage can use the free offer if you prefer, accepting that it pauses when
-its monthly allowance runs out.
+**Stage** uses the free offer. **Production** uses Basic at about $4.90/month — the free offer's
+allowance is roughly 55 awake hours a month against the ~176 a shop needs, and when it runs out the
+database becomes *inaccessible until the 1st*, which is not survivable for fulfillment work.
 
-```powershell
-az sql db create --resource-group $RG --server $SQLSRV --name $SQLDB --edition Basic
-```
+1. Search **SQL databases** → **+ Create**.
+2. **Basics**: resource group `rg-loot-singles-stage`, server `loot-singles-stage-sql`, database name
+   **`lootsingles`**.
+3. **Want to use SQL elastic pool?** → **No**.
+4. **Compute + storage** → **Configure database**:
+   - **For `stage`**: if the **free offer** banner appears, apply it. That gives serverless General
+     Purpose with 100,000 vCore-seconds free per month. Leave the exhaustion behaviour on
+     **auto-pause** — stage going quiet until the 1st is an inconvenience, not a business problem.
+   - **For `prod`**: switch the service tier to **Basic** (DTU-based). It is the cheapest
+     always-awake option and the one the cost model assumes.
+5. **Backup storage redundancy**: **Locally-redundant** is sufficient and cheapest.
+6. **Networking** tab: **Public endpoint**. Set **both** "Allow Azure services…" and "Add current
+   client IP address" to **No**. You add the one rule that matters in C6.
+7. **Review + create** → **Create**.
 
-Now let the subnet through — and *only* the subnet:
+**Confirm — production only**: open the database → **Backups** (or *Point-in-time restore*) and check
+the retention is **at least 7 days** (FR-031). Basic includes 7. If it shows fewer, stop and raise it.
 
-```powershell
-az sql server vnet-rule create --resource-group $RG --server $SQLSRV `
-  --name "allow-$SUBNET" --subnet $SUBNETID
-```
+---
 
-**Check there is no blanket allow rule.** A rule of `0.0.0.0` is labelled "Allow Azure services" and
-sounds harmless; it actually admits every other Azure customer's resources to your database. FR-020
-forbids it.
+### C6. Lock the database to the subnet
 
-```powershell
-az sql server firewall-rule list --resource-group $RG --server $SQLSRV -o table
-```
+This is the control that replaces a password with a network boundary.
 
-**Expected**: empty, or nothing with start address `0.0.0.0`. If one exists, delete it:
+1. Open the **SQL server** (`loot-singles-stage-sql`) → **Security** → **Networking**.
+2. **Public network access**: **Selected networks**.
+3. Under **Virtual networks**, click **+ Add existing virtual network**:
+   - **Name**: `allow-snet-apps`
+   - **Virtual network**: `vnet-loot-singles-stage`
+   - **Subnet**: `snet-apps`
+   - **Save**.
+4. **Firewall rules**: confirm the list is **empty**.
+5. **Exceptions**: confirm **"Allow Azure services and resources to access this server" is
+   UNCHECKED**.
+6. **Save**.
 
-```powershell
-az sql server firewall-rule delete --resource-group $RG --server $SQLSRV --name "<the rule name>"
-```
+> **Step 5 is the one to get right.** That checkbox sounds harmless and is the `0.0.0.0` rule FR-020
+> forbids: it admits *every other Azure customer's* resources to your database, not just yours. This
+> database holds customer names and addresses.
 
-**Check the restore window** (FR-031 requires at least 7 days):
+**Confirm**: the Networking blade shows one virtual network rule, zero firewall rules, and the Azure
+services exception unticked.
 
-```powershell
-az sql db show --resource-group $RG --server $SQLSRV --name $SQLDB --query earliestRestoreDate -o tsv
-az sql db str-policy show --resource-group $RG --server $SQLSRV --name $SQLDB -o json
-```
+---
 
-A brand new database has no restore history yet, so `earliestRestoreDate` may be empty — the policy
-output is the one to read. Basic tier includes 7 days. If it shows fewer, stop and raise it.
+### C7. Log Analytics workspace
 
-### C6. Log Analytics and the Container Apps environment
+Where the application's log output is kept so it can be searched later. Without it you get a live
+stream only, and the evidence is gone before anyone looks.
 
-The workspace is where the application's log output is kept so it can be searched later. Without it
-you get a live stream only, and evidence is gone before anyone looks.
+1. Search **Log Analytics workspaces** → **+ Create**.
+2. Resource group `rg-loot-singles-stage`, name **`log-loot-singles-stage`**, region **West US 2**.
+3. **Review + create** → **Create**.
 
-```powershell
-az monitor log-analytics workspace create --resource-group $RG --workspace-name $LAW --location $LOCATION
-```
+The first 5 GB per month is free, with about 31 days of retention included.
 
-The environment creation needs the workspace's ID and key:
+---
 
-```powershell
-$LAW_ID  = az monitor log-analytics workspace show -g $RG -n $LAW --query customerId -o tsv
-$LAW_KEY = az monitor log-analytics workspace get-shared-keys -g $RG -n $LAW --query primarySharedKey -o tsv
-```
+### C8. Container Apps environment
 
-> `$LAW_KEY` is a credential. Azure stores it on the environment for you. Do not paste it into a
-> file, a commit, or a chat window. It exists only in this terminal session.
+The shared space the container runs in, placed inside your subnet.
 
-Now the environment — the shared space the container runs in, placed inside your subnet:
+1. Search **Container Apps Environments** → **+ Create**.
+2. **Basics**: resource group `rg-loot-singles-stage`, name **`cae-loot-singles-stage`**, region
+   **West US 2**.
+3. **Networking** tab:
+   - **Use your own virtual network**: **Yes**
+   - **Virtual network**: `vnet-loot-singles-stage`
+   - **Infrastructure subnet**: `snet-apps`
+   - Leave the environment **externally accessible** — the shop reaches it over the internet.
+4. **Monitoring** tab: **Logs destination** = **Azure Log Analytics**, workspace
+   `log-loot-singles-stage`.
+5. **Review + create** → **Create**. This one takes several minutes.
 
-```powershell
-az containerapp env create --resource-group $RG --name $CAE --location $LOCATION `
-  --enable-workload-profiles `
-  --infrastructure-subnet-resource-id $SUBNETID `
-  --logs-destination log-analytics `
-  --logs-workspace-id $LAW_ID --logs-workspace-key $LAW_KEY
-```
+**Confirm**: the environment's **Overview** shows the virtual network and subnet you chose.
 
-This one takes several minutes. **Expected**: `"provisioningState": "Succeeded"`.
-
-**Check**: `az containerapp env show -g $RG -n $CAE --query "{state:properties.provisioningState}" -o tsv`
-
-> **Come back to this about 24 hours after creating the *first* environment**, and confirm what is
-> actually being billed. This is the one cost question documentation cannot settle: the billing
-> guide states that private endpoints and planned maintenance incur a $0.10/hour Dedicated Plan
-> Management charge — neither of which this design uses — but it also warns that "if you use
-> Container Apps with your own virtual network… additional charges might apply", and this design
-> does use its own virtual network.
->
-> In the portal: **Cost Management** → **Cost analysis**, scope to the subscription, group by
-> **Meter**.
+> **Come back here about 24 hours after creating the first environment** and check what is actually
+> being billed — this is the one cost question documentation could not settle. Go to **Cost
+> Management** → **Cost analysis**, scope to the subscription, group by **Meter**.
 >
 > **Expected**: nothing from Container Apps at all while usage stays inside the free grant, and the
-> SQL database meter at about $0.16/day.
+> SQL meter at about $0.16/day for production.
 >
-> **If you see an "Environment Management Hour" or "Dedicated Plan Management" meter accruing**,
-> that is roughly $73/month per environment and it breaks the cost model (FR-028). Stop and raise
-> it before creating the second environment — the fix would be a design change, not a setting.
+> **If an "Environment Management Hour" or "Dedicated Plan Management" meter is accruing**, that is
+> roughly $73/month per environment and it breaks FR-028. Stop before creating the second
+> environment and raise it — the fix would be a design change, not a setting.
 
+---
 
+### C9. The container app
 
-### C7. The container app and the migrate job
+At this point there is no image in the registry yet, so create the app on a placeholder and let the
+first deployment replace it.
 
-Both run the same image; the job runs it with a `migrate` argument. Each uses its own identity.
+1. Search **Container Apps** → **+ Create**.
+2. **Basics**: resource group `rg-loot-singles-stage`, name **`ca-loot-singles-stage`**, region
+   **West US 2**, environment `cae-loot-singles-stage`.
+3. **Container** tab: tick **Use quickstart image** for now.
+4. **Ingress** tab:
+   - **Ingress**: **Enabled**
+   - **Ingress traffic**: **Accepting traffic from anywhere**
+   - **Target port**: **8080**
+5. **Review + create** → **Create**.
 
-Build the two connection strings. They differ **only** in which identity they name:
+Then set the three things the create form does not cover:
 
-```powershell
-$CONN_APP = "Server=tcp:$SQLSRV.database.windows.net,1433;Database=$SQLDB;Authentication=Active Directory Managed Identity;User Id=$IDAPP_CLIENT;Encrypt=True;"
-$CONN_MIG = "Server=tcp:$SQLSRV.database.windows.net,1433;Database=$SQLDB;Authentication=Active Directory Managed Identity;User Id=$IDMIG_CLIENT;Encrypt=True;"
+6. **Settings → Identity → User assigned → + Add** → `id-loot-singles-stage-app` → **Add**.
+7. **Application → Containers → Edit and deploy** → select the container → **Environment variables**
+   → **+ Add**:
+   - **Name**: `ConnectionStrings__LootSingles`
+   - **Value**:
+     ```
+     Server=tcp:loot-singles-stage-sql.database.windows.net,1433;Database=lootsingles;Authentication=Active Directory Managed Identity;User Id=<APP identity Client ID from C3>;Encrypt=True;
+     ```
+     Note there is **no password** in that string — that is the point of C4.
+8. **Application → Scale**: **Min replicas 0**, **Max replicas 1**. CPU **0.25**, Memory **0.5Gi**.
+   Min 0 is what keeps it inside the free grant; it also means the container shuts down when idle,
+   which is why the application persists its session keys to the database.
+9. **Save** / **Create** the revision.
+
+**Record the application URL**: **Overview** → **Application Url**. You need it for the GitHub
+environment variables in C12.
+
+---
+
+### C10. The migrate job
+
+Same image, run with a `migrate` argument, under the **migrate** identity.
+
+1. Search **Container App Jobs** → **+ Create**.
+2. **Basics**: resource group `rg-loot-singles-stage`, name **`caj-loot-singles-stage-migrate`**,
+   region **West US 2**, environment `cae-loot-singles-stage`.
+3. **Trigger type**: **Manual**.
+4. **Container** tab: quickstart image for now; **Command override / Arguments**: set arguments to
+   **`migrate`**.
+5. **Review + create** → **Create**.
+6. **Settings → Identity → User assigned → + Add** → **`id-loot-singles-stage-migrate`**.
+7. **Environment variables**: the same `ConnectionStrings__LootSingles` as C9 but with the
+   **migrate** identity's Client ID.
+
+> The two connection strings differ **only** in the `User Id=` GUID. Getting them the wrong way round
+> is the single easiest mistake here and it fails in a confusing way — the app would be able to
+> change schema, and the migrate job would not. Paste carefully.
+
+---
+
+### C11. Database users and permissions
+
+The fiddliest step. Azure cannot grant database roles — that is SQL, not Azure — so this is run as
+SQL against the database, signed in as yourself (you are the server administrator from C4).
+
+Use the portal's query editor, which avoids the MFA problems local `sqlcmd` has:
+
+1. Open the **database** (`lootsingles`) → **Query editor (preview)**.
+2. Sign in with **Microsoft Entra authentication** as yourself.
+3. **If it refuses to connect**, your own machine is not in the subnet. Temporarily add your IP:
+   SQL **server** → **Networking** → **+ Add your client IPv4 address** → **Save**. **Remember to
+   remove it at the end of this step.**
+4. Run:
+
+```sql
+CREATE USER [id-loot-singles-stage-app] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_datareader ADD MEMBER [id-loot-singles-stage-app];
+ALTER ROLE db_datawriter ADD MEMBER [id-loot-singles-stage-app];
+
+CREATE USER [id-loot-singles-stage-migrate] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_datareader ADD MEMBER [id-loot-singles-stage-migrate];
+ALTER ROLE db_datawriter ADD MEMBER [id-loot-singles-stage-migrate];
+ALTER ROLE db_ddladmin  ADD MEMBER [id-loot-singles-stage-migrate];
 ```
 
-Neither contains a password — that is the point of C4.
+The user names are the **identity resource names** from C3, not their Client IDs.
 
-```powershell
-az containerapp create --resource-group $RG --name $CAAPP --environment $CAE `
-  --image $IMAGE --target-port 8080 --ingress external `
-  --min-replicas 0 --max-replicas 1 --cpu 0.25 --memory 0.5Gi `
-  --user-assigned $IDAPP_ID `
-  --env-vars "ConnectionStrings__LootSingles=$CONN_APP"
+5. Confirm who has what — and that neither is `db_owner`:
 
-az containerapp job create --resource-group $RG --name $CAJOB --environment $CAE `
-  --image $IMAGE --trigger-type Manual --replica-timeout 600 `
-  --mi-user-assigned $IDMIG_ID `
-  --args "migrate" `
-  --env-vars "ConnectionStrings__LootSingles=$CONN_MIG"
-```
-
-Get the public address:
-
-```powershell
-$APPURL = az containerapp show -g $RG -n $CAAPP --query properties.configuration.ingress.fqdn -o tsv
-"https://$APPURL"
-```
-
-**Expect it to fail for now.** The identities have no database permission yet — that is C8. Opening
-the URL should reach the application and error on anything touching data. `https://$APPURL/health`
-should already return 200, because it deliberately never touches the database.
-
-### C8. Database users and permissions
-
-The fiddliest step, and the one where care matters most.
-
-Azure CLI cannot grant database roles — that is SQL, not Azure. You connect with `sqlcmd` as
-yourself (you are the server administrator from C4) and create a database user for each identity.
-
-**First, let your own machine through, temporarily.** Your laptop is not in the subnet, so the rule
-from C5 does not cover it.
-
-```powershell
-$MYIP = (Invoke-RestMethod "https://api.ipify.org?format=json").ip
-az sql server firewall-rule create --resource-group $RG --server $SQLSRV `
-  --name "temp-setup-access" --start-ip-address $MYIP --end-ip-address $MYIP
-```
-
-> **Remember this rule exists.** You remove it at the end of this step. Leaving it behind means your
-> home IP address keeps standing access to a database holding customer addresses.
-
-Run the grants. `-G` means "sign in with Entra"; a browser prompt may appear.
-
-> **If your account requires MFA** (see A2), the `sqlcmd` shipped with the ODBC 17 tools may not be
-> able to complete an interactive multi-factor prompt. Two fallbacks, either is fine:
->
-> - **The portal's query editor** — open the database in the Azure portal, choose *Query editor*,
->   sign in with Entra, and run the same SQL. The temporary firewall rule above is still required.
-> - **`go-sqlcmd`** (`winget install sqlcmd`), which supports interactive MFA. Its flags for this
->   are the same: `sqlcmd -S <server> -d <db> -G -Q "<sql>"`.
->
-> The SQL itself is identical whichever route you take.
-
-```powershell
-sqlcmd -S "$SQLSRV.database.windows.net" -d $SQLDB -G -Q @"
-CREATE USER [$IDAPP] FROM EXTERNAL PROVIDER;
-ALTER ROLE db_datareader ADD MEMBER [$IDAPP];
-ALTER ROLE db_datawriter ADD MEMBER [$IDAPP];
-
-CREATE USER [$IDMIG] FROM EXTERNAL PROVIDER;
-ALTER ROLE db_datareader ADD MEMBER [$IDMIG];
-ALTER ROLE db_datawriter ADD MEMBER [$IDMIG];
-ALTER ROLE db_ddladmin  ADD MEMBER [$IDMIG];
-"@
-```
-
-The user names are the *identity resource names* from C3, not the client IDs.
-
-**Check who has what** — and confirm neither is `db_owner`:
-
-```powershell
-sqlcmd -S "$SQLSRV.database.windows.net" -d $SQLDB -G -Q @"
+```sql
 SELECT p.name AS member, r.name AS role
 FROM sys.database_role_members m
 JOIN sys.database_principals r ON r.principal_id = m.role_principal_id
 JOIN sys.database_principals p ON p.principal_id = m.member_principal_id
 WHERE p.name LIKE 'id-loot-singles%' ORDER BY p.name, r.name;
-"@
 ```
 
 **Expected**: the app identity in `db_datareader` and `db_datawriter` **only**; the migrate identity
 in those two plus `db_ddladmin`. **Neither in `db_owner`.** If the app identity has `db_ddladmin`,
-fix it before going further — that is the control FR-021 requires:
+fix it before going on — that is the control FR-021 requires:
 
-```powershell
-# only if needed
-sqlcmd -S "$SQLSRV.database.windows.net" -d $SQLDB -G -Q "ALTER ROLE db_ddladmin DROP MEMBER [$IDAPP];"
+```sql
+ALTER ROLE db_ddladmin DROP MEMBER [id-loot-singles-stage-app];
 ```
 
-**Now remove the temporary rule. Do not skip this.**
+6. **Remove the temporary IP rule** from step 3 if you added one. Leaving it means your home address
+   keeps standing access to a database holding customer addresses.
 
-```powershell
-az sql server firewall-rule delete --resource-group $RG --server $SQLSRV --name "temp-setup-access"
-az sql server firewall-rule list --resource-group $RG --server $SQLSRV -o table   # must be empty
-```
+---
 
-### C9. Create the schema
-
-Run the migrate job once. This is the first proof that the migrate identity, the network rule and
-the migrations all work together.
-
-```powershell
-az containerapp job start --resource-group $RG --name $CAJOB
-az containerapp job execution list --resource-group $RG --name $CAJOB `
-  --query "[0].{name:name, status:properties.status}" -o table
-```
-
-**Expected**: status `Succeeded` after a minute or so. Re-run the list command until it settles.
-
-**If it failed**, read why. There is no `az containerapp job logs` command — a job's output goes to
-the Log Analytics workspace, so you query it there (this is why A5 installed the extension):
-
-```powershell
-$LAW_CID = az monitor log-analytics workspace show -g $RG -n $LAW --query customerId -o tsv
-az monitor log-analytics query --workspace $LAW_CID `
-  --analytics-query "ContainerAppConsoleLogs_CL | where ContainerGroupName_s startswith '$CAJOB' | project TimeGenerated, Log_s | order by TimeGenerated desc | take 50" `
-  -o table
-```
-
-Two things to expect. **Logs take a few minutes to arrive** — an empty result straight after the run
-usually means "not yet", not "nothing was logged". And if the query returns an error about an unknown
-column, list what the table actually has and adjust the `where` clause:
-
-```powershell
-az monitor log-analytics query --workspace $LAW_CID `
-  --analytics-query "ContainerAppConsoleLogs_CL | take 5" -o json
-```
-
-The portal is often quicker here: the job's **Execution history** blade shows each run's output
-without any query.
-
-A login failure means C8's grants did not apply to the *migrate* identity. A network failure means
-the C5 virtual network rule did not take.
-
-**This proves nothing about the app identity.** `/health/database` is what proves that:
-
-```powershell
-curl.exe -i "https://$APPURL/health/database"
-```
-
-**Expected**: `200`. A `503` means the app identity specifically cannot reach the database — go back
-to C8 and check its roles. This is exactly the failure that endpoint exists to catch.
-
-### C10. Create the first account
-
-A fresh environment has no users, so nobody can sign in. This creates one manager account, then
-deletes the job that knows the PIN.
-
-```powershell
-az containerapp job create --resource-group $RG --name "caj-bootstrap-temp" --environment $CAE `
-  --image $IMAGE --trigger-type Manual --replica-timeout 600 `
-  --mi-user-assigned $IDMIG_ID `
-  --args "bootstrap-admin" `
-  --env-vars "ConnectionStrings__LootSingles=$CONN_MIG" "BOOTSTRAP_PIN=<a throwaway PIN>"
-
-az containerapp job start --resource-group $RG --name "caj-bootstrap-temp"
-```
-
-Once it succeeds, delete it — this is what removes the PIN from Azure:
-
-```powershell
-az containerapp job delete --resource-group $RG --name "caj-bootstrap-temp" --yes
-```
-
-**Then sign in and change that PIN immediately.** Until you do, a throwaway value is a real
-credential, and it was visible in your shell history.
-
-### C11. GitHub — use the web interface
-
-Azure steps are CLI because the commands are copy-pasteable. GitHub environment settings are the
-opposite: doing this with `gh api` means hand-writing JSON for reviewers and branch policies, which
-is more error-prone than clicking.
+### C12. GitHub environments
 
 In your browser, go to the repository → **Settings** → **Environments** → **New environment**.
 
 **Create `stage`:**
-1. Name it `stage`, click **Configure environment**.
-2. Under **Deployment branches and tags**, choose **Selected branches and tags**, add a rule for
-   `main`. *(Why: production trusts that anything on stage came from `main`.)*
+
+1. Name it `stage` → **Configure environment**.
+2. **Deployment branches and tags** → **Selected branches and tags** → add a rule for `main`.
 3. Leave **Required reviewers** unchecked — stage deploys unattended.
-4. Under **Environment variables**, add one per row: `AZURE_SUBSCRIPTION_ID`, `AZURE_TENANT_ID`,
-   `AZURE_CLIENT_ID`, `RESOURCE_GROUP`, `CONTAINER_APP`, `MIGRATE_JOB`, `APP_URL`. Values come from
-   Part B and A3. **These are variables, not secrets** — none of them is a credential.
+4. **Environment variables** → add one per row:
+
+| Name | Value |
+|---|---|
+| `AZURE_SUBSCRIPTION_ID` | `5bdba28d-1561-47b0-b51a-d93c55793db1` |
+| `AZURE_TENANT_ID` | from **Microsoft Entra ID → Overview → Tenant ID** |
+| `AZURE_CLIENT_ID` | from C13 below |
+| `RESOURCE_GROUP` | `rg-loot-singles-stage` |
+| `CONTAINER_APP` | `ca-loot-singles-stage` |
+| `MIGRATE_JOB` | `caj-loot-singles-stage-migrate` |
+| `APP_URL` | the Application Url from C9 |
+
+**These are variables, not secrets** — none of them is a credential.
 
 **Create `production`** the same way, with two differences:
+
 - Tick **Required reviewers** and add yourself.
 - **Leave "Prevent self-review" unchecked.** Product Owner decision, 2026-09-22: with two staff, a
   mandatory second approver makes production unfixable whenever one of you is away. The gate is a
   deliberate pause on a named version, not a two-person control.
 
-### C12. Let GitHub sign in to Azure without a password
+---
 
-The least intuitive step in the setup, so here is what it actually does.
+### C13. Let GitHub sign in to Azure without a password
 
-GitHub Actions needs to run `az` commands against your subscription. The old way was storing a
-credential as a GitHub secret. Instead, you register a trust: *"when GitHub says a workflow is
-running in this repository, in this environment, accept that as proof of identity."* No password
-exists, so none can leak.
+The least intuitive step, so here is what it actually does. GitHub Actions needs to run commands
+against your subscription. The old way was storing a credential as a GitHub secret. Instead you
+register a *trust*: "when GitHub says a workflow is running in this repository, in this environment,
+accept that as proof of identity." No password exists, so none can leak.
 
-Create an app registration and give it access to **this environment's resource group only** — so
-stage's credential cannot touch production:
+The portal's wizard for this is genuinely better than the CLI, because it asks for the GitHub details
+by name instead of making you hand-build a subject string.
 
-```powershell
-$APPREG = az ad app create --display-name "github-loot-singles-$ENVNAME" --query appId -o tsv
-$SPID   = az ad sp create --id $APPREG --query id -o tsv
-$SUBID  = az account show --query id -o tsv
+**Register the application:**
 
-az role assignment create --assignee $APPREG --role "Contributor" `
-  --scope "/subscriptions/$SUBID/resourceGroups/$RG"
-```
+1. Search **Microsoft Entra ID** → **App registrations** → **+ New registration**.
+2. Name: **`github-loot-singles-stage`**. Leave the rest default → **Register**.
+3. Copy the **Application (client) ID** — that is `AZURE_CLIENT_ID` for C12.
 
-Now the trust itself. `subject` must match **exactly** what GitHub sends — the environment name here
-must be the one from C11 (`stage` or `production`, which is not the same string as `prod`):
+**Add the federated credential:**
 
-```powershell
-$GHENV = if ($ENVNAME -eq "prod") { "production" } else { "stage" }
+4. In that app registration → **Certificates & secrets** → **Federated credentials** → **+ Add
+   credential**.
+5. **Federated credential scenario**: **GitHub Actions deploying Azure resources**.
+6. Fill in:
+   - **Organization**: `jkhaynes`
+   - **Repository**: `loot-singles-fulfillment`
+   - **Entity type**: **Environment**
+   - **GitHub environment name**: **`stage`** (for production use **`production`**, *not* `prod` —
+     it must match the GitHub environment name exactly)
+   - **Name**: `github-stage`
+7. **Add**.
 
-az ad app federated-credential create --id $APPREG --parameters (@{
-  name = "github-$GHENV"
-  issuer = "https://token.actions.githubusercontent.com"
-  subject = "repo:jkhaynes/loot-singles-fulfillment:environment:$GHENV"
-  audiences = @("api://AzureADTokenExchange")
-} | ConvertTo-Json -Compress)
-```
+**Grant it access to this environment's resource group only:**
 
-The value GitHub needs as `AZURE_CLIENT_ID` in C11:
+8. Open **`rg-loot-singles-stage`** → **Access control (IAM)** → **+ Add** → **Add role assignment**.
+9. **Role**: **Contributor** → **Next**.
+10. **Members**: **User, group, or service principal** → **+ Select members** → search
+    `github-loot-singles-stage` → select it.
+11. **Review + assign**.
 
-```powershell
-"AZURE_CLIENT_ID for $GHENV : $APPREG"
-```
+Scoping to the resource group, not the subscription, is what stops stage's credential from touching
+production (FR-006).
 
-**If a deployment later fails with "no matching federated identity record found"**, the `subject`
-string does not match. Check the environment name and the `owner/repo` spelling — those are the two
-things that are usually wrong.
-
-### C13. Custom domain (production only)
-
-Do this after the first successful deployment. It needs no redeploy and can wait.
-
-```powershell
-az containerapp hostname add --resource-group $RG --name $CAAPP --hostname "<your.subdomain.com>"
-```
-
-That command tells you which `TXT` record Azure wants in order to prove you own the name. In
-Namecheap: **Domain List** → **Manage** → **Advanced DNS** → **Add New Record**. Add the `TXT` record
-it asked for, and a `CNAME` for your chosen subdomain pointing at the value of `$APPURL`.
-
-**You are only adding records, not changing existing ones.** The storefront's own records stay
-exactly as they are — leave every row you did not create alone.
-
-DNS takes a few minutes to tens of minutes to propagate. Then bind the certificate:
-
-```powershell
-az containerapp hostname bind --resource-group $RG --name $CAAPP --hostname "<your.subdomain.com>" `
-  --environment $CAE --validation-method CNAME
-```
-
-Azure issues and renews the certificate free.
+> **If a deployment later fails with "no matching federated identity record found"**, the subject did
+> not match. The two things usually wrong are the environment name (`production`, not `prod`) and the
+> organization/repository spelling.
 
 ---
 
+### C14. Budget alert
+
+The actual guard on "stay cheap" (FR-028).
+
+1. Search **Cost Management** → **Budgets** → **+ Add**.
+2. Scope: the subscription. Amount: **$10**. Reset period: **Monthly**.
+3. Add an alert at **50%** and **90%** of budget, with your email address.
+4. **Create**.
+
+---
+
+### C15. Custom domain (production only)
+
+Do this after the first successful deployment. It needs no redeploy and can wait.
+
+1. Open the production container app → **Settings** → **Custom domains** → **+ Add custom domain**.
+2. Enter your chosen subdomain. The portal shows the **TXT** record it wants for ownership, and the
+   **CNAME** target.
+3. In **Namecheap**: **Domain List** → **Manage** → **Advanced DNS** → **Add New Record**. Add the
+   `TXT` record shown, and a `CNAME` for your subdomain pointing at the container app's URL.
+   **You are only adding records.** Leave every row you did not create alone — the storefront's own
+   records stay exactly as they are.
+4. Back in the portal, **Validate**, then add the binding. Azure issues and renews the certificate
+   free.
+
+DNS takes a few minutes to tens of minutes to propagate.
+
+---
 ## Part D — The checks that matter
 
 Run these after both environments exist. They are the requirements made checkable.
@@ -816,19 +661,19 @@ Run these after both environments exist. They are the requirements made checkabl
 **No blanket firewall rule** (FR-020) — run for both environments:
 
 ```powershell
-az sql server firewall-rule list -g "rg-loot-singles-stage" -s "<stage server>" -o table
-az sql server firewall-rule list -g "rg-loot-singles-prod"  -s "<prod server>"  -o table
+az sql server firewall-rule list -g "rg-loot-singles-stage" -s "loot-singles-stage-sql" -o table
+az sql server firewall-rule list -g "rg-loot-singles-prod"  -s "loot-singles-prod-sql"  -o table
 ```
 
 **Expected**: both empty. Any `0.0.0.0` entry is a finding, not a preference.
 
-**Permissions are split** (FR-021) — run C8's role query against both databases. The app identity
+**Permissions are split** (FR-021) — run C11's role query against both databases (portal query editor). The app identity
 must never hold `db_ddladmin` or `db_owner`.
 
 **Restore window** (FR-031):
 
 ```powershell
-az sql db str-policy show -g "rg-loot-singles-prod" -s "<prod server>" -n "lootsingles" -o json
+az sql db str-policy show -g "rg-loot-singles-prod" -s "loot-singles-prod-sql" -n "lootsingles" -o json
 ```
 
 **Expected**: at least 7 days of point-in-time retention.
@@ -840,8 +685,8 @@ its controls are not allowed to be weaker — only its reliability and cost are.
 foreach ($e in @("stage","prod")) {
   $g = "rg-loot-singles-$e"
   "--- $e ---"
-  az sql server vnet-rule list -g $g -s "<$e server>" --query "[].name" -o tsv
-  az sql server firewall-rule list -g $g -s "<$e server>" --query "[].name" -o tsv
+  az sql server vnet-rule list -g $g -s "loot-singles-$e-sql" --query "[].name" -o tsv
+  az sql server firewall-rule list -g $g -s "loot-singles-$e-sql" --query "[].name" -o tsv
   az identity list -g $g --query "[].name" -o tsv
 }
 ```
@@ -865,23 +710,24 @@ this does not, the environment is not attached to the workspace.
 ## Part E — Starting over
 
 If an environment gets into a state you do not understand, delete it and run Part C again. It is
-cheap, it is quick, and nothing outside the resource group is affected.
+cheap, it is quick, and nothing outside the resource group is affected. **This is the reason
+everything for one environment lives in one resource group.**
 
-```powershell
-az group delete --name $RG --yes --no-wait
-```
+1. Search **Resource groups** → open `rg-loot-singles-stage`.
+2. **Delete resource group** at the top.
+3. It asks you to type the group's name to confirm. Read the resource list it shows you first.
 
 This deletes **everything** in that group: the database and its contents, the app, the identities,
-the workspace. It does not touch the other environment, your GitHub settings, or your DNS records.
+the workspace. It does not touch the other environment, `rg-loot-singles-dev`, your GitHub settings,
+or your DNS records.
 
-Two things survive a group delete and need removing separately if you are starting completely fresh:
+**Three things live outside the resource group** and need removing separately for a completely fresh
+start:
 
-```powershell
-az ad app list --display-name "github-loot-singles-$ENVNAME" --query "[].{name:displayName,id:appId}" -o table
-az ad app delete --id "<the appId>"
-```
-
-...and the GitHub environment, deleted from the same Settings page that created it.
+- **The app registration** — Microsoft Entra ID → App registrations → `github-loot-singles-stage` →
+  **Delete**.
+- **The GitHub environment** — the same Settings page that created it.
+- **The budget** — Cost Management → Budgets, if you want it gone too.
 
 **Do not do this to production once the shop is using it.** The database goes with it.
 
@@ -891,20 +737,20 @@ az ad app delete --id "<the appId>"
 
 | Symptom | Cause and fix |
 |---|---|
-| `az: command not found` | Your terminal started before the CLI was installed. Open a new one (A1). |
-| `argument --location/-l: expected one argument` (or any other `expected one argument`) | A PowerShell variable is empty. They do not survive closing the terminal — paste Part B's variables block again. For C0, set `$LOCATION` alone. Check with `"$RG / $SQLSRV / $LOCATION"`. |
-| `'query' is misspelled or not recognized` under `az monitor log-analytics` | The extension is missing. `az extension add --name log-analytics` (A5). |
-| Looking for `az containerapp job logs` | It does not exist. Job output goes to Log Analytics — see C9, or use the job's **Execution history** blade in the portal. |
-| `The subscription is not registered to use namespace…` | A provider is not registered. Re-run A4 and wait for `Registered`. |
-| Resources appear in the wrong place | The wrong subscription is selected. Check A3 before every session. |
-| `Specified server name is already used` | SQL server names are globally unique. Change `$SQLSUFFIX` and re-run the variables block. |
+| `az: command not found` | Your terminal started before the CLI was installed. Open a new PowerShell window (A3). Only Part D needs the CLI. |
+| A portal form rejects a name as already taken | Resource names must be unique in their scope; SQL server names are unique across all of Azure. Add a short suffix and use it consistently (Part B). |
+| `'query' is misspelled or not recognized` under `az monitor log-analytics` | The extension is missing. `az extension add --name log-analytics` (A3). |
+| Looking for `az containerapp job logs` | It does not exist. Job output goes to Log Analytics — see C11, or use the job's **Execution history** blade in the portal. |
+| `The subscription is not registered to use namespace…` | A provider is not registered. Register it in Subscriptions → Resource providers (A2). |
+| Resources appear in the wrong place | The wrong subscription is selected. Read the subscription shown on every create form (A1). |
+| A create form shows a red validation error you do not understand | The **Review + create** tab lists every setting about to be applied; read it there. Portal labels drift, so a field named differently from this runbook is expected — the search box at the top finds any resource type or setting by name. |
 | Subnet rejected as too small | `/27` is the minimum for Container Apps. |
 | Service endpoint will not attach to the delegated subnet | **Stop and raise it** (C0). The fallback costs money and is a Product Owner decision. |
 | `az login` reports `AADSTS50076` / `Status_InteractionRequired`, then "No subscriptions found" | MFA is required for that directory and a silent token refresh cannot satisfy it. `az login --tenant <id from the error>`, then re-check with `az account list` (A2). The enumeration failing is why nothing was listed — it is not proof you have no subscription. |
-| `sqlcmd` cannot sign in with `-G` | Either the temporary firewall rule (C8) is missing or your IP changed — re-run the `$MYIP` step — or your account needs MFA and the ODBC 17 `sqlcmd` cannot prompt for it. See the fallbacks in C8. |
-| Migrate job fails on login | C8's grants did not apply to the migrate identity. Re-run the role query. |
+| `sqlcmd` cannot sign in with `-G` | Either the temporary firewall rule (C11) is missing or your IP changed — re-add your client IP on the SQL server Networking blade — or your account needs MFA and the ODBC 17 `sqlcmd` cannot prompt for it. C11 uses the portal query editor, which avoids this. |
+| Migrate job fails on login | C11's grants did not apply to the migrate identity. Re-run the role query. |
 | `/health` fine, `/health/database` returns 503 | The **app** identity lacks its roles, or the virtual network rule is missing. Exactly what that endpoint exists to catch. |
-| Deploy fails: "no matching federated identity record found" | The `subject` in C12 does not match. Check the environment name (`production`, not `prod`) and the `owner/repo` spelling. |
+| Deploy fails: "no matching federated identity record found" | The federated credential in C13 does not match. Check the environment name (`production`, not `prod`) and the `owner/repo` spelling. |
 | Endless redirects in a browser | Forwarded headers not registered first in `Program.cs` (`research.md` §2). |
 | `/api/...` returns HTML | The `/api` fallback is registered after the web-app fallback (`research.md` §3). |
 | Everyone signed out after a quiet period | Data Protection keys are still in memory (`research.md` §5). |
