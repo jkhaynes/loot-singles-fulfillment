@@ -283,13 +283,22 @@ mid-rollback is worse than queueing. `queue: max` — unnecessary at this scale.
 
 ---
 
-## 12. Rollback by reactivating the previous revision
+## 12. Rollback by restoring the previously deployed image
 
-**Decision**: On post-deployment check failure, reactivate the Container App's previous revision.
+**Decision**: Record the running image before changing anything, and on post-deployment check failure
+deploy that image again.
 
-**Rationale**: FR-017. Container Apps retains revisions, so the previous working version is already
-present and addressable. Capturing the running image before each update and restoring it afterwards
-is state we would have to track and get right; the platform already tracks it.
+**Corrected 2026-09-23.** This section previously said rollback could be "a platform call rather than
+tracked state" by reactivating the previous revision, on the reasoning that Container Apps retains
+revisions so the platform already tracks them. That is **wrong in single-revision mode**, which is
+what this design uses: only one revision is active at a time, and rolling back means deploying the
+old image again rather than re-pointing at an old revision. The image reference is therefore the one
+piece of state these workflows must keep, and both of them capture it in a step that runs before the
+migration — deliberately, so a failure anywhere after that point has something to restore.
+
+**Rationale**: FR-017. The mistake is worth keeping visible because it is the shape of error that
+survives review: it sounded like the simpler design, and "let the platform track it" is usually the
+right instinct. It just was not true here.
 
 **Constraint this places on migrations**: rollback restores the *image*, never the schema. FR-016
 therefore requires migrations to be backward-compatible with the immediately preceding version. This

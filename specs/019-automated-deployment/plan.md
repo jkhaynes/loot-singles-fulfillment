@@ -17,12 +17,42 @@ keys persisted to SQL, and a `migrate` command. Everything else is a Dockerfile,
 a one-time setup checklist.
 
 The design was reviewed adversarially four times and deliberately shrunk: promotion is a named commit
-rather than resolved digests, rollback is a platform call rather than tracked state, and there are
-three configuration assertions rather than nine. Each removal names the risk accepted
-(research.md §10, §16).
+rather than resolved digests, and there are three configuration assertions rather than nine. Each
+removal names the risk accepted (research.md §10, §16).
 
-**Expected cost: $5–8/month** against FR-028's $10 ceiling. The production database is the only paid
-resource.
+### Shape, amended 2026-09-23
+
+The two environments **share one Container Apps environment**, and therefore one virtual network, one
+public IP and one Log Analytics workspace. They keep their own SQL servers, databases, managed
+identities and deployment credentials.
+
+This was forced by a meter the original cost model missed: every Container Apps environment with
+external ingress carries a Standard static public IPv4 at **$3.65/month**, so two of them plus
+production's database came to $12.20 against FR-028's $10 ceiling. Found by the empirical cost check
+in quickstart C6, which exists precisely because the billing documentation hedged (research.md §13).
+
+**What it costs**: the network boundary between stage and production. Both apps sit in one subnet,
+so stage can reach production's SQL server at the network level. **Data isolation is unaffected**,
+because it rests on identity rather than reachability — each app authenticates as its own managed
+identity, and stage's holds no database user in production's database (FR-006). Retained records are
+shared too, separable by application name but not isolated (FR-005, FR-027).
+
+```text
+rg-loot-singles-shared     vnet-loot-singles / snet-apps, cae-loot-singles, log-loot-singles
+rg-loot-singles-stage      identities, SQL (free offer), ca- and caj-loot-singles-stage
+rg-loot-singles-prod       identities, SQL (Basic), ca- and caj-loot-singles-prod
+```
+
+**Expected cost: $8.55/month** against FR-028's $10 ceiling — one public IP at $3.65 and production's
+Basic database at $4.90. Everything else sits inside a free tier.
+
+Two corrections this forced, recorded because both were stated confidently and wrongly:
+
+- **Rollback is not "a platform call rather than tracked state."** In single-revision mode only one
+  revision is active, so rolling back means deploying the previous image again. Both workflows record
+  the running image before changing anything (research.md §12).
+- **Free usage does appear on a bill**, as $0 line items with `- Free` in the meter name. What a cost
+  view still cannot show is how much of an allowance remains.
 
 ## Technical Context
 
