@@ -14,10 +14,13 @@ description: "Task list for feature 019: automated stage and production deployme
 NON-NEGOTIABLE, so every behavioural change is Red → Green: the test task comes before the
 implementation task that makes it pass, and must fail for the right reason first.
 
-**Manual tasks**: This feature provisions infrastructure, and this repo does not provision from code
-(plan.md, Structure Decision). Tasks marked **[MANUAL]** are run by hand against Azure or GitHub
-following [quickstart.md](quickstart.md). They are real work with real acceptance criteria, not
-notes — an automated task cannot stand in for them.
+**Manual tasks**: Tasks marked **[MANUAL]** are run by hand against Azure or GitHub, following the
+runbook in [quickstart.md](quickstart.md) Part 2 — which carries the exact commands, what success
+looks like, and what to do when a step fails. Each manual task names the runbook step that covers
+it. They are real work with real acceptance criteria, not notes.
+
+Keeping provisioning manual is a Product Owner decision of 2026-09-22 (spec.md Clarifications), not
+a repository rule — nothing here forbids scripting it, and a later feature may.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -89,14 +92,14 @@ and complete a pick.
 
 ### Provisioning (both environments)
 
-- [ ] T015 [US1] [MANUAL] Verify **before creating anything**, per quickstart.md Step 0: that a subnet delegated to `Microsoft.App/environments` accepts a `Microsoft.Sql` service endpoint; the Azure SQL free-offer allowance and Basic price in region; the Container Apps free grant and overage rate; the Log Analytics free allowance; and that Basic point-in-time restore covers ≥ 7 days (FR-031). **If the service endpoint is not permitted, stop and raise it** — the private-endpoint fallback at ~$7–8/month is a Product Owner cost decision
-- [ ] T016 [US1] [MANUAL] Create per environment: resource group, virtual network, `/27` subnet delegated to `Microsoft.App/environments` with the `Microsoft.Sql` service endpoint, and **both** managed identities (`id-loot-singles-<env>-app`, `id-loot-singles-<env>-migrate`)
-- [ ] T017 [US1] [MANUAL] Create per environment: SQL server with **Entra-only authentication** and the database; add the virtual network rule naming the subnet; confirm **no `0.0.0.0` rule exists** and public access is default-deny (FR-020); confirm point-in-time restore ≥ 7 days is enabled (FR-031)
-- [ ] T018 [US1] [MANUAL] Create per environment: Log Analytics workspace, then the Container Apps environment against the subnet with logs pointed at that workspace, then the Container App on the **app** identity and the migrate job on the **migrate** identity. Both connection strings use managed-identity auth and differ only in `User Id=<clientId>` — neither contains a password (FR-019)
-- [ ] T019 [US1] [MANUAL] Through a temporary firewall rule for your own machine, create both database users and grant their roles per quickstart.md Step 4 — `db_datareader`/`db_datawriter` for the app identity, plus `db_ddladmin` for the migrate identity, **neither `db_owner`** (FR-021) — then remove that rule and run the migrate job once
-- [ ] T020 [US1] [MANUAL] Run a throwaway bootstrap job on the **migrate** identity to create the first manager account, delete the job, and change the PIN at first sign-in (FR-032)
+- [ ] T015 [US1] [MANUAL] Verify **before creating anything**: that a subnet delegated to `Microsoft.App/environments` accepts a `Microsoft.Sql` service endpoint; the Azure SQL free-offer allowance and Basic price in region; the Container Apps free grant and overage rate; the Log Analytics free allowance; and that Basic point-in-time restore covers ≥ 7 days (FR-031). **If the service endpoint is not permitted, stop and raise it** — the private-endpoint fallback at ~$7–8/month is a Product Owner cost decision — **runbook: Part 2 C0**
+- [ ] T016 [US1] [MANUAL] Create per environment: resource group, virtual network, `/27` subnet delegated to `Microsoft.App/environments` with the `Microsoft.Sql` service endpoint, and **both** managed identities (`id-loot-singles-<env>-app`, `id-loot-singles-<env>-migrate`) — **runbook: Part 2 C1–C3**
+- [ ] T017 [US1] [MANUAL] Create per environment: SQL server with **Entra-only authentication** and the database; add the virtual network rule naming the subnet; confirm **no `0.0.0.0` rule exists** and public access is default-deny (FR-020); confirm point-in-time restore ≥ 7 days is enabled (FR-031) — **runbook: Part 2 C4–C5**
+- [ ] T018 [US1] [MANUAL] Create per environment: Log Analytics workspace, then the Container Apps environment against the subnet with logs pointed at that workspace, then the Container App on the **app** identity and the migrate job on the **migrate** identity. Both connection strings use managed-identity auth and differ only in `User Id=<clientId>` — neither contains a password (FR-019) — **runbook: Part 2 C6–C7**
+- [ ] T019 [US1] [MANUAL] Through a temporary firewall rule for your own machine, create both database users and grant their roles — `db_datareader`/`db_datawriter` for the app identity, plus `db_ddladmin` for the migrate identity, **neither `db_owner`** (FR-021) — then remove that rule and run the migrate job once — **runbook: Part 2 C8**
+- [ ] T020 [US1] [MANUAL] Run a throwaway bootstrap job on the **migrate** identity to create the first manager account, delete the job, and change the PIN at first sign-in (FR-032) — **runbook: Part 2 C10**
 - [ ] T021 [US1] [MANUAL] Deploy the image by hand to production, then sign in **on a phone** over the public address, claim an order and record a pick — the first real write through the application identity (SC-001)
-- [ ] T022 [US1] [MANUAL] Configure the custom domain per quickstart.md Step 7: a `CNAME` for the chosen subdomain and the `TXT` ownership record in Namecheap, leaving the storefront's records untouched; confirm the certificate is issued and the address loads securely (FR-003)
+- [ ] T022 [US1] [MANUAL] Configure the custom domain: a `CNAME` for the chosen subdomain and the `TXT` ownership record in Namecheap, leaving the storefront's records untouched; confirm the certificate is issued and the address loads securely (FR-003) — **runbook: Part 2 C13**
 
 **Checkpoint**: The shop can use the application. Everything after this is automation and hardening.
 
@@ -117,7 +120,7 @@ nobody acting after the merge.
 
 - [ ] T024 [US2] Add a `workflow_call:` trigger to `.github/workflows/pr-quality-gate.yml` so the deploy workflow reuses the existing five jobs rather than copying them
 - [ ] T025 [US2] Create `.github/workflows/deploy-stage.yml` per contracts/deployment.md: trigger on push to `main` plus manual dispatch; `concurrency: deploy-stage` with `cancel-in-progress: false`; call the quality gate; build and push `ghcr.io/jkhaynes/loot-singles-fulfillment:sha-<commit>`; then under `environment: stage` sign in by OIDC, run the migrate job and wait, update the Container App, run the four-check smoke test, and **on any failure reactivate the previous revision** (FR-017). Makes half of T023 pass
-- [ ] T026 [US2] [MANUAL] Create the GitHub `stage` environment: plain variables (subscription, tenant and client ids, resource group, app and job names, URL), an OIDC federated credential scoped to **stage's resource group only** (FR-006), no reviewers, deployment branches restricted to `main`
+- [ ] T026 [US2] [MANUAL] Create the GitHub `stage` environment: plain variables (subscription, tenant and client ids, resource group, app and job names, URL), an OIDC federated credential scoped to **stage's resource group only** (FR-006), no reviewers, deployment branches restricted to `main` — **runbook: Part 2 C11–C12**
 - [ ] T027 [US2] [MANUAL] Verify end to end: merge a pull request with a visible change and confirm it reaches stage with **zero** manual actions (SC-002); then merge a change that breaks the quality checks and confirm stage is **not** updated
 
 **Checkpoint**: Stage keeps itself current.
@@ -139,7 +142,7 @@ waits, approve, and confirm production runs exactly that commit.
 ### Implementation
 
 - [ ] T029 [US3] Create `.github/workflows/deploy-production.yml` per contracts/deployment.md: manual dispatch only; a required `commit` input with no default; `concurrency: deploy-production`; **one job** carrying `environment: production` so nothing runs before approval, its `name` interpolating the commit; deploying `ghcr.io/…:sha-<commit>` with the same migrate → update → smoke → rollback sequence, and `/health/database` added to the smoke test (FR-024). Makes T028 and the rest of T023 pass
-- [ ] T030 [US3] [MANUAL] Create the GitHub `production` environment: plain variables, an OIDC credential scoped to **production's resource group only**, a required reviewer, deployment branches restricted to `main`, and **"Prevent self-review" left unchecked** — Product Owner decision 2026-09-22 (spec.md Clarifications)
+- [ ] T030 [US3] [MANUAL] Create the GitHub `production` environment: plain variables, an OIDC credential scoped to **production's resource group only**, a required reviewer, deployment branches restricted to `main`, and **"Prevent self-review" left unchecked** — Product Owner decision 2026-09-22 (spec.md Clarifications) — **runbook: Part 2 C11–C12**
 - [ ] T031 [US3] [MANUAL] Verify the gate: confirm a merge to `main` leaves production unchanged (SC-003); start a release, confirm the commit is visible in the job list before approving and that production is untouched while it waits; **merge a different change while it waits** and confirm the release still deploys the commit it named (SC-004); then approve and confirm production runs exactly that commit
 
 **Checkpoint**: Production is reachable only through a deliberate, approved, named release.
@@ -175,7 +178,7 @@ repeat across a release.
 **Independent Test**: Cause a recognisable failure, wait until it has left any live view, then find
 it.
 
-- [ ] T037 [US5] [MANUAL] Confirm in **both** environments that application log lines reach the Log Analytics workspace and are searchable there, not merely visible in the live stream (FR-027, SC-006)
+- [ ] T037 [US5] [MANUAL] Confirm in **both** environments that application log lines reach the Log Analytics workspace and are searchable there, not merely visible in the live stream (FR-027, SC-006) — **runbook: Part 2 Part D**
 - [ ] T038 [US5] [MANUAL] Read a sample of retained records in both environments and confirm they contain no customer PII, PINs, tokens, secrets or connection strings (FR-022)
 
 **Checkpoint**: A report from the shop can be investigated after the fact.
@@ -185,7 +188,7 @@ it.
 ## Phase 8: Polish & Cross-Cutting Concerns
 
 - [ ] T039 [P] Add a text assertion that **no tracked file contains a `0.0.0.0` firewall rule**, in `backend/tests/LootSingles.IntegrationTests/Configuration/DeploymentConfigurationTests.cs`. This is a guard rather than a Red → Green pair: it passes when written and exists to fail on a later careless edit (FR-020, research.md §16)
-- [ ] T040 [P] [MANUAL] Confirm privacy parity between stage and production side by side: both default-deny database access, both split the application and migration identities, both hash PINs, both log packing-slip access (FR-029, SC-010)
+- [ ] T040 [P] [MANUAL] Confirm privacy parity between stage and production side by side: both default-deny database access, both split the application and migration identities, both hash PINs, both log packing-slip access (FR-029, SC-010) — **runbook: Part 2 Part D**
 - [ ] T041 [P] [MANUAL] Create the $5 budget alert and record the first month's actual cost against the $5–8 estimate (FR-028, SC-008)
 - [ ] T042 [P] Update `README.md` with how to run the container locally and where the deployment workflows live, and `CLAUDE.md` if any rule of engagement changed
 - [ ] T043 Run the full backend regression — `dotnet test` for both test projects — plus `npm run build` and the oxlint check for the frontend, confirming no existing test broke

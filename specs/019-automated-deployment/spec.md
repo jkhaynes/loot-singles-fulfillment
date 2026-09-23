@@ -34,6 +34,14 @@
   platform's included point-in-time restore, at least 7 days.** Imported order data can be
   re-imported because TCGplayer remains authoritative; what this protects is pick history and stored
   packing slips. Longer retention is a paid add-on and would need a separate cost decision.
+- Q: Should the one-time Azure setup become a committed provisioning script? → A: **No — keep it a
+  checklist, with instructions written for someone who has never done it.** Correcting the record:
+  an earlier draft of this specification justified the manual setup by claiming the repository
+  forbids provisioning from code. **It does not.** Nothing in the constitution, the PRD or
+  `CLAUDE.md` says anything of the kind. The decision stands on its own merits — the setup runs
+  twice, ever, and a script written against a subscription nobody can test first is harder to trust
+  than commands a person can read — but it is a **preference, not a prohibition**, and a later
+  feature may revisit it freely.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -352,7 +360,8 @@ live view, then find the corresponding record.
 - Retry or resilience handling for a paused database waking up (a separate feature)
 - Alerting, paging or uptime monitoring of any kind
 - Installable/offline behaviour for the web interface
-- Infrastructure defined as code; one-time resource creation is done by hand from a checklist
+- Infrastructure defined as code. One-time resource creation is done by hand from a checklist — a
+  Product Owner decision of 2026-09-22, not a rule imposed by this repository. See Clarifications.
 - Running more than one instance of the application per environment
 - Any paid logging, monitoring or application-performance service
 - Multi-location or multi-business support; this remains single-business software
