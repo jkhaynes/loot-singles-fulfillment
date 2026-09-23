@@ -361,13 +361,36 @@ Consumption or Dedicated plans". This design uses a *service* endpoint (§8), co
 maintenance window, and runs Consumption only. Had it applied it would have been roughly $73/month
 per environment, so it was worth resolving rather than assuming.
 
-**One cost question documentation cannot settle.** The same guide warns that "if you use Container
-Apps with your own virtual network… additional charges might apply", and this design does use its
-own virtual network. A plain VNet and service endpoints are documented as free, so this reads as a
-generic caveat about NAT gateways and private endpoints — but "might apply" is not a number.
-Settled empirically instead: quickstart.md C6 now says to read Cost Analysis grouped by meter about
-24 hours after the first environment exists, and to stop before creating the second if a management
-meter is accruing.
+**The cost question documentation could not settle — now answered, and the answer cost money.** The
+guide warns that "if you use Container Apps with your own virtual network… additional charges might
+apply". The empirical check placed in quickstart C6 for exactly this reason found it within hours:
+
+```
+0.0251   Virtual Network   IP Addresses   Standard IPv4 Static Public IP
+```
+
+**Every Container Apps environment with external ingress carries a Standard static public IPv4 at
+$0.005/hour — $3.65/month, per environment.** This document priced the compute and the database and
+never asked what the ingress costs. Two environments plus production's database would have been
+**$12.20/month against FR-028's $10 ceiling**.
+
+The Product Owner resolved it on 2026-09-23 by **sharing one Container Apps environment between both
+logical environments** (spec.md Clarifications): one public IP, $8.55/month, stage and its automatic
+deployment both kept. What is given up is the network boundary between stage and production. Data
+isolation is unaffected, because it rests on identity — each app authenticates as its own managed
+identity and stage's holds no database user in production's database — so this trades
+defence-in-depth rather than the defence itself.
+
+**The lesson worth keeping**: this was found by an empirical check written specifically because the
+documentation hedged. Every other figure in §13 was verified against the Retail Prices API and was
+correct. The one that was wrong was the one nobody thought to price at all, and only running it
+surfaced it.
+
+**A related correction.** This document claimed free usage "does not appear on your bill", so a cost
+view could not show free-tier activity. That is wrong: free meters appear as line items at $0 with
+`- Free` in the name — `General Purpose - Serverless - Compute Gen5 1 vCore - Free`,
+`Standard Data Processed - Free`. A cost view can therefore show *which* free meters are active. It
+still cannot show how much allowance remains, which is the limitation that matters.
 
 ---
 

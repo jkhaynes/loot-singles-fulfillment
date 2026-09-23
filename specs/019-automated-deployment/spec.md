@@ -43,6 +43,33 @@
   than commands a person can read — but it is a **preference, not a prohibition**, and a later
   feature may revisit it freely.
 
+### Session 2026-09-23
+
+- Q: Every Container Apps environment with external ingress carries a Standard static public IPv4 at
+  $0.005/hour — $3.65/month each, which the original cost model missed. Two environments plus
+  production's database is $12.20/month against FR-028's $10 ceiling. How should that resolve? → A:
+  **Both logical environments share one Container Apps environment**, and therefore one public IP.
+  Total $8.55/month, inside the ceiling, with stage and its automatic deployment kept.
+
+  What is given up, deliberately: **the network boundary between stage and production**. Both apps
+  sit in the same subnet, so stage's app can *reach* production's SQL server at the network level.
+  Data isolation is unaffected and remains the actual control — each app authenticates as its own
+  managed identity, and stage's identity has **no database user** in production's database, so it
+  cannot read a row regardless of reachability. This trades defence-in-depth, not the defence. The
+  alternative considered and rejected was dropping stage entirely, which costs the same and removes
+  automatic deployment altogether.
+
+  Three consequences follow, recorded so they are not discovered later:
+  - **Credential scoping changes mechanism.** FR-006 was satisfied by scoping each deployment
+    credential to its own resource group. With a shared environment each credential is instead
+    scoped to its own **app and migrate job specifically**, which is tighter than resource-group
+    scope and satisfies FR-006 independently of how groups are laid out.
+  - **Retained records are shared.** A Container Apps environment sends logs to exactly one
+    workspace, so both apps write to the same one. Entries carry the app name and remain separable,
+    but this is separation, not isolation (FR-005, FR-027).
+  - **Stage and production can no longer be torn down independently** at the resource-group level,
+    because they share infrastructure. Part E of the runbook changes accordingly.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Pick Orders at the Shop (Priority: P1)
@@ -208,9 +235,14 @@ live view, then find the corresponding record.
 #### Environments
 
 - **FR-005**: There MUST be exactly two environments, **stage** and **production**, each with its
-  own database, its own credentials, and its own retained records.
-- **FR-006**: Neither environment MUST be able to read or modify the other's data, and credentials
-  issued for deploying to one MUST NOT grant access to the other.
+  own database and its own credentials. They **share** one container-hosting environment, and
+  therefore one network and one retained-records store (Clarifications, 2026-09-23). Log entries
+  MUST identify which application produced them, so the shared store remains separable.
+- **FR-006**: Neither environment MUST be able to read or modify the other's data. This MUST rest on
+  **identity**, not on network reachability: each application authenticates as its own managed
+  identity, and an identity MUST NOT hold a database user in the other environment's database.
+  Credentials issued for deploying to one environment MUST NOT grant access to the other's
+  application or migration job.
 - **FR-007**: Neither environment MUST use the developer's local database.
 - **FR-029**: Stage MAY hold real customer data, and therefore MUST carry **every** privacy and
   security control that applies to production — FR-020, FR-021 and FR-022 without exception, plus
@@ -282,7 +314,8 @@ live view, then find the corresponding record.
 #### Records and cost
 
 - **FR-027**: Records emitted by the application MUST be retained and searchable for at least 30 days
-  in both environments.
+  for both environments. They share one store (FR-005), so every entry MUST carry the application
+  that produced it and a query MUST be able to return one environment's records alone.
 - **FR-028**: Recurring infrastructure cost MUST NOT exceed $10 per month, and a cost alert MUST be
   in place to report if it does.
 - **FR-031**: The production database MUST support restoring to a point in time at least 7 days in
