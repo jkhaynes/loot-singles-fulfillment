@@ -71,7 +71,7 @@ Constitution v3.5.0. Re-checked after Phase 1 — no change in any verdict.
 | Principle | Assessment |
 |---|---|
 | **I. Product Owner Authority** | Every decision traces to a confirmed decision of 2026-09-22, recorded either in the spec's Clarifications (self-approval, stage data, release timing, restore) or in the approved design session (two environments, Basic for production, promotion by approval, custom domain). PASS |
-| **II. No Invented Requirements** | No product functionality is added. The feature changes where the application runs, not what it does. Requirements trace to the spec; PRD §40.8 approves Container Apps and Azure SQL. **One deviation**: §40.8 specifies Static Web Apps for the frontend, and this serves it from the API origin instead — a PRD amendment is required before `/speckit-implement` (see Complexity Tracking). PASS with the amendment pending |
+| **II. No Invented Requirements** | No product functionality is added. The feature changes where the application runs, not what it does. Requirements trace to the spec and to the approved PRD. Same-origin hosting was a deviation from PRD §40.8 when this plan was written; it was **approved as amendment A17 on 2026-09-22** and folded into PRD v0.6, which now specifies one origin per environment. No deviation remains. PASS |
 | **III. Small, Reviewable Changes** | Three independently reviewable groups: application changes with their tests, the Dockerfile, and the workflows. The spec's user stories map to them in that order. PASS |
 | **IV. Test-Driven Development (NON-NEGOTIABLE)** | Red → Green for every behavioural change. Six behavioural test classes are written first and fail against today's code: no forwarded-header handling, neither health endpoint, no static files, in-memory keys, no `migrate` command. Each has a task, and each task precedes the implementation that makes it pass — verified by `/speckit-analyze` on 2026-09-22, which caught that `DatabaseHealthEndpointTests` and the `/health/database` endpoint had no tasks at all despite this gate claiming otherwise (now T047/T048). The infrastructure itself cannot be unit-tested, which is why §6 of the spec separates what tests prove from what only a deployment proves. PASS |
 | **V. Safe Failure Over Silent Corruption** | The feature's core argument. `/health` stays database-free so a database fault cannot destroy a working container (FR-023); `/health/database` fails a release rather than letting a broken application look deployed (FR-024); the `/api` fallback stops a 404 masquerading as HTML (FR-004); rollback restores the previous revision on any check failure (FR-017). PASS |
@@ -87,9 +87,10 @@ Constitution v3.5.0. Re-checked after Phase 1 — no change in any verdict.
 
 ### Gate result
 
-**PASS**, with one item that must be closed before implementation: the PRD §40.8 amendment for
-same-origin hosting. It is a documentation change to an approved artifact, so it belongs to the
-Product Owner, not to this plan (constitution Principle I).
+**PASS.** One item had to close before implementation — the PRD §40.8 amendment for same-origin
+hosting, a documentation change to an approved artifact and therefore the Product Owner's to make,
+not this plan's (constitution Principle I). It was **approved on 2026-09-22 as amendment A17** and
+folded into PRD v0.6. Nothing now blocks `/speckit-implement`.
 
 ## Project Structure
 
@@ -155,10 +156,11 @@ and `frontend/` in its build context. Tests go in `LootSingles.IntegrationTests`
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| Deviates from PRD §40.8 (Static Web Apps for the frontend) by serving the web app from the API origin | The session cookie is `SameSite=Strict`; a browser will not attach it to a request from a different site, so a separate web origin breaks authentication outright | Relaxing the cookie to `Lax` or `None` would keep §40.8's shape, but weakens a credential control to satisfy a hosting preference — a Principle VII deviation, which is worse than a documentation amendment. **Requires a PRD amendment before `/speckit-implement`.** |
+| ~~Deviates from PRD §40.8 (Static Web Apps for the frontend)~~ — **resolved 2026-09-22**: approved as amendment A17 and folded into PRD v0.6, which now specifies one origin per environment. Kept here as the record of why | The session cookie is `SameSite=Strict`; a browser will not attach it to a request from a different site, so a separate web origin breaks authentication outright | Relaxing the cookie to `Lax` or `None` would keep §40.8's shape, but weakens a credential control to satisfy a hosting preference — a Principle VII deviation, which is worse than a documentation amendment. The amendment was taken; no deviation remains |
 | Two managed identities per environment rather than one | The application is the internet-facing component; schema permission is what turns a foothold into a persistent one against the database holding PRD §27's packing slips (research.md §7) | One identity with `db_ddladmin` is four lines simpler in setup and zero lines simpler in the application. The saving is not worth the ability to drop the claim-uniqueness index, add a PII-copying trigger, or truncate the access log |
 | A second health endpoint rather than one | `/health` must not touch the database (a fault would destroy a working container) and a release must prove the database is reachable (FR-024). One endpoint cannot do both | A single database-touching endpoint reintroduces exactly the failure FR-023 forbids; a single database-free endpoint lets a release pass while the application cannot read anything |
 
 ## Next
 
-`/speckit-tasks`. Before `/speckit-implement`: the PRD §40.8 amendment above.
+`/speckit-tasks`, then `/speckit-analyze`, then `/speckit-implement`. The PRD §40.8 amendment that
+gated implementation was approved on 2026-09-22 (A17, PRD v0.6), so nothing blocks it.

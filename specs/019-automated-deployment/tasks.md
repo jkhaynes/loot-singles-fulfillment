@@ -37,7 +37,7 @@ Web application layout: `backend/src/`, `backend/tests/`, `frontend/src/`, workf
 
 ## Phase 0: Blocker (must close before any implementation)
 
-- [ ] T001 Amend PRD §40.8 so approved hosting serves the web app from the API origin rather than Azure Static Web Apps, recording that a `SameSite=Strict` session cookie cannot cross origins, in `docs/prd/Loot_Singles_Fulfillment_PRD_v0.5.md` (or its successor). **Product Owner decision — do not assume it.** See plan.md Complexity Tracking. No implementation task may start until this is closed.
+- [X] T001 Amend PRD §40.8 so approved hosting serves the web app from the API origin rather than Azure Static Web Apps, recording that a `SameSite=Strict` session cookie cannot cross origins. **Done 2026-09-22**: approved by the Product Owner as amendment **A17** and folded into [`docs/prd/Loot_Singles_Fulfillment_PRD_v0.6.md`](../../docs/prd/Loot_Singles_Fulfillment_PRD_v0.6.md), now the authoritative PRD. Rationale kept in [`Loot_Singles_Fulfillment_PRD_v0.6-proposed-amendments.md`](../../docs/prd/Loot_Singles_Fulfillment_PRD_v0.6-proposed-amendments.md). `CLAUDE.md`, `README.md` and the constitution (v3.5.1) now point at v0.6. **Implementation is unblocked.**
 
 ---
 

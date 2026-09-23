@@ -3,15 +3,18 @@
 **Base**: [`Loot_Singles_Fulfillment_PRD_v0.5.md`](Loot_Singles_Fulfillment_PRD_v0.5.md)
 **Drafted**: 2026-09-22
 **Source**: [Feature 019 — Automated stage and production deployment](../../specs/019-automated-deployment/spec.md)
-**Status**: **Proposed.** Awaiting Product Owner approval. Not a requirement until approved and
-folded into a new authoritative PRD version.
+**Status**: **Applied.** Approved by the Product Owner on 2026-09-22 and folded into
+[`Loot_Singles_Fulfillment_PRD_v0.6.md`](Loot_Singles_Fulfillment_PRD_v0.6.md), which is now the
+authoritative PRD.
+
+This document is kept as the record of *why* the change was made and what it replaced. It is not
+a live proposal and must not be cited as a requirement — cite the current PRD.
 
 One amendment. It changes **where the web application is served from**, and nothing else.
 
-Feature 019's task T001 is blocked on this decision, and the implementation cannot begin until it is
-resolved either way. The feature's technical plan records the deviation in its Complexity Tracking
-rather than assuming the amendment, because approved-PRD direction is the Product Owner's to change
-(constitution Principle I).
+Feature 019's task T001 was blocked on this decision. The feature's technical plan recorded the
+deviation in its Complexity Tracking rather than assuming the amendment, because approved-PRD
+direction is the Product Owner's to change (constitution Principle I).
 
 ---
 

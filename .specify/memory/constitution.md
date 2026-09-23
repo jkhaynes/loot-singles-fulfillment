@@ -1,20 +1,15 @@
 <!--
 Sync Impact Report
-Version change: 3.4.3 → 3.5.0
-MINOR — Principle XI's logging requirement is scoped explicitly to how the application emits logs,
-and platform-side log retention is stated to be outside it. The code-level prohibition is unchanged
-and slightly sharpened; what changes is that configuring the hosting platform to keep and search
-the container's stdout is no longer forbidden by implication.
+Version change: 3.5.0 → 3.5.1
+PATCH — updated Principle II's approved-PRD reference from
+`docs/prd/Loot_Singles_Fulfillment_PRD_v0.5.md` to
+`docs/prd/Loot_Singles_Fulfillment_PRD_v0.6.md`. No principle was added, removed, or redefined,
+and the requirement itself is unchanged: every requirement MUST still trace to a confirmed Product
+Owner decision, the approved PRD, or an approved Spec Kit feature specification. Only the document
+that reference resolves to has changed.
 
 Modified principles:
-  XI. Reliability During Fulfillment — the logging paragraph is split into three. The delivery
-  requirement (`ILogger<T>`, structured, console/stdout only) is unchanged. A new middle paragraph
-  states that the requirement governs application logging, not what the platform does with the
-  output; keeps the ban on logging packages, SDKs and custom abstractions; adds an explicit ban on
-  the application writing to a file, a database or any external sink of its own; and permits
-  platform-side retention subject to no new application dependency, the PII rules, and approved
-  cost constraints. Paid APM and log-analysis products remain out of scope absent an explicit
-  Product Owner cost decision. The PII and proportionality rules are unchanged.
+  II. No Invented Requirements — approved-PRD path now points at v0.6. Substance unchanged.
 
 Modified sections:
   None.
@@ -26,30 +21,23 @@ Removed sections:
   None.
 
 Rationale:
-The previous wording listed "Log Analytics" alongside Serilog, Seq and Datadog. Four of those five
-are NuGet packages added to a `.csproj`; Log Analytics is a destination the hosting platform writes
-to with no application involvement. Read strictly, the list forbade provisioning a Log Analytics
-workspace at all, which left the only permitted option a live-only log stream — evidence that
-expires before anyone can look at it.
+PRD v0.6 was approved by the Product Owner on 2026-09-22 and supersedes v0.5. It carries a single
+amendment, A17, arising from feature 019 (automated stage and production deployment): hosting
+(§40.8) now serves the web application and the API from one origin per environment, from the same
+container, superseding v0.5's use of Azure Static Web Apps. The session cookie is `SameSite=Strict`,
+and a browser does not attach a `Strict` cookie to a request originating from a different site, so a
+separate origin for the web application would break authentication outright. The alternative —
+relaxing the cookie to `Lax` or `None` — would have weakened a credential control to satisfy a
+hosting arrangement, which is a Principle VII deviation and needs explicit Product Owner and
+Developer approval; amending the PRD was the cheaper and safer of the two. No product behavior
+changed. `CLAUDE.md` and `README.md` were updated in the same change.
 
-That reading was never the intent. Feature 006, which introduced this principle, said so in its own
-specification: FR-002 requires stdout-only delivery "so it is visible through the hosting platform's
-log stream", and its Assumptions record that "log retention, search, and alerting within Azure
-Container Apps' log stream are operational concerns outside this feature". Retention was deferred,
-not prohibited.
+Leaving this constitution pointing at v0.5 would make the highest governing document cite a
+superseded PRD, so every later feature would trace its requirements through the wrong artifact.
 
-Feature 019 (automated deployment) is where those operational concerns are settled, and the Product
-Owner stated the requirement directly on 2026-09-22: logs must be viewable in both stage and
-production. That feature ships without alerting by deliberate decision, which makes a report from
-the shop the way problems surface — workable only if the evidence outlives the report. Azure Monitor
-includes the first 5 GB/month per billing account and ~31 days' retention at no charge, and this
-application logs only attempt- and outcome-level events (006 FR-009), so the cost constraint in
-Principle XI's first paragraph is not threatened.
-
-Amended under Governance ("Amendments to this constitution require documentation of the change and
-rationale"). Principle XI is not among the safety principles (V, VI, VII) that require explicit
-Product Owner and Developer approval to weaken, and this amendment does not weaken it in any case:
-no application-side allowance is added, one prohibition is added, and the PII rules are untouched.
+The previous amendment (3.4.3 → 3.5.0, 2026-09-22) scoped Principle XI's logging requirement to how
+the application emits logs rather than what the hosting platform does with stdout; its full
+rationale is in this file's git history.
 
 Follow-up TODOs: None.
 -->
@@ -72,7 +60,7 @@ When artifacts at different levels conflict, work MUST stop for clarification ra
 
 ### II. No Invented Requirements
 
-Product functionality MUST NOT be added because it seems useful, standard, or convenient. Every requirement MUST trace to a confirmed Product Owner decision, the approved PRD (`docs/prd/Loot_Singles_Fulfillment_PRD_v0.5.md`), or an approved Spec Kit feature specification.
+Product functionality MUST NOT be added because it seems useful, standard, or convenient. Every requirement MUST trace to a confirmed Product Owner decision, the approved PRD (`docs/prd/Loot_Singles_Fulfillment_PRD_v0.6.md`), or an approved Spec Kit feature specification.
 
 Open questions documented in the PRD remain open; they MUST NOT be silently converted into implementation assumptions.
 
@@ -449,4 +437,4 @@ Safety-related principles, including Sections V, VI, and VII, MUST NOT be weaken
 
 Changes to maintainability or simplicity principles MUST preserve the balance between reasonable extensibility and avoiding speculative over-engineering.
 
-**Version**: 3.5.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-09-22
+ **Version**: 3.5.1 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-09-22
