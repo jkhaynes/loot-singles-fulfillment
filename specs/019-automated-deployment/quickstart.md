@@ -272,6 +272,7 @@ a precise question, and confirming an *absence* by clicking through blades is wh
 | **C3** identities, **C4** SQL server, **C5** database, **C6** network rule, **C9** container app, **C10** migrate job, **C11** database grants | **twice** — once for `stage`, once for `prod` | `rg-loot-singles-<env>` |
 | **C12–C13** GitHub environment and credential | **twice** — `stage`, then `production` | GitHub + Entra |
 | **C14** budget, **C15** custom domain, **C16** image visibility | once | — |
+| **C17** first manager account | **twice** — after each environment's first deploy | the environment's database |
 
 Do the shared steps first, then everything per-environment for `stage`, then the same for `prod`.
 The shared Container Apps environment must exist before either container app can be created, and its
@@ -829,21 +830,78 @@ Owner decision, 2026-09-23.
 
 ---
 
-### C15. Custom domain (production only)
+### C15. Custom domains
 
-Do this after the first successful deployment. It needs no redeploy and can wait.
+**Done 2026-09-23.** Do this after the first successful deployment. It needs no redeploy.
 
-1. Open the production container app → **Settings** → **Custom domains** → **+ Add custom domain**.
-2. Enter your chosen subdomain. The portal shows the **TXT** record it wants for ownership, and the
-   **CNAME** target.
-3. In **Namecheap**: **Domain List** → **Manage** → **Advanced DNS** → **Add New Record**. Add the
-   `TXT` record shown, and a `CNAME` for your subdomain pointing at the container app's URL.
-   **You are only adding records.** Leave every row you did not create alone — the storefront's own
-   records stay exactly as they are.
-4. Back in the portal, **Validate**, then add the binding. Azure issues and renews the certificate
-   free.
+| Environment | Address | Points at |
+|---|---|---|
+| production | **https://fulfillment.lootcardshop.com** | `ca-loot-singles-prod.livelyisland-ae464452.westus2.azurecontainerapps.io` |
+| stage | **https://fulfillment-test.lootcardshop.com** | `ca-loot-singles-stage.livelyisland-ae464452.westus2.azurecontainerapps.io` |
 
-DNS takes a few minutes to tens of minutes to propagate.
+FR-003 requires only production's address. Stage's is a Product Owner choice; it costs nothing. The
+`-test` name is deliberate: staff read "test" as "not the real one" more readily than "stage".
+
+**The domain belongs to the shop, so the DNS records are added by its owner.** Nobody needs the
+owner's Namecheap login: send them the four records below, as a shared doc, and they paste them in.
+
+**1. Get the verification code.** Both apps sit in the one shared Container Apps environment, so
+they share one code. It is not a secret; it ends up in public DNS.
+
+```powershell
+az containerapp env show -g rg-loot-singles-shared -n cae-loot-singles `
+  --query "properties.customDomainConfiguration.customDomainVerificationId" -o tsv
+```
+
+**2. The owner adds four records** in Namecheap: **Domain List** → **Manage** → **Advanced DNS** →
+**Host Records** → **Add New Record**, clicking the ✓ to save each row. TTL stays on **Automatic**.
+
+| Type | Host | Value |
+|---|---|---|
+| CNAME | `fulfillment` | production's address from the table above |
+| TXT | `asuid.fulfillment` | the verification code |
+| CNAME | `fulfillment-test` | stage's address from the table above |
+| TXT | `asuid.fulfillment-test` | the verification code |
+
+**Host** is only the prefix; Namecheap appends the domain. Every existing row stays as it is, since
+the storefront and email depend on them.
+
+**3. Check the records from outside before touching Azure.** Ask Namecheap's own nameserver, which
+skips any cached answer:
+
+```powershell
+foreach ($h in "fulfillment", "fulfillment-test") {
+  (Resolve-DnsName "$h.lootcardshop.com" -Type CNAME -Server dns1.registrar-servers.com -DnsOnly -ErrorAction SilentlyContinue |
+     Where-Object Type -eq CNAME).NameHost
+}
+```
+
+**Expected**: both container app addresses. On the first run the stage CNAME came back empty
+because of a typo in its **Host**; the `asuid.` row next to it was fine, so check each row, not one.
+If `Resolve-DnsName lootcardshop.com -Type NS` stops answering `registrar-servers.com`, DNS has moved
+off Namecheap and the records must go wherever it now lives.
+
+**4. Add and bind each address.** `bind` with no certificate makes Azure issue a free managed
+certificate and renew it automatically. The environment lives in the shared group, so pass its full
+id:
+
+```powershell
+$envId = az containerapp env show -g rg-loot-singles-shared -n cae-loot-singles --query id -o tsv
+az containerapp hostname add  -g rg-loot-singles-prod -n ca-loot-singles-prod --hostname fulfillment.lootcardshop.com
+az containerapp hostname bind -g rg-loot-singles-prod -n ca-loot-singles-prod --hostname fulfillment.lootcardshop.com `
+  --environment $envId --validation-method CNAME
+```
+
+Repeat with `rg-loot-singles-stage`, `ca-loot-singles-stage` and `fulfillment-test.lootcardshop.com`.
+Each bind took about two minutes on the first run.
+
+**Expected**: `az containerapp hostname list -g rg-loot-singles-prod -n ca-loot-singles-prod -o table`
+shows the address with binding `SniEnabled`, and `https://fulfillment.lootcardshop.com/health`
+returns 200.
+
+**Afterwards**: everyone signs in once more at the new address. A sign-in belongs to the address it
+was made on. The `…azurecontainerapps.io` addresses keep working, and the deploy workflows still use
+them through `APP_URL`.
 
 ---
 
@@ -857,12 +915,29 @@ setup (FR-019). That only works if the image is **publicly readable**. GitHub cr
 when the first build pushes, and whether it lands public or private depends on the account's package
 settings, so this is a check rather than a step you can pre-empt.
 
-1. Go to your GitHub profile → **Packages** → `loot-singles-fulfillment`.
-2. Read the visibility shown next to the name.
-3. If it is **Private**: **Package settings** → **Danger Zone** → **Change visibility** → **Public**.
+**The quickest check needs no browser.** It asks the registry for the image the way Azure does,
+with no sign-in:
 
-**Expected**: Public. Nothing in the image is secret — the connection string arrives as an
-environment variable at runtime and carries no password, and the repository itself is public.
+```powershell
+$sha   = git rev-parse origin/main
+$token = (Invoke-RestMethod "https://ghcr.io/token?scope=repository:jkhaynes/loot-singles-fulfillment:pull").token
+(Invoke-WebRequest "https://ghcr.io/v2/jkhaynes/loot-singles-fulfillment/manifests/sha-$sha" `
+   -Headers @{ Authorization = "Bearer $token"; Accept = "application/vnd.oci.image.index.v1+json" }).StatusCode
+```
+
+**Expected**: `200`. A `401` or `403` means private — fix it in the browser:
+
+1. Go to your GitHub profile → **Packages** → `loot-singles-fulfillment`. The **Packages** tab only
+   appears once a package exists, so before the first build there is nothing to find — that is
+   expected, not a missing permission.
+2. **Package settings** → **Danger Zone** → **Change visibility** → **Public**.
+
+**What actually happened on the first run (2026-09-23)**: the package came out **public on its
+own**, because it was published from a public repository. Nothing needed changing. The check stays,
+because that inheritance depends on account settings this runbook cannot see.
+
+Nothing in the image is secret — the connection string arrives as an environment variable at
+runtime and carries no password, and the repository itself is public.
 
 **If you skip this and the package is private**, the deploy's own smoke test catches it, but
 indirectly: the container app accepts the update, fails to pull, never starts, and `/health` times
@@ -877,6 +952,94 @@ az containerapp show -g "rg-loot-singles-prod" -n "ca-loot-singles-prod" `
 ```
 
 **Expected**: one row, value `true`. Running the same query against stage must return **nothing**.
+
+---
+
+### C17. After the first deploy — create the first manager account
+
+**Once per environment, after its first successful deploy.** Until an account exists nobody can
+sign in, and only a manager can create other accounts (FR-032). Written from the first real run, on
+stage, 2026-09-23.
+
+**How it works.** The image already contains a `bootstrap-admin` command. You run it once, as a
+one-off execution of the environment's **migrate job**, which already has the right image, the
+migrate identity, and database access. It creates one manager account and exits. It **refuses to
+run if any account already exists**, so it can never create a second one — which also makes it safe
+to retry after a failure.
+
+**Do not edit the migrate job to do this.** If you change its arguments in the portal and forget to
+change them back, the next deploy runs bootstrap instead of the migration. A one-off *override*
+leaves the job untouched.
+
+**Choose first**: a username, a display name (spaces are fine), and a temporary PIN of **exactly 4
+digits** — anything else is rejected.
+
+**Do it while the database is awake.** Stage's free-offer database pauses after an hour idle, and a
+paused database fails the first attempt. Just after a deploy is ideal. Production's is always awake.
+
+1. Open a **new** PowerShell window and confirm you are signed in:
+
+   ```powershell
+   $az = "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd"
+   & $az account show --query name -o tsv    # expect: Azure subscription 1
+   ```
+
+   If it errors, run `& $az login`.
+
+2. Load the job's image and connection string. Neither is a secret. **For production**, change the
+   first two lines to `rg-loot-singles-prod` and `caj-loot-singles-prod-migrate`.
+
+   ```powershell
+   $rg   = "rg-loot-singles-stage"
+   $job  = "caj-loot-singles-stage-migrate"
+   $img  = & $az containerapp job show -g $rg -n $job --query "properties.template.containers[0].image" -o tsv
+   $conn = & $az containerapp job show -g $rg -n $job --query "properties.template.containers[0].env[?name=='ConnectionStrings__LootSingles'].value | [0]" -o tsv
+   $img    # expect: ghcr.io/jkhaynes/loot-singles-fulfillment:sha-…
+   ```
+
+3. Run it. Replace the two quoted values; the PIN is typed at the prompt, is not shown, and is not
+   saved in your command history:
+
+   ```powershell
+   $secure = Read-Host "Temporary 4-digit PIN" -AsSecureString
+   $pin = [System.Net.NetworkCredential]::new('', $secure).Password
+
+   $e = & $az containerapp job start -g $rg -n $job --image $img --args bootstrap-admin `
+     --env-vars "ConnectionStrings__LootSingles=$conn" `
+                "BootstrapAdmin__Username=YOUR-USERNAME" `
+                "BootstrapAdmin__DisplayName=Your Display Name" `
+                "BootstrapAdmin__Pin=$pin" `
+     --query name -o tsv
+
+   Remove-Variable pin, secure
+   "Started: $e"
+   ```
+
+   **Why the image and connection string are passed again**: an override replaces the job's
+   container settings for that run rather than adding to them. Without `--image` Azure rejects the
+   run outright; without the connection string it starts and fails, having touched nothing. Both
+   were confirmed on the first run.
+
+4. Check the result every 15 seconds or so until it is no longer `Running`:
+
+   ```powershell
+   & $az containerapp job execution show -g $rg -n $job --job-execution-name $e --query properties.status -o tsv
+   ```
+
+   **`Succeeded`**: the account exists. **`Failed`**: the reason is in the log, not the status —
+   see Part F.
+
+5. **Sign in and change the PIN immediately.** Open the environment's address — the first request
+   after an idle spell can take up to 30 seconds while the app starts — sign in with the temporary
+   PIN, then **Admin** → your own row → **New PIN** → **Reset PIN**.
+
+   **This step is not optional.** The job keeps a record of every run's settings, including the
+   temporary PIN, readable by anyone with read access to the job in Azure. Changing the PIN makes the
+   recorded one worthless.
+
+**Signing in is also the proof** that the *application's* identity can read and write the database.
+The deploy's stage checks never touch the database, so on stage this is the first time anything
+does. Seeing `warn: …XmlKeyManager[35]` in the logs at that moment is expected — see Part F.
 
 ---
 ## Part D — The checks that matter
@@ -1033,6 +1196,9 @@ start:
 | `'query' is misspelled or not recognized` under `az monitor log-analytics` | The extension is missing. `az extension add --name log-analytics` (A3). |
 | Looking for `az containerapp job logs` | It does not exist. Job output goes to Log Analytics — use the query in Part D, filtered to the job's name, or the job's **Execution history** blade in the portal. |
 | Revision never starts; status `ImagePullBackOff` | The image is not publicly pullable. The container app holds no registry credentials by design, so the GHCR package must be public — see C16. |
+| C17's bootstrap run shows `Failed` | Read the reason from the job's log with the Part D query, filtered to the migrate job's name. Usual causes: the PIN was not exactly 4 digits; an account already exists (bootstrap only ever creates the first); or stage's database was paused — wait a minute and re-run step 3, which is safe to repeat. |
+| `warn: Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager[35]` in the logs | **Expected**, once, the first time anyone signs in. The framework is noting that the session-key ring is saved without its own encryption layer. That was a deliberate choice (`research.md` §5): the keys live in the database, which Azure encrypts at rest, and the alternative — Key Vault — is a paid service. Not a defect. |
+| `az monitor log-analytics query` stops to ask about installing an extension | The `log-analytics` extension is missing (A3 installs it). Either run `az extension add --name log-analytics`, or query without it through `az rest --method post --url "https://api.loganalytics.io/v1/workspaces/<workspace id>/query" --resource "https://api.loganalytics.io" --body "@query.json"`, where `query.json` holds `{"query": "<your query>"}`. |
 | `The subscription is not registered to use namespace…` | A provider is not registered. Register it in Subscriptions → Resource providers (A2). |
 | Resources appear in the wrong place | The wrong subscription is selected. Read the subscription shown on every create form (A1). |
 | `Database '...' is not currently available. Please retry the connection later` | The stage database is serverless and paused after 60 minutes idle. Your attempt triggered the resume. Wait ~30 seconds and retry. Production is Basic and always awake. |
@@ -1164,6 +1330,76 @@ is the best available.
 
 **It also warns nobody.** A dashboard is passive. The budget alert in C14 is the thing that emails
 you, and this does not replace it.
+
+---
+
+## Part H — Releasing
+
+Everything before this part is done once. This part is done every time a change ships. Written
+from the first real releases, 2026-09-23.
+
+### Stage releases itself
+
+Merging a pull request into `main` starts **Deploy to stage** on its own. There is nothing to press.
+It runs the quality checks again on the merged code, builds the image, runs the migration, switches
+the app to the new image and checks the live site. It takes 10 to 15 minutes, most of it the backend
+tests.
+
+Watch it under the repository's **Actions** tab → **Deploy to stage**. Green means stage runs the
+merged commit. Red at any step after the image was recorded means the workflow already put the
+previous image back — stage is on the last good version, and the failed step's log says why.
+
+**Check stage yourself before releasing it further.** Sign in at
+**https://fulfillment-test.lootcardshop.com** and try the change. That is the whole point of stage.
+
+### Production is released by hand, one named commit at a time
+
+**1. Get the full commit id** that stage is running. It must be all 40 characters — the workflow
+refuses a short one before touching anything:
+
+```powershell
+git fetch origin
+git rev-parse origin/main
+```
+
+That is the latest merge. To be sure it is what stage runs:
+
+```powershell
+az containerapp show -g rg-loot-singles-stage -n ca-loot-singles-stage `
+  --query "properties.template.containers[0].image" -o tsv
+```
+
+The image ends in `sha-` followed by the same 40 characters.
+
+**2. Start the release.** GitHub → **Actions** → **Deploy to production** in the left sidebar →
+**Run workflow** → leave the branch on `main` → paste the full id into **commit** → **Run workflow**.
+
+**3. Approve it.** Open the new run; it shows **Waiting**. The job is named **Deploy &lt;commit&gt; to
+production** — confirm it is the commit you meant, because this is the moment you are approving
+exactly that build. Then **Review deployments** → tick **production** → **Approve and deploy**.
+
+Nothing touches production until you approve. Declining, or leaving it waiting, changes nothing.
+Merging something else while it waits does not change what it ships either — the commit was fixed
+when you pressed **Run workflow**.
+
+**4. Watch it finish.** Three to five minutes: migration, app update, smoke test. The smoke test's
+last check, `check /health/database 200`, is the one that proves the production app can still read
+its own database.
+
+**If it goes red**, the workflow has already put production back on the image it was running, and
+the failed step's log says why. Nothing is half-deployed, with one exception worth knowing: a
+migration that ran stays applied, because the rollback restores the image, never the schema. That is
+safe only because migrations must be additive (FR-016), which a test enforces.
+
+**5. Check it yourself.** Open **https://fulfillment.lootcardshop.com**. The design keeps anyone
+signed in signed in across a release (FR-026); being signed in before and after one is the check
+that confirms it (T036).
+
+### When to release
+
+Any time, including mid-shift (FR-030): an in-progress pick survives a release, at worst as one
+failed request that succeeds on retry. The first release during a real shift is still the check
+that proves it (T049) — until then, a quiet moment is the cautious choice.
 
 ---
 
