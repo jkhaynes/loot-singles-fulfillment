@@ -45,8 +45,7 @@ V1 implementation is underway, following the Spec Kit workflow described in [`CL
 - C#
 - Entity Framework Core
 - Azure SQL Database
-- Azure Static Web Apps
-- Azure Container Apps
+- Azure Container Apps (one container serves both the API and the built web app; see Deployment)
 - xUnit
 - Vitest
 - React Testing Library
@@ -169,6 +168,48 @@ Verify frontend formatting without changing files:
 ```powershell
 npm --prefix frontend run format:check
 ```
+
+## Deployment
+
+The app runs on Azure Container Apps in two environments:
+
+| Environment | Address | Deploys |
+|---|---|---|
+| Production | https://fulfillment.lootcardshop.com | By hand: someone names a commit and a reviewer approves |
+| Stage | https://fulfillment-test.lootcardshop.com | Automatically, on every merge to `main` |
+
+One container image serves both the API and the built web app from a single address, because the
+session cookie is `SameSite=Strict` and a browser will not send it to another origin (PRD §40.8,
+amendment A17). Production always runs an image stage has already built; nothing is rebuilt between
+the two.
+
+The workflows live in [`.github/workflows/`](.github/workflows/):
+
+- `deploy-stage.yml`: on a merge to `main`, runs the quality gate, builds and publishes the image,
+  applies migrations, updates stage, checks the live site, and restores the previous image if
+  anything fails.
+- `deploy-production.yml`: started by hand from the **Actions** tab with a full 40-character commit
+  id, then paused until a reviewer approves. Same migrate, update, check and restore sequence, plus a
+  check that the app can reach its database.
+- `pr-quality-gate.yml`: the checks every pull request must pass, reused by the stage deploy.
+
+How to release, how everything in Azure was set up, and what to do when something breaks are in the
+runbook, [`specs/019-automated-deployment/quickstart.md`](specs/019-automated-deployment/quickstart.md):
+Part H covers releasing and Part F covers troubleshooting.
+
+### Run the container locally
+
+The same image that ships can be built and run on a developer machine with Docker:
+
+```powershell
+docker build -t loot-singles:local .
+docker run --rm -p 8080:8080 -e "ConnectionStrings__LootSingles=<authorized connection string>" loot-singles:local
+```
+
+Then open http://localhost:8080. The image takes one optional argument: none serves the app,
+`migrate` applies pending migrations and exits, and `bootstrap-admin` creates the first manager and
+exits. `/health` answers without touching the database. `/health/database` exists only when
+`HealthChecks__ExposeDatabaseEndpoint=true` is set, as it is in production.
 
 ## TCGplayer Integration
 
