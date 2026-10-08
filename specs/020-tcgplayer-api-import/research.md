@@ -195,6 +195,35 @@ The person reads the report and records the answers **in words** in this section
 
 **Authorization attempt, 2026-10-08**: approving the app at `store.tcgplayer.com/admin/Apps/{PublicKey}` hung. The page's `authorizeapplication` request stayed pending and never returned a code. The problem is on TCGplayer's side, and it was raised with TCGplayer. Implementation goes ahead meanwhile against synthetic data. The probe-dependent items (open status name, `extendedData` names, `productCount` meaning, condition and printing wording) are tracked in `tasks.md` as needing live confirmation.
 
+**After store authorization, 2026-10-08**: the authorization completed, and the store access token was saved and sent (`X-Tcg-Access-Token` supplied: true). The diagnostic calls then gave:
+
+| Call | Result |
+|---|---|
+| Catalog categories | 200 |
+| `/stores/self` (versioned and unversioned) | 200 |
+| `/stores/{storeKey}` store info (versioned and unversioned) | 200 |
+| Order manifest and order search (versioned and unversioned) | **403**, "Request forbidden." |
+
+The path form is not the cause. Store info and `/stores/self` also worked **before** authorization, so they don't prove the access token took effect. Two explanations remain:
+- **(a)** the authorization isn't being applied, for example because `/stores/self` returns a store other than the one authorized;
+- **(b)** the application lacks permission to read orders.
+
+**Comparison, 2026-10-08**: the store being queried is "Loot Card Shop", and the store key is the same with and without the access token, so explanation (a) is ruled out. The keys-only bearer token also gets 403 on the manifest, so the access token makes no observable difference to order access. The remaining cause is (b): the application has no order permission. **Authorization method verified, 2026-10-08.**
+
+- `Check-TcgplayerAccess.ps1` found that 47 of the 68 read-only endpoints return 403. The blocked set includes orders, catalog product and SKU details, all pricing, store inventory, buylist and customers.
+- `Test-TcgplayerAuthVariants.ps1` tried every reported token flow:
+  - the documented `/token` with `X-Tcg-Access-Token`;
+  - the versioned `/v1.39.0/token`;
+  - the header sent on the order call itself;
+  - the flow from TCGplayer's official Postman collection (github.com/TCGplayer/Postman-Api).
+
+  Every variant obtained a token and still got 403 on orders.
+- `/token/access`, which one open-source client uses, returns 405 because it doesn't exist.
+
+The calls match TCGplayer's own reference, so the 403s are application permissions. That fits the addendum's §4(a) purposes ("inventory synchronization, pricing, catalog management, and related functionality"), which never mention orders. Only TCGplayer can grant it, and the questions were sent to them.
+
+**Implementation is paused**: the whole feature depends on reading orders, so nothing is built until TCGplayer confirms it will enable order access for this use.
+
 The keys alone cannot read store orders. The next step is the Store Authorization Workflow (§1), done once by a person. The probe is then re-run with `TCGPLAYER_ACCESS_TOKEN` set, to verify steps 3–8 before `/speckit-tasks`.
 
 An earlier draft of this section blocked the feature pending TCGplayer's confirmation. That draft assumed Loot had a pre-2025 connection to protect, but Loot's keys are new, issued in 2026, so there was none to protect and the block was removed.

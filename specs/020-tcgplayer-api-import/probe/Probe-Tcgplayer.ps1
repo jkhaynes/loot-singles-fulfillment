@@ -3,16 +3,17 @@
     Read-only probe of the TCGplayer Seller API, for feature 020. A PERSON runs this, never an AI tool.
 
 .DESCRIPTION
-    Makes about ten calls with the store's EXISTING credentials and writes a local report describing
-    the SHAPE of each response: field paths and JSON types. Values are hidden, except the reference
-    vocabulary the plan needs to confirm (research.md §14):
+    Makes about ten calls with Loot's credentials and writes a local report with each response's
+    shape (field paths and JSON types) and its FULL content, plus summaries the plan needs to confirm
+    (research.md §14):
       - order status names from the manifest
-      - catalog extendedData field NAMES (not their values)
+      - catalog extendedData field names
       - the distinct wording of categoryName, condition, printing, language and rarity on order lines
       - per order, three numbers: productCount, the sum of line quantities and the number of lines
       - which host image URLs point at
 
-    It never writes keys, tokens, order numbers, customer or shipping fields, product names or prices.
+    The report contains real order and customer data. It never contains the keys or tokens. Delete it
+    when you are done.
 
     Rules (CLAUDE.md, "TCGplayer API Agreement"):
       - Read-only. The only POST is /token, which exchanges the EXISTING keys for a short-lived bearer
@@ -46,6 +47,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $BaseUrl = 'https://api.tcgplayer.com'
+$Prefix = "/$ApiVersion"
 $UserAgent = 'LootSinglesFulfillment/0.0.0-probe (Loot Investments LLC)'
 $script:CallCount = 0
 $report = [System.Collections.Generic.List[string]]::new()
@@ -109,8 +111,10 @@ function Get-Shape($node, [string] $path, [System.Collections.Generic.SortedSet[
 function Write-Shape([string] $title, $body) {
     $set = [System.Collections.Generic.SortedSet[string]]::new([StringComparer]::Ordinal)
     Get-Shape $body '$' $set
-    Add-Line "--- ${title}: response shape (values hidden) ---"
+    Add-Line "--- ${title}: response shape ---"
     $set | ForEach-Object { Add-Line "  $_" }
+    Add-Line "--- ${title}: full response ---"
+    Add-Line (ConvertTo-Json $body -Depth 20)
     Add-Line
 }
 
@@ -138,7 +142,7 @@ $accessToken = Get-Secret 'TCGPLAYER_ACCESS_TOKEN' 'TCGplayer store access token
 
 try {
     Add-Line "TCGplayer read-only probe, $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
-    Add-Line 'Do not paste this report into any AI tool. Describe findings in your own words.'
+    Add-Line 'Contains real order and customer data. Do not paste it into any AI tool; describe findings in your own words. Delete it when done.'
     Add-Line
 
     # 1. Bearer token from the EXISTING credentials (the only POST).
@@ -148,13 +152,13 @@ try {
     $token = Invoke-Tcg 'POST' '/token' $tokenHeaders $form 'application/x-www-form-urlencoded'
     Add-Line "1. POST /token: HTTP $($token.Status) (store access token supplied: $($tokenHeaders.Count -gt 0))"
     if ($token.Status -ne 200) { Add-Line '   Token request failed. Stopping: check the keys, but do NOT create new ones.'; return }
-    Write-Shape 'token' ($token.Body | Select-Object * -ExcludeProperty access_token)
+    Write-Shape 'token' ($token.Body | Select-Object * -ExcludeProperty access_token, userName)
     $auth = @{ Authorization = "bearer $($token.Body.access_token)" }
     Add-Line "   token lifetime fields: expires_in present = $($null -ne $token.Body.expires_in); .expires present = $($null -ne $token.Body.'.expires')"
     Add-Line
 
     # 2. Store identity.
-    $self = Invoke-Tcg 'GET' "/$ApiVersion/stores/self" $auth $null $null
+    $self = Invoke-Tcg 'GET' "$Prefix/stores/self" $auth $null $null
     Add-Line "2. GET /stores/self: HTTP $($self.Status)"; Add-Outcome $self
     if ($self.Status -in 401, 403) {
         Add-Line '   The keys alone do not reach a store. Stopping here. Next step:'
@@ -164,7 +168,7 @@ try {
     Write-Shape 'stores/self' $self.Body
     $store = @($self.Body.results) | Select-Object -First 1
     $storeKey = if ($store) { $store.storeKey ?? $store.sellerKey ?? $store.SellerKey } else { $null }
-    Add-Line "   store key found = $([bool]$storeKey) (value hidden; read it from the shape above if it is under another name)"
+    Add-Line "   store key found = $([bool]$storeKey) (see the full response above)"
     Add-Line
     if (-not $storeKey) {
         Add-Line '   No store came back for these keys. Stopping here. Next step:'
@@ -173,8 +177,53 @@ try {
     }
 
     # 3. Manifest: status names are reference data, so they are shown.
-    $manifest = Invoke-Tcg 'GET' "/$ApiVersion/stores/$storeKey/orders/manifest" $auth $null $null
+    $manifest = Invoke-Tcg 'GET' "$Prefix/stores/$storeKey/orders/manifest" $auth $null $null
     Add-Line "3. GET /orders/manifest: HTTP $($manifest.Status)"; Add-Outcome $manifest
+    if ($manifest.Status -in 401, 403) {
+        # Diagnose the refusal with read-only calls; only statuses and TCGplayer's error text are recorded.
+        # Is the store access token doing anything? Compare a keys-only bearer token with the one above.
+        if ($tokenHeaders.Count -gt 0) {
+            Add-Line '   Comparing with a bearer token from the keys alone (no store access token):'
+            $plain = Invoke-Tcg 'POST' '/token' @{} $form 'application/x-www-form-urlencoded'
+            $plainAuth = @{ Authorization = "bearer $($plain.Body.access_token)" }
+            $plainSelf = Invoke-Tcg 'GET' "$Prefix/stores/self" $plainAuth $null $null
+            $plainStore = @($plainSelf.Body.results) | Select-Object -First 1
+            $plainKey = if ($plainStore) { $plainStore.storeKey ?? $plainStore.sellerKey ?? $plainStore.SellerKey } else { $null }
+            $plainManifest = Invoke-Tcg 'GET' "$Prefix/stores/$storeKey/orders/manifest" $plainAuth $null $null
+            Add-Line "     keys-only token: HTTP $($plain.Status); /stores/self HTTP $($plainSelf.Status); manifest HTTP $($plainManifest.Status)"
+            Add-Line "     same store key with and without the access token: $($plainKey -eq $storeKey)"
+            Add-Line "     bearer tokens identical: $($plain.Body.access_token -eq $token.Body.access_token)"
+            Add-Line "     token userName the same with and without the access token: $($token.Body.userName -eq $plain.Body.userName)"
+        }
+        # The store's public display name, so you can check it is Loot's store.
+        $info = Invoke-Tcg 'GET' "$Prefix/stores/$storeKey" $auth $null $null
+        $infoStore = @($info.Body.results) | Select-Object -First 1
+        Add-Line "   store being queried, display name: $($infoStore.name ?? $infoStore.displayName ?? $infoStore.DisplayName ?? $store.displayName ?? $store.DisplayName ?? '(not returned; see store info shape)')"
+        if ($infoStore) { Write-Shape 'store info' $info.Body }
+        Add-Line '   Diagnosing the refusal (read-only):'
+        $checks = [ordered]@{
+            'manifest, no version prefix'       = "/stores/$storeKey/orders/manifest"
+            'order search, versioned'           = "$Prefix/stores/$storeKey/orders?limit=1"
+            'order search, no version prefix'   = "/stores/$storeKey/orders?limit=1"
+            'store info, versioned'             = "$Prefix/stores/$storeKey"
+            'store info, no version prefix'     = "/stores/$storeKey"
+            'store self, no version prefix'     = '/stores/self'
+            'catalog categories (no store data)' = "$Prefix/catalog/categories?limit=1"
+        }
+        foreach ($label in $checks.Keys) {
+            $r = Invoke-Tcg 'GET' $checks[$label] $auth $null $null
+            $err = (@($r.Body.errors) | Where-Object { $_ }) -join '; '
+            Add-Line ("     {0,-38} HTTP {1}{2}" -f $label, $r.Status, $(if ($err) { "  error: $err" } else { '' }))
+        }
+        $unversioned = Invoke-Tcg 'GET' "/stores/$storeKey/orders/manifest" $auth $null $null
+        if ($unversioned.Status -eq 200) {
+            Add-Line '   The unversioned path works: continuing with it.'
+            $Prefix = ''
+            $manifest = $unversioned
+        } else {
+            return
+        }
+    }
     $statuses = @(@($manifest.Body.results) | Select-Object -First 1 | ForEach-Object { $_.orderStatusTypes })
     Add-Line '   order status names (id: name):'
     $statuses | ForEach-Object { Add-Line "     $($_.id): $($_.name)" }
@@ -184,16 +233,16 @@ try {
     if (-not $openStatus) { return }
 
     # 4. Search open orders (order numbers are hidden).
-    $search = Invoke-Tcg 'GET' "/$ApiVersion/stores/$storeKey/orders?orderStatusIds=$($openStatus.id)&offset=0&limit=$SampleOrders" $auth $null $null
+    $search = Invoke-Tcg 'GET' "$Prefix/stores/$storeKey/orders?orderStatusIds=$($openStatus.id)&offset=0&limit=$SampleOrders" $auth $null $null
     Add-Line "4. GET /orders?orderStatusIds=...: HTTP $($search.Status)"; Add-Outcome $search
-    Write-Shape 'order search' ($search.Body | Select-Object * -ExcludeProperty results)
+    Write-Shape 'order search' $search.Body
     $orderNumbers = @($search.Body.results)
     Add-Line "   totalItems = $($search.Body.totalItems); returned on this page = $($orderNumbers.Count)"
     Add-Line
     if ($orderNumbers.Count -eq 0) { Add-Line 'No open orders right now: rerun when some exist.'; return }
 
     # 5. Order details: shape only (it contains customer fields), plus productCount.
-    $details = Invoke-Tcg 'GET' "/$ApiVersion/stores/$storeKey/orders/$($orderNumbers -join ',')" $auth $null $null
+    $details = Invoke-Tcg 'GET' "$Prefix/stores/$storeKey/orders/$($orderNumbers -join ',')" $auth $null $null
     Add-Line "5. GET /orders/{numbers}: HTTP $($details.Status)"; Add-Outcome $details
     Write-Shape 'order details' $details.Body
     $productCounts = @{}
@@ -207,8 +256,8 @@ try {
     $i = 0
     foreach ($n in $orderNumbers) {
         $i++
-        $items = Invoke-Tcg 'GET' "/$ApiVersion/stores/$storeKey/orders/$n/items?includeItemDetails=true&offset=0&limit=100" $auth $null $null
-        if (-not $itemShapeWritten) { Add-Line "6. GET /orders/{n}/items: HTTP $($items.Status)"; Add-Outcome $items; Write-Shape 'order items' $items.Body; $itemShapeWritten = $true }
+        $items = Invoke-Tcg 'GET' "$Prefix/stores/$storeKey/orders/$n/items?includeItemDetails=true&offset=0&limit=100" $auth $null $null
+        Add-Line "6. GET /orders/{n}/items (order $i): HTTP $($items.Status)"; Add-Outcome $items; Write-Shape "order items, order $i" $items.Body
         $lines = @($items.Body.results)
         $qtySum = ($lines | Measure-Object -Property quantity -Sum).Sum
         Add-Line "   order $i : productCount = $($productCounts[$n]); sum of line quantities = $qtySum; lines returned = $($lines.Count); items totalItems = $($items.Body.totalItems)"
@@ -228,12 +277,12 @@ try {
     # 7–8. Catalog: SKU to product, then the product's extendedData names.
     $skuSample = @($skuIds | Select-Object -Unique -First 10)
     if ($skuSample.Count -gt 0) {
-        $skus = Invoke-Tcg 'GET' "/$ApiVersion/catalog/skus/$($skuSample -join ',')" $auth $null $null
+        $skus = Invoke-Tcg 'GET' "$Prefix/catalog/skus/$($skuSample -join ',')" $auth $null $null
         Add-Line "7. GET /catalog/skus/{ids}: HTTP $($skus.Status)"; Add-Outcome $skus
         Write-Shape 'catalog skus' $skus.Body
         $productIds = @(@($skus.Body.results) | ForEach-Object { $_.productId } | Select-Object -Unique)
         if ($productIds.Count -gt 0) {
-            $products = Invoke-Tcg 'GET' "/$ApiVersion/catalog/products/$($productIds -join ',')?getExtendedFields=true" $auth $null $null
+            $products = Invoke-Tcg 'GET' "$Prefix/catalog/products/$($productIds -join ',')?getExtendedFields=true" $auth $null $null
             Add-Line "8. GET /catalog/products/{ids}?getExtendedFields=true: HTTP $($products.Status)"; Add-Outcome $products
             Write-Shape 'catalog products' $products.Body
             $extNames = @{}
