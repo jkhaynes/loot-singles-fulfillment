@@ -27,9 +27,9 @@ These decisions were made before specification and sit above the PRD in the sour
 
 ## Agreement Constraints *(binding)*
 
-Loot's API access is governed by the TCGplayer API Terms and Conditions and the signed **Legacy Qualified Addendum**. A breach can end access immediately, and Legacy status cannot be regained. This feature MUST:
+Loot's API access is governed by the TCGplayer API Terms and Conditions and the signed **Legacy Qualified Addendum**, under which TCGplayer issued Loot's keys in 2026. A breach can end access immediately. This feature MUST:
 
-- use only the store's existing API connection and credentials, never creating new credentials, tokens, store authorizations or integrations;
+- use only the keys TCGplayer issued to Loot and the store access token from authorizing them for Loot's own store, a one-time step a person performs; the application never creates credentials or authorizations itself;
 - stay under 300 API calls per minute;
 - identify every request with the business name and the application name and version;
 - keep API data inside Loot's in-house application, never transferring it to any third party;
@@ -156,7 +156,7 @@ A packer scans the label of an API-imported order at the packing desk. The desk 
 
 **API agreement**
 
-- **FR-020**: The system MUST authenticate to TCGplayer using only the store's existing API keys and access credentials, supplied through deployment configuration. It MUST NOT create, request or replace credentials, store authorizations or integrations. Obtaining short-lived session tokens with the existing keys is permitted.
+- **FR-020**: The system MUST authenticate to TCGplayer using only the configured keys and store access token, supplied through deployment configuration. The store access token comes from a one-time Store Authorization Workflow that a person performs outside the application. The application MUST NOT create, request or replace credentials or store authorizations itself. Obtaining short-lived session tokens with the configured credentials is permitted.
 - **FR-021**: The system MUST NOT make more than 300 TCGplayer API calls in any one-minute window, across all employees and concurrent imports, and MUST slow down rather than exceed the limit.
 - **FR-022**: Every TCGplayer API request MUST identify Loot Investments LLC and the application name and version.
 - **FR-023**: TCGplayer credentials MUST NOT appear in the repository, logs, error messages shown to employees, or test fixtures.
@@ -184,7 +184,7 @@ A packer scans the label of an API-imported order at the packing desk. The desk 
 
 ## Assumptions
 
-- **Precondition, to be confirmed by the Product Owner before implementation is deployed:** the API keys and access credentials Loot holds are Loot's own original Legacy connection, established on or before 2025-05-31, and not a third-party tool's application keys. If they are not, this feature cannot be deployed without breaching the Legacy Addendum, and that must be raised with the Product Owner rather than worked around.
+- **Precondition:** Loot's keys, issued by TCGplayer in 2026, are authorized for Loot's own store through TCGplayer's Store Authorization Workflow, a one-time step a person performs. The resulting store access token is stored only as a secret. A probe on 2026-10-08 showed that the keys alone reach the store's identity but are refused its orders (HTTP 403), so this step is required.
 - TCGplayer's published Seller API (v1.39) is the contract: searching the store's orders by status, reading order details, reading order lines with product details, and reading product data from TCGplayer's catalog for a line's product.
 - Any authenticated employee may run "Get new orders", following the precedent of feature 004, which lets any authenticated employee upload a packing slip.
 - The results and progress experience for API imports follows the existing import screen's patterns: per-order results, distinct failure states and safe retry.

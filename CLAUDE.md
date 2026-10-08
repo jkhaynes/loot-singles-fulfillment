@@ -97,9 +97,9 @@ Review rounds have diminishing returns, and remediation can introduce its own de
 
 ## TCGplayer API Agreement
 
-Loot Investments LLC's access to the TCGplayer API is governed by the TCGplayer API Terms and Conditions plus a signed **Legacy Qualified Addendum** (executed 2026-09-21). Breaking either can end API access immediately, and Legacy status cannot be regained. Every spec, plan, task, test and debugging step that touches the TCGplayer API must follow these rules:
+Loot Investments LLC's access to the TCGplayer API is governed by the TCGplayer API Terms and Conditions plus a signed **Legacy Qualified Addendum** (executed 2026-09-21). TCGplayer issued Loot's API keys under this addendum in 2026. Loot had no earlier API connection. Breaking the terms can end API access immediately. Every spec, plan, task, test and debugging step that touches the TCGplayer API must follow these rules:
 
-- **Use only the existing connection.** Legacy status depends on a connection established on or before 2025-05-31 and never re-established. Never create new API credentials, tokens, store authorizations, integrations or equivalent authorization methods that would supersede or replace it. Routine short-lived bearer tokens obtained with the existing keys are normal use.
+- **One set of credentials.** Use the keys TCGplayer issued to Loot, and the store access token from authorizing those keys for Loot's own store, a one-time step done by a person through TCGplayer's Store Authorization Workflow. Don't create additional keys or integrations. The application itself never runs the authorization flow; it only reads the resulting token from configuration.
 - **No more than 300 API calls per minute.** The application must throttle or queue its own calls to stay under the limit.
 - **Identify every request.** Each request carries a User-Agent naming the business (Loot Investments LLC) and the application name and version.
 - **Internal business use only.** API data is used solely for Loot's in-house fulfillment. It must not be republished, resold, transferred, licensed or exposed to any third party, including by sending it to external catalog or image services. Card images for API-imported lines come from TCGplayer's own data (Product Owner decision, 2026-10-08).
