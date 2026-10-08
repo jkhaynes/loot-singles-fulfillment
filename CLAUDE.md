@@ -95,6 +95,18 @@ Review rounds have diminishing returns, and remediation can introduce its own de
 - Do not add multi-tenant SaaS complexity; this is single-business software.
 - Do not implement future V2/V3 features (packing verification, barcode/QR handoff, batch picking, camera-assisted verification) during V1 unless explicitly approved by the Product Owner.
 
+## TCGplayer API Agreement
+
+Loot Investments LLC's access to the TCGplayer API is governed by the TCGplayer API Terms and Conditions plus a signed **Legacy Qualified Addendum** (executed 2026-09-21). Breaking either can end API access immediately, and Legacy status cannot be regained. Every spec, plan, task, test and debugging step that touches the TCGplayer API must follow these rules:
+
+- **Use only the existing connection.** Legacy status depends on a connection established on or before 2025-05-31 and never re-established. Never create new API credentials, tokens, store authorizations, integrations or equivalent authorization methods that would supersede or replace it. Routine short-lived bearer tokens obtained with the existing keys are normal use.
+- **No more than 300 API calls per minute.** The application must throttle or queue its own calls to stay under the limit.
+- **Identify every request.** Each request carries a User-Agent naming the business (Loot Investments LLC) and the application name and version.
+- **Internal business use only.** API data is used solely for Loot's in-house fulfillment. It must not be republished, resold, transferred, licensed or exposed to any third party, including by sending it to external catalog or image services. Card images for API-imported lines come from TCGplayer's own data (Product Owner decision, 2026-10-08).
+- **No API data in third-party generative AI tools.** This includes AI coding assistants such as Claude Code. Agents must not make live TCGplayer API calls and read the responses, and must not ask for real responses. Test fixtures are synthetic, built from TCGplayer's published response schema. When live behavior needs investigating, a human inspects it and describes it without pasting API data.
+- **Credentials are secrets.** API keys and tokens live only in deployment configuration and user secrets, are never committed, and are never shared with a third party or pasted into an AI tool. The TCGplayer account itself is operated by Loot and is never shared.
+- **Channels.** API data may be used only for Loot's physical store, its own webstore, TCGplayer.com and eBay.com.
+
 ## Definition of Done
 
 A feature is not complete merely because code runs, or because production code exists. Before considering work complete, confirm:
