@@ -29,7 +29,7 @@
     How many open orders to sample line items from (default 3).
 
 .PARAMETER OpenStatus
-    The status name to search for (default 'Ready to Ship').
+    The status name to search for (default 'Ready To Ship').
 
 .EXAMPLE
     # Keys are read from these environment variables if set, otherwise you are prompted (input hidden).
@@ -40,7 +40,7 @@
 param(
     [string] $OutFile = (Join-Path ([IO.Path]::GetTempPath()) 'tcgplayer-probe-report.txt'),
     [int] $SampleOrders = 3,
-    [string] $OpenStatus = 'Ready to Ship',
+    [string] $OpenStatus = 'Ready To Ship',
     [string] $ApiVersion = 'v1.39.0'
 )
 
@@ -227,13 +227,13 @@ try {
     $statuses = @(@($manifest.Body.results) | Select-Object -First 1 | ForEach-Object { $_.orderStatusTypes })
     Add-Line '   order status names (id: name):'
     $statuses | ForEach-Object { Add-Line "     $($_.id): $($_.name)" }
-    $openStatus = $statuses | Where-Object { $_.name -eq $OpenStatus } | Select-Object -First 1
-    Add-Line "   '$OpenStatus' found = $([bool]$openStatus)"
+    $openStatusRow = $statuses | Where-Object { $_.name -eq $OpenStatus } | Select-Object -First 1
+    Add-Line "   '$OpenStatus' found = $([bool]$openStatusRow)"
     Add-Line
-    if (-not $openStatus) { return }
+    if (-not $openStatusRow) { return }
 
     # 4. Search open orders (order numbers are hidden).
-    $search = Invoke-Tcg 'GET' "$Prefix/stores/$storeKey/orders?orderStatusIds=$($openStatus.id)&offset=0&limit=$SampleOrders" $auth $null $null
+    $search = Invoke-Tcg 'GET' "$Prefix/stores/$storeKey/orders?orderStatusIds=$($openStatusRow.id)&offset=0&limit=$SampleOrders" $auth $null $null
     Add-Line "4. GET /orders?orderStatusIds=...: HTTP $($search.Status)"; Add-Outcome $search
     Write-Shape 'order search' $search.Body
     $orderNumbers = @($search.Body.results)

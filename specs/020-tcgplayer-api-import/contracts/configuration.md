@@ -8,7 +8,7 @@
 | `Tcgplayer:PrivateKey` | **Yes** | none | The **existing** client secret. |
 | `Tcgplayer:AccessToken` | **Yes** | none | The store's **existing** access token, sent as `X-Tcg-Access-Token`. |
 | `Tcgplayer:StoreKey` | No | none | Optional. When unset, resolved once with `GET /stores/self`. |
-| `Tcgplayer:OpenOrderStatuses` | No | `["Ready to Ship"]` | Status **names** (FR-004, provisional). Change them without a code change: `Tcgplayer__OpenOrderStatuses__0`, `__1`, … |
+| `Tcgplayer:OpenOrderStatuses` | No | `["Ready To Ship"]` | Status **names** (FR-004, provisional). Change them without a code change: `Tcgplayer__OpenOrderStatuses__0`, `__1`, … |
 | `Tcgplayer:CallsPerMinute` | No | `120` | Per process. Startup **fails** if the value is below 1 or above 300, so a configuration error can never permit a breach. |
 | `Tcgplayer:PageSize` | No | `50` | Search and item paging. |
 | `Tcgplayer:CollectorNumberField` | No | `Number` | The catalog `extendedData` name (research.md §6, to be verified live). |

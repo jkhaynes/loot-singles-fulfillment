@@ -29,7 +29,7 @@ Every fact about the TCGplayer API below comes from TCGplayer's **published docu
 
 ## 3. Which orders are "open" (FR-004)
 
-**Decision**: Configure status **names** (`Tcgplayer:OpenOrderStatuses`, default `["Ready to Ship"]`). Each import resolves them to status ids with `GET /stores/{storeKey}/orders/manifest` (`orderStatusTypes`), then searches with `orderStatusIds`. If a configured name is not in the manifest, the import stops with a typed `TcgplayerResponseInvalid` failure that names the missing status. It never falls back to searching every order.
+**Decision**: Configure status **names** (`Tcgplayer:OpenOrderStatuses`, default `["Ready To Ship"]`). Each import resolves them to status ids with `GET /stores/{storeKey}/orders/manifest` (`orderStatusTypes`), then searches with `orderStatusIds`. If a configured name is not in the manifest, the import stops with a typed `TcgplayerResponseInvalid` failure that names the missing status. It never falls back to searching every order.
 
 **Rationale**:
 - The spec requires the status set to change through configuration without code (Clarification 2026-10-08).
@@ -222,7 +222,19 @@ The path form is not the cause. Store info and `/stores/self` also worked **befo
 
 The calls match TCGplayer's own reference, so the 403s are application permissions. That fits the addendum's §4(a) purposes ("inventory synchronization, pricing, catalog management, and related functionality"), which never mention orders. Only TCGplayer can grant it, and the questions were sent to them.
 
-**Implementation is paused**: the whole feature depends on reading orders, so nothing is built until TCGplayer confirms it will enable order access for this use.
+~~**Implementation is paused**: the whole feature depends on reading orders, so nothing is built until TCGplayer confirms it will enable order access for this use.~~ Lifted 2026-10-09, see below.
+
+**Access granted, 2026-10-09**: after the email to TCGplayer, `Check-TcgplayerAccess.ps1` found 62 of the 68 read-only endpoints authorized, up from 21. Every call this feature makes is open: the order manifest, order search, order details and items, catalog SKU details and catalog product details. Still blocked are buylist groups and settings and custom listings, none of which this feature uses.
+
+**Probe result, 2026-10-09** (reported in words by the person who ran it). Every assumption the plan made held:
+
+1. **Open status**: the manifest's statuses are Unknown, Processing, Ready To Ship, Shipped, Delivered and Cancelled. The name is **"Ready To Ship"**, with a capital "To", and the configured default now uses that exact spelling. Whether Processing orders should also import is a Product Owner question; adding it is a configuration change.
+2. **`productCount` counts units**: on a sampled order with 2 lines totalling 3 cards, `productCount` was 3, the sum of line quantities 3, and the items `totalItems` 2. The items `totalItems` counts lines. §5's units check stands.
+3. **Collector number**: the product's `extendedData` holds it under `Number` (display name "#"). 8 of 8 sampled products had it. The other names seen were `FlavorText`, `OracleText`, `P`, `T`, `Rarity` and `SubType`. The sample was all Magic, so Pokémon and Lorcana are unconfirmed; a missing number shows "No number" (FR-011).
+4. **Wording**: conditions seen were "Near Mint", "Lightly Played", "Near Mint Foil" and "Lightly Played Foil". `printing` is its own field ("Normal" or "Foil") and agrees with `isFoil`. The foil suffix on the condition is the case §7 already handles through `ConditionVariantParser`. Language was English and rarities Mythic and Rare.
+5. **Images**: lines carry `productImageUrl`, and both line and product images are served from `tcgplayer-cdn.tcgplayer.com`, TCGplayer's own server.
+
+Items 6–8 of the list below (mapping against the seller portal, images showing the right card, call count in the logs) are confirmed on the first stage run (T062).
 
 The keys alone cannot read store orders. The next step is the Store Authorization Workflow (§1), done once by a person. The probe is then re-run with `TCGPLAYER_ACCESS_TOKEN` set, to verify steps 3–8 before `/speckit-tasks`.
 
@@ -232,7 +244,7 @@ The probe settles, and the stage run re-confirms:
 
 1. The token request succeeds with the existing keys plus the access token, and no new authorization was created.
 2. `/stores/self` returns the store key, if `StoreKey` was left unset.
-3. The manifest contains a status named exactly "Ready to Ship".
+3. The manifest contains a status named exactly "Ready To Ship".
 4. Whether `productCount` counts units or lines (§5).
 5. The `extendedData` names for the collector number and rarity (§6).
 6. Condition and printing text maps to the expected Condition and Variant on a few known orders, checked against the seller portal.

@@ -89,7 +89,7 @@ This confirms what TCGplayer's real responses look like before the feature is bu
    - If it says "No open orders right now", run it again when some orders are waiting.
 
 4. **Describe what you found, in your own words.** Don't paste the report. Answer:
-   - Is there a status named **Ready to Ship** in the status list?
+   - Is there a status named **Ready To Ship** in the status list?
    - For each sampled order, does the **productCount** match the **sum of line quantities**, or the **number of lines**?
    - What are the **extendedData field names**? Is there one called `Number`, and one called `Rarity`?
    - Roughly, how are **condition** and **printing** worded? For example, "Near Mint", "Near Mint Foil", "Holofoil".
@@ -144,7 +144,7 @@ In every case, **packing-slip PDF upload keeps working**, so orders can still be
 
 ## Changing which orders count as open
 
-The app imports orders whose TCGplayer status is **Ready to Ship**. To change that without changing code, open the Container App's environment variables and set:
+The app imports orders whose TCGplayer status is **Ready To Ship**. To change that without changing code, open the Container App's environment variables and set:
 
 ```text
 Tcgplayer__OpenOrderStatuses__0 = <first status name>

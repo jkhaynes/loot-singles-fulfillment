@@ -34,7 +34,7 @@ These end the stream with `status: "failed"` and `attemptFailureCode` set. Resul
 | `tcgplayerNotConfigured` | No credentials in this environment. No call is made. | "Getting orders from TCGplayer isn't set up here. Use packing-slip upload instead." |
 | `tcgplayerUnavailable` | TCGplayer is unreachable, times out, or returns 5xx or 429 | "Couldn't reach TCGplayer. Orders already imported are kept. Try again in a few minutes, or upload a packing slip." |
 | `tcgplayerAccessRefused` | Credentials rejected (401 after one refresh, or 403) | "TCGplayer refused the store's connection. A manager needs to check the TCGplayer API setup. You can upload a packing slip meanwhile." |
-| `tcgplayerResponseInvalid` | The manifest or search response didn't have the expected shape, a configured open status doesn't exist, or paging stalled | A specific message, for example "TCGplayer has no order status named 'Ready to Ship'." |
+| `tcgplayerResponseInvalid` | The manifest or search response didn't have the expected shape, a configured open status doesn't exist, or paging stalled | A specific message, for example "TCGplayer has no order status named 'Ready To Ship'." |
 
 None of these messages contains credentials, raw response content or customer data (FR-023, FR-017).
 

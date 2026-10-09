@@ -13,7 +13,7 @@ description: "Task list for TCGplayer API Order Import (020)"
 
 **Test data**: All TCGplayer data in tests is **synthetic**, written by hand from TCGplayer's published schema (FR-024; Legacy Addendum §4f; `CLAUDE.md`). No live response, real order, real key or real token appears anywhere in the repository. No AI agent makes live TCGplayer calls.
 
-**Live confirmation pending**: The Store Authorization Workflow is blocked on TCGplayer's side (research.md §14), so the probe has not yet confirmed the open status name, the `extendedData` names, the meaning of `productCount`, or the condition and printing wording. Tasks built on those assumptions carry **⚠ LIVE**. They are designed so a wrong assumption fails safely, and is fixed by a setting or a one-line translator change. T061 closes them out.
+**Live confirmation done (2026-10-09)**: the probe confirmed every assumption tagged **⚠ LIVE** below: the open status "Ready To Ship", `productCount` counting units, the `extendedData` name `Number`, and the condition and printing wording (research.md §14, T061). The tags are kept to show where each assumption lives in the code.
 
 **Organization**: Setup first, then the Foundational phase. That phase extracts the shared import core, makes the schema changes, and builds the TCGplayer client with its agreement guards, all of which US1 needs. The user stories follow in priority order: US1 (P1), US2 (P2), US3 and US4 (P3).
 
@@ -35,7 +35,7 @@ Existing web-app layout: `backend/src/`, `backend/tests/`, `frontend/src/`, `fro
 - [ ] T003 [P] Write the synthetic fixtures in `backend/tests/LootSingles.Fixtures/Tcgplayer/`. Use invented order numbers (`SYN-0001-…`), SKUs, product ids and card names throughout:
   - `token.json`, with `access_token`, `.expires` and `expires_in`
   - `stores-self.json`
-  - `manifest.json`, whose `orderStatusTypes` include `Ready to Ship` and others
+  - `manifest.json`, whose `orderStatusTypes` include `Ready To Ship` and others
   - `search-page1.json` and `search-page2.json`, which page through `totalItems`
   - `order-details.json`: **include invented `customer`, `shippingAddress` and `orderValue` objects**, so tests can prove they never persist (SC-004)
   - `items-*.json`, covering:
@@ -106,7 +106,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
 ### 2c. TCGplayer client and the agreement guards (research.md §1, §9–§12; contracts/)
 
-- [ ] T016 [P] Write unit tests for `TcgplayerOptions` in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerOptionsTests.cs`. They cover the defaults from contracts/configuration.md, including `OpenOrderStatuses = ["Ready to Ship"]` and `CallsPerMinute = 120`, and check that:
+- [ ] T016 [P] Write unit tests for `TcgplayerOptions` in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerOptionsTests.cs`. They cover the defaults from contracts/configuration.md, including `OpenOrderStatuses = ["Ready To Ship"]` and `CallsPerMinute = 120`, and check that:
   - binding a `CallsPerMinute` below 1 or **above 300** throws at startup;
   - `IsConfigured` is false when any of the three secrets is blank.
 
@@ -169,7 +169,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 - [ ] T026 [US1] Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerOrderTranslator.cs` as a pure static class. The `extendedData` names come from `TcgplayerOptions.CollectorNumberField` and `RarityField`. ⚠ LIVE: the names, research.md §6. Confirm T025 is green.
 - [ ] T027 [P] [US1] Write unit tests for `TcgplayerApiClient` in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerApiClientTests.cs`, using `StubHttpMessageHandler` and the T003 fixtures. They check that:
   - `GetStoreKeyAsync` uses `Tcgplayer:StoreKey` when it is set and otherwise calls `/stores/self` **once** per process;
-  - open status **names** resolve through the manifest, and a configured name that is missing throws `ResponseInvalid`, naming the status (⚠ LIVE: "Ready to Ship");
+  - open status **names** resolve through the manifest, and a configured name that is missing throws `ResponseInvalid`, naming the status (⚠ LIVE: "Ready To Ship");
   - search pages advance by the number of results actually returned until `totalItems`, and a zero-result page before the total throws `ResponseInvalid`;
   - item paging works the same way;
   - SKU and product lookups are chunked at 50, and ids listed in `errors` or a 404 mean "not found";
@@ -335,9 +335,9 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
 ### Manual: live confirmation (a person, never an AI tool)
 
-- [ ] T059 [MANUAL] Complete the Store Authorization Workflow (`tcgplayer-setup.md` Part 1). **Authorization done 2026-10-08**: the store access token is saved in user-secrets. **Blocked on permissions**: 47 of the 68 read-only endpoints, including orders and catalog product and SKU details, return 403 even with TCGplayer's own documented token flow (research.md §14). TCGplayer was emailed on 2026-10-08 asking to enable access. When they reply, rerun `Check-TcgplayerAccess.ps1` to confirm.
-- [ ] T060 [MANUAL] Run `Probe-Tcgplayer.ps1` (`tcgplayer-setup.md` Part 2) and record its findings **in words** in research.md §14. Don't paste the report.
-- [ ] T061 [MANUAL] Close out every ⚠ LIVE assumption using T060's findings:
+- [x] T059 [MANUAL] Complete the Store Authorization Workflow (`tcgplayer-setup.md` Part 1). **Authorization done 2026-10-08**: the store access token is saved in user-secrets. TCGplayer enabled access after an email; on 2026-10-09 `Check-TcgplayerAccess.ps1` found 62 of 68 read-only endpoints open, including every call this feature makes (research.md §14).
+- [x] T060 [MANUAL] Run `Probe-Tcgplayer.ps1` (`tcgplayer-setup.md` Part 2) and record its findings **in words** in research.md §14. Don't paste the report.
+- [x] T061 [MANUAL] Close out every ⚠ LIVE assumption using T060's findings. **Done 2026-10-09**: every assumption held. The one correction is the status spelling, "Ready To Ship", now the default everywhere. `productCount` counts units, the collector number is `extendedData` `Number`, and the condition carries the foil suffix while `printing` is "Normal" or "Foil". No translator or shape change is needed. The original checklist:
   - the open status name (T027): a configuration change if it differs;
   - `productCount` meaning (T025): a translator change through `/speckit-implement` if it means lines;
   - the `extendedData` names (T026): a configuration change;

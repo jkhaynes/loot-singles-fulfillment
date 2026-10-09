@@ -12,7 +12,7 @@
 
 ### Session 2026-10-08
 
-- Q: Which TCGplayer order statuses count as "open"? → A: Ready to Ship, provisionally. This will be confirmed with the Product Owner later and may change, so the status set is configuration rather than code (FR-004).
+- Q: Which TCGplayer order statuses count as "open"? → A: Ready To Ship, provisionally. This will be confirmed with the Product Owner later and may change, so the status set is configuration rather than code (FR-004).
 - Q: What if TCGplayer has no collector number for a line? → A: Import the order and show the collector number as unavailable on that line (FR-008).
 - Q: What happens when an imported order is later changed or cancelled on TCGplayer? → A: Out of scope for this feature. The application only adds orders (Edge Cases).
 
@@ -128,7 +128,7 @@ A packer scans the label of an API-imported order at the packing desk. The desk 
 - **FR-001**: The system MUST provide a "Get new orders" action that imports the store's open TCGplayer orders through the TCGplayer API.
 - **FR-002**: The action MUST run only when an employee triggers it. The system MUST NOT poll TCGplayer automatically or on a schedule.
 - **FR-003**: Every authenticated employee, whatever their role, MUST be able to trigger "Get new orders", matching who may upload a packing slip today.
-- **FR-004**: An order MUST count as "open" when its TCGplayer status is **Ready to Ship**. This is provisional, pending Product Owner confirmation, so the set of statuses MUST be changeable through configuration without a code change or redeployment of new code.
+- **FR-004**: An order MUST count as "open" when its TCGplayer status is **Ready To Ship**. This is provisional, pending Product Owner confirmation, so the set of statuses MUST be changeable through configuration without a code change or redeployment of new code.
 - **FR-005**: The import MUST retrieve every open order and every line of each order, following TCGplayer's paging until all results have been read. It MUST NOT create an order unless all of that order's lines were retrieved.
 - **FR-006**: Each imported order MUST be created as Ready and identified by its TCGplayer order number, the same identifier PDF-imported orders use.
 - **FR-007**: For each line, the system MUST record the data TCGplayer provides for picking: game, product name, set, condition, printing or variant (including foil), language, rarity where present, and quantity. TCGplayer's values are authoritative and MUST NOT be overwritten by any other source.

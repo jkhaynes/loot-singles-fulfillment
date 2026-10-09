@@ -32,4 +32,4 @@
 ## Notes
 
 - The TCGplayer API is this feature's subject, so the spec names it and its published contract at the level a stakeholder needs. It names no languages, frameworks or code structure.
-- All three [NEEDS CLARIFICATION] markers were resolved 2026-10-08 (see the Clarifications section). FR-004's Ready to Ship status is provisional, pending Product Owner confirmation.
+- All three [NEEDS CLARIFICATION] markers were resolved 2026-10-08 (see the Clarifications section). FR-004's Ready To Ship status is provisional, pending Product Owner confirmation.

@@ -6,7 +6,7 @@
 
 ## Summary
 
-A "Get new orders" button pulls the store's open (provisionally Ready to Ship) orders from the TCGplayer Seller API and imports each new one through the **same per-order pipeline** the PDF importer uses. PDF upload stays as the fallback.
+A "Get new orders" button pulls the store's open (provisionally Ready To Ship) orders from the TCGplayer Seller API and imports each new one through the **same per-order pipeline** the PDF importer uses. PDF upload stays as the fallback.
 
 That shared pipeline is extracted from `PackingSlipImportService` into source-neutral pieces: `OrderCandidate`, `OrderCandidateValidator`, `OrderImporter` and `ImportAttemptLog`. Duplicate handling, the concurrency race, result bookkeeping and logging therefore exist once, for both sources.
 
