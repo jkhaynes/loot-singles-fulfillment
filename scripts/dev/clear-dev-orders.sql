@@ -1,6 +1,7 @@
 -- DEV ONLY. Deletes every order and everything that hangs off an order. Run it through
--- Clear-DevOrders.ps1, which refuses any database whose name does not contain "dev" (or that is
--- not LocalDB). Never run it by hand against stage or production.
+-- Clear-DevOrders.ps1 (and its runner, ClearDevOrders.cs), which refuse any database unless "dev"
+-- is a whole word of its name or the server is LocalDB. Never run it by hand against stage or
+-- production.
 --
 -- Parameter @Preview (bit), required:
 --   1 = run every statement inside the transaction, report the counts, then ROLL BACK (nothing changes)

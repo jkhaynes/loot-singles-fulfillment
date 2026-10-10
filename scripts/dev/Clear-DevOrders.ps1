@@ -18,7 +18,8 @@ given, otherwise ConnectionStrings:LootSingles from the API project's user-secre
 the LocalDB string in appsettings.Development.json. Only the server and database names are
 printed, never the string itself.
 
-Refuses to run unless the database name contains "dev" (any case) or the server is LocalDB.
+Refuses to run unless "dev" is a whole word of the database name (any case; split by - _ or .)
+or the server is LocalDB. The runner checks the same rule again against what the server reports.
 -Force skips the typed confirmation, never that check.
 
 .PARAMETER ConnectionString
@@ -35,26 +36,30 @@ param(
     [switch]$Force
 )
 
+# Same rule as ClearDevOrders.cs, which re-checks what the server reports after connecting:
+# "dev" as a whole word of the database name (separated by - _ . or the ends), or a LocalDB server.
 function Test-DevDatabase {
     param([string]$Server, [string]$Database)
     $isLocalDb = $Server -match '^\s*(np:)?\(localdb\)'
-    $isDevName = $Database -match 'dev'
+    $isDevName = $Database -match '(^|[-_.])dev([-_.]|$)'
     return [bool]($isLocalDb -or $isDevName)
 }
 
 function Get-ConnectionTarget {
     param([string]$Value)
-    # The generic builder parses any keyword set, including Entra's "Authentication=...".
+    # The generic builder parses any keyword set, including Entra's "Authentication=...". Unlike
+    # SqlClient it keeps synonyms (Database / Initial Catalog) as separate keys, so a string that
+    # names the target twice with different values is refused rather than guessed at.
     $builder = [System.Data.Common.DbConnectionStringBuilder]::new()
     $builder.set_ConnectionString($Value)
-    $server = $null
-    foreach ($key in 'Server', 'Data Source', 'Address', 'Addr', 'Network Address') {
-        if ($builder.ContainsKey($key)) { $server = [string]$builder[$key]; break }
+    $pick = {
+        param([string]$What, [string[]]$Synonyms)
+        $values = @($Synonyms | Where-Object { $builder.ContainsKey($_) } | ForEach-Object { [string]$builder[$_] } | Select-Object -Unique)
+        if ($values.Count -gt 1) { throw "the connection string names the $What more than once, with different values" }
+        return $values | Select-Object -First 1
     }
-    $database = $null
-    foreach ($key in 'Database', 'Initial Catalog') {
-        if ($builder.ContainsKey($key)) { $database = [string]$builder[$key]; break }
-    }
+    $server = & $pick 'server' @('Server', 'Data Source', 'Address', 'Addr', 'Network Address')
+    $database = & $pick 'database' @('Database', 'Initial Catalog')
     return [pscustomobject]@{ Server = $server; Database = $database }
 }
 
@@ -88,7 +93,9 @@ if (-not $ConnectionString) {
 try {
     $target = Get-ConnectionTarget $ConnectionString
 } catch {
-    Write-Host 'The connection string could not be parsed.' -ForegroundColor Red
+    # Only the message of our own throw, or the builder's parse error; never the string itself.
+    $reason = if ($_.Exception.Message -like 'the connection string names*') { $_.Exception.Message } else { 'the connection string could not be parsed' }
+    Write-Host "Refusing: $reason." -ForegroundColor Red
     exit 1
 }
 
@@ -97,7 +104,7 @@ Write-Host "Server:   $($target.Server)"
 Write-Host "Database: $($target.Database)"
 
 if (-not (Test-DevDatabase -Server $target.Server -Database $target.Database)) {
-    Write-Host "Refusing: the database name does not contain 'dev' and the server is not LocalDB. This script only clears development databases." -ForegroundColor Red
+    Write-Host "Refusing: 'dev' is not a word of the database name and the server is not LocalDB. This script only clears development databases." -ForegroundColor Red
     exit 1
 }
 
@@ -108,7 +115,7 @@ function Invoke-ClearSql {
     param([string]$Mode)
     & dotnet run --file $runner -- $Mode $sqlPath
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "Stopped: the $Mode step failed. Its transaction rolls back on any error, so nothing was deleted." -ForegroundColor Red
+        Write-Host "Stopped: the $Mode step failed. If it failed before committing, its transaction rolled back. Re-run to see the current counts." -ForegroundColor Red
         exit 1
     }
 }

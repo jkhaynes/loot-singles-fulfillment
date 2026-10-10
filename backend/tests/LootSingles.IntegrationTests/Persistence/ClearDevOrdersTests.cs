@@ -99,6 +99,43 @@ public sealed class ClearDevOrdersTests(SqlServerContainerFixture fixture)
         Assert.Equal(2, await context.Employees.CountAsync());
     }
 
+    [Fact]
+    public async Task Runner_refuses_a_database_the_server_reports_as_not_dev()
+    {
+        await using var lease = await fixture.CreateDatabaseLeaseAsync();
+        await SeedOrderOfEachKindAsync(lease);
+        var scripts = Path.Combine(FindRepositoryRoot(), "scripts", "dev");
+        var startInfo = new ProcessStartInfo("dotnet")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        foreach (
+            var argument in new[]
+            {
+                "run",
+                "--file",
+                Path.Combine(scripts, "ClearDevOrders.cs"),
+                "--",
+                "delete",
+                Path.Combine(scripts, "clear-dev-orders.sql"),
+            }
+        )
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+        startInfo.Environment["LOOT_CLEAR_DEV_ORDERS_CONNECTION"] = lease.ConnectionString;
+
+        var result = await RunProcessAsync(startInfo);
+
+        Assert.True(result.ExitCode == 3, result.Output);
+        Assert.Contains("Refusing", result.Output);
+        await using var context = lease.CreateDbContext();
+        Assert.Equal(5, await context.Orders.CountAsync());
+        Assert.Equal(2, await context.ImportAttempts.CountAsync());
+    }
+
     private static async Task SeedOrderOfEachKindAsync(SqlServerDatabaseLease lease)
     {
         await using var context = lease.CreateDbContext();
@@ -248,12 +285,29 @@ public sealed class ClearDevOrdersTests(SqlServerContainerFixture fixture)
             startInfo.ArgumentList.Add(argument);
         }
 
+        return await RunProcessAsync(startInfo);
+    }
+
+    private static async Task<(int ExitCode, string Output)> RunProcessAsync(
+        ProcessStartInfo startInfo
+    )
+    {
+        startInfo.RedirectStandardInput = true;
         using var process = Process.Start(startInfo)!;
         process.StandardInput.Close();
         var stdout = process.StandardOutput.ReadToEndAsync();
         var stderr = process.StandardError.ReadToEndAsync();
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5));
-        await process.WaitForExitAsync(timeout.Token);
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            process.Kill(entireProcessTree: true);
+            throw;
+        }
+
         return (process.ExitCode, await stdout + await stderr);
     }
 
@@ -316,6 +370,9 @@ public sealed class ClearDevOrdersGuardTests
     [InlineData(
         "Server=tcp:loot.example.invalid;Database=loot-singles;Authentication=Active Directory Default"
     )]
+    [InlineData("Server=tcp:loot.example.invalid;Database=old-dev;Initial Catalog=lootsingles")]
+    [InlineData("Server=tcp:loot.example.invalid;Initial Catalog=old-dev;Database=lootsingles")]
+    [InlineData("Server=tcp:loot.example.invalid;Database=devices")]
     public async Task Script_refuses_a_database_without_dev_in_its_name_even_with_force(
         string connectionString
     )
@@ -329,11 +386,19 @@ public sealed class ClearDevOrdersGuardTests
         Assert.NotEqual(0, result.ExitCode);
         Assert.Contains("Refusing", result.Output);
         Assert.DoesNotContain("example.invalid;", result.Output);
+        Assert.DoesNotContain("Authentication=", result.Output);
+        Assert.DoesNotContain("Initial Catalog=", result.Output);
     }
 
     [Theory]
     [InlineData("loot-singles.example.invalid", "loot-singles-dev", true)]
     [InlineData("loot-singles.example.invalid", "LootSingles.DEV", true)]
+    [InlineData("loot-singles.example.invalid", "LootSinglesFulfillment.Dev", true)]
+    [InlineData("loot-singles.example.invalid", "loot_singles_dev_t071_0123abcd", true)]
+    [InlineData("loot-singles.example.invalid", "dev", true)]
+    [InlineData("loot-singles.example.invalid", "devices", false)]
+    [InlineData("loot-singles.example.invalid", "ondevelopment", false)]
+    [InlineData("loot-singles.example.invalid", "loot-singles-devstage", false)]
     [InlineData("(localdb)\\MSSQLLocalDB", "LootSingles", true)]
     [InlineData("(LocalDB)\\MSSQLLocalDB", "LootSingles", true)]
     [InlineData("loot-singles.example.invalid", "loot-singles-stage", false)]

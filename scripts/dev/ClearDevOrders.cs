@@ -1,6 +1,7 @@
 #:package Microsoft.Data.SqlClient@6.1.1
 
 // DEV ONLY. Clear-DevOrders.ps1 runs this after its dev-database check; do not run it directly.
+// It repeats that check against the database it actually connected to before running anything.
 // It executes clear-dev-orders.sql with Microsoft.Data.SqlClient, which (unlike the
 // System.Data.SqlClient built into PowerShell) accepts Entra connection strings such as
 // "Authentication=Active Directory Default". The connection string arrives in an environment
@@ -9,6 +10,7 @@
 // Usage: dotnet run ClearDevOrders.cs -- preview|delete <path to clear-dev-orders.sql>
 
 using System.Data;
+using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 
 if (args is not [var mode, var sqlPath] || mode is not ("preview" or "delete"))
@@ -28,6 +30,24 @@ try
 {
     await using var connection = new SqlConnection(connectionString);
     await connection.OpenAsync();
+
+    // Check what SqlClient actually connected to, not the caller's parse of the string. Same rule
+    // as Test-DevDatabase in Clear-DevOrders.ps1.
+    var server = new SqlConnectionStringBuilder(connectionString).DataSource;
+    var isLocalDb = Regex.IsMatch(server, @"^\s*(np:)?\(localdb\)", RegexOptions.IgnoreCase);
+    var isDevName = Regex.IsMatch(
+        connection.Database,
+        @"(^|[-_.])dev([-_.]|$)",
+        RegexOptions.IgnoreCase
+    );
+    if (!isLocalDb && !isDevName)
+    {
+        Console.Error.WriteLine(
+            $"Refusing: connected to database '{connection.Database}', where 'dev' is not a word of the name, and the server is not LocalDB."
+        );
+        return 3;
+    }
+
     await using var command = connection.CreateCommand();
     command.CommandText = await File.ReadAllTextAsync(sqlPath);
     command.CommandTimeout = 120;
