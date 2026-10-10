@@ -21,7 +21,15 @@ public sealed class TcgplayerOptions
     public string? PrivateKey { get; init; }
     public string? AccessToken { get; init; }
     public string? StoreKey { get; init; }
-    public IReadOnlyList<string> OpenOrderStatuses { get; init; } = ["Ready To Ship"];
+
+    /// <summary>Order status names that make a shipped order open (FR-004).</summary>
+    public IReadOnlyList<string> OpenOrderStatuses { get; init; } = ["Processing", "Ready To Ship"];
+
+    /// <summary>Pickup status names that make an in-store pickup order open (FR-004).</summary>
+    public IReadOnlyList<string> OpenPickupStatuses { get; init; } = ["Received"];
+
+    /// <summary>Order type names that can be open (FR-004); Direct orders are not.</summary>
+    public IReadOnlyList<string> OrderTypes { get; init; } = ["Normal"];
     public int CallsPerMinute { get; init; } = 120;
     public int PageSize { get; init; } = 50;
     public string CollectorNumberField { get; init; } = "Number";
@@ -44,21 +52,23 @@ public sealed class TcgplayerOptions
         var section = configuration.GetSection(SectionName);
         var defaults = new TcgplayerOptions();
 
-        var statuses = section
-            .GetSection(nameof(OpenOrderStatuses))
-            .GetChildren()
-            .Select(child => child.Value)
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Select(value => value!)
-            .ToList();
-
         var options = new TcgplayerOptions
         {
             PublicKey = section[nameof(PublicKey)],
             PrivateKey = section[nameof(PrivateKey)],
             AccessToken = section[nameof(AccessToken)],
             StoreKey = NullIfBlank(section[nameof(StoreKey)]),
-            OpenOrderStatuses = statuses.Count > 0 ? statuses : defaults.OpenOrderStatuses,
+            OpenOrderStatuses = ReadNames(
+                section,
+                nameof(OpenOrderStatuses),
+                defaults.OpenOrderStatuses
+            ),
+            OpenPickupStatuses = ReadNames(
+                section,
+                nameof(OpenPickupStatuses),
+                defaults.OpenPickupStatuses
+            ),
+            OrderTypes = ReadNames(section, nameof(OrderTypes), defaults.OrderTypes),
             CallsPerMinute = ReadInt(section, nameof(CallsPerMinute), defaults.CallsPerMinute),
             PageSize = ReadInt(section, nameof(PageSize), defaults.PageSize),
             CollectorNumberField =
@@ -82,6 +92,30 @@ public sealed class TcgplayerOptions
         }
 
         return options;
+    }
+
+    // A list key that is absent takes its default. One that is present must name something: an
+    // empty filter could mean "every order", which is never what an import wants.
+    private static IReadOnlyList<string> ReadNames(
+        IConfigurationSection section,
+        string key,
+        IReadOnlyList<string> fallback
+    )
+    {
+        var entries = section.GetSection(key).GetChildren().ToList();
+        if (entries.Count == 0)
+        {
+            return fallback;
+        }
+
+        var names = entries
+            .Select(child => child.Value)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!)
+            .ToList();
+        return names.Count > 0
+            ? names
+            : throw new InvalidOperationException($"Tcgplayer:{key} must name at least one value.");
     }
 
     private static string? NullIfBlank(string? value) =>

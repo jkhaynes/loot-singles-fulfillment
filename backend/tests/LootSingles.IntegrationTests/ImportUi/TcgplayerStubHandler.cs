@@ -6,8 +6,10 @@ namespace LootSingles.IntegrationTests.ImportUi;
 /// <summary>
 /// A stand-in for TCGplayer that serves the synthetic fixtures in
 /// LootSingles.Fixtures/Tcgplayer (never live data). Search and items page by the requested
-/// offset and limit; order details are filtered to the requested numbers. Every request is
-/// recorded (method, path, query, User-Agent) so tests can check the agreement guards.
+/// offset and limit; order details are filtered to the requested numbers. Like the live search,
+/// whose filters are partial, the search also returns orders that are not open (the "leaked"
+/// ones), so every import must skip them by their details. Every request is recorded (method,
+/// path, query, User-Agent) so tests can check the agreement guards.
 /// </summary>
 internal sealed class TcgplayerStubHandler : HttpMessageHandler
 {
@@ -19,6 +21,14 @@ internal sealed class TcgplayerStubHandler : HttpMessageHandler
     /// <summary>The open orders the search reports, in order. Defaults to the 10 fixture orders.</summary>
     public IReadOnlyList<string> OpenOrderNumbers { get; set; } =
         Enumerable.Range(1, 10).Select(OrderNumber).ToArray();
+
+    /// <summary>
+    /// Orders that are not open but that the search returns anyway, as the live search does:
+    /// SYN-0011 (shipped, Delivered), SYN-0012 (in-store pickup, Picked Up) and SYN-0013 (Direct).
+    /// They have details but no items; an import that fetched their items would fail.
+    /// </summary>
+    public static IReadOnlyList<string> LeakedOrderNumbers { get; } =
+        new[] { 11, 12, 13 }.Select(OrderNumber).ToArray();
 
     /// <summary>
     /// Runs before the fixtures for every non-token request; a non-null response is returned
@@ -94,14 +104,31 @@ internal sealed class TcgplayerStubHandler : HttpMessageHandler
     {
         var offset = request.QueryInt("offset");
         var limit = request.QueryInt("limit");
-        var page = OpenOrderNumbers.Skip(offset).Take(limit).Select(n => (JsonNode)n!).ToArray();
+        var searched = Searched();
+        var page = searched.Skip(offset).Take(limit).Select(n => (JsonNode)n!).ToArray();
         return new JsonObject
         {
             ["success"] = true,
             ["errors"] = new JsonArray(),
-            ["totalItems"] = OpenOrderNumbers.Count,
+            ["totalItems"] = searched.Count,
             ["results"] = new JsonArray(page),
         }.ToJsonString();
+    }
+
+    // The open orders with a leaked one after each of the first three, so the leaked orders
+    // share search pages and details batches with open ones.
+    private List<string> Searched()
+    {
+        var searched = new List<string>();
+        for (var index = 0; index < OpenOrderNumbers.Count; index++)
+        {
+            searched.Add(OpenOrderNumbers[index]);
+            if (index < LeakedOrderNumbers.Count)
+                searched.Add(LeakedOrderNumbers[index]);
+        }
+
+        searched.AddRange(LeakedOrderNumbers.Skip(OpenOrderNumbers.Count));
+        return searched;
     }
 
     private static string DetailsFor(string[] numbers)

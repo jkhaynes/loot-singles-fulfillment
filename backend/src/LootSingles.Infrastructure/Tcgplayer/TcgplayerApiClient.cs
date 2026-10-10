@@ -52,11 +52,13 @@ public sealed class TcgplayerApiClient
             : _storeKeyCache.GetAsync(ResolveStoreKeyAsync, cancellationToken);
 
     /// <summary>
-    /// Call #3: resolves each configured open status name to its id, matching the name exactly.
-    /// A configured name the manifest lacks is <see cref="TcgplayerFeedFailure.ResponseInvalid"/>;
-    /// the import never falls back to searching every order.
+    /// Call #3: resolves the configured open order status, open pickup status and order type
+    /// names, and the <see cref="TcgplayerOpenOrderRule.InStorePickupDeliveryType"/> and
+    /// <see cref="TcgplayerOpenOrderRule.NormalOrderType"/> names, to ids, matching each name
+    /// exactly. Any name the manifest lacks is <see cref="TcgplayerFeedFailure.ResponseInvalid"/>,
+    /// naming every missing one; the import never falls back to searching every order.
     /// </summary>
-    public async Task<IReadOnlyList<int>> GetOpenOrderStatusIdsAsync(
+    public async Task<TcgplayerOpenOrderIds> GetOpenOrderIdsAsync(
         CancellationToken cancellationToken
     )
     {
@@ -68,62 +70,121 @@ public sealed class TcgplayerApiClient
                 cancellationToken
             )
             .ConfigureAwait(false);
-        var statusTypes = response.Results is [{ OrderStatusTypes: { } types }, ..]
-            ? types
-            : throw Invalid("The order manifest has no order status types.");
+        var manifest = response.Results is [{ } row, ..]
+            ? row
+            : throw Invalid("The order manifest is empty.");
 
-        var ids = new List<int>();
         var missing = new List<string>();
-        foreach (var name in _options.OpenOrderStatuses)
+        var statusIds = ResolveNames(
+            manifest.OrderStatusTypes,
+            _options.OpenOrderStatuses,
+            "order status",
+            $"Tcgplayer:{nameof(TcgplayerOptions.OpenOrderStatuses)}",
+            missing
+        );
+        var pickupStatusIds = ResolveNames(
+            manifest.OrderPickupStatusTypes,
+            _options.OpenPickupStatuses,
+            "pickup status",
+            $"Tcgplayer:{nameof(TcgplayerOptions.OpenPickupStatuses)}",
+            missing
+        );
+        var orderTypeIds = ResolveNames(
+            manifest.OrderTypes,
+            _options.OrderTypes,
+            "order type",
+            $"Tcgplayer:{nameof(TcgplayerOptions.OrderTypes)}",
+            missing
+        );
+        var pickupDelivery = FindId(
+            manifest.OrderDeliveryTypes,
+            TcgplayerOpenOrderRule.InStorePickupDeliveryType
+        );
+        if (pickupDelivery is null)
         {
-            var match = statusTypes.FirstOrDefault(type =>
-                type is { Id: not null } && string.Equals(type.Name, name, StringComparison.Ordinal)
+            missing.Add(
+                $"delivery type named '{TcgplayerOpenOrderRule.InStorePickupDeliveryType}'"
             );
-            if (match is null)
-            {
-                missing.Add(name);
-            }
-            else if (!ids.Contains(match.Id!.Value))
-            {
-                ids.Add(match.Id.Value);
-            }
+        }
+
+        var normalType = FindId(manifest.OrderTypes, TcgplayerOpenOrderRule.NormalOrderType);
+        if (normalType is null)
+        {
+            missing.Add($"order type named '{TcgplayerOpenOrderRule.NormalOrderType}'");
         }
 
         return missing.Count == 0
-            ? ids
-            : throw Invalid(
-                "The order manifest has no status named "
-                    + string.Join(", ", missing.Select(name => $"'{name}'"))
-                    + "; check Tcgplayer:OpenOrderStatuses."
-            );
+            ? new TcgplayerOpenOrderIds(
+                statusIds,
+                pickupStatusIds,
+                orderTypeIds,
+                pickupDelivery!.Value,
+                normalType!.Value
+            )
+            : throw Invalid("The order manifest has no " + string.Join("; no ", missing) + ".");
     }
 
+    // Each configured name's id, in order and once each; a name the list lacks is added to missing.
+    private static List<int> ResolveNames(
+        IReadOnlyList<TcgplayerManifestType>? types,
+        IReadOnlyList<string> names,
+        string what,
+        string configurationKey,
+        List<string> missing
+    )
+    {
+        var ids = new List<int>();
+        foreach (var name in names)
+        {
+            if (FindId(types, name) is not { } id)
+            {
+                missing.Add($"{what} named '{name}' (check {configurationKey})");
+            }
+            else if (!ids.Contains(id))
+            {
+                ids.Add(id);
+            }
+        }
+
+        return ids;
+    }
+
+    private static int? FindId(IReadOnlyList<TcgplayerManifestType>? types, string name) =>
+        types
+            ?.FirstOrDefault(type =>
+                type is { Id: not null } && string.Equals(type.Name, name, StringComparison.Ordinal)
+            )
+            ?.Id;
+
     /// <summary>
-    /// Call #4, paged: the order numbers of every order in the given statuses, each once, in the
-    /// order first seen.
+    /// Call #4, paged: the candidate order numbers, each once, in the order first seen. The
+    /// order status, pickup status and order type filters are sent together because each is
+    /// partial (it narrows only some orders and returns the rest unfiltered), so the result can
+    /// still hold orders that are not open; <see cref="TcgplayerOpenOrderRule"/> decides.
     /// </summary>
     public async Task<IReadOnlyList<string>> SearchOrderNumbersAsync(
-        IReadOnlyList<int> orderStatusIds,
+        TcgplayerOpenOrderIds ids,
         CancellationToken cancellationToken
     )
     {
-        ArgumentNullException.ThrowIfNull(orderStatusIds);
-        // An empty status filter could mean "every order"; that is never what an import wants.
-        if (orderStatusIds.Count == 0)
+        ArgumentNullException.ThrowIfNull(ids);
+        // An empty filter could mean "every order"; that is never what an import wants.
+        if (
+            ids.OrderStatusIds.Count == 0
+            || ids.PickupStatusIds.Count == 0
+            || ids.OrderTypeIds.Count == 0
+        )
         {
-            throw new ArgumentException(
-                "At least one order status id is required.",
-                nameof(orderStatusIds)
-            );
+            throw new ArgumentException("Each search filter needs at least one id.", nameof(ids));
         }
 
         var storeKey = await StorePathAsync(cancellationToken).ConfigureAwait(false);
-        var statusFilter = string.Join(
-            ',',
-            orderStatusIds.Select(id => id.ToString(CultureInfo.InvariantCulture))
-        );
+        var filters =
+            $"orderStatusIds={IdList(ids.OrderStatusIds)}"
+            + $"&pickupStatusIds={IdList(ids.PickupStatusIds)}"
+            + $"&orderTypeIds={IdList(ids.OrderTypeIds)}";
         var (numbers, _) = await GetAllPagesAsync<string?>(
-                offset => $"{storeKey}/orders?orderStatusIds={statusFilter}&{Page(offset)}",
+                offset => $"{storeKey}/orders?{filters}&{Page(offset)}",
                 "The order search",
                 cancellationToken
             )
@@ -136,8 +197,9 @@ public sealed class TcgplayerApiClient
     }
 
     /// <summary>
-    /// Call #5, in batches of <c>PageSize</c>. Binds only the order number, status and
-    /// <c>productCount</c>; customer, shipping and value fields are never read.
+    /// Call #5, in batches of <c>PageSize</c>. Binds only the order number, the openness fields
+    /// (order status, delivery type, pickup status, order type) and <c>productCount</c>;
+    /// customer, shipping and value fields are never read.
     /// </summary>
     public async Task<IReadOnlyList<TcgplayerOrderDetails>> GetOrderDetailsAsync(
         IReadOnlyList<string> orderNumbers,
@@ -239,6 +301,9 @@ public sealed class TcgplayerApiClient
     private async Task<string> StorePathAsync(CancellationToken cancellationToken) =>
         "stores/"
         + Uri.EscapeDataString(await GetStoreKeyAsync(cancellationToken).ConfigureAwait(false));
+
+    private static string IdList(IEnumerable<int> ids) =>
+        string.Join(',', ids.Select(id => id.ToString(CultureInfo.InvariantCulture)));
 
     private string Page(int offset) =>
         string.Create(CultureInfo.InvariantCulture, $"offset={offset}&limit={_options.PageSize}");

@@ -4,7 +4,7 @@ Every file here is **synthetic**: written by hand from TCGplayer's published v1.
 
 Why: the TCGplayer API agreement forbids putting API data into third-party generative AI tools, including AI coding assistants (CLAUDE.md, "TCGplayer API Agreement"; research.md section 4f). Real responses must never be pasted, saved or copied into this folder. Order numbers are `SYN-NNNN-A1`, SKUs are `70000nn`, product ids are `80000nn`, and names are invented.
 
-Internal consistency: order numbers in the search pages match `order-details.json` and the `items-*` files; SKUs in the `items-*` files match `skus.json` (except the deliberately unknown one); product ids in `skus.json` match `products.json`.
+Internal consistency: order numbers in the search pages match `order-details.json`, and the ten open ones match the `items-*` files; SKUs in the `items-*` files match `skus.json` (except the deliberately unknown one); product ids in `skus.json` match `products.json`.
 
 Counting rules the fixtures follow: `productCount` in order details is the sum of line quantities (units); `totalItems` on an items endpoint counts lines; `totalItems` on the search endpoint counts orders.
 
@@ -12,10 +12,12 @@ Counting rules the fixtures follow: `productCount` in order details is the sum o
 |---|---|
 | `token.json` | `POST /token` response: `access_token`, `expires_in`, `.issued`, `.expires`. |
 | `stores-self.json` | `GET /stores/self`: the `sellerKey` (store key). |
-| `manifest.json` | Orders manifest: `orderStatusTypes` including `Ready To Ship` (id 2). |
-| `search-page1.json` | Order search, first page: 5 order numbers, `totalItems` 10. |
-| `search-page2.json` | Order search, second page: the other 5 order numbers, `totalItems` 10. |
-| `order-details.json` | Order details for all 10 orders, with invented `customer`, `shippingAddress` and `orderValue` objects that must never be stored (SC-004). `SYN-0006-A1` has `productCount` 5 against a line quantity of 2. |
+| `manifest.json` | Orders manifest: `orderStatusTypes` (`Processing` 1, `Ready To Ship` 2, `Delivered` 4, …), `orderPickupStatusTypes` (`Received` 1, `Picked Up` 4, …), `orderDeliveryTypes` (`InStorePickup` 4) and `orderTypes` (`Normal` 1, `Direct` 2). |
+| `search-page1.json` | Order search, first page (offset 0): 5 order numbers, `totalItems` 13. |
+| `search-page2.json` | Order search, second page (offset 5): 5 order numbers, `totalItems` 13. |
+| `search-page3.json` | Order search, third page (offset 10): the last 3 order numbers, `totalItems` 13. |
+| `order-details.json` | Order details for all 13 orders, with invented `customer`, `shippingAddress` and `orderValue` objects that must never be stored (SC-004). Each row carries `orderDeliveryTypeId`, `orderPickupStatusTypeId` (null or absent on shipped orders) and `orderTypeId` (absent on `SYN-0003-A1`, which counts as Normal). `SYN-0004-A1` is an in-store pickup order that is Received (order status Processing); `SYN-0005-A1` is a shipped order in Processing. `SYN-0006-A1` has `productCount` 5 against a line quantity of 2. |
+| (leaked orders) | `SYN-0011-A1` (shipped, Delivered), `SYN-0012-A1` (in-store pickup, Picked Up, order status Processing) and `SYN-0013-A1` (Direct, Ready To Ship) are **not open**. The search returns them because TCGplayer's search filters are partial (contracts/tcgplayer-upstream.md); the import must skip them, so they have no `items-*` file. |
 | `items-normal.json` | `SYN-0001-A1`: one ordinary line. |
 | `items-quantity-greater-than-one.json` | `SYN-0002-A1`: lines with quantities 1 and 2 (productCount 3). |
 | `items-foil.json` | `SYN-0003-A1`: a foil line as live data reports it: condition "Near Mint Foil", printing "Foil", `isFoil` true. |

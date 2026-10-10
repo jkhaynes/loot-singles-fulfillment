@@ -5,8 +5,14 @@ namespace LootSingles.Infrastructure.Tcgplayer;
 /// <summary>
 /// The Infrastructure implementation of <see cref="ITcgplayerOrderFeed"/>: composes
 /// <see cref="TcgplayerApiClient"/> (what to ask TCGplayer) with <see cref="TcgplayerOrderTranslator"/>
-/// (what the answer means). Call order follows contracts/tcgplayer-upstream.md: manifest, search;
-/// then details, each order's items, and the SKU and product lookups shared by all the orders.
+/// (what the answer means). Call order follows contracts/tcgplayer-upstream.md: manifest, search
+/// and every searched order's details, to list the open ones; then, for the orders asked for,
+/// details again, each order's items, and the SKU and product lookups shared by all of them.
+///
+/// Openness (FR-004): TCGplayer's search filters are partial, so listing applies
+/// <see cref="TcgplayerOpenOrderRule.IsOpen"/> once to each searched order's details row, before
+/// anything else is fetched or decided for it. An order that is not open is dropped there, so it
+/// is never detected, fetched, imported, rejected, reported as already imported or counted.
 ///
 /// Failure scope (research.md section 10): a data problem confined to one order (its items body is
 /// unreadable or its items stall, or TCGplayer returned no details for it) becomes that order's
@@ -30,8 +36,23 @@ public sealed class TcgplayerOrderFeed(
     )
     {
         ThrowIfNotConfigured();
-        var statusIds = await client.GetOpenOrderStatusIdsAsync(cancellationToken);
-        return await client.SearchOrderNumbersAsync(statusIds, cancellationToken);
+        var ids = await client.GetOpenOrderIdsAsync(cancellationToken);
+        var searched = await client.SearchOrderNumbersAsync(ids, cancellationToken);
+        var detailsByNumber = new Dictionary<string, TcgplayerOrderDetails>(StringComparer.Ordinal);
+        foreach (var row in await client.GetOrderDetailsAsync(searched, cancellationToken))
+        {
+            if (row?.OrderNumber is { } number)
+                detailsByNumber.TryAdd(number, row);
+        }
+
+        // A searched order with no details row can't be decided. It stays listed rather than
+        // being dropped, so GetOrdersAsync reports it rejected ("returned no details").
+        return searched
+            .Where(number =>
+                !detailsByNumber.TryGetValue(number, out var details)
+                || TcgplayerOpenOrderRule.IsOpen(details, ids)
+            )
+            .ToList();
     }
 
     public async Task<IReadOnlyList<OrderCandidate>> GetOrdersAsync(

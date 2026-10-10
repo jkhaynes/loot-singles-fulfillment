@@ -127,7 +127,7 @@ public sealed class TcgplayerServiceCollectionExtensionsTests
     private static readonly DateTimeOffset Start = new(2026, 10, 9, 12, 0, 0, TimeSpan.Zero);
 
     private const string ManifestBody =
-        """{"results":[{"orderStatusTypes":[{"id":2,"name":"Ready To Ship"}]}]}""";
+        """{"results":[{"orderStatusTypes":[{"id":1,"name":"Processing"},{"id":2,"name":"Ready To Ship"}],"orderPickupStatusTypes":[{"id":1,"name":"Received"}],"orderDeliveryTypes":[{"id":4,"name":"InStorePickup"}],"orderTypes":[{"id":1,"name":"Normal"}]}]}""";
 
     private static ServiceProvider BuildWithClock(
         FakeTimeProvider time,
@@ -158,9 +158,12 @@ public sealed class TcgplayerServiceCollectionExtensionsTests
         var client = provider.GetRequiredService<TcgplayerApiClient>();
 
         // The token request and the first manifest call use both slots of this minute.
-        Assert.Equal([2], await client.GetOpenOrderStatusIdsAsync(CancellationToken.None));
+        Assert.Equal(
+            [1, 2],
+            (await client.GetOpenOrderIdsAsync(CancellationToken.None)).OrderStatusIds
+        );
 
-        var waiting = client.GetOpenOrderStatusIdsAsync(CancellationToken.None);
+        var waiting = client.GetOpenOrderIdsAsync(CancellationToken.None);
         await SettleAsync(time, expectedTimers: 1);
         time.Advance(TimeSpan.FromSeconds(31));
         await SettleAsync(time, expectedTimers: 1);
@@ -168,7 +171,7 @@ public sealed class TcgplayerServiceCollectionExtensionsTests
 
         time.Advance(TimeSpan.FromSeconds(29));
 
-        Assert.Equal([2], await waiting.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.Equal([1, 2], (await waiting.WaitAsync(TimeSpan.FromSeconds(10))).OrderStatusIds);
         Assert.Equal(3, provider.GetRequiredService<TcgplayerRateLimiter>().CallCount);
     }
 
@@ -180,7 +183,7 @@ public sealed class TcgplayerServiceCollectionExtensionsTests
         await using var provider = BuildWithClock(time, upstream);
         var client = provider.GetRequiredService<TcgplayerApiClient>();
 
-        var call = client.GetOpenOrderStatusIdsAsync(CancellationToken.None);
+        var call = client.GetOpenOrderIdsAsync(CancellationToken.None);
         await SettleAsync(time, expectedTimers: 1);
         time.Advance(TimeSpan.FromSeconds(29));
         await SettleAsync(time, expectedTimers: 1);
@@ -202,7 +205,7 @@ public sealed class TcgplayerServiceCollectionExtensionsTests
         await using var provider = BuildWithClock(time, upstream);
         var client = provider.GetRequiredService<TcgplayerApiClient>();
 
-        var call = client.GetOpenOrderStatusIdsAsync(CancellationToken.None);
+        var call = client.GetOpenOrderIdsAsync(CancellationToken.None);
         await SettleAsync(time, expectedTimers: 1);
         time.Advance(TimeSpan.FromSeconds(30));
 
@@ -223,10 +226,10 @@ public sealed class TcgplayerServiceCollectionExtensionsTests
             ("Tcgplayer:CallsPerMinute", "2")
         );
         var client = provider.GetRequiredService<TcgplayerApiClient>();
-        await client.GetOpenOrderStatusIdsAsync(CancellationToken.None);
+        await client.GetOpenOrderIdsAsync(CancellationToken.None);
 
         using var cancel = new CancellationTokenSource();
-        var waiting = client.GetOpenOrderStatusIdsAsync(cancel.Token);
+        var waiting = client.GetOpenOrderIdsAsync(cancel.Token);
         await SettleAsync(time, expectedTimers: 1);
         time.Advance(TimeSpan.FromSeconds(31));
         await cancel.CancelAsync();

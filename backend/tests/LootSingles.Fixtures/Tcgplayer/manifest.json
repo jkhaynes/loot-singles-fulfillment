@@ -5,6 +5,10 @@
     {
       "orderStatusTypes": [
         {
+          "id": 0,
+          "name": "Unknown"
+        },
+        {
           "id": 1,
           "name": "Processing"
         },
@@ -23,6 +27,68 @@
         {
           "id": 5,
           "name": "Cancelled"
+        }
+      ],
+      "orderPickupStatusTypes": [
+        {
+          "id": 0,
+          "name": "Unknown"
+        },
+        {
+          "id": 1,
+          "name": "Received"
+        },
+        {
+          "id": 2,
+          "name": "Pulling"
+        },
+        {
+          "id": 3,
+          "name": "Ready for Pickup"
+        },
+        {
+          "id": 4,
+          "name": "Picked Up"
+        },
+        {
+          "id": 5,
+          "name": "Cancelled"
+        }
+      ],
+      "orderDeliveryTypes": [
+        {
+          "id": 0,
+          "name": "Unknown"
+        },
+        {
+          "id": 1,
+          "name": "Standard"
+        },
+        {
+          "id": 2,
+          "name": "Expedited"
+        },
+        {
+          "id": 3,
+          "name": "International"
+        },
+        {
+          "id": 4,
+          "name": "InStorePickup"
+        }
+      ],
+      "orderTypes": [
+        {
+          "id": 0,
+          "name": "Unknown"
+        },
+        {
+          "id": 1,
+          "name": "Normal"
+        },
+        {
+          "id": 2,
+          "name": "Direct"
         }
       ]
     }

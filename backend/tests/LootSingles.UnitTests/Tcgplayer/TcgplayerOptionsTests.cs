@@ -21,7 +21,9 @@ public sealed class TcgplayerOptionsTests
     {
         var options = TcgplayerOptions.FromConfiguration(Config());
 
-        Assert.Equal(["Ready To Ship"], options.OpenOrderStatuses);
+        Assert.Equal(["Processing", "Ready To Ship"], options.OpenOrderStatuses);
+        Assert.Equal(["Received"], options.OpenPickupStatuses);
+        Assert.Equal(["Normal"], options.OrderTypes);
         Assert.Equal(120, options.CallsPerMinute);
         Assert.Equal(50, options.PageSize);
         Assert.Equal("Number", options.CollectorNumberField);
@@ -51,7 +53,11 @@ public sealed class TcgplayerOptionsTests
                 ("BaseUrl", "http://localhost:5999/"),
                 ("ApiVersion", "v9.9.9"),
                 ("OpenOrderStatuses:0", "Ready To Ship"),
-                ("OpenOrderStatuses:1", "Processing")
+                ("OpenOrderStatuses:1", "Processing"),
+                ("OpenPickupStatuses:0", "Received"),
+                ("OpenPickupStatuses:1", "Pulling"),
+                ("OrderTypes:0", "Normal"),
+                ("OrderTypes:1", "Direct")
             )
         );
 
@@ -63,6 +69,32 @@ public sealed class TcgplayerOptionsTests
         Assert.Equal("http://localhost:5999/", options.BaseUrl);
         Assert.Equal("v9.9.9", options.ApiVersion);
         Assert.Equal(["Ready To Ship", "Processing"], options.OpenOrderStatuses);
+        Assert.Equal(["Received", "Pulling"], options.OpenPickupStatuses);
+        Assert.Equal(["Normal", "Direct"], options.OrderTypes);
+    }
+
+    [Theory]
+    [InlineData("OpenOrderStatuses")]
+    [InlineData("OpenPickupStatuses")]
+    [InlineData("OrderTypes")]
+    public void A_name_list_that_is_present_but_has_only_blank_entries_fails_startup(string key)
+    {
+        // A list can never be empty: an empty filter could mean "every order" (FR-004).
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            TcgplayerOptions.FromConfiguration(Config(($"{key}:0", ""), ($"{key}:1", "  ")))
+        );
+
+        Assert.Contains($"Tcgplayer:{key}", ex.Message);
+    }
+
+    [Fact]
+    public void Blank_entries_beside_real_names_are_ignored()
+    {
+        var options = TcgplayerOptions.FromConfiguration(
+            Config(("OpenPickupStatuses:0", " "), ("OpenPickupStatuses:1", "Received"))
+        );
+
+        Assert.Equal(["Received"], options.OpenPickupStatuses);
     }
 
     [Theory]

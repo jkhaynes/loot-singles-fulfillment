@@ -4,9 +4,11 @@ using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Persistence;
 using LootSingles.Infrastructure.Tcgplayer;
 using LootSingles.IntegrationTests.Auth;
+using LootSingles.IntegrationTests.Import;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace LootSingles.IntegrationTests.ImportUi;
 
@@ -105,6 +107,70 @@ public sealed class TcgplayerImportControllerTests
     }
 
     [Fact]
+    public async Task Leaked_orders_that_are_not_open_are_skipped_silently_everywhere()
+    {
+        var logs = new ImportTestSupport.CapturingLoggerProvider();
+        await using var root = new AuthWebApplicationFactory();
+        var stub = new TcgplayerStubHandler();
+        await using var stubbed = ImportUiTestSupport.WithTcgplayerStub(root, stub);
+        await using var factory = stubbed.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+                services.AddLogging(logging =>
+                {
+                    logging.SetMinimumLevel(LogLevel.Trace);
+                    logging.AddProvider(logs);
+                })
+            )
+        );
+        using var client = await ImportUiTestSupport.LoginAsync(factory);
+        var leaked = TcgplayerStubHandler.LeakedOrderNumbers;
+
+        var first = await ImportUiTestSupport.PostTcgplayerAsync(client);
+        var second = await ImportUiTestSupport.PostTcgplayerAsync(client);
+
+        // The search really returned them...
+        Assert.Contains(stub.Requests, request => request.Route == "search");
+        Assert.All(
+            leaked,
+            number =>
+                Assert.Contains(
+                    stub.Requests,
+                    request => request.Route == "details" && request.Path.Contains(number)
+                )
+        );
+        // ...but no items were fetched for them, and no snapshot counts or lists them, on the
+        // first press or as "already imported" on the second.
+        Assert.DoesNotContain(
+            stub.Requests,
+            request => request.Route == "items" && leaked.Any(request.Path.Contains)
+        );
+        foreach (var line in first.Concat(second))
+        {
+            using var snapshot = JsonDocument.Parse(line);
+            Assert.Equal(10, snapshot.RootElement.GetProperty("ordersDetected").GetInt32());
+            Assert.All(leaked, number => Assert.DoesNotContain(number, line));
+        }
+        using (var terminal = JsonDocument.Parse(second[^1]))
+        {
+            Assert.Equal(10, terminal.RootElement.GetProperty("results").GetArrayLength());
+        }
+        Assert.All(
+            logs.Entries,
+            entry => Assert.All(leaked, number => Assert.DoesNotContain(number, entry.Message))
+        );
+        var stored = await OrderNumbersAsync(factory);
+        Assert.Equal(8, stored.Count);
+        Assert.Empty(stored.Intersect(leaked));
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
+        Assert.False(
+            await context.ImportOrderResults.AnyAsync(result =>
+                leaked.Contains(result.SourceOrderIdentifier)
+            )
+        );
+    }
+
+    [Fact]
     public async Task Snapshots_have_exactly_the_shape_of_the_PDF_route()
     {
         await using var root = new AuthWebApplicationFactory();
@@ -155,9 +221,11 @@ public sealed class TcgplayerImportControllerTests
                 Assert.Equal("Already imported", result.GetProperty("failureMessage").GetString());
             }
         );
+        // Details are read for every searched order to decide openness (FR-004); an order already
+        // imported has nothing else fetched.
         Assert.DoesNotContain(
             stub.Requests.Skip(requestsBefore),
-            request => request.Route is "details" or "items" or "skus" or "products"
+            request => request.Route is "items" or "skus" or "products"
         );
         Assert.Equal(8, await CountOrdersAsync(factory));
     }
@@ -190,7 +258,7 @@ public sealed class TcgplayerImportControllerTests
         Assert.Equal("duplicateOrder", result.GetProperty("failureCode").GetString());
         Assert.DoesNotContain(
             stub.Requests,
-            request => request.Route is "details" or "items" or "skus" or "products"
+            request => request.Route is "items" or "skus" or "products"
         );
         Assert.Equal(ordersBefore, await CountOrdersAsync(factory));
     }
@@ -207,21 +275,21 @@ public sealed class TcgplayerImportControllerTests
         );
         await LoginAgainAsync(second);
 
-        // Hold the first details request of each call until both calls have one in flight. Each
-        // call checks every order for "already imported" before it fetches any, so both have
-        // decided every order is new; they then race to insert the same orders.
+        // Hold SYN-0001's items request in each call until both calls have one in flight. Each
+        // call checks every order for "already imported" before it fetches any items, so both
+        // have decided every order is new; they then race to insert the same orders.
         var bothArrived = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously
         );
-        var heldDetails = 0;
+        var heldItems = 0;
         stub.Override = async request =>
         {
             if (
-                request.Route == "details"
+                request.Route == "items"
                 && request.Path.Contains(TcgplayerStubHandler.OrderNumber(1))
             )
             {
-                if (Interlocked.Increment(ref heldDetails) == 2)
+                if (Interlocked.Increment(ref heldItems) == 2)
                     bothArrived.TrySetResult();
                 await bothArrived.Task.WaitAsync(TimeSpan.FromSeconds(30));
             }
@@ -234,7 +302,7 @@ public sealed class TcgplayerImportControllerTests
             ImportUiTestSupport.PostTcgplayerAsync(second)
         );
 
-        Assert.Equal(2, heldDetails);
+        Assert.Equal(2, heldItems);
         var succeeded = new List<string>();
         foreach (var lines in calls)
         {
@@ -264,11 +332,13 @@ public sealed class TcgplayerImportControllerTests
         var stub = new TcgplayerStubHandler();
         await using var factory = ImportUiTestSupport.WithTcgplayerStub(root, stub);
         using var client = await ImportUiTestSupport.LoginAsync(factory);
-        // PageSize is 2: the first details batch is SYN-0001 and SYN-0002; every later one fails.
+        // PageSize is 2: the first batch fetched is SYN-0001 and SYN-0002; TCGplayer fails on the
+        // items of every later order.
         stub.Override = request =>
             Task.FromResult(
-                request.Route == "details"
+                request.Route == "items"
                 && !request.Path.Contains(TcgplayerStubHandler.OrderNumber(1))
+                && !request.Path.Contains(TcgplayerStubHandler.OrderNumber(2))
                     ? new HttpResponseMessage(HttpStatusCode.InternalServerError)
                     : null
             );

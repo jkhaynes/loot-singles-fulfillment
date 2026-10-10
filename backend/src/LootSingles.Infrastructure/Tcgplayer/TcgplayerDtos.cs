@@ -16,6 +16,18 @@ public sealed record TcgplayerOrderDetails
     [JsonPropertyName("orderStatusTypeId")]
     public int? OrderStatusTypeId { get; init; }
 
+    /// <summary>Recognises an in-store pickup order (the manifest's <c>InStorePickup</c>).</summary>
+    [JsonPropertyName("orderDeliveryTypeId")]
+    public int? OrderDeliveryTypeId { get; init; }
+
+    /// <summary>Decides a pickup order's openness. Absent or null on shipped orders.</summary>
+    [JsonPropertyName("orderPickupStatusTypeId")]
+    public int? OrderPickupStatusTypeId { get; init; }
+
+    /// <summary>Normal or Direct. May be absent; an absent order type counts as Normal.</summary>
+    [JsonPropertyName("orderTypeId")]
+    public int? OrderTypeId { get; init; }
+
     /// <summary>Total units in the order: the sum of line quantities (live-confirmed 2026-10-09).</summary>
     [JsonPropertyName("productCount")]
     public int? ProductCount { get; init; }
@@ -128,15 +140,27 @@ public sealed record TcgplayerStoreSelf
         : null;
 }
 
-/// <summary>One row of <c>GET /stores/{storeKey}/orders/manifest</c>.</summary>
+/// <summary>
+/// One row of <c>GET /stores/{storeKey}/orders/manifest</c>: the id lists the openness rule
+/// resolves names in (FR-004). The manifest's other lists are not read.
+/// </summary>
 public sealed record TcgplayerOrderManifest
 {
     [JsonPropertyName("orderStatusTypes")]
-    public IReadOnlyList<TcgplayerOrderStatusType>? OrderStatusTypes { get; init; }
+    public IReadOnlyList<TcgplayerManifestType>? OrderStatusTypes { get; init; }
+
+    [JsonPropertyName("orderPickupStatusTypes")]
+    public IReadOnlyList<TcgplayerManifestType>? OrderPickupStatusTypes { get; init; }
+
+    [JsonPropertyName("orderDeliveryTypes")]
+    public IReadOnlyList<TcgplayerManifestType>? OrderDeliveryTypes { get; init; }
+
+    [JsonPropertyName("orderTypes")]
+    public IReadOnlyList<TcgplayerManifestType>? OrderTypes { get; init; }
 }
 
-/// <summary>An order status as the manifest names it, for example <c>Ready To Ship</c>.</summary>
-public sealed record TcgplayerOrderStatusType
+/// <summary>A manifest entry, for example the order status <c>Ready To Ship</c>.</summary>
+public sealed record TcgplayerManifestType
 {
     [JsonPropertyName("id")]
     public int? Id { get; init; }

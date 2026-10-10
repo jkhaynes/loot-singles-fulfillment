@@ -113,14 +113,28 @@ public sealed class TcgplayerApiClientTests
 
     // ---- Manifest (#3) ----
 
+    // The ids the synthetic manifest resolves the default names to.
+    private static readonly TcgplayerOpenOrderIds DefaultIds = new(
+        OrderStatusIds: [1, 2],
+        PickupStatusIds: [1],
+        OrderTypeIds: [1],
+        InStorePickupDeliveryTypeId: 4,
+        NormalOrderTypeId: 1
+    );
+
     [Fact]
-    public async Task Open_status_names_resolve_to_ids_through_the_manifest()
+    public async Task Open_order_names_resolve_to_ids_through_the_manifest()
     {
         var harness = new Harness(storeKey: ConfiguredStoreKey);
 
-        var ids = await harness.Client.GetOpenOrderStatusIdsAsync(CancellationToken.None);
+        var ids = await harness.Client.GetOpenOrderIdsAsync(CancellationToken.None);
 
-        Assert.Equal([2], ids); // "Ready To Ship", live-confirmed spelling
+        // "Processing" and "Ready To Ship"; "Received"; "Normal"; and "InStorePickup".
+        Assert.Equal([1, 2], ids.OrderStatusIds);
+        Assert.Equal([1], ids.PickupStatusIds);
+        Assert.Equal([1], ids.OrderTypeIds);
+        Assert.Equal(4, ids.InStorePickupDeliveryTypeId);
+        Assert.Equal(1, ids.NormalOrderTypeId);
         var request = Assert.Single(harness.Requests);
         Assert.Equal(
             $"/v1.39.0/stores/{ConfiguredStoreKey}/orders/manifest",
@@ -129,16 +143,20 @@ public sealed class TcgplayerApiClientTests
     }
 
     [Fact]
-    public async Task Several_configured_status_names_each_resolve()
+    public async Task Configured_names_each_resolve_in_their_own_manifest_list()
     {
         var harness = new Harness(
             storeKey: ConfiguredStoreKey,
-            openStatuses: ["Processing", "Ready To Ship"]
+            openStatuses: ["Ready To Ship"],
+            openPickupStatuses: ["Received", "Pulling"],
+            orderTypes: ["Normal", "Direct"]
         );
 
-        var ids = await harness.Client.GetOpenOrderStatusIdsAsync(CancellationToken.None);
+        var ids = await harness.Client.GetOpenOrderIdsAsync(CancellationToken.None);
 
-        Assert.Equal([1, 2], ids);
+        Assert.Equal([2], ids.OrderStatusIds);
+        Assert.Equal([1, 2], ids.PickupStatusIds);
+        Assert.Equal([1, 2], ids.OrderTypeIds);
     }
 
     [Fact]
@@ -150,11 +168,91 @@ public sealed class TcgplayerApiClientTests
         );
 
         var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
-            harness.Client.GetOpenOrderStatusIdsAsync(CancellationToken.None)
+            harness.Client.GetOpenOrderIdsAsync(CancellationToken.None)
         );
 
         Assert.Equal(TcgplayerFeedFailure.ResponseInvalid, failure.Failure);
-        Assert.Contains("Awaiting Pickup", failure.Message);
+        Assert.Contains("'Awaiting Pickup'", failure.Message);
+        Assert.Contains("Tcgplayer:OpenOrderStatuses", failure.Message);
+    }
+
+    [Fact]
+    public async Task A_configured_pickup_status_missing_from_the_manifest_is_ResponseInvalid_naming_it()
+    {
+        // "Picked up" differs from the manifest's "Picked Up" only in case: names match exactly.
+        var harness = new Harness(storeKey: ConfiguredStoreKey, openPickupStatuses: ["Picked up"]);
+
+        var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
+            harness.Client.GetOpenOrderIdsAsync(CancellationToken.None)
+        );
+
+        Assert.Equal(TcgplayerFeedFailure.ResponseInvalid, failure.Failure);
+        Assert.Contains("'Picked up'", failure.Message);
+        Assert.Contains("Tcgplayer:OpenPickupStatuses", failure.Message);
+    }
+
+    [Fact]
+    public async Task A_configured_order_type_missing_from_the_manifest_is_ResponseInvalid_naming_it()
+    {
+        var harness = new Harness(storeKey: ConfiguredStoreKey, orderTypes: ["Wholesale"]);
+
+        var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
+            harness.Client.GetOpenOrderIdsAsync(CancellationToken.None)
+        );
+
+        Assert.Equal(TcgplayerFeedFailure.ResponseInvalid, failure.Failure);
+        Assert.Contains("'Wholesale'", failure.Message);
+        Assert.Contains("Tcgplayer:OrderTypes", failure.Message);
+    }
+
+    [Theory]
+    [InlineData("orderDeliveryTypes", "InStorePickup")]
+    [InlineData("orderTypes", "Normal")]
+    public async Task A_manifest_without_a_name_the_rule_relies_on_is_ResponseInvalid_naming_it(
+        string list,
+        string name
+    )
+    {
+        var harness = new Harness(storeKey: ConfiguredStoreKey, orderTypes: ["Direct"]);
+        harness.Override(
+            Route.Manifest,
+            request =>
+            {
+                var manifest = JsonNode.Parse(Fixture("manifest.json"))!;
+                var entries = manifest["results"]![0]![list]!.AsArray();
+                entries.Remove(entries.Single(entry => (string)entry!["name"]! == name));
+                return Json(manifest.ToJsonString())(request);
+            }
+        );
+
+        var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
+            harness.Client.GetOpenOrderIdsAsync(CancellationToken.None)
+        );
+
+        Assert.Equal(TcgplayerFeedFailure.ResponseInvalid, failure.Failure);
+        Assert.Contains($"'{name}'", failure.Message);
+    }
+
+    [Fact]
+    public async Task A_manifest_missing_a_whole_list_is_ResponseInvalid_naming_what_could_not_resolve()
+    {
+        var harness = new Harness(storeKey: ConfiguredStoreKey);
+        harness.Override(
+            Route.Manifest,
+            request =>
+            {
+                var manifest = JsonNode.Parse(Fixture("manifest.json"))!;
+                manifest["results"]![0]!.AsObject().Remove("orderPickupStatusTypes");
+                return Json(manifest.ToJsonString())(request);
+            }
+        );
+
+        var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
+            harness.Client.GetOpenOrderIdsAsync(CancellationToken.None)
+        );
+
+        Assert.Equal(TcgplayerFeedFailure.ResponseInvalid, failure.Failure);
+        Assert.Contains("'Received'", failure.Message);
     }
 
     [Fact]
@@ -163,7 +261,7 @@ public sealed class TcgplayerApiClientTests
         var harness = new Harness(storeKey: ConfiguredStoreKey, openStatuses: ["Ready to Ship"]);
 
         var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
-            harness.Client.GetOpenOrderStatusIdsAsync(CancellationToken.None)
+            harness.Client.GetOpenOrderIdsAsync(CancellationToken.None)
         );
 
         Assert.Equal(TcgplayerFeedFailure.ResponseInvalid, failure.Failure);
@@ -177,15 +275,38 @@ public sealed class TcgplayerApiClientTests
     {
         var harness = new Harness(storeKey: ConfiguredStoreKey);
 
-        var numbers = await harness.Client.SearchOrderNumbersAsync([2], CancellationToken.None);
+        var numbers = await harness.Client.SearchOrderNumbersAsync(
+            DefaultIds,
+            CancellationToken.None
+        );
 
-        Assert.Equal(Enumerable.Range(1, 10).Select(OrderNumber), numbers);
-        Assert.Collection(
-            harness.Requests,
-            first =>
-                Assert.Equal("orderStatusIds=2&offset=0&limit=5", first.RequestUri!.Query[1..]),
-            second =>
-                Assert.Equal("orderStatusIds=2&offset=5&limit=5", second.RequestUri!.Query[1..])
+        // The search returns the leaked non-open orders too (SYN-0011 to SYN-0013): its filters
+        // are partial, so it is only a candidate list. Deciding openness is the feed's job.
+        Assert.Equal(SearchedOrders, numbers);
+        Assert.Equal(
+            [0, 5, 10],
+            harness.Requests.Select(request => QueryInt(request, "offset")).ToArray()
+        );
+    }
+
+    [Fact]
+    public async Task Search_sends_the_status_pickup_status_and_order_type_filters_together()
+    {
+        var harness = new Harness(storeKey: ConfiguredStoreKey);
+
+        await harness.Client.SearchOrderNumbersAsync(
+            DefaultIds with
+            {
+                OrderStatusIds = [1, 2],
+                PickupStatusIds = [1, 3],
+                OrderTypeIds = [1],
+            },
+            CancellationToken.None
+        );
+
+        Assert.Equal(
+            "orderStatusIds=1,2&pickupStatusIds=1,3&orderTypeIds=1&offset=0&limit=5",
+            harness.Requests[0].RequestUri!.Query[1..]
         );
     }
 
@@ -206,7 +327,10 @@ public sealed class TcgplayerApiClientTests
             }
         );
 
-        var numbers = await harness.Client.SearchOrderNumbersAsync([2], CancellationToken.None);
+        var numbers = await harness.Client.SearchOrderNumbersAsync(
+            DefaultIds,
+            CancellationToken.None
+        );
 
         Assert.Equal(Enumerable.Range(1, 7).Select(OrderNumber), numbers);
         Assert.Equal(
@@ -221,7 +345,10 @@ public sealed class TcgplayerApiClientTests
         var harness = new Harness(storeKey: ConfiguredStoreKey);
         harness.Override(Route.Search, Json(SearchBody([], totalItems: 0)));
 
-        var numbers = await harness.Client.SearchOrderNumbersAsync([2], CancellationToken.None);
+        var numbers = await harness.Client.SearchOrderNumbersAsync(
+            DefaultIds,
+            CancellationToken.None
+        );
 
         Assert.Empty(numbers);
         Assert.Single(harness.Requests);
@@ -242,7 +369,7 @@ public sealed class TcgplayerApiClientTests
         );
 
         var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
-            harness.Client.SearchOrderNumbersAsync([2], CancellationToken.None)
+            harness.Client.SearchOrderNumbersAsync(DefaultIds, CancellationToken.None)
         );
 
         Assert.Equal(TcgplayerFeedFailure.ResponseInvalid, failure.Failure);
@@ -267,7 +394,10 @@ public sealed class TcgplayerApiClientTests
                     )
         );
 
-        var numbers = await harness.Client.SearchOrderNumbersAsync([2], CancellationToken.None);
+        var numbers = await harness.Client.SearchOrderNumbersAsync(
+            DefaultIds,
+            CancellationToken.None
+        );
 
         Assert.Equal(Enumerable.Range(1, 9).Select(OrderNumber), numbers);
         Assert.Equal(2, harness.Requests.Count);
@@ -285,18 +415,41 @@ public sealed class TcgplayerApiClientTests
             )
         );
 
-        var numbers = await harness.Client.SearchOrderNumbersAsync([2], CancellationToken.None);
+        var numbers = await harness.Client.SearchOrderNumbersAsync(
+            DefaultIds,
+            CancellationToken.None
+        );
 
         Assert.Equal(["SYN-0001-A1"], numbers);
     }
 
-    [Fact]
-    public async Task Search_refuses_an_empty_status_filter_rather_than_searching_every_order()
+    public static TheoryData<TcgplayerOpenOrderIds> EmptyFilters =>
+        new()
+        {
+            DefaultIds with
+            {
+                OrderStatusIds = [],
+            },
+            DefaultIds with
+            {
+                PickupStatusIds = [],
+            },
+            DefaultIds with
+            {
+                OrderTypeIds = [],
+            },
+        };
+
+    [Theory]
+    [MemberData(nameof(EmptyFilters))]
+    public async Task Search_refuses_an_empty_filter_rather_than_searching_every_order(
+        TcgplayerOpenOrderIds ids
+    )
     {
         var harness = new Harness(storeKey: ConfiguredStoreKey);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            harness.Client.SearchOrderNumbersAsync([], CancellationToken.None)
+            harness.Client.SearchOrderNumbersAsync(ids, CancellationToken.None)
         );
         Assert.Empty(harness.Requests);
     }
@@ -311,7 +464,7 @@ public sealed class TcgplayerApiClientTests
         );
 
         var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
-            harness.Client.SearchOrderNumbersAsync([2], CancellationToken.None)
+            harness.Client.SearchOrderNumbersAsync(DefaultIds, CancellationToken.None)
         );
 
         Assert.Equal(TcgplayerFeedFailure.ResponseInvalid, failure.Failure);
@@ -346,6 +499,27 @@ public sealed class TcgplayerApiClientTests
         var mismatch = details.Single(d => d.OrderNumber == "SYN-0006-A1");
         Assert.Equal(5, mismatch.ProductCount);
         Assert.Equal(2, mismatch.OrderStatusTypeId);
+    }
+
+    [Fact]
+    public async Task Order_details_bind_delivery_type_pickup_status_and_order_type()
+    {
+        var harness = new Harness(storeKey: ConfiguredStoreKey);
+
+        var details = await harness.Client.GetOrderDetailsAsync(
+            ["SYN-0001-A1", "SYN-0002-A1", "SYN-0003-A1", "SYN-0004-A1"],
+            CancellationToken.None
+        );
+
+        var pickup = details.Single(d => d.OrderNumber == "SYN-0004-A1");
+        Assert.Equal(1, pickup.OrderStatusTypeId);
+        Assert.Equal(4, pickup.OrderDeliveryTypeId);
+        Assert.Equal(1, pickup.OrderPickupStatusTypeId);
+        Assert.Equal(1, pickup.OrderTypeId);
+        // Shipped orders carry a null or absent pickup status; SYN-0003 has no order type at all.
+        Assert.Null(details.Single(d => d.OrderNumber == "SYN-0001-A1").OrderPickupStatusTypeId);
+        Assert.Null(details.Single(d => d.OrderNumber == "SYN-0002-A1").OrderPickupStatusTypeId);
+        Assert.Null(details.Single(d => d.OrderNumber == "SYN-0003-A1").OrderTypeId);
     }
 
     // ---- Order items (#6) ----
@@ -541,7 +715,7 @@ public sealed class TcgplayerApiClientTests
         harness.Override(Route.Manifest, _ => new HttpResponseMessage((HttpStatusCode)status));
 
         var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
-            harness.Client.GetOpenOrderStatusIdsAsync(CancellationToken.None)
+            harness.Client.GetOpenOrderIdsAsync(CancellationToken.None)
         );
 
         Assert.Equal(TcgplayerFeedFailure.Unavailable, failure.Failure);
@@ -573,7 +747,7 @@ public sealed class TcgplayerApiClientTests
         );
 
         var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
-            harness.Client.SearchOrderNumbersAsync([2], CancellationToken.None)
+            harness.Client.SearchOrderNumbersAsync(DefaultIds, CancellationToken.None)
         );
 
         Assert.Equal(TcgplayerFeedFailure.AccessRefused, failure.Failure);
@@ -591,7 +765,7 @@ public sealed class TcgplayerApiClientTests
         );
 
         var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
-            harness.Client.GetOpenOrderStatusIdsAsync(CancellationToken.None)
+            harness.Client.GetOpenOrderIdsAsync(CancellationToken.None)
         );
 
         Assert.Equal(TcgplayerFeedFailure.Unavailable, failure.Failure);
@@ -620,7 +794,7 @@ public sealed class TcgplayerApiClientTests
         await cancelled.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            harness.Client.GetOpenOrderStatusIdsAsync(cancelled.Token)
+            harness.Client.GetOpenOrderIdsAsync(cancelled.Token)
         );
     }
 
@@ -631,7 +805,7 @@ public sealed class TcgplayerApiClientTests
         var harness = new Harness(storeKey: ConfiguredStoreKey, thrown: raised);
 
         var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
-            harness.Client.GetOpenOrderStatusIdsAsync(CancellationToken.None)
+            harness.Client.GetOpenOrderIdsAsync(CancellationToken.None)
         );
 
         Assert.Same(raised, failure);
@@ -656,8 +830,11 @@ public sealed class TcgplayerApiClientTests
         var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
             route switch
             {
-                Route.Manifest => harness.Client.GetOpenOrderStatusIdsAsync(CancellationToken.None),
-                Route.Search => harness.Client.SearchOrderNumbersAsync([2], CancellationToken.None),
+                Route.Manifest => harness.Client.GetOpenOrderIdsAsync(CancellationToken.None),
+                Route.Search => harness.Client.SearchOrderNumbersAsync(
+                    DefaultIds,
+                    CancellationToken.None
+                ),
                 Route.Items => harness.Client.GetOrderItemsAsync(
                     "SYN-0001-A1",
                     CancellationToken.None
@@ -683,7 +860,7 @@ public sealed class TcgplayerApiClientTests
         );
 
         var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
-            harness.Client.SearchOrderNumbersAsync([2], CancellationToken.None)
+            harness.Client.SearchOrderNumbersAsync(DefaultIds, CancellationToken.None)
         );
 
         Assert.DoesNotContain("secret-marker", failure.ToString());
@@ -718,7 +895,10 @@ public sealed class TcgplayerApiClientTests
     [
         (new Regex(@"^/v1\.39\.0/stores/self$"), []),
         (new Regex(@"^/v1\.39\.0/stores/[^/]+/orders/manifest$"), []),
-        (new Regex(@"^/v1\.39\.0/stores/[^/]+/orders$"), ["orderStatusIds", "offset", "limit"]),
+        (
+            new Regex(@"^/v1\.39\.0/stores/[^/]+/orders$"),
+            ["orderStatusIds", "pickupStatusIds", "orderTypeIds", "offset", "limit"]
+        ),
         (new Regex(@"^/v1\.39\.0/stores/[^/]+/orders/(?!manifest$)[^/]+$"), []),
         (
             new Regex(@"^/v1\.39\.0/stores/[^/]+/orders/[^/]+/items$"),
@@ -735,11 +915,15 @@ public sealed class TcgplayerApiClientTests
         var harness = new Harness();
         var client = harness.Client;
 
-        var statusIds = await client.GetOpenOrderStatusIdsAsync(CancellationToken.None);
-        var numbers = await client.SearchOrderNumbersAsync(statusIds, CancellationToken.None);
-        await client.GetOrderDetailsAsync(numbers, CancellationToken.None);
+        var ids = await client.GetOpenOrderIdsAsync(CancellationToken.None);
+        var numbers = await client.SearchOrderNumbersAsync(ids, CancellationToken.None);
+        var details = await client.GetOrderDetailsAsync(numbers, CancellationToken.None);
         var skuIds = new List<int>();
-        foreach (var number in numbers)
+        foreach (
+            var number in details
+                .Where(row => TcgplayerOpenOrderRule.IsOpen(row, ids))
+                .Select(row => row.OrderNumber!)
+        )
         {
             var page = await client.GetOrderItemsAsync(number, CancellationToken.None);
             skuIds.AddRange(page.Items.Select(item => item.SkuId!.Value));
@@ -781,6 +965,12 @@ public sealed class TcgplayerApiClientTests
     // ---- Harness ----
 
     private static string OrderNumber(int index) => $"SYN-{index:0000}-A1";
+
+    // The synthetic search pages, in order: the ten open orders with the three leaked ones.
+    private static readonly string[] SearchedOrders =
+    [
+        .. new[] { 1, 2, 11, 3, 4, 5, 6, 12, 7, 8, 9, 10, 13 }.Select(OrderNumber),
+    ];
 
     private static string Fixture(string name) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Tcgplayer", name));
@@ -877,13 +1067,17 @@ public sealed class TcgplayerApiClientTests
             string? storeKey = null,
             IReadOnlyList<string>? openStatuses = null,
             Exception? thrown = null,
-            int pageSize = 5
+            int pageSize = 5,
+            IReadOnlyList<string>? openPickupStatuses = null,
+            IReadOnlyList<string>? orderTypes = null
         )
         {
             _options = new TcgplayerOptions
             {
                 StoreKey = storeKey,
-                OpenOrderStatuses = openStatuses ?? ["Ready To Ship"],
+                OpenOrderStatuses = openStatuses ?? ["Processing", "Ready To Ship"],
+                OpenPickupStatuses = openPickupStatuses ?? ["Received"],
+                OrderTypes = orderTypes ?? ["Normal"],
                 PageSize = pageSize,
             };
             _handler = thrown is null
@@ -920,9 +1114,7 @@ public sealed class TcgplayerApiClientTests
             {
                 Route.StoreSelf => Fixture("stores-self.json"),
                 Route.Manifest => Fixture("manifest.json"),
-                Route.Search => Fixture(
-                    QueryInt(request, "offset") == 0 ? "search-page1.json" : "search-page2.json"
-                ),
+                Route.Search => Fixture(SearchPageFor(QueryInt(request, "offset"))),
                 Route.Details => DetailsFor(path.Split('/')[^1].Split(',')),
                 Route.Items => ItemsFor(path.Split('/')[^2], QueryInt(request, "offset")),
                 Route.Skus => Fixture("skus.json"),
@@ -930,6 +1122,15 @@ public sealed class TcgplayerApiClientTests
             };
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) };
         }
+
+        private static string SearchPageFor(int offset) =>
+            offset switch
+            {
+                0 => "search-page1.json",
+                5 => "search-page2.json",
+                10 => "search-page3.json",
+                _ => throw new InvalidOperationException($"No synthetic search page at {offset}"),
+            };
 
         private static string DetailsFor(string[] numbers)
         {

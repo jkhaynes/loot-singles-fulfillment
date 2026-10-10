@@ -108,6 +108,37 @@ internal static class ImportTestSupport
             );
     }
 
+    // Hands every category a CapturingLogger, so one list holds the whole host's log output.
+    internal sealed class CapturingLoggerProvider : ILoggerProvider
+    {
+        private readonly Lock _gate = new();
+        private readonly List<CapturingLogger<object>> _loggers = [];
+
+        public IReadOnlyList<LogEntry> Entries
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _loggers.SelectMany(logger => logger.Entries.ToArray()).ToArray();
+                }
+            }
+        }
+
+        public ILogger CreateLogger(string categoryName)
+        {
+            var logger = new CapturingLogger<object>();
+            lock (_gate)
+            {
+                _loggers.Add(logger);
+            }
+
+            return logger;
+        }
+
+        public void Dispose() { }
+    }
+
     internal sealed record LogEntry(
         LogLevel Level,
         string Message,

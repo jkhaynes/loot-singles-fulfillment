@@ -37,7 +37,7 @@ public sealed class TcgplayerPiiTests
         Assert.Contains("test.customer@example.test", piiValues);
         Assert.Contains("1 Example St", piiValues);
 
-        var logs = new CapturingLoggerProvider();
+        var logs = new ImportTestSupport.CapturingLoggerProvider();
         await using var root = new AuthWebApplicationFactory();
         var stub = new TcgplayerStubHandler();
         await using var stubbed = ImportUiTestSupport.WithTcgplayerStub(root, stub);
@@ -194,35 +194,4 @@ public sealed class TcgplayerPiiTests
     }
 
     private sealed record ColumnRef(string Schema, string Table, string Column, string DataType);
-
-    // Hands every category a CapturingLogger, so one list holds the whole host's log output.
-    private sealed class CapturingLoggerProvider : ILoggerProvider
-    {
-        private readonly Lock _gate = new();
-        private readonly List<ImportTestSupport.CapturingLogger<object>> _loggers = [];
-
-        public IReadOnlyList<ImportTestSupport.LogEntry> Entries
-        {
-            get
-            {
-                lock (_gate)
-                {
-                    return _loggers.SelectMany(logger => logger.Entries.ToArray()).ToArray();
-                }
-            }
-        }
-
-        public ILogger CreateLogger(string categoryName)
-        {
-            var logger = new ImportTestSupport.CapturingLogger<object>();
-            lock (_gate)
-            {
-                _loggers.Add(logger);
-            }
-
-            return logger;
-        }
-
-        public void Dispose() { }
-    }
 }

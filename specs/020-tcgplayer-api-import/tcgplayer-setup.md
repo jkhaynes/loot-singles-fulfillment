@@ -144,11 +144,13 @@ In every case, **packing-slip PDF upload keeps working**, so orders can still be
 
 ## Changing which orders count as open
 
-The app imports orders whose TCGplayer status is **Ready To Ship**. To change that without changing code, open the Container App's environment variables and set:
+The app imports the orders the seller portal shows as open: **Normal** orders (not Direct) that are either shipped orders in **Processing** or **Ready To Ship**, or in-store pickup orders that are **Received**. To change that without changing code, open the Container App's environment variables and set any of these lists:
 
 ```text
-Tcgplayer__OpenOrderStatuses__0 = <first status name>
-Tcgplayer__OpenOrderStatuses__1 = <second status name, if any>
+Tcgplayer__OpenOrderStatuses__0 = <first order status name, for shipped orders>
+Tcgplayer__OpenOrderStatuses__1 = <second, if any>
+Tcgplayer__OpenPickupStatuses__0 = <first pickup status name, for in-store pickup orders>
+Tcgplayer__OrderTypes__0 = <first order type name>
 ```
 
-The names must match TCGplayer's status names exactly, as listed in the probe report.
+The names must match TCGplayer's names exactly (case and spacing). A name TCGplayer doesn't know makes "Get new orders" fail with a message naming it, rather than importing the wrong orders.
