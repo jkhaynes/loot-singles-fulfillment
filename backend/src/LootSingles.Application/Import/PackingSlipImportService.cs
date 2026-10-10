@@ -29,7 +29,11 @@ public sealed class PackingSlipImportService(
         // controller already enforces (research.md §3).
         var documentBytes = await ReadAllBytesAsync(packingSlipPdf, cancellationToken);
 
-        var attempt = new ImportAttempt { StartedAt = DateTimeOffset.UtcNow };
+        var attempt = new ImportAttempt
+        {
+            StartedAt = DateTimeOffset.UtcNow,
+            Source = OrderImportSource.PackingSlipPdf,
+        };
         persistence.AddImportAttempt(attempt);
         // Save now so attempt.Id is assigned before any log statement can reference it.
         await persistence.SaveChangesAsync(cancellationToken);
@@ -109,6 +113,7 @@ public sealed class PackingSlipImportService(
             var result = await orderImporter.ImportAsync(
                 attempt,
                 candidate,
+                OrderImportSource.PackingSlipPdf,
                 order =>
                 {
                     if (!TryAttachPackingSlip(order, documentBytes, block))

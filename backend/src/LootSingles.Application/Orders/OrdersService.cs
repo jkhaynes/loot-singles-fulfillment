@@ -33,7 +33,8 @@ public sealed class OrdersService(
                         .Select(entry => new CardIdentity(
                             entry.Line.ProductName,
                             entry.Line.Set,
-                            entry.Line.CollectorNumber,
+                            // Only PDF orders are enriched here, and PDF lines always have a collector number.
+                            entry.Line.CollectorNumber!,
                             entry.Line.Variant
                         ))
                         .ToArray();

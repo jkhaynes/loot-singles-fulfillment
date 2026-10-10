@@ -85,21 +85,21 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
 ### 2b. Schema (data-model.md)
 
-- [ ] T012 [P] Write an integration test in `backend/tests/LootSingles.IntegrationTests/Persistence/TcgplayerImportSchemaTests.cs` against Testcontainers SQL. It checks that:
+- [x] T012 [P] Write an integration test in `backend/tests/LootSingles.IntegrationTests/Persistence/TcgplayerImportSchemaTests.cs` against Testcontainers SQL. It checks that:
   - an `Order` round-trips `ImportSource`, and existing rows default to `PackingSlipPdf`;
   - an `OrderLine` saves a null `CollectorNumber`, plus `Language` (≤ 50) and `ImageUrl` (≤ 2048);
   - `ImportAttempt.Source` round-trips.
 
   Confirm red.
-- [ ] T013 [P] Append the new `FailureType` values `IncompleteOrder`, `TcgplayerUnavailable`, `TcgplayerAccessRefused`, `TcgplayerResponseInvalid` and `TcgplayerNotConfigured` in `backend/src/LootSingles.Application/Import/FailureType.cs`, keeping the existing integers.
-- [ ] T014 Add `backend/src/LootSingles.Domain/Orders/OrderImportSource.cs` (`PackingSlipPdf = 0`, `TcgplayerApi = 1`). Then make these model changes:
+- [x] T013 [P] Append the new `FailureType` values `IncompleteOrder`, `TcgplayerUnavailable`, `TcgplayerAccessRefused`, `TcgplayerResponseInvalid` and `TcgplayerNotConfigured` in `backend/src/LootSingles.Application/Import/FailureType.cs`, keeping the existing integers.
+- [x] T014 Add `backend/src/LootSingles.Domain/Orders/OrderImportSource.cs` (`PackingSlipPdf = 0`, `TcgplayerApi = 1`). Then make these model changes:
   - `Order.ImportSource` in `backend/src/LootSingles.Domain/Orders/Order.cs`;
   - in `backend/src/LootSingles.Domain/Orders/OrderLine.cs`, `CollectorNumber` becomes `string?`, and `Language` and `ImageUrl` are added;
   - `ImportAttempt.Source` in `backend/src/LootSingles.Application/Import/ImportAttempt.cs`;
   - EF configuration in `backend/src/LootSingles.Infrastructure/Persistence/Configurations/`: `OrderConfiguration.cs`, `OrderLineConfiguration.cs` and `ImportAttemptConfiguration.cs`, with defaults of 0 and max lengths;
   - add an `OrderImportSource source` parameter to `OrderImporter.ImportAsync`, which sets `Order.ImportSource`, and pass `PackingSlipPdf` from `PackingSlipImportService`, which also sets `ImportAttempt.Source`;
   - add `{Source}` to `ImportAttemptLog`'s template, with a test-first assertion in `ImportLoggingTests.cs` that it is `PackingSlipPdf` for PDF imports.
-- [ ] T015 Generate the additive migration `AddTcgplayerApiImport` in `backend/src/LootSingles.Infrastructure/Persistence/Migrations/`. Review its `Up`/`Down`. Make the code that now sees a nullable `CollectorNumber` compile:
+- [x] T015 Generate the additive migration `AddTcgplayerApiImport` in `backend/src/LootSingles.Infrastructure/Persistence/Migrations/`. Review its `Up`/`Down`. Make the code that now sees a nullable `CollectorNumber` compile:
   - `OrdersService.cs` and `OrderDetailProjection.cs` pass `line.CollectorNumber` through as nullable;
   - for PDF orders only, `CardIdentity` gets `line.CollectorNumber!`, with a comment saying PDF lines always have one.
 

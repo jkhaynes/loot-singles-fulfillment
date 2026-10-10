@@ -19,6 +19,7 @@ public sealed class OrderImporter(IImportPersistence persistence, ILogger<OrderI
     public async Task<ImportOrderResult> ImportAsync(
         ImportAttempt attempt,
         OrderCandidate candidate,
+        OrderImportSource source,
         Action<Order>? beforeSave,
         CancellationToken cancellationToken
     )
@@ -49,7 +50,7 @@ public sealed class OrderImporter(IImportPersistence persistence, ILogger<OrderI
             return result;
         }
 
-        var order = CreateOrder(orderIdentifier, candidate);
+        var order = CreateOrder(orderIdentifier, candidate, source);
         result.Outcome = ImportOutcome.Succeeded;
         beforeSave?.Invoke(order);
         persistence.AddOrder(order);
@@ -87,13 +88,17 @@ public sealed class OrderImporter(IImportPersistence persistence, ILogger<OrderI
     }
 
     // The validator has already guaranteed the fields the non-null assertions below rely on.
-    // CollectorNumber is still non-nullable on OrderLine; T014 relaxes it for API lines.
-    private static Order CreateOrder(string orderIdentifier, OrderCandidate candidate) =>
+    private static Order CreateOrder(
+        string orderIdentifier,
+        OrderCandidate candidate,
+        OrderImportSource source
+    ) =>
         new()
         {
             TcgplayerOrderId = orderIdentifier,
             Status = OrderStatus.Ready,
             ImportedAt = DateTimeOffset.UtcNow,
+            ImportSource = source,
             OrderLines = candidate
                 .Lines.Select(line => new OrderLine
                 {
@@ -101,10 +106,12 @@ public sealed class OrderImporter(IImportPersistence persistence, ILogger<OrderI
                     ProductLine = line.ProductLine!,
                     ProductName = line.ProductName!,
                     Set = line.Set!,
-                    CollectorNumber = line.CollectorNumber!,
+                    CollectorNumber = line.CollectorNumber,
                     Rarity = line.Rarity,
                     Condition = line.Condition!,
                     Variant = line.Variant,
+                    Language = line.Language,
+                    ImageUrl = line.ImageUrl,
                     Quantity = line.Quantity!.Value,
                 })
                 .ToList(),

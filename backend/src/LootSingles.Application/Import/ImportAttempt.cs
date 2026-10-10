@@ -1,3 +1,5 @@
+using LootSingles.Domain.Orders;
+
 namespace LootSingles.Application.Import;
 
 /// <summary>
@@ -10,6 +12,11 @@ public class ImportAttempt
     /// Primary key, auto-incremented identity.
     /// </summary>
     public int Id { get; set; }
+
+    /// <summary>
+    /// Where the orders in this attempt come from. Set at creation.
+    /// </summary>
+    public OrderImportSource Source { get; set; }
 
     /// <summary>
     /// The timestamp when this import attempt started (FR-012).

@@ -19,8 +19,9 @@ public static class ImportAttemptLog
         if (attempt.AttemptFailureCode is not null && detected == 0)
         {
             logger.LogWarning(
-                "Import attempt {ImportId} failed before any orders could be evaluated: {AttemptFailureType}. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}.",
+                "Import attempt {ImportId} ({Source}) failed before any orders could be evaluated: {AttemptFailureType}. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}.",
                 attempt.Id,
+                attempt.Source,
                 attempt.AttemptFailureCode,
                 detected,
                 succeeded,
@@ -32,8 +33,9 @@ public static class ImportAttemptLog
         if (failed == 0 && attempt.AttemptFailureCode is null)
         {
             logger.LogInformation(
-                "Import attempt {ImportId} completed successfully. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}.",
+                "Import attempt {ImportId} ({Source}) completed successfully. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}.",
                 attempt.Id,
+                attempt.Source,
                 detected,
                 succeeded,
                 failed
@@ -44,9 +46,9 @@ public static class ImportAttemptLog
         // Built dynamically (not a static ILogger template) because the per-FailureType breakdown
         // has variable cardinality; do not collapse this back to a static template.
         var template = new StringBuilder(
-            "Import attempt {ImportId} completed with failures. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}."
+            "Import attempt {ImportId} ({Source}) completed with failures. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}."
         );
-        var args = new List<object?> { attempt.Id, detected, succeeded, failed };
+        var args = new List<object?> { attempt.Id, attempt.Source, detected, succeeded, failed };
 
         if (attempt.AttemptFailureCode is { } attemptFailureType)
         {

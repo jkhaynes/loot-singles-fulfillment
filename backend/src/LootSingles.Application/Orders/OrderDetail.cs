@@ -17,7 +17,7 @@ public sealed record OrderLineDetail(
     string ProductName,
     string ProductLine,
     string Set,
-    string CollectorNumber,
+    string? CollectorNumber,
     string? Rarity,
     string? Variant,
     string Condition,

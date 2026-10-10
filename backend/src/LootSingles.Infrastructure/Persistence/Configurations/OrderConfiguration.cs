@@ -14,6 +14,10 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
     {
         builder.HasIndex(order => order.TcgplayerOrderId).IsUnique();
 
+        builder
+            .Property(order => order.ImportSource)
+            .HasDefaultValue(OrderImportSource.PackingSlipPdf);
+
         // Enforces at most one active claim per employee (013-order-claiming FR-009,
         // research.md §3) as a database-level backstop alongside the conditional
         // ExecuteUpdateAsync compare-and-swap that primarily guards each claim attempt.

@@ -26,6 +26,8 @@ public sealed class MigrationTests(SqlServerContainerFixture fixture)
                 // key ring, so restoring the previous application version after a failed release
                 // still works: it simply ignores a table it does not know about (FR-016).
                 "20260923044233_AddDataProtectionKeys",
+                // 020 T015. Additive only: new columns with defaults, plus one nullable relaxation.
+                "20261010023033_AddTcgplayerApiImport",
             ],
             migrations
         );

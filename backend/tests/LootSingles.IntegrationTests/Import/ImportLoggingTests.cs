@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Runtime.CompilerServices;
 using LootSingles.Application.Import;
+using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using LootSingles.IntegrationTests.Auth;
@@ -41,6 +42,7 @@ public class ImportLoggingTests
         var entry = Assert.Single(logger.Entries);
         Assert.Equal(LogLevel.Warning, entry.Level);
         Assert.Equal(final.ImportAttempt.Id, entry.GetState<int>("ImportId"));
+        Assert.Equal(OrderImportSource.PackingSlipPdf, entry.GetState<OrderImportSource>("Source"));
         Assert.Equal(FailureType.UnreadablePdf, entry.GetState<FailureType>("AttemptFailureType"));
     }
 
@@ -69,6 +71,7 @@ public class ImportLoggingTests
         var entry = Assert.Single(logger.Entries);
         Assert.Equal(LogLevel.Warning, entry.Level);
         Assert.Equal(final.ImportAttempt.Id, entry.GetState<int>("ImportId"));
+        Assert.Equal(OrderImportSource.PackingSlipPdf, entry.GetState<OrderImportSource>("Source"));
         Assert.Equal(13, entry.GetState<int>("OrdersDetected"));
         Assert.Equal(0, entry.GetState<int>("OrdersSucceeded"));
         Assert.Equal(13, entry.GetState<int>("OrdersFailed"));
@@ -226,6 +229,7 @@ public class ImportLoggingTests
         var entry = Assert.Single(logger.Entries);
         Assert.Equal(LogLevel.Information, entry.Level);
         Assert.Equal(final.ImportAttempt.Id, entry.GetState<int>("ImportId"));
+        Assert.Equal(OrderImportSource.PackingSlipPdf, entry.GetState<OrderImportSource>("Source"));
         Assert.Equal(13, entry.GetState<int>("OrdersDetected"));
         Assert.Equal(13, entry.GetState<int>("OrdersSucceeded"));
         AssertNoLeakedContent(entry, ProductMarker);

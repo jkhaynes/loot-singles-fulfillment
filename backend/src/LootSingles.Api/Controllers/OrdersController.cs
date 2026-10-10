@@ -428,7 +428,7 @@ public sealed record OrderLineDetailResponse(
     string ProductName,
     string ProductLine,
     string Set,
-    string CollectorNumber,
+    string? CollectorNumber,
     string? Rarity,
     string? Variant,
     string Condition,

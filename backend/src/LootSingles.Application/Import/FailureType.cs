@@ -41,4 +41,25 @@ public enum FailureType
     /// the failure is represented as data rather than an exception that would block sibling
     /// orders in the same batch. See data-model.md.</summary>
     PersistenceFailure,
+
+    /// <summary>Per-order failure (API import): the order's lines could not all be retrieved, or
+    /// their quantities do not match its product count. Nothing is created for that order.</summary>
+    IncompleteOrder,
+
+    /// <summary>Attempt-wide failure (API import): TCGplayer could not be reached, timed out, or
+    /// returned 5xx or 429.</summary>
+    TcgplayerUnavailable,
+
+    /// <summary>Attempt-wide failure (API import): TCGplayer rejected the store credentials
+    /// (401 after one refresh, or 403).</summary>
+    TcgplayerAccessRefused,
+
+    /// <summary>API import: a response did not have the documented shape, a configured open
+    /// status is missing from the manifest, or paging stalled. Attempt-wide when search or the
+    /// manifest is affected, per order when only that order's items are.</summary>
+    TcgplayerResponseInvalid,
+
+    /// <summary>Attempt-wide failure (API import): no TCGplayer credentials are configured in
+    /// this environment. No call was made.</summary>
+    TcgplayerNotConfigured,
 }

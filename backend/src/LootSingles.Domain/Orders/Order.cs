@@ -31,6 +31,12 @@ public class Order
     public DateTimeOffset ImportedAt { get; set; }
 
     /// <summary>
+    /// Where this order was imported from. Set once at creation and never changed. A
+    /// <see cref="OrderImportSource.TcgplayerApi"/> order never has an <see cref="OrderPackingSlip"/>.
+    /// </summary>
+    public OrderImportSource ImportSource { get; set; }
+
+    /// <summary>
     /// The collection of order lines (product/card items) contained in this order.
     /// An Order must contain at least one OrderLine.
     /// </summary>
