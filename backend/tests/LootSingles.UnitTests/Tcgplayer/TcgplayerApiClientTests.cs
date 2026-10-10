@@ -216,6 +216,47 @@ public sealed class TcgplayerApiClientTests
     }
 
     [Fact]
+    public async Task Search_drops_an_order_number_repeated_across_pages_keeping_first_seen_order()
+    {
+        // Offset paging can return a number twice if orders change between page requests.
+        var harness = new Harness(storeKey: ConfiguredStoreKey);
+        harness.Override(
+            Route.Search,
+            request =>
+                QueryInt(request, "offset") == 0
+                    ? Json(SearchBody(Enumerable.Range(1, 5).Select(OrderNumber), totalItems: 10))(
+                        request
+                    )
+                    // SYN-0005-A1 again: it shifted down a place between the two requests.
+                    : Json(SearchBody(Enumerable.Range(5, 5).Select(OrderNumber), totalItems: 10))(
+                        request
+                    )
+        );
+
+        var numbers = await harness.Client.SearchOrderNumbersAsync([2], CancellationToken.None);
+
+        Assert.Equal(Enumerable.Range(1, 9).Select(OrderNumber), numbers);
+        Assert.Equal(2, harness.Requests.Count);
+    }
+
+    [Fact]
+    public async Task An_errors_member_of_any_shape_is_ignored()
+    {
+        // The envelope does not type "errors" or "success"; absence from results is what counts.
+        var harness = new Harness(storeKey: ConfiguredStoreKey);
+        harness.Override(
+            Route.Search,
+            Json(
+                """{"success":"partial","errors":[{"code":7,"detail":"synthetic"}],"totalItems":1,"results":["SYN-0001-A1"]}"""
+            )
+        );
+
+        var numbers = await harness.Client.SearchOrderNumbersAsync([2], CancellationToken.None);
+
+        Assert.Equal(["SYN-0001-A1"], numbers);
+    }
+
+    [Fact]
     public async Task Search_refuses_an_empty_status_filter_rather_than_searching_every_order()
     {
         var harness = new Harness(storeKey: ConfiguredStoreKey);

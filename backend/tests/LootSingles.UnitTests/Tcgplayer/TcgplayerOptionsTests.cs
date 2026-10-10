@@ -91,6 +91,26 @@ public sealed class TcgplayerOptionsTests
         Assert.Contains("CallsPerMinute", ex.Message);
     }
 
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    public void PageSize_below_1_fails_startup(string value)
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            TcgplayerOptions.FromConfiguration(Config(("PageSize", value)))
+        );
+
+        Assert.Contains("PageSize", ex.Message);
+    }
+
+    [Fact]
+    public void PageSize_of_1_is_accepted()
+    {
+        var options = TcgplayerOptions.FromConfiguration(Config(("PageSize", "1")));
+
+        Assert.Equal(1, options.PageSize);
+    }
+
     [Fact]
     public void IsConfigured_is_true_when_all_three_secrets_are_present()
     {

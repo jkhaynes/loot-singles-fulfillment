@@ -99,7 +99,8 @@ public sealed class TcgplayerApiClient
     }
 
     /// <summary>
-    /// Call #4, paged: the order numbers of every order in the given statuses.
+    /// Call #4, paged: the order numbers of every order in the given statuses, each once, in the
+    /// order first seen.
     /// </summary>
     public async Task<IReadOnlyList<string>> SearchOrderNumbersAsync(
         IReadOnlyList<int> orderStatusIds,
@@ -130,7 +131,8 @@ public sealed class TcgplayerApiClient
 
         return numbers.Any(string.IsNullOrWhiteSpace)
             ? throw Invalid("The order search returned a blank order number.")
-            : numbers.Select(number => number!).ToList();
+            // Offset paging can return a number twice if orders move between page requests.
+            : numbers.Select(number => number!).Distinct(StringComparer.Ordinal).ToList();
     }
 
     /// <summary>

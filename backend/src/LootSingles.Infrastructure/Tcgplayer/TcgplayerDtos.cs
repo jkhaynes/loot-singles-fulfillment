@@ -93,16 +93,12 @@ public sealed record TcgplayerExtendedData
 
 /// <summary>
 /// The envelope every TCGplayer API response shares. <c>totalItems</c> appears only on paged
-/// endpoints: on order search it counts orders, on order items it counts lines.
+/// endpoints: on order search it counts orders, on order items it counts lines. Its
+/// <c>success</c> and <c>errors</c> members are deliberately not bound: an id absent from
+/// <c>results</c> is not found, and typing them would fail a response over their shape.
 /// </summary>
 public sealed record TcgplayerResponse<T>
 {
-    [JsonPropertyName("success")]
-    public bool? Success { get; init; }
-
-    [JsonPropertyName("errors")]
-    public IReadOnlyList<string>? Errors { get; init; }
-
     [JsonPropertyName("results")]
     public IReadOnlyList<T>? Results { get; init; }
 

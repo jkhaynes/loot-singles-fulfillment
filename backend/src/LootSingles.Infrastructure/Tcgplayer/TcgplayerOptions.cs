@@ -75,6 +75,12 @@ public sealed class TcgplayerOptions
             );
         }
 
+        // Paging asks for PageSize at a time; below one it could never make progress.
+        if (options.PageSize < 1)
+        {
+            throw new InvalidOperationException("Tcgplayer:PageSize must be at least 1.");
+        }
+
         return options;
     }
 
