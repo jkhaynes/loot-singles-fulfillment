@@ -14,8 +14,8 @@ decisions made on 2026-10-08, and it adds no requirement of its own.
 TCGplayer's Seller API becomes the primary way orders enter V1, and the
 packing slip PDF upload becomes the fallback (§25, §40.6). Loot's API
 access, granted in 2026 under TCGplayer's Legacy Qualified Addendum
-(executed 2026-09-21), replaces 0.6's assumption that no API access would
-be available, and its rules are recorded (§28). An order imported through
+(executed 2026-09-21), replaces 0.6's position that V1 should not depend
+on receiving new API access, and its rules are recorded (§28). An order imported through
 the API carries no packing slip and no customer address (§27). Questions
 24 and 26 are answered, and questions 20 and 21 stay open (§41).
 
