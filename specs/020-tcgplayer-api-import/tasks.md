@@ -322,15 +322,15 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
   - Make test fakes avoid the pattern, following the precedent in commit `ff87871`.
   - Confirm the 020 probe and authorize scripts under `specs/020-tcgplayer-api-import/probe/` don't trip it: they interpolate variables and contain no values.
 - [ ] T051 [P] Add `ARG APP_VERSION=0.0.0-local` to `Dockerfile` and pass `-p:InformationalVersion=$APP_VERSION` to `dotnet publish`. In `.github/workflows/deploy-stage.yml`, pass `--build-arg APP_VERSION=1.0.0+${GITHUB_SHA::7}` to the image build (research.md §11). Production reuses stage's image, so it carries the same version.
-- [ ] T052 [P] Write `docs/prd/Loot_Singles_Fulfillment_PRD_v0.7.md` (research.md §16), changing these sections:
+- [x] T052 [P] Write `docs/prd/Loot_Singles_Fulfillment_PRD_v0.7.md` (research.md §16), changing these sections:
   - **§25 and §40.6:** the API is primary and PDF is the fallback;
   - **§27:** API orders carry no slip;
   - **§28:** access is granted under the 2026 addendum, with its rules;
   - **§41:** questions 24 and 26 are answered, and 20 and 21 stay open.
 
   Add a changelog entry like prior amendments (A17). Update the PRD link in `CLAUDE.md` and `README.md`.
-- [ ] T053 [P] Rewrite the "TCGplayer Integration" section of `README.md`: API import is primary, PDF is the fallback, and it links to `specs/020-tcgplayer-api-import/tcgplayer-setup.md` and the `CLAUDE.md` agreement rules.
-- [ ] T054 [P] Update the 019 deployment docs for the repository's first deployment secrets:
+- [x] T053 [P] Rewrite the "TCGplayer Integration" section of `README.md`: API import is primary, PDF is the fallback, and it links to `specs/020-tcgplayer-api-import/tcgplayer-setup.md` and the `CLAUDE.md` agreement rules.
+- [x] T054 [P] Update the 019 deployment docs for the repository's first deployment secrets:
   - in `specs/019-automated-deployment/contracts/deployment.md`, change "Secrets contract: there are none" to the three `tcgplayer-*` Container Apps secrets;
   - add a runbook step to `specs/019-automated-deployment/quickstart.md` pointing to `tcgplayer-setup.md` Part 3.
 - [ ] T055 Evaluate logging per the constitution's Observability standard: one completion log per API attempt with `{Source}`, the counts, `{CallCount}` and the failure category, and **no** per-order, body, token or PII logging. Confirm `ImportLoggingTests.cs` covers the API attempt; add the assertion if it is missing.

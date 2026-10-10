@@ -273,6 +273,7 @@ a precise question, and confirming an *absence* by clicking through blades is wh
 | **C12–C13** GitHub environment and credential | **twice** — `stage`, then `production` | GitHub + Entra |
 | **C14** budget, **C15** custom domain, **C16** image visibility | once | — |
 | **C17** first manager account | **twice** — after each environment's first deploy | the environment's database |
+| **C18** TCGplayer secrets (feature 020) | **twice** — stage, then `prod`, before that feature is deployed | the environment's container app |
 
 Do the shared steps first, then everything per-environment for `stage`, then the same for `prod`.
 The shared Container Apps environment must exist before either container app can be created, and its
@@ -1040,6 +1041,21 @@ paused database fails the first attempt. Just after a deploy is ideal. Productio
 **Signing in is also the proof** that the *application's* identity can read and write the database.
 The deploy's stage checks never touch the database, so on stage this is the first time anything
 does. Seeing `warn: …XmlKeyManager[35]` in the logs at that moment is expected — see Part F.
+
+---
+
+### C18. Before feature 020 deploys — add the TCGplayer secrets
+
+**Twice, stage first.** Feature 020 (TCGplayer API order import) gives the container app its first
+secrets: `tcgplayer-public-key`, `tcgplayer-private-key` and `tcgplayer-access-token`. Everything
+before this step needed none (FR-019). The app starts without them and reports TCGplayer import as not
+set up, so adding them early does no harm.
+
+Follow **Part 3** of
+[`specs/020-tcgplayer-api-import/tcgplayer-setup.md`](../020-tcgplayer-api-import/tcgplayer-setup.md).
+It covers adding the three secrets in the portal and the three `Tcgplayer__…` environment variables
+that reference them. Never put these values in the repository, a GitHub secret or a workflow, and
+never paste them into an AI tool.
 
 ---
 ## Part D — The checks that matter

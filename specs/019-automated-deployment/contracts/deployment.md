@@ -97,7 +97,8 @@ pinned by a text assertion so it is not "fixed" into symmetry later.
 
 ## Secrets contract
 
-**There are none.** Entra-only authentication means the connection string carries no password:
+**There were none until feature 020.** Entra-only authentication means the connection string carries
+no password, so the database and the registry need no secret:
 
 ```
 Server=…;Authentication=Active Directory Managed Identity;User Id=<clientId>;Database=…
@@ -109,5 +110,20 @@ migrate job specifically, so stage's credential cannot reach production (FR-006)
 environment holds plain variables:
 subscription, tenant and client ids, resource group, app and job names, and the public URL.
 
-The only credential-shaped value in the whole design is the bootstrap PIN, which exists for one job
-run and is changed at first sign-in (FR-032).
+The bootstrap PIN is credential-shaped too, but it exists for one job run and is changed at first
+sign-in (FR-032).
+
+**Feature 020 adds the repository's first deployment secrets**: three Container Apps secrets on each
+environment's container app, which hold Loot's TCGplayer API credentials.
+
+| Secret | Holds | Referenced by |
+|---|---|---|
+| `tcgplayer-public-key` | the public key | `Tcgplayer__PublicKey=secretref:tcgplayer-public-key` |
+| `tcgplayer-private-key` | the private key | `Tcgplayer__PrivateKey=secretref:tcgplayer-private-key` |
+| `tcgplayer-access-token` | the store access token | `Tcgplayer__AccessToken=secretref:tcgplayer-access-token` |
+
+They are created by hand in the portal, stage first, then production, and never appear in the
+repository, the image, a GitHub secret or a workflow. The steps are in
+[`specs/020-tcgplayer-api-import/tcgplayer-setup.md`](../../020-tcgplayer-api-import/tcgplayer-setup.md)
+Part 3, and the contract is `specs/020-tcgplayer-api-import/contracts/configuration.md`. Until all
+three are set the app runs normally and TCGplayer import reports that it is not set up.
