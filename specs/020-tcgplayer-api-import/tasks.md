@@ -338,6 +338,24 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 - [x] T057 Run the full regression: both backend test projects, `npm --prefix frontend run test`, `build` and `lint`, and the Playwright suite (`npm --prefix frontend run test:e2e`). Compare against the T001 baseline. Every pre-existing test must still pass. **Result 2026-10-10**: build OK (0 warnings); unit 465 passed (baseline 262); integration 294 passed, 0 skipped (baseline 252); frontend test 302 passed (18 files; baseline 269 in 18); frontend build OK; lint OK (0 errors, 2 warnings, unchanged); Playwright 36 passed (`npx playwright test --reporter=list`). Every pre-existing test passes; no new warnings.
 - [ ] T058 Run Superpowers requesting-code-review on the branch and fix Critical and Important findings test-first (`CLAUDE.md`, Workflow). Then finish the branch with finishing-a-development-branch or `/ship`.
 
+### Amendment 2026-10-10: already-imported orders on API presses (spec Clarifications 2026-10-10, FR-011, FR-025)
+
+Open orders stay open on TCGplayer until they ship, so every press sees the already-imported ones again. On the API path they are a normal outcome, not a failure. PDF behaviour is unchanged. Run these before T058's finish step.
+
+- [ ] T063 Update the contracts and plan text:
+  - `contracts/import-api.md`: the API results list keeps a `duplicateOrder` result per already-imported order (the wire format is unchanged), and the UI collapses them into one "N already imported" line on API presses; "No new orders" is unchanged;
+  - the completion-log wording in `plan.md` and `research.md` wherever it describes FR-025, to match the amended FR-025;
+  - the doc drift left from U14b: `plan.md`, `tasks.md` T024 and `contracts/` still describe a 30 s HttpClient timeout and "rate limit → auth"; the pipeline is auth → rate limit → per-attempt timeout (30 s) → primary, with an infinite HttpClient timeout.
+- [ ] T064 Write tests in `backend/tests/LootSingles.IntegrationTests/Logging/ImportLoggingTests.cs` (or wherever the API completion-log tests live) for FR-025 as amended:
+  - an API attempt whose results are only imported and already-imported orders logs exactly one **Information** entry, with the already-imported count and **no** already-imported order numbers;
+  - an API attempt with already-imported orders plus a real rejection logs one **Warning** whose per-type breakdown lists only the real failure type with its order numbers, with the already-imported count alongside;
+  - an attempt-wide API failure still logs one Warning as before;
+  - the existing PDF duplicate tests stay unchanged and green (006 FR-004).
+
+  Confirm red.
+- [ ] T065 Implement T064 in `backend/src/LootSingles.Application/Import/ImportAttemptLog.cs`, branching once on the attempt's source. Keep the PDF path byte-for-byte as it is. Confirm T064 is green and every existing logging test passes.
+- [ ] T066 Write tests in `frontend/tests/import/ImportPage.test.tsx`: after an API press, already-imported results render as one "N already imported" line and not as individual rows; imported and rejected orders still render one row each; "No new orders" still shows when every result is already imported; a PDF import still shows one row per duplicate. Confirm red, then implement in `ImportPage.tsx`, and run `npm --prefix frontend run build`. Update `frontend/e2e/tcgplayer-import.spec.ts` where the second press or later assertions depend on the old per-row display (always `--reporter=list`).
+
 ### Manual: live confirmation (a person, never an AI tool)
 
 - [x] T059 [MANUAL] Complete the Store Authorization Workflow (`tcgplayer-setup.md` Part 1). **Authorization done 2026-10-08**: the store access token is saved in user-secrets. TCGplayer enabled access after an email; on 2026-10-09 `Check-TcgplayerAccess.ps1` found 62 of 68 read-only endpoints open, including every call this feature makes (research.md §14).

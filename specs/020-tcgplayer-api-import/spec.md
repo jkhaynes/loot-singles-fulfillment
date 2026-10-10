@@ -16,6 +16,11 @@
 - Q: What if TCGplayer has no collector number for a line? → A: Import the order and show the collector number as unavailable on that line (FR-008).
 - Q: What happens when an imported order is later changed or cancelled on TCGplayer? → A: Out of scope for this feature. The application only adds orders (Edge Cases).
 
+### Session 2026-10-10
+
+- Q: How should already-imported orders be logged on an API import, given that open orders are seen again on every press until they ship? → A: As a count only, never as a failure. An attempt whose only outcomes besides imported orders are already-imported ones logs one Information entry. A Warning is logged only for real rejections or an attempt failure, and its per-type breakdown with order numbers covers those only. PDF imports are unchanged (Product Owner decision, FR-025).
+- Q: How should already-imported orders appear in the Import page results after an API press? → A: As one summary line, "N already imported", instead of one row each. New and rejected orders are still listed individually, and "No new orders" is unchanged. PDF results are unchanged (Product Owner decision, FR-011).
+
 ## Product Owner Decisions *(2026-10-08)*
 
 These decisions were made before specification and sit above the PRD in the source-of-truth hierarchy. They supersede PRD §28 ("V1 development should not depend on receiving new API access") and change §25's PDF-first import strategy. The PRD needs a matching amendment.
@@ -135,7 +140,7 @@ A packer scans the label of an API-imported order at the packing desk. The desk 
 - **FR-008**: Each line MUST carry its collector number, taken from TCGplayer's own product data for the line's product. When TCGplayer's product data has no collector number for a line, the order MUST still be imported, and the line MUST visibly show that no collector number is available. It MUST never show a guessed or blank-looking value.
 - **FR-009**: An order whose API data cannot be translated into a complete, valid order MUST be rejected with a specific, human-readable reason and MUST NOT be created, even partially. Business validation that applies to orders from any source MUST be the same validation used for PDF-imported orders, not a second copy of it.
 - **FR-010**: An order whose TCGplayer order number already exists in the application, from either import path, MUST NOT be created again. It MUST be reported as already imported, distinct from other rejection reasons. This MUST hold when imports run concurrently, including an API import and a PDF upload at the same time.
-- **FR-011**: After an import, the employee MUST see a per-order result for every open order considered: imported, already imported, or rejected with its reason. "No new orders" MUST be shown distinctly from a failure.
+- **FR-011**: After an import, the employee MUST see the result for every open order considered: each imported order and each rejected order (with its reason) individually, and the already-imported orders as one summary line giving their count ("N already imported"). For PDF imports, already-imported orders keep their individual rows. "No new orders" MUST be shown distinctly from a failure.
 - **FR-012**: While an import runs, the employee MUST see progress, at minimum orders processed so far out of the total found.
 - **FR-013**: If the import stops partway, through an API failure, a lost connection or cancellation, orders already completed MUST stay imported, no partial order may exist, and repeating "Get new orders" MUST import the remaining orders without duplicates.
 
@@ -161,7 +166,7 @@ A packer scans the label of an API-imported order at the packing desk. The desk 
 - **FR-022**: Every TCGplayer API request MUST identify Loot Investments LLC and the application name and version.
 - **FR-023**: TCGplayer credentials MUST NOT appear in the repository, logs, error messages shown to employees, or test fixtures.
 - **FR-024**: Automated tests MUST use synthetic TCGplayer responses built from TCGplayer's published response formats, never responses captured from the live API.
-- **FR-025**: The system MUST log each import's outcome, order counts and any failure category in one completion entry, as PDF imports do, with safe fields only: no customer data, credentials or raw API responses.
+- **FR-025**: The system MUST log each import's outcome, order counts and any failure category in one completion entry, as PDF imports do, with safe fields only: no customer data, credentials or raw API responses. For an API import, already-imported orders are a normal outcome, not a failure: the entry reports them as a count only, without order numbers, and they do not raise the entry to a Warning. An API attempt is logged at Warning only when an order is rejected for another reason or the attempt fails, and its per-failure-type breakdown with order numbers (006 FR-004) covers those failures only. This amends 006 FR-004 for the API source; PDF imports keep 006 FR-004 unchanged.
 
 ### Key Entities
 
