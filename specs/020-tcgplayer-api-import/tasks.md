@@ -113,14 +113,14 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
   Confirm red.
 - [x] T017 [P] Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerOptions.cs`, bound manually with validation by hand like `LockoutOptions`. Add the **non-secret** defaults to `backend/src/LootSingles.Api/appsettings.json`. No key, token or placeholder secret goes into any appsettings file.
-- [ ] T018 [P] Write unit tests for `TcgplayerRateLimiter` in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerRateLimiterTests.cs`, driven by the existing `FakeTimeProvider`. They check that:
+- [x] T018 [P] Write unit tests for `TcgplayerRateLimiter` in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerRateLimiterTests.cs`, driven by the existing `FakeTimeProvider`. They check that:
   - N calls go through at once, and call N+1 waits until the oldest call is 60 seconds old;
   - over a long simulated run, **no 60-second window ever holds more than N**;
   - concurrent callers share one budget;
   - cancellation while waiting throws `OperationCanceledException`.
 
   Confirm red.
-- [ ] T019 [P] Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerRateLimiter.cs` (a sliding log with `TimeProvider`, about 40 lines; research.md §9) and `TcgplayerRateLimitHandler.cs` (a `DelegatingHandler` that awaits the limiter before every request). Confirm T018 is green.
+- [x] T019 [P] Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerRateLimiter.cs` (a sliding log with `TimeProvider`, about 40 lines; research.md §9) and `TcgplayerRateLimitHandler.cs` (a `DelegatingHandler` that awaits the limiter before every request). Confirm T018 is green.
 - [ ] T020 [P] Write unit tests for the auth handler in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerAuthenticationHandlerTests.cs`, using the existing `StubHttpMessageHandler`. They check that:
   - the first API call triggers exactly one `POST /token`, with form `grant_type=client_credentials` plus `client_id` and `client_secret`, and the header `X-Tcg-Access-Token`;
   - later calls reuse the cached token until 24 hours before `.expires`;
