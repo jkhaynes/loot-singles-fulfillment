@@ -121,7 +121,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
   Confirm red.
 - [x] T019 [P] Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerRateLimiter.cs` (a sliding log with `TimeProvider`, about 40 lines; research.md §9) and `TcgplayerRateLimitHandler.cs` (a `DelegatingHandler` that awaits the limiter before every request). Confirm T018 is green.
-- [ ] T020 [P] Write unit tests for the auth handler in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerAuthenticationHandlerTests.cs`, using the existing `StubHttpMessageHandler`. They check that:
+- [x] T020 [P] Write unit tests for the auth handler in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerAuthenticationHandlerTests.cs`, using the existing `StubHttpMessageHandler`. They check that:
   - the first API call triggers exactly one `POST /token`, with form `grant_type=client_credentials` plus `client_id` and `client_secret`, and the header `X-Tcg-Access-Token`;
   - later calls reuse the cached token until 24 hours before `.expires`;
   - a 401 refreshes the token once and retries once, and a second 401 throws `TcgplayerFeedException(AccessRefused)`;
@@ -129,7 +129,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
   - **no request ever targets `/app/authorize`**.
 
   Confirm red.
-- [ ] T021 [P] Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerTokenCache.cs` (a singleton guarded by a `SemaphoreSlim`) and `TcgplayerAuthenticationHandler.cs`. Confirm T020 is green.
+- [x] T021 [P] Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerTokenCache.cs` (a singleton guarded by a `SemaphoreSlim`) and `TcgplayerAuthenticationHandler.cs`. Confirm T020 is green.
 - [ ] T022 Add the application port `backend/src/LootSingles.Application/Import/ITcgplayerOrderFeed.cs`:
   - `Task<IReadOnlyList<string>> GetOpenOrderNumbersAsync(CancellationToken)`
   - `Task<IReadOnlyList<OrderCandidate>> GetOrdersAsync(IReadOnlyList<string> orderNumbers, CancellationToken)`
