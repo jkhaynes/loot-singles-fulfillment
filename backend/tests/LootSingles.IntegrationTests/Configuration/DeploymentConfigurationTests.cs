@@ -195,11 +195,16 @@ public sealed class DeploymentConfigurationTests
     // Names and sample values are built in pieces, as in commit ff87871, so this file does not trip
     // the very scan it tests.
     [Theory]
-    [InlineData("Private" + "Key", "\"{0}\": \"abc123def456\"")]
-    [InlineData("Private" + "Key", "{0} = \"abc123def456\";")]
-    [InlineData("client" + "_secret", "{0}: \"abc123def456\"")]
-    [InlineData("X-Tcg-" + "Access-Token", "\"{0}\", \"abc123def456\"")]
-    [InlineData("X-Tcg-" + "Access-Token", "{0}: \"abc123def456\"")]
+    [InlineData("Private" + "Key", "\"{0}\": \"abc123def456ghi789jkl\"")]
+    [InlineData("Private" + "Key", "{0} = \"abc123def456ghi789jkl\";")]
+    [InlineData("client" + "_secret", "{0}: \"abc123def456ghi789jkl\"")]
+    [InlineData("X-Tcg-" + "Access-Token", "\"{0}\", \"abc123def456ghi789jkl\"")]
+    [InlineData("X-Tcg-" + "Access-Token", "{0}: \"abc123def456ghi789jkl\"")]
+    [InlineData("X-Tcg-" + "Access-Token", "curl -H \"{0}: abc123def456ghi789jkl\"")]
+    [InlineData("X-Tcg-" + "Access-Token", "{0}: abc123def456ghi789jkl")]
+    [InlineData("client" + "_secret", "\"grant_type=x&{0}=abc123def456ghi789jkl\"")]
+    [InlineData("Tcgplayer__Private" + "Key", "{0}=abc123def456ghi789jkl")]
+    [InlineData("Private" + "Key", "{0}: abc123def456ghi789jkl")]
     public void Credential_scan_catches_a_tcgplayer_secret_value_assignment(
         string name,
         string template
