@@ -49,8 +49,8 @@ internal static class OrderDetailProjection
                 line.Language
             ))
             .ToList(),
+        order.ImportSource,
         order.ClaimedByEmployeeId,
-        order.ClaimedByEmployee != null ? order.ClaimedByEmployee.DisplayName : null,
-        order.ImportSource
+        order.ClaimedByEmployee != null ? order.ClaimedByEmployee.DisplayName : null
     );
 }
