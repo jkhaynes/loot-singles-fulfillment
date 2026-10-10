@@ -240,8 +240,8 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
 ### End to end
 
-- [ ] T039 [US1] Register a stub TCGplayer primary handler serving the T003 fixtures, with fake keys, in `backend/tests/LootSingles.E2EHost/Program.cs`, wrapping the service the same way `ObservableProgressImportService` delays progress.
-- [ ] T040 [US1] Write `frontend/e2e/tcgplayer-import.spec.ts` (quickstart §B steps 1–3):
+- [x] T039 [US1] Register a stub TCGplayer primary handler serving the T003 fixtures, with fake keys, in `backend/tests/LootSingles.E2EHost/Program.cs`, wrapping the service the same way `ObservableProgressImportService` delays progress.
+- [x] T040 [US1] Write `frontend/e2e/tcgplayer-import.spec.ts` (quickstart §B steps 1–3):
   - sign in as `e2epicker`;
   - **Get new orders** shows progress, then every synthetic order imported;
   - a second press shows **No new orders**;

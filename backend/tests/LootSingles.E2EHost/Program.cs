@@ -15,6 +15,7 @@ using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using LootSingles.Infrastructure.Tcgplayer;
+using LootSingles.IntegrationTests.ImportUi;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -69,7 +70,46 @@ builder
             new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)
         );
     });
-builder.Services.AddTcgplayer(builder.Configuration);
+
+// 020 T039: obviously fake keys and the synthetic-fixture stub as the PRIMARY handler of the
+// TCGplayer client only, so the real auth, rate-limit, timeout and User-Agent handlers still run in
+// front of it and no request can leave the process. Added last, so these values override any
+// TCGplayer setting the environment carries. The stub lists only the eight orders that import
+// cleanly: the two the fixtures make invalid would be retried on every press, and "Get new orders"
+// could then never report that nothing is new.
+builder.Configuration.AddInMemoryCollection(
+    new Dictionary<string, string?>
+    {
+        ["Tcgplayer:PublicKey"] = "synthetic-public-id",
+        ["Tcgplayer:PrivateKey"] = "synthetic-private-id",
+        ["Tcgplayer:AccessToken"] = "synthetic-store-access",
+        ["Tcgplayer:StoreKey"] = "",
+        ["Tcgplayer:BaseUrl"] = TcgplayerStubHandler.BaseUrl,
+        ["Tcgplayer:PageSize"] = "2",
+    }
+);
+builder
+    .Services.AddTcgplayer(builder.Configuration)
+    .ConfigurePrimaryHttpMessageHandler(() =>
+        new TcgplayerStubHandler
+        {
+            OpenOrderNumbers =
+            [
+                .. new[] { 1, 2, 3, 4, 5, 8, 9, 10 }.Select(TcgplayerStubHandler.OrderNumber),
+            ],
+            // Each batch's order-details call is held back, as ObservableProgressImportService
+            // holds back PDF progress, so Playwright can see an import part-way through.
+            Override = async request =>
+            {
+                if (request.Route == "details")
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(750));
+                }
+
+                return null;
+            },
+        }
+    );
 builder.Services.AddScoped<IPinHasher, Pbkdf2PinHasher>();
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddSingleton(new LockoutOptions());
