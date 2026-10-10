@@ -16,11 +16,12 @@ public class AtomicPersistenceTests
         await using var context = ImportTestSupport.CreateDatabaseContext(
             new FailOrderLineInsertInterceptor()
         );
+        var repository = new ImportRepository(context);
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
-            new ImportRepository(context),
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
             NullLogger<PackingSlipImportService>.Instance
         );
 
@@ -43,11 +44,12 @@ public class AtomicPersistenceTests
         await using var context = ImportTestSupport.CreateDatabaseContext(
             new MisleadingUniqueMessageInterceptor()
         );
+        var repository = new ImportRepository(context);
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
-            new ImportRepository(context),
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
             NullLogger<PackingSlipImportService>.Instance
         );
 
@@ -67,11 +69,12 @@ public class AtomicPersistenceTests
         await using var context = ImportTestSupport.CreateDatabaseContext(
             new FailSpecificOrderLineInsertInterceptor("Orim's Chant")
         );
+        var repository = new ImportRepository(context);
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
-            new ImportRepository(context),
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
             NullLogger<PackingSlipImportService>.Instance
         );
 

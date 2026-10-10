@@ -25,11 +25,12 @@ public class ImportLoggingTests
     {
         await using var context = ImportTestSupport.CreateDatabaseContext();
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var repository = new ImportRepository(context);
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
-            new ImportRepository(context),
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
             logger
         );
 
@@ -51,11 +52,12 @@ public class ImportLoggingTests
         await ImportTestSupport.ImportFixtureAsync(firstService, "valid-multi-order-batch.pdf");
 
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var repository = new ImportRepository(context);
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
-            new ImportRepository(context),
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
             logger
         );
         var final = await ImportTestSupport.ImportFixtureAsync(
@@ -83,11 +85,12 @@ public class ImportLoggingTests
     {
         await using var context = ImportTestSupport.CreateDatabaseContext();
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var repository = new ImportRepository(context);
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
-            new ImportRepository(context),
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
             logger
         );
 
@@ -113,11 +116,12 @@ public class ImportLoggingTests
     {
         await using var context = ImportTestSupport.CreateDatabaseContext();
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var repository = new ImportRepository(context);
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
-            new ImportRepository(context),
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
             logger
         );
 
@@ -139,11 +143,12 @@ public class ImportLoggingTests
     {
         await using var context = ImportTestSupport.CreateDatabaseContext();
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var repository = new ImportRepository(context);
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
-            new ImportRepository(context),
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
             logger
         );
 
@@ -176,11 +181,12 @@ public class ImportLoggingTests
             new FailOrderLineInsertInterceptor()
         );
         var logger = new ImportTestSupport.CapturingLogger<OrderImporter>();
+        var repository = new ImportRepository(context);
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(new ImportRepository(context), logger),
-            new ImportRepository(context),
+            new OrderImporter(repository, logger),
+            repository,
             NullLogger<PackingSlipImportService>.Instance
         );
 
@@ -202,11 +208,12 @@ public class ImportLoggingTests
     {
         await using var context = ImportTestSupport.CreateDatabaseContext();
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var repository = new ImportRepository(context);
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
-            new ImportRepository(context),
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
             logger
         );
 
@@ -228,12 +235,14 @@ public class ImportLoggingTests
     public async Task ImportAsync_CancelledMidBatch_ProducesNoWarningOrErrorLogEntry()
     {
         await using var context = ImportTestSupport.CreateDatabaseContext();
+        var importerLogger = new ImportTestSupport.CapturingLogger<OrderImporter>();
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var repository = new ImportRepository(context);
         var service = new PackingSlipImportService(
             new CancellableParser(),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
-            new ImportRepository(context),
+            new OrderImporter(repository, importerLogger),
+            repository,
             logger
         );
         using var cts = new CancellationTokenSource();
@@ -247,7 +256,7 @@ public class ImportLoggingTests
         });
 
         Assert.DoesNotContain(
-            logger.Entries,
+            logger.Entries.Concat(importerLogger.Entries),
             entry => entry.Level is LogLevel.Warning or LogLevel.Error
         );
     }
@@ -268,12 +277,14 @@ public class ImportLoggingTests
     public async Task ImportAsync_TwoHundredOrderBatch_ProducesOnlyAttemptLevelLogEntries()
     {
         await using var context = ImportTestSupport.CreateDatabaseContext();
+        var importerLogger = new ImportTestSupport.CapturingLogger<OrderImporter>();
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var repository = new ImportRepository(context);
         var service = new PackingSlipImportService(
             new SyntheticProgressiveParser(200),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
-            new ImportRepository(context),
+            new OrderImporter(repository, importerLogger),
+            repository,
             logger
         );
 
@@ -290,9 +301,10 @@ public class ImportLoggingTests
         // orders must not produce two hundred entries — the constitution forbids per-loop
         // logging, and an operator cannot read it anyway. The bound is deliberately tight:
         // a per-order regression would show up here as 200-odd entries.
+        var totalEntries = logger.Entries.Count + importerLogger.Entries.Count;
         Assert.True(
-            logger.Entries.Count <= 2,
-            $"expected attempt-level logging only, got {logger.Entries.Count} entries"
+            totalEntries <= 2,
+            $"expected attempt-level logging only, got {totalEntries} entries"
         );
 
         var entry = Assert.Single(

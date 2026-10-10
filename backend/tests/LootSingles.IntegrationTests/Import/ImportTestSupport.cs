@@ -29,14 +29,17 @@ internal static class ImportTestSupport
         return new LeasedDbContext(options.Options, lease);
     }
 
-    public static PackingSlipImportService CreateService(LootSinglesDbContext context) =>
-        new(
+    public static PackingSlipImportService CreateService(LootSinglesDbContext context)
+    {
+        var repository = new ImportRepository(context);
+        return new(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
-            new ImportRepository(context),
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
             NullLogger<PackingSlipImportService>.Instance
         );
+    }
 
     public static PackingSlipImportService CreateDatabaseFreeService(
         IPackingSlipParser? parser = null

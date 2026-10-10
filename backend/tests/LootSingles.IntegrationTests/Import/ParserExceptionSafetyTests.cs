@@ -24,11 +24,12 @@ public sealed class ParserExceptionSafetyTests
     {
         await using var context = ImportTestSupport.CreateDatabaseContext();
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var repository = new ImportRepository(context);
         var service = new PackingSlipImportService(
             new ThrowingParser(),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
-            new ImportRepository(context),
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
             logger
         );
 

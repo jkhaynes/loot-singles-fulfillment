@@ -64,24 +64,20 @@ public class DuplicateOrderTests
         var barrier = new Barrier(2);
         await using var firstContext = lease.CreateDbContext();
         await using var secondContext = lease.CreateDbContext();
+        var firstPersistence = new CoordinatedPersistence(firstContext, barrier);
         var firstService = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(
-                new CoordinatedPersistence(firstContext, barrier),
-                NullLogger<OrderImporter>.Instance
-            ),
-            new CoordinatedPersistence(firstContext, barrier),
+            new OrderImporter(firstPersistence, NullLogger<OrderImporter>.Instance),
+            firstPersistence,
             NullLogger<PackingSlipImportService>.Instance
         );
+        var secondPersistence = new CoordinatedPersistence(secondContext, barrier);
         var secondService = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new OrderImporter(
-                new CoordinatedPersistence(secondContext, barrier),
-                NullLogger<OrderImporter>.Instance
-            ),
-            new CoordinatedPersistence(secondContext, barrier),
+            new OrderImporter(secondPersistence, NullLogger<OrderImporter>.Instance),
+            secondPersistence,
             NullLogger<PackingSlipImportService>.Instance
         );
 
