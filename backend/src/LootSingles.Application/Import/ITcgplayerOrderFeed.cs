@@ -31,3 +31,26 @@ public sealed class TcgplayerFeedException(
 {
     public TcgplayerFeedFailure Failure { get; } = failure;
 }
+
+/// <summary>
+/// Gets open orders from TCGplayer's API as the same <see cref="OrderCandidate"/> shape the PDF
+/// path produces. Failures surface as <see cref="TcgplayerFeedException"/>.
+/// </summary>
+public interface ITcgplayerOrderFeed
+{
+    /// <summary>
+    /// The process-wide total of TCGplayer HTTP calls made so far, token requests included, as
+    /// counted by the rate limiter. The import service logs the difference between the start and
+    /// end of an attempt as <c>{CallCount}</c>.
+    /// </summary>
+    long CallCount { get; }
+
+    /// <summary>Lists the order numbers of the store's open orders.</summary>
+    Task<IReadOnlyList<string>> GetOpenOrderNumbersAsync(CancellationToken cancellationToken);
+
+    /// <summary>Fetches the given orders, with their items, as import candidates.</summary>
+    Task<IReadOnlyList<OrderCandidate>> GetOrdersAsync(
+        IReadOnlyList<string> orderNumbers,
+        CancellationToken cancellationToken
+    );
+}
