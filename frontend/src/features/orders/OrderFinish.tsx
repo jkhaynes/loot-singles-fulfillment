@@ -93,7 +93,7 @@ export function OrderFinish({
                           ? pickingIssueTypeLabel(line.currentIssue.issueType)
                           : status === 'open'
                             ? 'Not looked at'
-                            : `${line.collectorNumber}${line.variant ? ` · ${line.variant}` : ''}`}
+                            : `${line.collectorNumber ?? 'No number'}${line.variant ? ` · ${line.variant}` : ''}`}
                       </span>
                       {/* Quantity is where a mistake hides, so it is the loudest thing on the row. */}
                       {line.quantity > 1 && status === 'picked' ? (

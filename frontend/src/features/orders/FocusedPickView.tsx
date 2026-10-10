@@ -4,7 +4,7 @@ import type { SetGroup } from './orderGrouping'
 import { OrderFinish } from './OrderFinish'
 import { ReportIssueForm } from './ReportIssueForm'
 import { ReportedIssueDetails } from './ReportedIssueDetails'
-import { pickingIssueTypeLabel } from './ordersApi'
+import { nonEnglishLanguage, pickingIssueTypeLabel } from './ordersApi'
 import type { PickingIssueDetail, ReportIssueRequest } from './ordersApi'
 
 /**
@@ -170,13 +170,15 @@ export function FocusedPickView({
         {/* The number is how you find it in the box. The variant is the one thing the picture
             cannot tell you — holofoil and non-holo are different cards that look identical. */}
         <p className="focused-pick__chips">
-          <span className="focused-pick__number">{line.collectorNumber}</span>
+          <span className="focused-pick__number">{line.collectorNumber ?? 'No number'}</span>
           {line.variant !== null && (
             <span className="focused-pick__variant">{line.variant.toUpperCase()}</span>
           )}
         </p>
         <p className="focused-pick__detail">
-          {[line.rarity, line.condition].filter(Boolean).join(' · ')}
+          {[line.rarity, line.condition, nonEnglishLanguage(line.language)]
+            .filter(Boolean)
+            .join(' · ')}
         </p>
 
         {/* The costliest picking error in the shop (PRD §5.3, §15, and the §2 example). */}

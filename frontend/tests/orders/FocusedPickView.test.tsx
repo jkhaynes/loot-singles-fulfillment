@@ -790,3 +790,31 @@ describe('FocusedPickView — reported with no report to show (018 BR-001)', () 
     expect(screen.queryByRole('button', { name: 'Next card ›' })).not.toBeInTheDocument()
   })
 })
+
+describe('FocusedPickView — API-imported lines', () => {
+  it('reads "No number" for a line with no collector number, never blank or null', () => {
+    const { container } = renderView([buildLine({ collectorNumber: null })])
+
+    expect(container.querySelector('.focused-pick__number')).toHaveTextContent('No number')
+    expect(screen.queryByText('null')).not.toBeInTheDocument()
+  })
+
+  it('shows a language other than English beside the condition', () => {
+    renderView([buildLine({ condition: 'Near Mint', language: 'Japanese' })])
+
+    expect(screen.getByText('Near Mint · Japanese')).toBeInTheDocument()
+  })
+
+  it.each([['English'], [null]])('shows nothing extra for language %s', (language) => {
+    renderView([buildLine({ condition: 'Near Mint', language })])
+
+    expect(screen.getByText('Near Mint')).toBeInTheDocument()
+    expect(screen.queryByText(/English/)).not.toBeInTheDocument()
+  })
+
+  it('still emphasises a quantity above one', () => {
+    renderView([buildLine({ quantity: 3, collectorNumber: null, language: 'Japanese' })])
+
+    expect(screen.getByText('3')).toHaveAttribute('data-emphasis', 'high')
+  })
+})

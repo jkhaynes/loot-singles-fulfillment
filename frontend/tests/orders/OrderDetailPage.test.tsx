@@ -1358,3 +1358,74 @@ describe('OrderDetailPage — a reported row (018 US4)', () => {
     }
   })
 })
+
+describe('OrderDetailPage — API-imported lines', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    installMatchMedia(1280)
+    vi.mocked(authApi.me).mockResolvedValue({
+      employeeId: 1,
+      displayName: 'Test Picker',
+      role: 'Picker',
+    })
+  })
+
+  function readyOrder(lines: ordersApi.OrderLineDetail[]): ordersApi.OrderDetail {
+    return { ...claimedOrder(lines), status: 'ready', claimedByEmployeeId: null }
+  }
+
+  it('reads "No number" for a line with no collector number, never blank or null', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      readyOrder([buildLine({ productName: 'Sealed Box', collectorNumber: null })]),
+    )
+
+    renderPage()
+
+    const sealed = await screen.findByRole('article', { name: /Sealed Box/i })
+    expect(within(sealed).getByText('No number')).toBeInTheDocument()
+    expect(within(sealed).queryByText('null')).not.toBeInTheDocument()
+  })
+
+  it('shows a language other than English beside the condition', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      readyOrder([
+        buildLine({ productName: 'Japanese Card', condition: 'Near Mint', language: 'Japanese' }),
+      ]),
+    )
+
+    renderPage()
+
+    const card = await screen.findByRole('article', { name: /Japanese Card/i })
+    expect(within(card).getByText('Near Mint · Japanese')).toBeInTheDocument()
+  })
+
+  it.each([['English'], [null]])('shows nothing extra for language %s', async (language) => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      readyOrder([buildLine({ productName: 'Plain Card', condition: 'Near Mint', language })]),
+    )
+
+    renderPage()
+
+    const card = await screen.findByRole('article', { name: /Plain Card/i })
+    expect(within(card).getByText('Near Mint')).toBeInTheDocument()
+    expect(within(card).queryByText(/English/)).not.toBeInTheDocument()
+  })
+
+  it('still emphasises a quantity above one', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      readyOrder([
+        buildLine({
+          productName: 'Triple',
+          quantity: 3,
+          collectorNumber: null,
+          language: 'Japanese',
+        }),
+      ]),
+    )
+
+    renderPage()
+
+    const card = await screen.findByRole('article', { name: /Triple/i })
+    expect(card.querySelector('[data-emphasis="high"]')).toHaveTextContent('3')
+  })
+})

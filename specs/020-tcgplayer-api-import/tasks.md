@@ -267,18 +267,18 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
   Confirm red.
 - [x] T042 [US2] In `backend/src/LootSingles.Application/Orders/OrdersService.cs` (`GetByIdAsync`), branch once on `Order.ImportSource`: API orders take `ImageUrl` from the line and never call `CardImageEnrichmentService`. Add `Language` to `OrderDetail.cs`, `OrderDetailProjection.cs` and `OrderLineDetailResponse` in `backend/src/LootSingles.Api/Controllers/OrdersController.cs`, and project `ImportSource` and `ImageUrl` as needed. Confirm T041 is green.
-- [ ] T043 [P] [US2] Write tests in `frontend/tests/orders/FocusedPickView.test.tsx`, `OrderDetailPage.test.tsx` and `OrderFinish.test.tsx`:
+- [x] T043 [P] [US2] Write tests in `frontend/tests/orders/FocusedPickView.test.tsx`, `OrderDetailPage.test.tsx` and `OrderFinish.test.tsx`:
   - a line with a `null` collector number renders **"No number"**, never blank or "null";
   - a line with `language` "Japanese" shows "Japanese" next to the condition, and "English" or `null` shows nothing extra;
   - quantity-greater-than-one emphasis is unchanged on API lines.
 
   Confirm red.
-- [ ] T044 [US2] Implement the tested changes:
+- [x] T044 [US2] Implement the tested changes:
   - `collectorNumber: string | null` and `language: string | null` in `frontend/src/features/orders/ordersApi.ts`;
   - the render changes in `FocusedPickView.tsx` (L173), `OrderDetailPage.tsx` (L508) and `OrderFinish.tsx` (L96).
 
   Confirm T043 is green, then run `npm --prefix frontend run build`.
-- [ ] T045 [US2] Extend `frontend/e2e/tcgplayer-import.spec.ts` (quickstart §B step 4): open an imported order and check that the lines show images, the seeded no-number line reads "No number", and the quantity-3 line is emphasised.
+- [x] T045 [US2] Extend `frontend/e2e/tcgplayer-import.spec.ts` (quickstart §B step 4): open an imported order and check that the lines show images, the seeded no-number line reads "No number", and the quantity-3 line is emphasised. (Ruling: the fixtures hold no quantity-3 line, so the check uses SYN-0002's quantity-2 line; SYN-0009 is the no-number sealed line and SYN-0004 the Japanese one.)
 
 **Checkpoint**: US1 and US2 both work independently.
 

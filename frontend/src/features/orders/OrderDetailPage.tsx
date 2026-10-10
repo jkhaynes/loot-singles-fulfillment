@@ -14,6 +14,7 @@ import {
   recordPicked,
   reportIssue,
   orderStatusLabel,
+  nonEnglishLanguage,
   OrderNotFoundError,
 } from './ordersApi'
 import type { OrderDetail, ReportIssueRequest } from './ordersApi'
@@ -505,7 +506,7 @@ export function OrderDetailPage() {
                       </div>
                       <div>
                         <dt>Collector Number</dt>
-                        <dd>{line.collectorNumber}</dd>
+                        <dd>{line.collectorNumber ?? 'No number'}</dd>
                       </div>
                       {line.rarity !== null && (
                         <div>
@@ -521,7 +522,11 @@ export function OrderDetailPage() {
                       )}
                       <div>
                         <dt>Condition</dt>
-                        <dd>{line.condition}</dd>
+                        <dd>
+                          {[line.condition, nonEnglishLanguage(line.language)]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </dd>
                       </div>
                       <div className="order-detail-line__quantity">
                         <dt>Quantity</dt>

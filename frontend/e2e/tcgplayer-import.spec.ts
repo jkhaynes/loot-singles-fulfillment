@@ -56,4 +56,27 @@ test('Get new orders imports every open TCGplayer order once and lists them as R
   for (const order of syntheticOrders) {
     await expect(available.getByRole('link', { name: order, exact: true })).toBeVisible()
   }
+
+  // quickstart.md §B step 4: imported orders show TCGplayer's image, "No number" and the language.
+  // The fixture orders: SYN-0009 is a sealed box (no collector number), SYN-0004 a Japanese line,
+  // SYN-0002 has a line of two copies (the fixtures hold no line of three).
+  async function openOrder(order: string) {
+    await page.goto('/')
+    await available.getByRole('link', { name: order, exact: true }).click()
+    await expect(page.getByRole('heading', { name: new RegExp(order) })).toBeVisible()
+  }
+
+  await openOrder('SYN-0009-A1')
+  const sealed = page.getByRole('article', { name: /Synthetic Booster Box/ })
+  await expect(sealed.locator('img')).toHaveAttribute('src', /^https:\/\/img\.example\.test\//)
+  await expect(sealed.getByText('No number')).toBeVisible()
+
+  await openOrder('SYN-0004-A1')
+  await expect(page.getByRole('article').first()).toContainText('Japanese')
+
+  await openOrder('SYN-0002-A1')
+  // Scoped to a line's Quantity cell: the set heading's "3 cards" count carries the marker too.
+  await expect(
+    page.getByRole('article').locator('dd > strong[data-emphasis="high"]').first(),
+  ).toHaveText('2')
 })
