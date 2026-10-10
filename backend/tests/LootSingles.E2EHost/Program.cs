@@ -14,6 +14,7 @@ using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
+using LootSingles.Infrastructure.Tcgplayer;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -68,6 +69,7 @@ builder
             new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)
         );
     });
+builder.Services.AddTcgplayer(builder.Configuration);
 builder.Services.AddScoped<IPinHasher, Pbkdf2PinHasher>();
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddSingleton(new LockoutOptions());

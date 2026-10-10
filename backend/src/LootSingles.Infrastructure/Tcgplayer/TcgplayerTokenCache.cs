@@ -117,6 +117,9 @@ public sealed class TcgplayerTokenCache(
             ]),
         };
         request.Headers.Add("X-Tcg-Access-Token", options.AccessToken);
+        // The token request is built here, below HttpClient, so the client's default User-Agent
+        // never reaches it; every TCGplayer request must identify Loot (API agreement).
+        request.Headers.TryAddWithoutValidation("User-Agent", TcgplayerUserAgent.Value);
 
         HttpResponseMessage response;
         try

@@ -136,7 +136,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
   - a `TcgplayerFeedFailure` enum (`NotConfigured`, `Unavailable`, `AccessRefused`, `ResponseInvalid`)
   - a `TcgplayerFeedException` carrying the failure plus a safe message, with no response content
 - [x] T023 Write a unit test for the version in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerUserAgentTests.cs`. `TcgplayerUserAgent.Value` must equal `LootSinglesFulfillment/{InformationalVersion without the +hash} (Loot Investments LLC)`. Confirm red, then implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerUserAgent.cs`.
-- [ ] T024 Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerServiceCollectionExtensions.cs`, `AddTcgplayer(IServiceCollection, IConfiguration)`. It binds the options, registers the singleton limiter and token cache, and adds a typed `HttpClient` with:
+- [x] T024 Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerServiceCollectionExtensions.cs`, `AddTcgplayer(IServiceCollection, IConfiguration)`. It binds the options, registers the singleton limiter and token cache, and adds a typed `HttpClient` with:
   - the base address and API-version prefix;
   - a 30-second timeout;
   - the `User-Agent` default header;
