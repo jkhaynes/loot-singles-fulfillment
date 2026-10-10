@@ -382,6 +382,11 @@ The first live press imported about 1,568 orders that were not open. TCGplayer's
 
   Done: `scripts/dev/Clear-DevOrders.ps1`, `scripts/dev/clear-dev-orders.sql`, `scripts/dev/ClearDevOrders.cs`; tests in `ClearDevOrdersTests.cs`. **Still to do (a person):** run `pwsh -File scripts/dev/Clear-DevOrders.ps1` once against the dev database and type its name to confirm.
 
+- [ ] T072 Remove the per-order openness re-check (spec Clarifications 2026-10-10, "Should the import re-check each order's own status…", FR-004 as amended): the search with all three filters is the whole filter.
+  - Listing becomes manifest + search only: remove `TcgplayerOpenOrderRule` and its Open/NotOpen/Undecidable decision, the listing's details call, the second manifest read in `GetOrdersAsync`, the undecidable rejection path, the `InStorePickup`/`Normal` constants and the "missing order type counts as Normal" default, and the details-row fields only that rule read. Keep the details call `GetOrdersAsync` needs for `productCount`, and the "no details for this order" rejection.
+  - Keep, and make sure they are pinned by tests: the exact search query with `orderStatusIds`, `pickupStatusIds` and `orderTypeIds`; name resolution from the manifest with a missing name as `TcgplayerResponseInvalid`; options refusing an empty list for any of the three.
+  - Tests first: delete the rule's tests and the leaked-order expectations that relied on it; change the integration and E2E stubs so the search honours the filters the way the live API does (a search missing a filter leaks the other kind of order), and add one test that a search missing `pickupStatusIds` would leak a pickup order, so the regression is caught at the query level. Update `contracts/` and `research.md` §3 and `data-model.md` to match. Run every suite (`--reporter=list` for Playwright).
+
 ### Manual: live confirmation (a person, never an AI tool)
 
 - [x] T059 [MANUAL] Complete the Store Authorization Workflow (`tcgplayer-setup.md` Part 1). **Authorization done 2026-10-08**: the store access token is saved in user-secrets. TCGplayer enabled access after an email; on 2026-10-09 `Check-TcgplayerAccess.ps1` found 62 of 68 read-only endpoints open, including every call this feature makes (research.md §14).
