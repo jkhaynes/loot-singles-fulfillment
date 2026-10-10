@@ -360,7 +360,7 @@ Open orders stay open on TCGplayer until they ship, so every press sees the alre
 
 The first live press imported about 1,568 orders that were not open. TCGplayer's search filters are partial: `orderStatusIds` narrows only shipped orders and keeps every in-store pickup order, and `pickupStatusIds` narrows only pickup orders and keeps every shipped order. The live counts diagnostic is `probe/Count-OpenOrders.ps1`. Run these before T058's finish step.
 
-- [ ] T067 Update the plan text for the amended FR-004:
+- [x] T067 Update the plan text for the amended FR-004:
   - `contracts/configuration.md`: `Tcgplayer:OpenOrderStatuses` default becomes `["Processing", "Ready To Ship"]`; add `Tcgplayer:OpenPickupStatuses` (default `["Received"]`) and `Tcgplayer:OrderTypes` (default `["Normal"]`), resolved by name from the manifest's `orderPickupStatusTypes` and `orderTypes`;
   - `contracts/tcgplayer-upstream.md` and `research.md` §3: the search sends `orderStatusIds`, `pickupStatusIds` and `orderTypeIds` together (documented names, comma-separated), and why: the live partial-filter finding;
   - `data-model.md`: the details row also binds `orderDeliveryTypeId`, `orderPickupStatusTypeId` and `orderTypeId`, and the manifest's `orderDeliveryTypes` name for in-store pickup (`InStorePickup`) is how a pickup order is recognised.

@@ -104,11 +104,13 @@ Response DTOs declare **only** the fields read (research.md §5–§7). There is
 | Envelope `TcgplayerResponse<T>` | `success`, `errors`, `results`, `totalItems?` |
 | Token | `access_token`, `.expires` |
 | Store self | `sellerKey` |
-| Manifest | `orderStatusTypes[] {id, name}` |
-| Order details | `orderNumber`, `orderStatusTypeId`, `productCount` |
+| Manifest | `orderStatusTypes[]`, `orderPickupStatusTypes[]`, `orderDeliveryTypes[]`, `orderTypes[]`, each `{id, name}` |
+| Order details | `orderNumber`, `orderStatusTypeId`, `orderDeliveryTypeId`, `orderPickupStatusTypeId` (absent or null on shipped orders), `orderTypeId` (absent means Normal), `productCount` |
 | Order item | `skuId`, `categoryName`, `productName`, `groupName`, `condition`, `printing`, `isFoil`, `language`, `rarity`, `quantity`, `productImageUrl` |
 | SKU | `skuId`, `productId` |
 | Product | `productId`, `imageUrl`, `extendedData[] {name, value}` |
+
+**Openness** (FR-004, research.md §3): `TcgplayerOpenOrderIds` holds the ids the manifest resolved: the open order statuses, open pickup statuses and order types from configuration, and the delivery type named `InStorePickup`. A pickup order is recognised by that manifest name alone; it is a constant in code, `TcgplayerOpenOrderRule.InStorePickupDeliveryType`. `TcgplayerOpenOrderRule.IsOpen(details, ids)` is the one pure rule over an order details row: order type allowed, and either not pickup with an open order status, or pickup with an open pickup status. A live Received pickup order's order status is Processing, so the pickup status, not the order status, decides a pickup order.
 
 `TcgplayerOptions` (configuration section `Tcgplayer`) is defined in [contracts/configuration.md](contracts/configuration.md).
 
