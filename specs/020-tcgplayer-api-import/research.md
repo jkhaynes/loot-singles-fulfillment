@@ -27,6 +27,8 @@ Every fact about the TCGplayer API below comes from TCGplayer's **published docu
 
 **Rationale**: The user doesn't yet know the store key. Self-resolution costs one call per process lifetime, and setting the key explicitly removes even that. The documentation calls the field "SellerKey" rather than "storeKey", so the mapping goes on the live-verification list.
 
+**R28**: The live field name was unverified, and a live press failed on the `sellerKey`-only mapping, so the client accepts both `storeKey` and `sellerKey`, matching member names case-insensitively, and takes the first non-blank one.
+
 ## 3. Which orders are "open" (FR-004)
 
 **Decision**: Configure status **names** (`Tcgplayer:OpenOrderStatuses`, default `["Ready To Ship"]`). Each import resolves them to status ids with `GET /stores/{storeKey}/orders/manifest` (`orderStatusTypes`), then searches with `orderStatusIds`. If a configured name is not in the manifest, the import stops with a typed `TcgplayerResponseInvalid` failure that names the missing status. It never falls back to searching every order.

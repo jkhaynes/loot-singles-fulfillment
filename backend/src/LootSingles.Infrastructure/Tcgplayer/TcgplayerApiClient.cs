@@ -231,7 +231,7 @@ public sealed class TcgplayerApiClient
                 cancellationToken
             )
             .ConfigureAwait(false);
-        return response.Results is [{ SellerKey: { } key }, ..] && !string.IsNullOrWhiteSpace(key)
+        return response.Results is [{ Key: { } key }, ..]
             ? key
             : throw Invalid("The store lookup returned no store key.");
     }
@@ -341,8 +341,12 @@ public sealed class TcgplayerApiClient
             TcgplayerResponse<T>? body;
             try
             {
+                // Web defaults: member names match case-insensitively (R28 relies on this).
                 body = await response
-                    .Content.ReadFromJsonAsync<TcgplayerResponse<T>>(cancellationToken)
+                    .Content.ReadFromJsonAsync<TcgplayerResponse<T>>(
+                        JsonSerializerOptions.Web,
+                        cancellationToken
+                    )
                     .ConfigureAwait(false);
             }
             catch (JsonException)

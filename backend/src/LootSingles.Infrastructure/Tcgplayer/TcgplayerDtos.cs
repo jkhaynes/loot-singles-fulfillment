@@ -106,12 +106,26 @@ public sealed record TcgplayerResponse<T>
     public int? TotalItems { get; init; }
 }
 
-/// <summary>One row of <c>GET /stores/self</c>.</summary>
+/// <summary>
+/// One row of <c>GET /stores/self</c>. The live member name for the store key is unverified
+/// (ruling R28): the documentation calls it SellerKey, while the owner's live probe read
+/// <c>storeKey</c>. Both are bound, and the client reads JSON with case-insensitive member names,
+/// so <c>SellerKey</c> and <c>StoreKey</c> match too.
+/// </summary>
 public sealed record TcgplayerStoreSelf
 {
-    /// <summary>The store key the store-scoped paths take (documented as SellerKey).</summary>
+    [JsonPropertyName("storeKey")]
+    public string? StoreKey { get; init; }
+
     [JsonPropertyName("sellerKey")]
     public string? SellerKey { get; init; }
+
+    /// <summary>The store key the store-scoped paths take: the first non-blank of the two.</summary>
+    [JsonIgnore]
+    public string? Key =>
+        !string.IsNullOrWhiteSpace(StoreKey) ? StoreKey
+        : !string.IsNullOrWhiteSpace(SellerKey) ? SellerKey
+        : null;
 }
 
 /// <summary>One row of <c>GET /stores/{storeKey}/orders/manifest</c>.</summary>

@@ -64,6 +64,40 @@ public sealed class TcgplayerApiClientTests
         Assert.Single(harness.Requests);
     }
 
+    // R28: the live field name for the store key is unverified, so both documented spellings are
+    // accepted and member names match case-insensitively. Bodies are synthetic.
+    [Theory]
+    [InlineData("""{"results":[{"storeKey":"SYNSTORE1"}]}""")]
+    [InlineData("""{"results":[{"StoreKey":"SYNSTORE1"}]}""")]
+    [InlineData("""{"results":[{"sellerKey":"SYNSTORE1"}]}""")]
+    [InlineData("""{"results":[{"SellerKey":"SYNSTORE1"}]}""")]
+    [InlineData("""{"results":[{"storeKey":" ","sellerKey":"SYNSTORE1"}]}""")]
+    public async Task The_store_key_is_read_from_storeKey_or_sellerKey_in_any_case(string body)
+    {
+        var harness = new Harness();
+        harness.Override(Route.StoreSelf, Json(body));
+
+        var key = await harness.Client.GetStoreKeyAsync(CancellationToken.None);
+
+        Assert.Equal(FixtureStoreKey, key);
+    }
+
+    [Theory]
+    [InlineData("""{"results":[{}]}""")]
+    [InlineData("""{"results":[{"storeKey":"","sellerKey":" "}]}""")]
+    [InlineData("""{"results":[{"storeName":"Synthetic Test Store"}]}""")]
+    public async Task A_stores_self_row_with_no_usable_key_is_ResponseInvalid(string body)
+    {
+        var harness = new Harness();
+        harness.Override(Route.StoreSelf, Json(body));
+
+        var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
+            harness.Client.GetStoreKeyAsync(CancellationToken.None)
+        );
+
+        Assert.Equal(TcgplayerFeedFailure.ResponseInvalid, failure.Failure);
+    }
+
     [Fact]
     public async Task A_stores_self_response_without_a_seller_key_is_ResponseInvalid()
     {
