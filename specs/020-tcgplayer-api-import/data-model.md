@@ -47,7 +47,7 @@ New values are appended, so existing stored integers keep their meaning.
 | `IncompleteOrder` | Per order | The order's lines could not all be retrieved, or their quantities don't match its product count. Nothing is created for that order. |
 | `TcgplayerUnavailable` | Attempt | TCGplayer could not be reached, timed out, or returned 5xx or 429. |
 | `TcgplayerAccessRefused` | Attempt | TCGplayer rejected the store's credentials (401 after one refresh, or 403). |
-| `TcgplayerResponseInvalid` | Attempt or per order | A response didn't have the documented shape, a configured open status is missing from the manifest, or paging stalled. It is attempt-wide when search or manifest is affected, and per order when only that order's items are. |
+| `TcgplayerResponseInvalid` | Attempt or per order | A response didn't have the documented shape, a configured open status is missing from the manifest, or paging stalled. It is attempt-wide when search or manifest is affected, and per order when only that order's items or details are (including details that can't decide its openness). |
 | `TcgplayerNotConfigured` | Attempt | No TCGplayer credentials are configured in this environment. No call was made. |
 
 `ImportOrderResult` is unchanged. API orders record `SourceOrderIdentifier` = the TCGplayer order number.
@@ -110,7 +110,7 @@ Response DTOs declare **only** the fields read (research.md §5–§7). There is
 | SKU | `skuId`, `productId` |
 | Product | `productId`, `imageUrl`, `extendedData[] {name, value}` |
 
-**Openness** (FR-004, research.md §3): `TcgplayerOpenOrderIds` holds the ids the manifest resolved: the open order statuses, open pickup statuses and order types from configuration, and the delivery type named `InStorePickup`. A pickup order is recognised by that manifest name alone; it is a constant in code, `TcgplayerOpenOrderRule.InStorePickupDeliveryType`. `TcgplayerOpenOrderRule.IsOpen(details, ids)` is the one pure rule over an order details row: order type allowed, and either not pickup with an open order status, or pickup with an open pickup status. A live Received pickup order's order status is Processing, so the pickup status, not the order status, decides a pickup order.
+**Openness** (FR-004, research.md §3): `TcgplayerOpenOrderIds` holds the ids the manifest resolved: the open order statuses, open pickup statuses and order types from configuration, and the delivery type named `InStorePickup`. A pickup order is recognised by that manifest name alone; it is a constant in code, `TcgplayerOpenOrderRule.InStorePickupDeliveryType`. `TcgplayerOpenOrderRule.Decide(details, ids)` is the one pure rule over an order details row: open when the order type is allowed and either it is not pickup with an open order status, or pickup with an open pickup status; not open otherwise; **undecidable**, with a reason naming the order and field, when the row lacks a value the decision needs (then the order alone is rejected, ruling R30). A live Received pickup order's order status is Processing, so the pickup status, not the order status, decides a pickup order.
 
 `TcgplayerOptions` (configuration section `Tcgplayer`) is defined in [contracts/configuration.md](contracts/configuration.md).
 

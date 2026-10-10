@@ -131,7 +131,8 @@ internal sealed class TcgplayerStubHandler : HttpMessageHandler
         return searched;
     }
 
-    private static string DetailsFor(string[] numbers)
+    /// <summary>The fixture details rows for the given order numbers, as the stub serves them.</summary>
+    public static string DetailsFor(string[] numbers)
     {
         var all = JsonNode.Parse(Fixture("order-details.json"))!;
         all["results"] = new JsonArray(

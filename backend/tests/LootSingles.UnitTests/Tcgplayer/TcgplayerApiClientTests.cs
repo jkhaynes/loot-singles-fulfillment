@@ -921,7 +921,9 @@ public sealed class TcgplayerApiClientTests
         var skuIds = new List<int>();
         foreach (
             var number in details
-                .Where(row => TcgplayerOpenOrderRule.IsOpen(row, ids))
+                .Where(row =>
+                    TcgplayerOpenOrderRule.Decide(row, ids).Openness == TcgplayerOpenness.Open
+                )
                 .Select(row => row.OrderNumber!)
         )
         {

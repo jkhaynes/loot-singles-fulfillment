@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Persistence;
 using LootSingles.Infrastructure.Tcgplayer;
@@ -168,6 +169,55 @@ public sealed class TcgplayerImportControllerTests
                 leaked.Contains(result.SourceOrderIdentifier)
             )
         );
+    }
+
+    [Fact]
+    public async Task An_order_whose_openness_cannot_be_decided_is_rejected_alone_and_the_press_completes()
+    {
+        await using var root = new AuthWebApplicationFactory();
+        var stub = new TcgplayerStubHandler();
+        await using var factory = ImportUiTestSupport.WithTcgplayerStub(root, stub);
+        using var client = await ImportUiTestSupport.LoginAsync(factory);
+        var undecidable = TcgplayerStubHandler.OrderNumber(1);
+        // Every details response drops SYN-0001's delivery type (ruling R30).
+        stub.Override = request =>
+        {
+            if (request.Route != "details" || !request.Path.Contains(undecidable))
+                return Task.FromResult<HttpResponseMessage?>(null);
+            var numbers = request.Path.Split('/')[^1].Split(',');
+            var body = JsonNode.Parse(TcgplayerStubHandler.DetailsFor(numbers))!;
+            foreach (var row in body["results"]!.AsArray())
+            {
+                if ((string)row!["orderNumber"]! == undecidable)
+                    row.AsObject().Remove("orderDeliveryTypeId");
+            }
+            return Task.FromResult<HttpResponseMessage?>(
+                TcgplayerStubHandler.Json(body.ToJsonString())
+            );
+        };
+
+        var lines = await ImportUiTestSupport.PostTcgplayerAsync(client);
+
+        using var terminal = JsonDocument.Parse(lines[^1]);
+        var snapshot = terminal.RootElement;
+        Assert.Equal("completed", snapshot.GetProperty("status").GetString());
+        Assert.Equal(JsonValueKind.Null, snapshot.GetProperty("attemptFailureCode").ValueKind);
+        Assert.Equal(10, snapshot.GetProperty("ordersDetected").GetInt32());
+        Assert.Equal(7, snapshot.GetProperty("succeededCount").GetInt32());
+        var rejected = snapshot
+            .GetProperty("results")
+            .EnumerateArray()
+            .Single(result =>
+                result.GetProperty("sourceOrderIdentifier").GetString() == undecidable
+            );
+        Assert.Equal("rejected", rejected.GetProperty("outcome").GetString());
+        Assert.Equal("tcgplayerResponseInvalid", rejected.GetProperty("failureCode").GetString());
+        Assert.Contains("delivery type", rejected.GetProperty("failureMessage").GetString());
+        Assert.DoesNotContain(
+            stub.Requests,
+            request => request.Route == "items" && request.Path.Contains(undecidable)
+        );
+        Assert.DoesNotContain(undecidable, await OrderNumbersAsync(factory));
     }
 
     [Fact]

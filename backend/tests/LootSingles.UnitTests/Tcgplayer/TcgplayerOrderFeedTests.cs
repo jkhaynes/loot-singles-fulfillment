@@ -105,41 +105,62 @@ public sealed class TcgplayerOrderFeedTests
         Assert.Equal(Enumerable.Range(1, 10).Select(OrderNumber), numbers);
     }
 
+    public static TheoryData<string, string, string> MissingValues =>
+        new()
+        {
+            { "orderDeliveryTypeId", "SYN-0001-A1", "delivery type" },
+            { "orderStatusTypeId", "SYN-0001-A1", "order status" },
+            { "orderPickupStatusTypeId", "SYN-0004-A1", "pickup status" },
+        };
+
     [Theory]
-    [InlineData("orderDeliveryTypeId", "SYN-0001-A1", "delivery type")]
-    [InlineData("orderStatusTypeId", "SYN-0001-A1", "order status")]
-    [InlineData("orderPickupStatusTypeId", "SYN-0004-A1", "pickup status")]
-    public async Task A_details_row_missing_a_value_openness_needs_fails_the_listing_naming_it(
+    [MemberData(nameof(MissingValues))]
+    public async Task An_undecidable_order_stays_listed_so_it_is_detected_never_silently_skipped(
+        string field,
+        string orderNumber,
+        string named
+    )
+    {
+        _ = named;
+        var harness = new Harness();
+        harness.Override("details", request => Json(DetailsMissing(request, orderNumber, field)));
+
+        var numbers = await harness.Feed.GetOpenOrderNumbersAsync(CancellationToken.None);
+
+        Assert.Equal(Enumerable.Range(1, 10).Select(OrderNumber), numbers);
+    }
+
+    [Theory]
+    [MemberData(nameof(MissingValues))]
+    public async Task An_undecidable_order_is_rejected_alone_naming_the_field_and_its_siblings_still_come_through(
         string field,
         string orderNumber,
         string named
     )
     {
         var harness = new Harness();
-        harness.Override(
-            "details",
-            request =>
-            {
-                var body = JsonNode.Parse(Harness.DetailsFor(NumbersIn(request)))!;
-                foreach (var row in body["results"]!.AsArray())
-                {
-                    if ((string)row!["orderNumber"]! == orderNumber)
-                        row.AsObject().Remove(field);
-                }
-                return Json(body.ToJsonString());
-            }
-        );
+        harness.Override("details", request => Json(DetailsMissing(request, orderNumber, field)));
+        string[] wanted = [OrderNumber(1), OrderNumber(2), OrderNumber(3), OrderNumber(4)];
 
-        var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
-            harness.Feed.GetOpenOrderNumbersAsync(CancellationToken.None)
-        );
+        var orders = await harness.Feed.GetOrdersAsync(wanted, CancellationToken.None);
 
-        Assert.Equal(TcgplayerFeedFailure.ResponseInvalid, failure.Failure);
-        Assert.Contains(orderNumber, failure.Message);
-        Assert.Contains(named, failure.Message);
+        Assert.Equal(wanted, orders.Select(order => order.SourceOrderIdentifier));
+        var undecidable = orders.Single(order => order.SourceOrderIdentifier == orderNumber);
+        var (type, message) = undecidable.RejectedBySource!.Value;
+        Assert.Equal(FailureType.TcgplayerResponseInvalid, type);
+        Assert.Contains(orderNumber, message);
+        Assert.Contains(named, message);
+        Assert.Empty(undecidable.Lines);
+        Assert.All(
+            orders.Where(order => order.SourceOrderIdentifier != orderNumber),
+            order => Assert.Null(order.RejectedBySource)
+        );
+        // No items are fetched for the order that can't be decided.
         Assert.DoesNotContain(
             harness.Requests,
-            request => Classify(request.RequestUri!.AbsolutePath) == "items"
+            request =>
+                Classify(request.RequestUri!.AbsolutePath) == "items"
+                && request.RequestUri.AbsolutePath.Contains(orderNumber)
         );
     }
 
@@ -189,7 +210,7 @@ public sealed class TcgplayerOrderFeedTests
         Assert.All(orders, order => Assert.Null(order.RejectedBySource));
         Assert.Equal([1, 2], orders.Select(o => o.Lines.Count));
         Assert.Equal(
-            ["details", "items", "items", "skus", "products"],
+            ["manifest", "details", "items", "items", "skus", "products"],
             harness.Requests.Select(request => Classify(request.RequestUri!.AbsolutePath))
         );
         Assert.Equal(2, orders[1].Lines[1].Quantity);
@@ -433,6 +454,22 @@ public sealed class TcgplayerOrderFeedTests
     private static string[] NumbersIn(HttpRequestMessage request) =>
         request.RequestUri!.AbsolutePath.Split('/')[^1].Split(',');
 
+    private static string DetailsMissing(
+        HttpRequestMessage request,
+        string orderNumber,
+        string field
+    )
+    {
+        var body = JsonNode.Parse(Harness.DetailsFor(NumbersIn(request)))!;
+        foreach (var row in body["results"]!.AsArray())
+        {
+            if ((string)row!["orderNumber"]! == orderNumber)
+                row.AsObject().Remove(field);
+        }
+
+        return body.ToJsonString();
+    }
+
     private static string DetailsWithout(HttpRequestMessage request, string omitted) =>
         Harness.DetailsFor(NumbersIn(request).Where(number => number != omitted).ToArray());
 
@@ -545,6 +582,7 @@ public sealed class TcgplayerOrderFeedTests
                     "SYN-0001-A1" => "items-normal.json",
                     "SYN-0002-A1" => "items-quantity-greater-than-one.json",
                     "SYN-0003-A1" => "items-foil.json",
+                    "SYN-0004-A1" => "items-non-english.json",
                     "SYN-0006-A1" => "items-count-mismatch.json",
                     _ => throw new InvalidOperationException(
                         $"No synthetic items for {orderNumber}"

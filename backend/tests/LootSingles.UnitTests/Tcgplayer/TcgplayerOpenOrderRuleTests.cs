@@ -1,4 +1,3 @@
-using LootSingles.Application.Import;
 using LootSingles.Infrastructure.Tcgplayer;
 
 namespace LootSingles.UnitTests.Tcgplayer;
@@ -37,16 +36,8 @@ public sealed class TcgplayerOpenOrderRuleTests
     [InlineData(2)] // Ready To Ship
     public void A_shipped_order_in_an_open_status_is_open(int status)
     {
-        Assert.True(TcgplayerOpenOrderRule.IsOpen(Shipped(status), Ids));
-        Assert.True(
-            TcgplayerOpenOrderRule.IsOpen(
-                Shipped(status) with
-                {
-                    OrderDeliveryTypeId = Expedited,
-                },
-                Ids
-            )
-        );
+        Assert.True(IsOpen(Shipped(status), Ids));
+        Assert.True(IsOpen(Shipped(status) with { OrderDeliveryTypeId = Expedited }, Ids));
     }
 
     [Theory]
@@ -55,14 +46,14 @@ public sealed class TcgplayerOpenOrderRuleTests
     [InlineData(5)] // Cancelled
     public void A_shipped_order_in_any_other_status_is_not_open(int status)
     {
-        Assert.False(TcgplayerOpenOrderRule.IsOpen(Shipped(status), Ids));
+        Assert.False(IsOpen(Shipped(status), Ids));
     }
 
     [Fact]
     public void A_pickup_order_that_is_Received_is_open()
     {
         // Live, a Received pickup order's order status is Processing.
-        Assert.True(TcgplayerOpenOrderRule.IsOpen(Pickup(pickupStatus: 1, status: 1), Ids));
+        Assert.True(IsOpen(Pickup(pickupStatus: 1, status: 1), Ids));
     }
 
     [Theory]
@@ -71,52 +62,29 @@ public sealed class TcgplayerOpenOrderRuleTests
     public void A_pickup_order_past_Received_is_not_open_whatever_its_order_status(int pickupStatus)
     {
         // The order status alone would say open; the pickup status decides a pickup order.
-        Assert.False(
-            TcgplayerOpenOrderRule.IsOpen(Pickup(pickupStatus: pickupStatus, status: 1), Ids)
-        );
+        Assert.False(IsOpen(Pickup(pickupStatus: pickupStatus, status: 1), Ids));
     }
 
     [Fact]
     public void A_shipped_order_ignores_its_pickup_status()
     {
-        Assert.True(
-            TcgplayerOpenOrderRule.IsOpen(Shipped(2) with { OrderPickupStatusTypeId = 4 }, Ids)
-        );
-        Assert.False(
-            TcgplayerOpenOrderRule.IsOpen(Shipped(4) with { OrderPickupStatusTypeId = 1 }, Ids)
-        );
+        Assert.True(IsOpen(Shipped(2) with { OrderPickupStatusTypeId = 4 }, Ids));
+        Assert.False(IsOpen(Shipped(4) with { OrderPickupStatusTypeId = 1 }, Ids));
     }
 
     [Fact]
     public void A_Direct_order_is_not_open_even_in_an_open_status()
     {
-        Assert.False(TcgplayerOpenOrderRule.IsOpen(Shipped(2) with { OrderTypeId = Direct }, Ids));
-        Assert.False(
-            TcgplayerOpenOrderRule.IsOpen(
-                Pickup(pickupStatus: 1, status: 1) with
-                {
-                    OrderTypeId = Direct,
-                },
-                Ids
-            )
-        );
+        Assert.False(IsOpen(Shipped(2) with { OrderTypeId = Direct }, Ids));
+        Assert.False(IsOpen(Pickup(pickupStatus: 1, status: 1) with { OrderTypeId = Direct }, Ids));
     }
 
     [Fact]
     public void An_order_with_no_order_type_counts_as_Normal()
     {
-        Assert.True(TcgplayerOpenOrderRule.IsOpen(Shipped(2) with { OrderTypeId = null }, Ids));
+        Assert.True(IsOpen(Shipped(2) with { OrderTypeId = null }, Ids));
         Assert.False(
-            TcgplayerOpenOrderRule.IsOpen(
-                Shipped(2) with
-                {
-                    OrderTypeId = null,
-                },
-                Ids with
-                {
-                    OrderTypeIds = [Direct],
-                }
-            )
+            IsOpen(Shipped(2) with { OrderTypeId = null }, Ids with { OrderTypeIds = [Direct] })
         );
     }
 
@@ -125,14 +93,9 @@ public sealed class TcgplayerOpenOrderRuleTests
     {
         var shippedOnlyWhenShipped = Ids with { OrderStatusIds = [3], PickupStatusIds = [3] };
 
-        Assert.True(TcgplayerOpenOrderRule.IsOpen(Shipped(3), shippedOnlyWhenShipped));
-        Assert.False(TcgplayerOpenOrderRule.IsOpen(Shipped(2), shippedOnlyWhenShipped));
-        Assert.True(
-            TcgplayerOpenOrderRule.IsOpen(
-                Pickup(pickupStatus: 3, status: 1),
-                shippedOnlyWhenShipped
-            )
-        );
+        Assert.True(IsOpen(Shipped(3), shippedOnlyWhenShipped));
+        Assert.False(IsOpen(Shipped(2), shippedOnlyWhenShipped));
+        Assert.True(IsOpen(Pickup(pickupStatus: 3, status: 1), shippedOnlyWhenShipped));
     }
 
     public static TheoryData<TcgplayerOrderDetails, string> Undecidable =>
@@ -151,33 +114,48 @@ public sealed class TcgplayerOpenOrderRuleTests
 
     [Theory]
     [MemberData(nameof(Undecidable))]
-    public void A_row_missing_a_value_the_rule_needs_is_ResponseInvalid_naming_the_order_and_field(
+    public void A_row_missing_a_value_the_rule_needs_is_undecidable_with_a_reason_naming_the_order_and_field(
         TcgplayerOrderDetails row,
         string field
     )
     {
-        var failure = Assert.Throws<TcgplayerFeedException>(() =>
-            TcgplayerOpenOrderRule.IsOpen(row, Ids)
-        );
+        // Undecidable, not an exception: the order is kept and rejected on its own (ruling R30).
+        var decision = TcgplayerOpenOrderRule.Decide(row, Ids);
 
-        Assert.Equal(TcgplayerFeedFailure.ResponseInvalid, failure.Failure);
-        Assert.Contains("SYN-0001-A1", failure.Message);
-        Assert.Contains(field, failure.Message);
+        Assert.Equal(TcgplayerOpenness.Undecidable, decision.Openness);
+        Assert.Contains("SYN-0001-A1", decision.Reason);
+        Assert.Contains(field, decision.Reason);
+    }
+
+    [Fact]
+    public void A_decided_row_has_no_reason()
+    {
+        Assert.Null(TcgplayerOpenOrderRule.Decide(Shipped(2), Ids).Reason);
+        Assert.Null(TcgplayerOpenOrderRule.Decide(Shipped(4), Ids).Reason);
+    }
+
+    [Fact]
+    public void A_type_that_can_never_be_open_is_not_open_even_with_values_missing()
+    {
+        var direct = Shipped(2) with { OrderTypeId = Direct, OrderDeliveryTypeId = null };
+
+        Assert.Equal(
+            TcgplayerOpenness.NotOpen,
+            TcgplayerOpenOrderRule.Decide(direct, Ids).Openness
+        );
     }
 
     [Fact]
     public void A_pickup_order_with_no_order_status_is_still_decided_by_its_pickup_status()
     {
         Assert.True(
-            TcgplayerOpenOrderRule.IsOpen(
-                Pickup(pickupStatus: 1, status: 1) with
-                {
-                    OrderStatusTypeId = null,
-                },
-                Ids
-            )
+            IsOpen(Pickup(pickupStatus: 1, status: 1) with { OrderStatusTypeId = null }, Ids)
         );
     }
+
+    // True only for Open: NotOpen and Undecidable are both "not shown to be open".
+    private static bool IsOpen(TcgplayerOrderDetails row, TcgplayerOpenOrderIds ids) =>
+        TcgplayerOpenOrderRule.Decide(row, ids).Openness == TcgplayerOpenness.Open;
 
     private static TcgplayerOrderDetails Shipped(int status) =>
         new()

@@ -43,7 +43,7 @@ This matches the seller portal's open-orders view. All three lists are **names**
 2. Every searched order's details row is read (call #5, batched) and checked with **one pure rule**, `TcgplayerOpenOrderRule.IsOpen`, before anything else about that order is fetched or decided, including whether it was already imported.
 3. An order that is not open is **skipped silently**: no items call, no result row, not "already imported", and no part of any count, log entry or progress total. The orders detected, and the progress total, are the open orders only.
 
-A details row that lacks a value the rule needs (no delivery type; a shipped order with no order status; a pickup order with no pickup status) fails the import as `TcgplayerResponseInvalid` naming the order and the field: openness can't be decided, and skipping could silently drop an open order. A row with no order type is treated as Normal: TCGplayer may omit it, and Normal is the ordinary kind of order.
+A details row that lacks a value the rule needs (no delivery type; a shipped order with no order status; a pickup order with no pickup status) makes that order **undecidable** (ruling R30, 2026-10-10). It is kept, so it is detected and never silently skipped, and it alone is rejected as `TcgplayerResponseInvalid` with a message naming the order and the field, exactly as an order TCGplayer returned no details for. The rest of the press continues. An order whose type can never be open is not open whatever else is missing. A row with no order type is treated as Normal: TCGplayer may omit it, and Normal is the ordinary kind of order.
 
 **Rationale**:
 - The spec requires the three lists to change through configuration without code (FR-004).

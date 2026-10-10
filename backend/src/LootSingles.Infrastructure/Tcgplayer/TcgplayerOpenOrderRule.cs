@@ -1,5 +1,3 @@
-using LootSingles.Application.Import;
-
 namespace LootSingles.Infrastructure.Tcgplayer;
 
 /// <summary>
@@ -16,11 +14,34 @@ public sealed record TcgplayerOpenOrderIds(
     int NormalOrderTypeId
 );
 
+/// <summary>What <see cref="TcgplayerOpenOrderRule.Decide"/> concluded about one order.</summary>
+public enum TcgplayerOpenness
+{
+    /// <summary>Open: the import considers it.</summary>
+    Open,
+
+    /// <summary>Not open: skipped silently, never detected, fetched, reported or counted.</summary>
+    NotOpen,
+
+    /// <summary>
+    /// The details row lacks a value the rule needs. The order is kept (detected, never silently
+    /// skipped) and rejected on its own as <c>TcgplayerResponseInvalid</c> (ruling R30).
+    /// </summary>
+    Undecidable,
+}
+
+/// <param name="Openness">The conclusion.</param>
+/// <param name="Reason">
+/// For <see cref="TcgplayerOpenness.Undecidable"/> only: a message naming the order and the
+/// missing field, safe to show and log (no response body).
+/// </param>
+public readonly record struct TcgplayerOpennessDecision(TcgplayerOpenness Openness, string? Reason);
+
 /// <summary>
 /// FR-004 as one pure rule over an order details row. TCGplayer's search filters are each
 /// partial (contracts/tcgplayer-upstream.md), so the search result is only a list of candidates;
-/// this rule, applied to every searched order's details before anything else is fetched for it,
-/// is what decides.
+/// this rule, applied to each order's details before anything else is fetched for it, is what
+/// decides.
 /// </summary>
 public static class TcgplayerOpenOrderRule
 {
@@ -37,38 +58,54 @@ public static class TcgplayerOpenOrderRule
     public const string NormalOrderType = "Normal";
 
     /// <summary>
-    /// True when the order's type is one of the configured types and either it is a shipped order
+    /// Open when the order's type is one of the configured types and either it is a shipped order
     /// (any delivery type but in-store pickup) in an open order status, or an in-store pickup
     /// order in an open pickup status. A pickup order is decided by its pickup status alone: live,
     /// a Received pickup order's order status is Processing, and so may a collected one's be.
+    /// A type that can never be open is not open whatever else is missing; otherwise a missing
+    /// delivery type, a shipped order's missing order status or a pickup order's missing pickup
+    /// status makes the order undecidable.
     /// </summary>
-    /// <exception cref="TcgplayerFeedException">
-    /// <see cref="TcgplayerFeedFailure.ResponseInvalid"/> when the row lacks a value the decision
-    /// needs: openness can't be decided, and skipping the order could silently drop an open one.
-    /// </exception>
-    public static bool IsOpen(TcgplayerOrderDetails order, TcgplayerOpenOrderIds ids)
+    public static TcgplayerOpennessDecision Decide(
+        TcgplayerOrderDetails order,
+        TcgplayerOpenOrderIds ids
+    )
     {
         ArgumentNullException.ThrowIfNull(order);
         ArgumentNullException.ThrowIfNull(ids);
 
         if (!ids.OrderTypeIds.Contains(order.OrderTypeId ?? ids.NormalOrderTypeId))
-            return false;
+            return NotOpen;
 
-        var deliveryType = order.OrderDeliveryTypeId ?? throw Undecidable(order, "delivery type");
+        if (order.OrderDeliveryTypeId is not { } deliveryType)
+            return Undecidable(order, "delivery type");
+
         if (deliveryType == ids.InStorePickupDeliveryTypeId)
         {
-            var pickupStatus =
-                order.OrderPickupStatusTypeId ?? throw Undecidable(order, "pickup status");
-            return ids.PickupStatusIds.Contains(pickupStatus);
+            return order.OrderPickupStatusTypeId is { } pickupStatus
+                ? Decided(ids.PickupStatusIds.Contains(pickupStatus))
+                : Undecidable(order, "pickup status");
         }
 
-        var status = order.OrderStatusTypeId ?? throw Undecidable(order, "order status");
-        return ids.OrderStatusIds.Contains(status);
+        return order.OrderStatusTypeId is { } status
+            ? Decided(ids.OrderStatusIds.Contains(status))
+            : Undecidable(order, "order status");
     }
 
-    private static TcgplayerFeedException Undecidable(TcgplayerOrderDetails order, string field) =>
+    private static readonly TcgplayerOpennessDecision NotOpen = new(
+        TcgplayerOpenness.NotOpen,
+        null
+    );
+
+    private static TcgplayerOpennessDecision Decided(bool open) =>
+        open ? new(TcgplayerOpenness.Open, null) : NotOpen;
+
+    private static TcgplayerOpennessDecision Undecidable(
+        TcgplayerOrderDetails order,
+        string field
+    ) =>
         new(
-            TcgplayerFeedFailure.ResponseInvalid,
+            TcgplayerOpenness.Undecidable,
             $"{order.OrderNumber}: TCGplayer's order details have no {field}, so whether the order is open can't be decided."
         );
 }
