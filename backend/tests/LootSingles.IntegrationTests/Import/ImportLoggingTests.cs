@@ -273,6 +273,76 @@ public class ImportLoggingTests
     }
 
     [Fact]
+    public async Task ApiImport_OnlyImportedAndAlreadyImported_ProducesOneInformationWithCountAndNoOrderNumbers()
+    {
+        await using var context = ImportTestSupport.CreateDatabaseContext();
+        var repository = new ImportRepository(context);
+        var prefix = $"SYN-{Guid.NewGuid():N}"[..16];
+        var existing = new[] { $"{prefix}-1", $"{prefix}-2" };
+        await RunApiImportAsync(repository, new SyntheticOrderFeed(existing));
+
+        var logger = new ImportTestSupport.CapturingLogger<TcgplayerApiImportService>();
+        var feed = new SyntheticOrderFeed([.. existing, $"{prefix}-3"]);
+        await RunApiImportAsync(repository, feed, logger);
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Information, entry.Level);
+        Assert.Equal(3, entry.GetState<int>("OrdersDetected"));
+        Assert.Equal(1, entry.GetState<int>("OrdersSucceeded"));
+        Assert.Equal(0, entry.GetState<int>("OrdersFailed"));
+        Assert.Equal(2, entry.GetState<int>("OrdersAlreadyImported"));
+        Assert.DoesNotContain(prefix, entry.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            entry.State,
+            pair => pair.Value is string text && text.Contains(prefix, StringComparison.Ordinal)
+        );
+    }
+
+    [Fact]
+    public async Task ApiImport_AlreadyImportedPlusRealRejection_ProducesOneWarningBreakdownWithoutDuplicates()
+    {
+        await using var context = ImportTestSupport.CreateDatabaseContext();
+        var repository = new ImportRepository(context);
+        var prefix = $"SYN-{Guid.NewGuid():N}"[..16];
+        var existing = $"{prefix}-1";
+        await RunApiImportAsync(repository, new SyntheticOrderFeed([existing]));
+
+        var logger = new ImportTestSupport.CapturingLogger<TcgplayerApiImportService>();
+        var rejected = $"{prefix}-2";
+        var feed = new SyntheticOrderFeed([existing, rejected, $"{prefix}-3"])
+        {
+            NoLineOrders = [rejected],
+        };
+        await RunApiImportAsync(repository, feed, logger);
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Equal(3, entry.GetState<int>("OrdersDetected"));
+        Assert.Equal(1, entry.GetState<int>("OrdersSucceeded"));
+        Assert.Equal(1, entry.GetState<int>("OrdersFailed"));
+        Assert.Equal(1, entry.GetState<int>("OrdersAlreadyImported"));
+        Assert.Equal(1, entry.GetState<int>("NoProductLinesCount"));
+        Assert.Equal(rejected, entry.GetState<string>("NoProductLinesIds"));
+        Assert.DoesNotContain("DuplicateOrder", entry.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(existing, entry.Message, StringComparison.Ordinal);
+    }
+
+    private static async Task RunApiImportAsync(
+        ImportRepository repository,
+        SyntheticOrderFeed feed,
+        ImportTestSupport.CapturingLogger<TcgplayerApiImportService>? logger = null
+    )
+    {
+        var service = new TcgplayerApiImportService(
+            feed,
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
+            logger ?? new ImportTestSupport.CapturingLogger<TcgplayerApiImportService>()
+        );
+        await foreach (var _ in service.ImportAsync()) { }
+    }
+
+    [Fact]
     public async Task ApiImport_AttemptWideFailure_ProducesOneWarningWithFailureTypeAndCallCount()
     {
         await using var context = ImportTestSupport.CreateDatabaseContext();
@@ -411,6 +481,9 @@ public class ImportLoggingTests
 
         public bool Unreachable { get; init; }
 
+        /// <summary>Order numbers whose candidate has no lines, so the validator rejects them.</summary>
+        public IReadOnlyList<string> NoLineOrders { get; init; } = [];
+
         public Task<IReadOnlyList<string>> GetOpenOrderNumbersAsync(
             CancellationToken cancellationToken
         )
@@ -432,21 +505,24 @@ public class ImportLoggingTests
             IReadOnlyList<OrderCandidate> candidates = orderNumbers
                 .Select(number => new OrderCandidate(
                     number,
-                    [
-                        new OrderLineCandidate(
-                            RawDescription: ProductName,
-                            ProductLine: "Magic",
-                            ProductName: ProductName,
-                            Set: "Synthetic Set",
-                            CollectorNumber: null,
-                            Rarity: null,
-                            Condition: "Near Mint",
-                            Variant: null,
-                            Language: "English",
-                            ImageUrl: null,
-                            Quantity: 1
-                        ),
-                    ]
+                    NoLineOrders.Contains(number)
+                        ? []
+                        :
+                        [
+                            new OrderLineCandidate(
+                                RawDescription: ProductName,
+                                ProductLine: "Magic",
+                                ProductName: ProductName,
+                                Set: "Synthetic Set",
+                                CollectorNumber: null,
+                                Rarity: null,
+                                Condition: "Near Mint",
+                                Variant: null,
+                                Language: "English",
+                                ImageUrl: null,
+                                Quantity: 1
+                            ),
+                        ]
                 ))
                 .ToList();
             return Task.FromResult(candidates);

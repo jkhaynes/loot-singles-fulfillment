@@ -1,4 +1,5 @@
 using System.Text;
+using LootSingles.Domain.Orders;
 using Microsoft.Extensions.Logging;
 
 namespace LootSingles.Application.Import;
@@ -16,9 +17,19 @@ public static class ImportAttemptLog
         var succeeded = attempt.ImportOrderResults.Count(result =>
             result.Outcome == ImportOutcome.Succeeded
         );
-        var failed = attempt.ImportOrderResults.Count(result =>
-            result.Outcome == ImportOutcome.Rejected
-        );
+        // On an API import an already-imported order is a normal outcome (open orders come back on
+        // every press until they ship), so it is reported as a count, not a failure (spec 020
+        // FR-025). PDF imports keep 006 FR-004 exactly: duplicates are failures in the breakdown.
+        var apiSource = attempt.Source == OrderImportSource.TcgplayerApi;
+        var alreadyImported = apiSource
+            ? attempt.ImportOrderResults.Count(result =>
+                result.Outcome == ImportOutcome.Rejected
+                && result.FailureCode == FailureType.DuplicateOrder
+            )
+            : 0;
+        var failed =
+            attempt.ImportOrderResults.Count(result => result.Outcome == ImportOutcome.Rejected)
+            - alreadyImported;
 
         if (attempt.AttemptFailureCode is not null && detected == 0)
         {
@@ -37,6 +48,21 @@ public static class ImportAttemptLog
 
         if (failed == 0 && attempt.AttemptFailureCode is null)
         {
+            if (apiSource)
+            {
+                logger.LogInformation(
+                    "Import attempt {ImportId} ({Source}) completed successfully. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}, already imported {OrdersAlreadyImported}. CallCount={CallCount}.",
+                    attempt.Id,
+                    attempt.Source,
+                    detected,
+                    succeeded,
+                    failed,
+                    alreadyImported,
+                    callCount
+                );
+                return;
+            }
+
             logger.LogInformation(
                 "Import attempt {ImportId} ({Source}) completed successfully. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}. CallCount={CallCount}.",
                 attempt.Id,
@@ -64,6 +90,12 @@ public static class ImportAttemptLog
             callCount,
         };
 
+        if (apiSource)
+        {
+            template.Append(" AlreadyImported={OrdersAlreadyImported}.");
+            args.Add(alreadyImported);
+        }
+
         if (attempt.AttemptFailureCode is { } attemptFailureType)
         {
             template.Append(" AttemptFailureType={AttemptFailureType}.");
@@ -72,7 +104,9 @@ public static class ImportAttemptLog
 
         var breakdown = attempt
             .ImportOrderResults.Where(result =>
-                result.Outcome == ImportOutcome.Rejected && result.FailureCode is not null
+                result.Outcome == ImportOutcome.Rejected
+                && result.FailureCode is not null
+                && !(apiSource && result.FailureCode == FailureType.DuplicateOrder)
             )
             .GroupBy(result => result.FailureCode!.Value)
             .OrderBy(group => group.Key);
