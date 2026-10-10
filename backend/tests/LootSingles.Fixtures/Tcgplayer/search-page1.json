@@ -1,12 +1,12 @@
 {
   "success": true,
   "errors": [],
-  "totalItems": 13,
+  "totalItems": 10,
   "results": [
     "SYN-0001-A1",
     "SYN-0002-A1",
-    "SYN-0011-A1",
     "SYN-0003-A1",
-    "SYN-0004-A1"
+    "SYN-0004-A1",
+    "SYN-0005-A1"
   ]
 }

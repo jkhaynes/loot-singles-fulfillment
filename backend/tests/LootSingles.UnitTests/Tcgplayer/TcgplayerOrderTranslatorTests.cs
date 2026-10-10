@@ -94,12 +94,7 @@ public sealed class TcgplayerOrderTranslatorTests
         TcgplayerOptions? options = null
     ) =>
         TcgplayerOrderTranslator.Translate(
-            new TcgplayerOrderDetails
-            {
-                OrderNumber = "SYN-9000-A1",
-                OrderStatusTypeId = 2,
-                ProductCount = item.Quantity,
-            },
+            new TcgplayerOrderDetails { OrderNumber = "SYN-9000-A1", ProductCount = item.Quantity },
             [item],
             1,
             Skus,

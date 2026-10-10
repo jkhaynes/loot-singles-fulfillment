@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Persistence;
 using LootSingles.Infrastructure.Tcgplayer;
@@ -108,7 +107,7 @@ public sealed class TcgplayerImportControllerTests
     }
 
     [Fact]
-    public async Task Leaked_orders_that_are_not_open_are_skipped_silently_everywhere()
+    public async Task Orders_the_three_filter_search_excludes_are_never_fetched_reported_or_imported()
     {
         var logs = new ImportTestSupport.CapturingLoggerProvider();
         await using var root = new AuthWebApplicationFactory();
@@ -129,22 +128,23 @@ public sealed class TcgplayerImportControllerTests
         var first = await ImportUiTestSupport.PostTcgplayerAsync(client);
         var second = await ImportUiTestSupport.PostTcgplayerAsync(client);
 
-        // The search really returned them...
-        Assert.Contains(stub.Requests, request => request.Route == "search");
+        // Every search sends all three filters (FR-004), so the stub, which leaks an order when
+        // its filter is missing, never returns one, and nothing is ever requested for them.
         Assert.All(
-            leaked,
-            number =>
-                Assert.Contains(
-                    stub.Requests,
-                    request => request.Route == "details" && request.Path.Contains(number)
-                )
+            stub.Requests.Where(request => request.Route == "search"),
+            request =>
+            {
+                Assert.Contains("orderStatusIds=1,2", request.Query);
+                Assert.Contains("pickupStatusIds=1", request.Query);
+                Assert.Contains("orderTypeIds=1", request.Query);
+            }
         );
-        // ...but no items were fetched for them, and no snapshot counts or lists them, on the
-        // first press or as "already imported" on the second.
         Assert.DoesNotContain(
             stub.Requests,
-            request => request.Route == "items" && leaked.Any(request.Path.Contains)
+            request => leaked.Any(number => request.Path.Contains(number))
         );
+        // No snapshot counts or lists them, on the first press or as "already imported" on the
+        // second.
         foreach (var line in first.Concat(second))
         {
             using var snapshot = JsonDocument.Parse(line);
@@ -169,55 +169,6 @@ public sealed class TcgplayerImportControllerTests
                 leaked.Contains(result.SourceOrderIdentifier)
             )
         );
-    }
-
-    [Fact]
-    public async Task An_order_whose_openness_cannot_be_decided_is_rejected_alone_and_the_press_completes()
-    {
-        await using var root = new AuthWebApplicationFactory();
-        var stub = new TcgplayerStubHandler();
-        await using var factory = ImportUiTestSupport.WithTcgplayerStub(root, stub);
-        using var client = await ImportUiTestSupport.LoginAsync(factory);
-        var undecidable = TcgplayerStubHandler.OrderNumber(1);
-        // Every details response drops SYN-0001's delivery type (ruling R30).
-        stub.Override = request =>
-        {
-            if (request.Route != "details" || !request.Path.Contains(undecidable))
-                return Task.FromResult<HttpResponseMessage?>(null);
-            var numbers = request.Path.Split('/')[^1].Split(',');
-            var body = JsonNode.Parse(TcgplayerStubHandler.DetailsFor(numbers))!;
-            foreach (var row in body["results"]!.AsArray())
-            {
-                if ((string)row!["orderNumber"]! == undecidable)
-                    row.AsObject().Remove("orderDeliveryTypeId");
-            }
-            return Task.FromResult<HttpResponseMessage?>(
-                TcgplayerStubHandler.Json(body.ToJsonString())
-            );
-        };
-
-        var lines = await ImportUiTestSupport.PostTcgplayerAsync(client);
-
-        using var terminal = JsonDocument.Parse(lines[^1]);
-        var snapshot = terminal.RootElement;
-        Assert.Equal("completed", snapshot.GetProperty("status").GetString());
-        Assert.Equal(JsonValueKind.Null, snapshot.GetProperty("attemptFailureCode").ValueKind);
-        Assert.Equal(10, snapshot.GetProperty("ordersDetected").GetInt32());
-        Assert.Equal(7, snapshot.GetProperty("succeededCount").GetInt32());
-        var rejected = snapshot
-            .GetProperty("results")
-            .EnumerateArray()
-            .Single(result =>
-                result.GetProperty("sourceOrderIdentifier").GetString() == undecidable
-            );
-        Assert.Equal("rejected", rejected.GetProperty("outcome").GetString());
-        Assert.Equal("tcgplayerResponseInvalid", rejected.GetProperty("failureCode").GetString());
-        Assert.Contains("delivery type", rejected.GetProperty("failureMessage").GetString());
-        Assert.DoesNotContain(
-            stub.Requests,
-            request => request.Route == "items" && request.Path.Contains(undecidable)
-        );
-        Assert.DoesNotContain(undecidable, await OrderNumbersAsync(factory));
     }
 
     [Fact]
@@ -271,11 +222,10 @@ public sealed class TcgplayerImportControllerTests
                 Assert.Equal("Already imported", result.GetProperty("failureMessage").GetString());
             }
         );
-        // Details are read for every searched order to decide openness (FR-004); an order already
-        // imported has nothing else fetched.
+        // An order already imported has nothing fetched: the press is manifest and search only.
         Assert.DoesNotContain(
             stub.Requests.Skip(requestsBefore),
-            request => request.Route is "items" or "skus" or "products"
+            request => request.Route is "details" or "items" or "skus" or "products"
         );
         Assert.Equal(8, await CountOrdersAsync(factory));
     }
@@ -308,7 +258,7 @@ public sealed class TcgplayerImportControllerTests
         Assert.Equal("duplicateOrder", result.GetProperty("failureCode").GetString());
         Assert.DoesNotContain(
             stub.Requests,
-            request => request.Route is "items" or "skus" or "products"
+            request => request.Route is "details" or "items" or "skus" or "products"
         );
         Assert.Equal(ordersBefore, await CountOrdersAsync(factory));
     }

@@ -38,47 +38,27 @@ public sealed class TcgplayerOrderFeedTests
     // ---- Listing ----
 
     [Fact]
-    public async Task Open_order_numbers_come_from_the_manifest_a_paged_search_and_every_searched_orders_details()
+    public async Task Open_order_numbers_come_from_the_manifest_and_a_paged_search_only()
     {
         var harness = new Harness();
 
         var numbers = await harness.Feed.GetOpenOrderNumbersAsync(CancellationToken.None);
 
-        // The search leaks SYN-0011 (Delivered), SYN-0012 (Picked Up) and SYN-0013 (Direct); only
-        // the ten open orders are listed, in search order, and no items are fetched for any order.
+        // The search with all three filters is the whole filter (FR-004): its results are listed
+        // as they are, in search order, and no order's details or items are read.
         Assert.Equal(Enumerable.Range(1, 10).Select(OrderNumber), numbers);
         Assert.Equal(
-            ["manifest", "search", "search", "search", "details", "details", "details"],
+            ["manifest", "search", "search"],
             harness.Requests.Select(request => Classify(request.RequestUri!.AbsolutePath))
         );
         Assert.StartsWith(
             "?orderStatusIds=1,2&pickupStatusIds=1&orderTypeIds=1&",
             harness.Requests[1].RequestUri!.Query
         );
-        var detailed = harness
-            .Requests.Where(request => Classify(request.RequestUri!.AbsolutePath) == "details")
-            .SelectMany(request => request.RequestUri!.AbsolutePath.Split('/')[^1].Split(','))
-            .ToList();
-        Assert.Equal(13, detailed.Count);
     }
 
     [Fact]
-    public async Task Leaked_orders_that_are_not_open_are_skipped_silently()
-    {
-        var harness = new Harness();
-
-        var numbers = await harness.Feed.GetOpenOrderNumbersAsync(CancellationToken.None);
-
-        Assert.DoesNotContain(OrderNumber(11), numbers); // shipped, Delivered
-        Assert.DoesNotContain(OrderNumber(12), numbers); // pickup, Picked Up, status Processing
-        Assert.DoesNotContain(OrderNumber(13), numbers); // Direct, Ready To Ship
-        Assert.Contains(OrderNumber(4), numbers); // pickup, Received
-        Assert.Contains(OrderNumber(5), numbers); // shipped, Processing
-        Assert.Contains(OrderNumber(3), numbers); // no order type: Normal
-    }
-
-    [Fact]
-    public async Task Configured_lists_decide_which_searched_orders_are_listed()
+    public async Task The_configured_lists_are_the_search_filters()
     {
         // Only Delivered shipped orders and Picked Up pickup orders, of either type.
         var harness = new Harness(
@@ -87,80 +67,11 @@ public sealed class TcgplayerOrderFeedTests
             orderTypes: ["Normal", "Direct"]
         );
 
-        var numbers = await harness.Feed.GetOpenOrderNumbersAsync(CancellationToken.None);
+        await harness.Feed.GetOpenOrderNumbersAsync(CancellationToken.None);
 
-        Assert.Equal([OrderNumber(11), OrderNumber(12)], numbers);
-    }
-
-    [Fact]
-    public async Task A_searched_order_the_details_omit_stays_listed_so_fetching_it_rejects_it()
-    {
-        // Openness can't be decided without details; dropping it could hide an open order, so it
-        // is kept and GetOrdersAsync reports it rejected ("returned no details") as before.
-        var harness = new Harness();
-        harness.Override("details", request => Json(DetailsWithout(request, OrderNumber(2))));
-
-        var numbers = await harness.Feed.GetOpenOrderNumbersAsync(CancellationToken.None);
-
-        Assert.Equal(Enumerable.Range(1, 10).Select(OrderNumber), numbers);
-    }
-
-    public static TheoryData<string, string, string> MissingValues =>
-        new()
-        {
-            { "orderDeliveryTypeId", "SYN-0001-A1", "delivery type" },
-            { "orderStatusTypeId", "SYN-0001-A1", "order status" },
-            { "orderPickupStatusTypeId", "SYN-0004-A1", "pickup status" },
-        };
-
-    [Theory]
-    [MemberData(nameof(MissingValues))]
-    public async Task An_undecidable_order_stays_listed_so_it_is_detected_never_silently_skipped(
-        string field,
-        string orderNumber,
-        string named
-    )
-    {
-        _ = named;
-        var harness = new Harness();
-        harness.Override("details", request => Json(DetailsMissing(request, orderNumber, field)));
-
-        var numbers = await harness.Feed.GetOpenOrderNumbersAsync(CancellationToken.None);
-
-        Assert.Equal(Enumerable.Range(1, 10).Select(OrderNumber), numbers);
-    }
-
-    [Theory]
-    [MemberData(nameof(MissingValues))]
-    public async Task An_undecidable_order_is_rejected_alone_naming_the_field_and_its_siblings_still_come_through(
-        string field,
-        string orderNumber,
-        string named
-    )
-    {
-        var harness = new Harness();
-        harness.Override("details", request => Json(DetailsMissing(request, orderNumber, field)));
-        string[] wanted = [OrderNumber(1), OrderNumber(2), OrderNumber(3), OrderNumber(4)];
-
-        var orders = await harness.Feed.GetOrdersAsync(wanted, CancellationToken.None);
-
-        Assert.Equal(wanted, orders.Select(order => order.SourceOrderIdentifier));
-        var undecidable = orders.Single(order => order.SourceOrderIdentifier == orderNumber);
-        var (type, message) = undecidable.RejectedBySource!.Value;
-        Assert.Equal(FailureType.TcgplayerResponseInvalid, type);
-        Assert.Contains(orderNumber, message);
-        Assert.Contains(named, message);
-        Assert.Empty(undecidable.Lines);
-        Assert.All(
-            orders.Where(order => order.SourceOrderIdentifier != orderNumber),
-            order => Assert.Null(order.RejectedBySource)
-        );
-        // No items are fetched for the order that can't be decided.
-        Assert.DoesNotContain(
-            harness.Requests,
-            request =>
-                Classify(request.RequestUri!.AbsolutePath) == "items"
-                && request.RequestUri.AbsolutePath.Contains(orderNumber)
+        Assert.StartsWith(
+            "?orderStatusIds=4&pickupStatusIds=4&orderTypeIds=1,2&",
+            harness.Requests[1].RequestUri!.Query
         );
     }
 
@@ -181,19 +92,6 @@ public sealed class TcgplayerOrderFeedTests
         );
     }
 
-    [Fact]
-    public async Task A_malformed_details_body_fails_the_listing()
-    {
-        var harness = new Harness();
-        harness.Override("details", _ => Json("not json"));
-
-        var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
-            harness.Feed.GetOpenOrderNumbersAsync(CancellationToken.None)
-        );
-
-        Assert.Equal(TcgplayerFeedFailure.ResponseInvalid, failure.Failure);
-    }
-
     // ---- Fetching ----
 
     [Fact]
@@ -210,7 +108,7 @@ public sealed class TcgplayerOrderFeedTests
         Assert.All(orders, order => Assert.Null(order.RejectedBySource));
         Assert.Equal([1, 2], orders.Select(o => o.Lines.Count));
         Assert.Equal(
-            ["manifest", "details", "items", "items", "skus", "products"],
+            ["details", "items", "items", "skus", "products"],
             harness.Requests.Select(request => Classify(request.RequestUri!.AbsolutePath))
         );
         Assert.Equal(2, orders[1].Lines[1].Quantity);
@@ -454,22 +352,6 @@ public sealed class TcgplayerOrderFeedTests
     private static string[] NumbersIn(HttpRequestMessage request) =>
         request.RequestUri!.AbsolutePath.Split('/')[^1].Split(',');
 
-    private static string DetailsMissing(
-        HttpRequestMessage request,
-        string orderNumber,
-        string field
-    )
-    {
-        var body = JsonNode.Parse(Harness.DetailsFor(NumbersIn(request)))!;
-        foreach (var row in body["results"]!.AsArray())
-        {
-            if ((string)row!["orderNumber"]! == orderNumber)
-                row.AsObject().Remove(field);
-        }
-
-        return body.ToJsonString();
-    }
-
     private static string DetailsWithout(HttpRequestMessage request, string omitted) =>
         Harness.DetailsFor(NumbersIn(request).Where(number => number != omitted).ToArray());
 
@@ -547,12 +429,7 @@ public sealed class TcgplayerOrderFeedTests
                 {
                     "manifest" => Fixture("manifest.json"),
                     "search" => Fixture(
-                        QueryInt(request, "offset") switch
-                        {
-                            0 => "search-page1.json",
-                            5 => "search-page2.json",
-                            _ => "search-page3.json",
-                        }
+                        QueryInt(request, "offset") == 0 ? "search-page1.json" : "search-page2.json"
                     ),
                     "details" => DetailsFor(path.Split('/')[^1].Split(',')),
                     "items" => ItemsFor(path.Split('/')[^2]),

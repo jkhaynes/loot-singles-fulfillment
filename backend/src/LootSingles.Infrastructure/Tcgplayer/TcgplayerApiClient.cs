@@ -53,10 +53,9 @@ public sealed class TcgplayerApiClient
 
     /// <summary>
     /// Call #3: resolves the configured open order status, open pickup status and order type
-    /// names, and the <see cref="TcgplayerOpenOrderRule.InStorePickupDeliveryType"/> and
-    /// <see cref="TcgplayerOpenOrderRule.NormalOrderType"/> names, to ids, matching each name
-    /// exactly. Any name the manifest lacks is <see cref="TcgplayerFeedFailure.ResponseInvalid"/>,
-    /// naming every missing one; the import never falls back to searching every order.
+    /// names to ids, matching each name exactly. Any name the manifest lacks is
+    /// <see cref="TcgplayerFeedFailure.ResponseInvalid"/>, naming every missing one; the import
+    /// never falls back to searching every order.
     /// </summary>
     public async Task<TcgplayerOpenOrderIds> GetOpenOrderIdsAsync(
         CancellationToken cancellationToken
@@ -96,31 +95,8 @@ public sealed class TcgplayerApiClient
             $"Tcgplayer:{nameof(TcgplayerOptions.OrderTypes)}",
             missing
         );
-        var pickupDelivery = FindId(
-            manifest.OrderDeliveryTypes,
-            TcgplayerOpenOrderRule.InStorePickupDeliveryType
-        );
-        if (pickupDelivery is null)
-        {
-            missing.Add(
-                $"delivery type named '{TcgplayerOpenOrderRule.InStorePickupDeliveryType}'"
-            );
-        }
-
-        var normalType = FindId(manifest.OrderTypes, TcgplayerOpenOrderRule.NormalOrderType);
-        if (normalType is null)
-        {
-            missing.Add($"order type named '{TcgplayerOpenOrderRule.NormalOrderType}'");
-        }
-
         return missing.Count == 0
-            ? new TcgplayerOpenOrderIds(
-                statusIds,
-                pickupStatusIds,
-                orderTypeIds,
-                pickupDelivery!.Value,
-                normalType!.Value
-            )
+            ? new TcgplayerOpenOrderIds(statusIds, pickupStatusIds, orderTypeIds)
             : throw Invalid("The order manifest has no " + string.Join("; no ", missing) + ".");
     }
 
@@ -157,10 +133,10 @@ public sealed class TcgplayerApiClient
             ?.Id;
 
     /// <summary>
-    /// Call #4, paged: the candidate order numbers, each once, in the order first seen. The
-    /// order status, pickup status and order type filters are sent together because each is
-    /// partial (it narrows only some orders and returns the rest unfiltered), so the result can
-    /// still hold orders that are not open; <see cref="TcgplayerOpenOrderRule"/> decides.
+    /// Call #4, paged: the open order numbers, each once, in the order first seen. The order
+    /// status, pickup status and order type filters are always sent together: each is partial
+    /// (it narrows only some orders and returns the rest unfiltered), and only all three return
+    /// exactly the open orders (FR-004, research.md §3).
     /// </summary>
     public async Task<IReadOnlyList<string>> SearchOrderNumbersAsync(
         TcgplayerOpenOrderIds ids,
@@ -197,9 +173,8 @@ public sealed class TcgplayerApiClient
     }
 
     /// <summary>
-    /// Call #5, in batches of <c>PageSize</c>. Binds only the order number, the openness fields
-    /// (order status, delivery type, pickup status, order type) and <c>productCount</c>;
-    /// customer, shipping and value fields are never read.
+    /// Call #5, in batches of <c>PageSize</c>. Binds only the order number and
+    /// <c>productCount</c>; customer, shipping and value fields are never read.
     /// </summary>
     public async Task<IReadOnlyList<TcgplayerOrderDetails>> GetOrderDetailsAsync(
         IReadOnlyList<string> orderNumbers,

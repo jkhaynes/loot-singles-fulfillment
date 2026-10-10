@@ -6,10 +6,12 @@ namespace LootSingles.IntegrationTests.ImportUi;
 /// <summary>
 /// A stand-in for TCGplayer that serves the synthetic fixtures in
 /// LootSingles.Fixtures/Tcgplayer (never live data). Search and items page by the requested
-/// offset and limit; order details are filtered to the requested numbers. Like the live search,
-/// whose filters are partial, the search also returns orders that are not open (the "leaked"
-/// ones), so every import must skip them by their details. Every request is recorded (method,
-/// path, query, User-Agent) so tests can check the agreement guards.
+/// offset and limit; order details are filtered to the requested numbers. The search honours its
+/// filters the way the live search does, each covering only part of the orders (research.md §3):
+/// <c>orderStatusIds</c> and <c>orderTypeIds</c> narrow only shipped orders and
+/// <c>pickupStatusIds</c> only in-store pickup orders, so a search missing a filter leaks the
+/// orders only that filter excludes. Every request is recorded (method, path, query, User-Agent)
+/// so tests can check the agreement guards.
 /// </summary>
 internal sealed class TcgplayerStubHandler : HttpMessageHandler
 {
@@ -23,9 +25,11 @@ internal sealed class TcgplayerStubHandler : HttpMessageHandler
         Enumerable.Range(1, 10).Select(OrderNumber).ToArray();
 
     /// <summary>
-    /// Orders that are not open but that the search returns anyway, as the live search does:
-    /// SYN-0011 (shipped, Delivered), SYN-0012 (in-store pickup, Picked Up) and SYN-0013 (Direct).
-    /// They have details but no items; an import that fetched their items would fail.
+    /// Orders the store also has that are not open, each excluded by one filter only:
+    /// SYN-0011 (shipped, Delivered) by <c>orderStatusIds</c>, SYN-0012 (in-store pickup, Picked
+    /// Up) by <c>pickupStatusIds</c> and SYN-0013 (shipped, Direct) by <c>orderTypeIds</c>. The
+    /// search returns one only when its filter is missing. They have details but no items; an
+    /// import that fetched their items would fail.
     /// </summary>
     public static IReadOnlyList<string> LeakedOrderNumbers { get; } =
         new[] { 11, 12, 13 }.Select(OrderNumber).ToArray();
@@ -104,7 +108,7 @@ internal sealed class TcgplayerStubHandler : HttpMessageHandler
     {
         var offset = request.QueryInt("offset");
         var limit = request.QueryInt("limit");
-        var searched = Searched();
+        var searched = Searched(request);
         var page = searched.Skip(offset).Take(limit).Select(n => (JsonNode)n!).ToArray();
         return new JsonObject
         {
@@ -115,21 +119,46 @@ internal sealed class TcgplayerStubHandler : HttpMessageHandler
         }.ToJsonString();
     }
 
-    // The open orders with a leaked one after each of the first three, so the leaked orders
-    // share search pages and details batches with open ones.
-    private List<string> Searched()
+    // The fixture manifest's id for the InStorePickup delivery type.
+    private const int InStorePickup = 4;
+
+    // The store's orders, the open ones with a leaked one after each of the first three, less
+    // those a filter the request sends excludes. A filter covers only its kind of order, and an
+    // order with no fixture details row (a packing-slip order a test lists) passes every filter.
+    private List<string> Searched(RecordedRequest request)
     {
-        var searched = new List<string>();
+        var store = new List<string>();
         for (var index = 0; index < OpenOrderNumbers.Count; index++)
         {
-            searched.Add(OpenOrderNumbers[index]);
+            store.Add(OpenOrderNumbers[index]);
             if (index < LeakedOrderNumbers.Count)
-                searched.Add(LeakedOrderNumbers[index]);
+                store.Add(LeakedOrderNumbers[index]);
         }
 
-        searched.AddRange(LeakedOrderNumbers.Skip(OpenOrderNumbers.Count));
-        return searched;
+        store.AddRange(LeakedOrderNumbers.Skip(OpenOrderNumbers.Count));
+
+        var statuses = request.QueryIds("orderStatusIds");
+        var pickupStatuses = request.QueryIds("pickupStatusIds");
+        var types = request.QueryIds("orderTypeIds");
+        var rows = JsonNode.Parse(Fixture("order-details.json"))!["results"]!
+            .AsArray()
+            .ToDictionary(row => (string)row!["orderNumber"]!, row => row!);
+        return store
+            .Where(number =>
+            {
+                if (!rows.TryGetValue(number, out var row))
+                    return true;
+                if ((int?)row["orderDeliveryTypeId"] == InStorePickup)
+                    return Passes(pickupStatuses, row["orderPickupStatusTypeId"]);
+                return Passes(statuses, row["orderStatusTypeId"])
+                    && Passes(types, row["orderTypeId"]);
+            })
+            .ToList();
     }
+
+    // A filter the request leaves out excludes nothing.
+    private static bool Passes(int[]? filter, JsonNode? value) =>
+        filter is null || (value is not null && filter.Contains((int)value));
 
     /// <summary>The fixture details rows for the given order numbers, as the stub serves them.</summary>
     public static string DetailsFor(string[] numbers)
@@ -200,5 +229,13 @@ internal sealed class TcgplayerStubHandler : HttpMessageHandler
                 System.Web.HttpUtility.ParseQueryString(Query)[name] ?? "0",
                 System.Globalization.CultureInfo.InvariantCulture
             );
+
+        /// <summary>A comma-separated id filter, or null when the query leaves it out.</summary>
+        public int[]? QueryIds(string name) =>
+            System
+                .Web.HttpUtility.ParseQueryString(Query)[name]
+                ?.Split(',')
+                .Select(id => int.Parse(id, System.Globalization.CultureInfo.InvariantCulture))
+                .ToArray();
     }
 }

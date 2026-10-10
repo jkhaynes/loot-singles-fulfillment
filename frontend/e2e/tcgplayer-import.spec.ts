@@ -6,9 +6,10 @@ import path from 'node:path'
 // fixtures through a stub TCGplayer handler (never the live API), listing the eight fixture orders
 // that import cleanly. SYN-0006 and SYN-0007 are left out: they are rejected, so they would be
 // attempted again on every press and the second press could never read "No new orders".
-// Like the live search, whose filters are partial, the stub's search also returns three orders
-// that are not open (SYN-0011 Delivered, SYN-0012 Picked Up, SYN-0013 Direct); the import must
-// skip them silently, so the totals stay at eight and they never appear.
+// Like the live search, whose filters are each partial, the stub's search would also return three
+// orders that are not open (SYN-0011 Delivered, SYN-0012 Picked Up, SYN-0013 Direct) if the
+// import left out the filter that excludes each one; with all three filters sent they never
+// appear, and the totals stay at eight.
 const syntheticOrders = [1, 2, 3, 4, 5, 8, 9, 10].map(
   (index) => `SYN-${String(index).padStart(4, '0')}-A1`,
 )

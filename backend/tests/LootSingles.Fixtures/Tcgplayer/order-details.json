@@ -60,6 +60,7 @@
       "orderStatusTypeId": 2,
       "orderDeliveryTypeId": 1,
       "orderPickupStatusTypeId": null,
+      "orderTypeId": 1,
       "orderChannelTypeId": 0,
       "productCount": 1,
       "customer": {

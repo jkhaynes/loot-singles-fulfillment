@@ -117,9 +117,7 @@ public sealed class TcgplayerApiClientTests
     private static readonly TcgplayerOpenOrderIds DefaultIds = new(
         OrderStatusIds: [1, 2],
         PickupStatusIds: [1],
-        OrderTypeIds: [1],
-        InStorePickupDeliveryTypeId: 4,
-        NormalOrderTypeId: 1
+        OrderTypeIds: [1]
     );
 
     [Fact]
@@ -129,12 +127,10 @@ public sealed class TcgplayerApiClientTests
 
         var ids = await harness.Client.GetOpenOrderIdsAsync(CancellationToken.None);
 
-        // "Processing" and "Ready To Ship"; "Received"; "Normal"; and "InStorePickup".
+        // "Processing" and "Ready To Ship"; "Received"; "Normal".
         Assert.Equal([1, 2], ids.OrderStatusIds);
         Assert.Equal([1], ids.PickupStatusIds);
         Assert.Equal([1], ids.OrderTypeIds);
-        Assert.Equal(4, ids.InStorePickupDeliveryTypeId);
-        Assert.Equal(1, ids.NormalOrderTypeId);
         var request = Assert.Single(harness.Requests);
         Assert.Equal(
             $"/v1.39.0/stores/{ConfiguredStoreKey}/orders/manifest",
@@ -205,32 +201,28 @@ public sealed class TcgplayerApiClientTests
         Assert.Contains("Tcgplayer:OrderTypes", failure.Message);
     }
 
-    [Theory]
-    [InlineData("orderDeliveryTypes", "InStorePickup")]
-    [InlineData("orderTypes", "Normal")]
-    public async Task A_manifest_without_a_name_the_rule_relies_on_is_ResponseInvalid_naming_it(
-        string list,
-        string name
-    )
+    [Fact]
+    public async Task Only_the_configured_names_need_to_be_in_the_manifest()
     {
+        // Direct only, from a manifest with no delivery types and no Normal order type: nothing
+        // but the three configured lists is resolved.
         var harness = new Harness(storeKey: ConfiguredStoreKey, orderTypes: ["Direct"]);
         harness.Override(
             Route.Manifest,
             request =>
             {
                 var manifest = JsonNode.Parse(Fixture("manifest.json"))!;
-                var entries = manifest["results"]![0]![list]!.AsArray();
-                entries.Remove(entries.Single(entry => (string)entry!["name"]! == name));
+                var row = manifest["results"]![0]!.AsObject();
+                row.Remove("orderDeliveryTypes");
+                var types = row["orderTypes"]!.AsArray();
+                types.Remove(types.Single(entry => (string)entry!["name"]! == "Normal"));
                 return Json(manifest.ToJsonString())(request);
             }
         );
 
-        var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
-            harness.Client.GetOpenOrderIdsAsync(CancellationToken.None)
-        );
+        var ids = await harness.Client.GetOpenOrderIdsAsync(CancellationToken.None);
 
-        Assert.Equal(TcgplayerFeedFailure.ResponseInvalid, failure.Failure);
-        Assert.Contains($"'{name}'", failure.Message);
+        Assert.Equal([2], ids.OrderTypeIds);
     }
 
     [Fact]
@@ -280,11 +272,9 @@ public sealed class TcgplayerApiClientTests
             CancellationToken.None
         );
 
-        // The search returns the leaked non-open orders too (SYN-0011 to SYN-0013): its filters
-        // are partial, so it is only a candidate list. Deciding openness is the feed's job.
-        Assert.Equal(SearchedOrders, numbers);
+        Assert.Equal(Enumerable.Range(1, 10).Select(OrderNumber), numbers);
         Assert.Equal(
-            [0, 5, 10],
+            [0, 5],
             harness.Requests.Select(request => QueryInt(request, "offset")).ToArray()
         );
     }
@@ -496,30 +486,7 @@ public sealed class TcgplayerApiClientTests
                     second.RequestUri!.AbsolutePath
                 )
         );
-        var mismatch = details.Single(d => d.OrderNumber == "SYN-0006-A1");
-        Assert.Equal(5, mismatch.ProductCount);
-        Assert.Equal(2, mismatch.OrderStatusTypeId);
-    }
-
-    [Fact]
-    public async Task Order_details_bind_delivery_type_pickup_status_and_order_type()
-    {
-        var harness = new Harness(storeKey: ConfiguredStoreKey);
-
-        var details = await harness.Client.GetOrderDetailsAsync(
-            ["SYN-0001-A1", "SYN-0002-A1", "SYN-0003-A1", "SYN-0004-A1"],
-            CancellationToken.None
-        );
-
-        var pickup = details.Single(d => d.OrderNumber == "SYN-0004-A1");
-        Assert.Equal(1, pickup.OrderStatusTypeId);
-        Assert.Equal(4, pickup.OrderDeliveryTypeId);
-        Assert.Equal(1, pickup.OrderPickupStatusTypeId);
-        Assert.Equal(1, pickup.OrderTypeId);
-        // Shipped orders carry a null or absent pickup status; SYN-0003 has no order type at all.
-        Assert.Null(details.Single(d => d.OrderNumber == "SYN-0001-A1").OrderPickupStatusTypeId);
-        Assert.Null(details.Single(d => d.OrderNumber == "SYN-0002-A1").OrderPickupStatusTypeId);
-        Assert.Null(details.Single(d => d.OrderNumber == "SYN-0003-A1").OrderTypeId);
+        Assert.Equal(5, details.Single(d => d.OrderNumber == "SYN-0006-A1").ProductCount);
     }
 
     // ---- Order items (#6) ----
@@ -919,13 +886,7 @@ public sealed class TcgplayerApiClientTests
         var numbers = await client.SearchOrderNumbersAsync(ids, CancellationToken.None);
         var details = await client.GetOrderDetailsAsync(numbers, CancellationToken.None);
         var skuIds = new List<int>();
-        foreach (
-            var number in details
-                .Where(row =>
-                    TcgplayerOpenOrderRule.Decide(row, ids).Openness == TcgplayerOpenness.Open
-                )
-                .Select(row => row.OrderNumber!)
-        )
+        foreach (var number in details.Select(row => row.OrderNumber!))
         {
             var page = await client.GetOrderItemsAsync(number, CancellationToken.None);
             skuIds.AddRange(page.Items.Select(item => item.SkuId!.Value));
@@ -967,12 +928,6 @@ public sealed class TcgplayerApiClientTests
     // ---- Harness ----
 
     private static string OrderNumber(int index) => $"SYN-{index:0000}-A1";
-
-    // The synthetic search pages, in order: the ten open orders with the three leaked ones.
-    private static readonly string[] SearchedOrders =
-    [
-        .. new[] { 1, 2, 11, 3, 4, 5, 6, 12, 7, 8, 9, 10, 13 }.Select(OrderNumber),
-    ];
 
     private static string Fixture(string name) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Tcgplayer", name));
@@ -1130,7 +1085,6 @@ public sealed class TcgplayerApiClientTests
             {
                 0 => "search-page1.json",
                 5 => "search-page2.json",
-                10 => "search-page3.json",
                 _ => throw new InvalidOperationException($"No synthetic search page at {offset}"),
             };
 
