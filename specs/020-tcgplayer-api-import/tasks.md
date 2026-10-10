@@ -30,7 +30,7 @@ Existing web-app layout: `backend/src/`, `backend/tests/`, `frontend/src/`, `fro
 
 ## Phase 1: Setup
 
-- [ ] T001 Confirm a clean baseline on branch `020-tcgplayer-api-import`. Run `dotnet build backend/LootSingles.sln`, both backend test projects, `npm --prefix frontend run test`, `npm --prefix frontend run build` and `npm --prefix frontend run lint`, and record the pass counts here. This is the "existing tests pass" reference for the Phase 2 refactor.
+- [x] T001 Confirm a clean baseline on branch `020-tcgplayer-api-import`. Run `dotnet build backend/LootSingles.sln`, both backend test projects, `npm --prefix frontend run test`, `npm --prefix frontend run build` and `npm --prefix frontend run lint`, and record the pass counts here. This is the "existing tests pass" reference for the Phase 2 refactor. **Baseline 2026-10-09**: build OK (0 warnings); unit 262 passed; integration 252 passed (0 skipped); frontend test 269 passed (18 files); build OK; lint OK (0 errors, 2 warnings).
 - [ ] T002 [P] Create `backend/tests/LootSingles.Fixtures/Tcgplayer/README.md`. It states that every file in the folder is synthetic, written from TCGplayer's published v1.39.0 schema (contracts/tcgplayer-upstream.md), and why: §4f, no API data in AI tools. Link the folder into both test projects the same way `Fixtures/PackingSlips` is linked, in `backend/tests/LootSingles.UnitTests/LootSingles.UnitTests.csproj` and `backend/tests/LootSingles.IntegrationTests/LootSingles.IntegrationTests.csproj`.
 - [ ] T003 [P] Write the synthetic fixtures in `backend/tests/LootSingles.Fixtures/Tcgplayer/`. Use invented order numbers (`SYN-0001-…`), SKUs, product ids and card names throughout:
   - `token.json`, with `access_token`, `.expires` and `expires_in`
