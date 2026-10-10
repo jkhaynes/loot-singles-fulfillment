@@ -90,3 +90,52 @@ public sealed record TcgplayerExtendedData
     [JsonPropertyName("value")]
     public string? Value { get; init; }
 }
+
+/// <summary>
+/// The envelope every TCGplayer API response shares. <c>totalItems</c> appears only on paged
+/// endpoints: on order search it counts orders, on order items it counts lines.
+/// </summary>
+public sealed record TcgplayerResponse<T>
+{
+    [JsonPropertyName("success")]
+    public bool? Success { get; init; }
+
+    [JsonPropertyName("errors")]
+    public IReadOnlyList<string>? Errors { get; init; }
+
+    [JsonPropertyName("results")]
+    public IReadOnlyList<T>? Results { get; init; }
+
+    [JsonPropertyName("totalItems")]
+    public int? TotalItems { get; init; }
+}
+
+/// <summary>One row of <c>GET /stores/self</c>.</summary>
+public sealed record TcgplayerStoreSelf
+{
+    /// <summary>The store key the store-scoped paths take (documented as SellerKey).</summary>
+    [JsonPropertyName("sellerKey")]
+    public string? SellerKey { get; init; }
+}
+
+/// <summary>One row of <c>GET /stores/{storeKey}/orders/manifest</c>.</summary>
+public sealed record TcgplayerOrderManifest
+{
+    [JsonPropertyName("orderStatusTypes")]
+    public IReadOnlyList<TcgplayerOrderStatusType>? OrderStatusTypes { get; init; }
+}
+
+/// <summary>An order status as the manifest names it, for example <c>Ready To Ship</c>.</summary>
+public sealed record TcgplayerOrderStatusType
+{
+    [JsonPropertyName("id")]
+    public int? Id { get; init; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
+}
+
+/// <summary>Every item of one order, gathered from all pages, with the line count TCGplayer reported.</summary>
+/// <param name="Items">The items, in the order TCGplayer returned them.</param>
+/// <param name="TotalItems">The items endpoint's <c>totalItems</c>, which counts lines.</param>
+public sealed record TcgplayerOrderItems(IReadOnlyList<TcgplayerOrderItem> Items, int TotalItems);

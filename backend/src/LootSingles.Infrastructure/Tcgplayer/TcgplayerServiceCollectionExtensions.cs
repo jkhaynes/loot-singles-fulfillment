@@ -15,7 +15,8 @@ public static class TcgplayerServiceCollectionExtensions
 
     /// <summary>
     /// Binds the <c>Tcgplayer</c> options (throws now on an invalid value), registers the shared
-    /// limiter and token cache, and builds the client pipeline. With no secrets configured it still
+    /// limiter and token cache, builds the client pipeline and attaches
+    /// <see cref="TcgplayerApiClient"/> to it as a typed client. With no secrets configured it still
     /// registers; <see cref="TcgplayerOptions.IsConfigured"/> is then false.
     /// </summary>
     public static IHttpClientBuilder AddTcgplayer(
@@ -31,6 +32,7 @@ public static class TcgplayerServiceCollectionExtensions
             sp.GetRequiredService<TimeProvider>()
         ));
         services.AddSingleton<TcgplayerTokenCache>();
+        services.AddSingleton<TcgplayerStoreKeyCache>();
         services.AddTransient<TcgplayerAuthenticationHandler>();
         services.AddTransient<TcgplayerRateLimitHandler>();
 
@@ -55,6 +57,9 @@ public static class TcgplayerServiceCollectionExtensions
             // The first handler added is outermost. Auth wraps the limiter, so the token fetch,
             // the call and the 401 retry each wait for a slot (ruling R9).
             .AddHttpMessageHandler<TcgplayerAuthenticationHandler>()
-            .AddHttpMessageHandler<TcgplayerRateLimitHandler>();
+            .AddHttpMessageHandler<TcgplayerRateLimitHandler>()
+            // The API client is a transient typed client on this same pipeline; the store key it
+            // resolves lives in the singleton TcgplayerStoreKeyCache.
+            .AddTypedClient<TcgplayerApiClient>();
     }
 }

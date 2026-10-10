@@ -83,6 +83,32 @@ public sealed class TcgplayerServiceCollectionExtensionsTests
     }
 
     [Fact]
+    public async Task Api_client_is_a_typed_client_on_the_Tcgplayer_pipeline_with_a_shared_store_key_cache()
+    {
+        var stub = StubHttpMessageHandler.RespondingPerRequest(request => new HttpResponseMessage(
+            HttpStatusCode.OK
+        )
+        {
+            Content = new StringContent(
+                request.RequestUri!.AbsolutePath == "/token"
+                    ? """{"access_token":"synthetic-bearer-token-not-real","expires_in":1209600}"""
+                    : """{"success":true,"errors":[],"results":[{"sellerKey":"SYNSTORE1"}]}"""
+            ),
+        });
+        await using var provider = Build(stub);
+
+        var first = provider.GetRequiredService<TcgplayerApiClient>();
+        var second = provider.GetRequiredService<TcgplayerApiClient>();
+        Assert.Equal("SYNSTORE1", await first.GetStoreKeyAsync(CancellationToken.None));
+        Assert.Equal("SYNSTORE1", await second.GetStoreKeyAsync(CancellationToken.None));
+
+        var api = Assert.Single(stub.Requests, r => r.RequestUri!.AbsolutePath != "/token");
+        Assert.Equal(new Uri("https://api.tcgplayer.com/v1.39.0/stores/self"), api.RequestUri);
+        Assert.Equal(TcgplayerUserAgent.Value, api.Headers.UserAgent.ToString());
+        Assert.Equal("bearer", api.Headers.Authorization!.Scheme);
+    }
+
+    [Fact]
     public void Client_has_a_30_second_timeout()
     {
         using var provider = Build(null);
