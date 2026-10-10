@@ -108,7 +108,7 @@ Every fact about the TCGplayer API below comes from TCGplayer's **published docu
   - product name, set and condition are present.
   The PDF-only check that a slip line had a collector number stays in the PDF text extractor, because a PDF line without one is a parse failure. For the API it is a legitimate absence.
 - **`OrderImporter`**: the per-order unit of work, moved out of `PackingSlipImportService` unchanged in behaviour. It validates, checks for a duplicate, creates the `Order` with its `ImportSource`, runs an optional per-order hook (the PDF path uses it to attach the slip), saves, handles the unique-violation race and persistence failure, and records the `ImportOrderResult`.
-- **`ImportAttemptLog`**: the existing `LogCompletion` logic, shared by both services.
+- **`ImportAttemptLog`**: the existing `LogCompletion` logic, shared by both services. For API attempts already-imported orders are a count only, never a failure or a listed order number (FR-025, 2026-10-10); PDF attempts keep the existing output.
 
 `PackingSlipImportService` keeps its PDF-specific work: buffering, parsing, summary mismatch and slicing. It now calls `OrderImporter` per block, after converting the block with `OrderLineExtractor`. The new `TcgplayerApiImportService` does the same with the API feed's candidates.
 
@@ -118,7 +118,7 @@ Every fact about the TCGplayer API below comes from TCGplayer's **published docu
 
 ## 9. Rate limit: 300 calls a minute (FR-021)
 
-**Decision**: Add a singleton `TcgplayerRateLimiter` that keeps a sliding 60-second log of call timestamps, using `TimeProvider`. It sits in the TCGplayer `HttpClient` pipeline as a `DelegatingHandler`, so **every** request is counted, including token and catalog calls. When the window is full, a request waits until the oldest call leaves the window. The budget is `Tcgplayer:CallsPerMinute`, defaulting to **120** per environment.
+**Decision**: Add a singleton `TcgplayerRateLimiter` that keeps a sliding 60-second log of call timestamps, using `TimeProvider`. It sits in the TCGplayer `HttpClient` pipeline as a `DelegatingHandler`, so **every** request is counted, including token and catalog calls. The pipeline is auth → rate limit → per-attempt timeout (30 s) → primary, with an infinite `HttpClient.Timeout`, so the wait for a slot never counts against the timeout. When the window is full, a request waits until the oldest call leaves the window. The budget is `Tcgplayer:CallsPerMinute`, defaulting to **120** per environment.
 
 **Rationale**:
 - Production and stage each run at most one replica (019 runbook: max replicas 1), so an in-process limiter is the whole of each environment's traffic. Both environments may use the same TCGplayer account, so 120 each keeps the combined peak at 240, under 300 with margin. Startup rejects any value above **150**, so even a misconfiguration of both environments together cannot exceed 300.

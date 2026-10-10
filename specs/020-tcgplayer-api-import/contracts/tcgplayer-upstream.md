@@ -5,6 +5,7 @@
 ## Rules for every request (Legacy Qualified Addendum; `CLAUDE.md`)
 
 - **`User-Agent: LootSinglesFulfillment/{version} (Loot Investments LLC)`**: set on the client, so no request can leave without it (FR-022).
+- **Handler pipeline**: authentication, then rate limit, then a per-attempt timeout of 30 seconds, then the primary handler. `HttpClient.Timeout` is infinite, so waiting for a rate-limit slot never times a request out. The token request and a 401 retry each pass through the limiter and the timeout.
 - **Counted by the shared rate limiter**: at most `Tcgplayer:CallsPerMinute` (default 120, hard ceiling 300) in any 60-second window, across all employees and concurrent imports in the process. A request waits rather than exceeding the budget (FR-021).
 - **`Authorization: bearer {token}`**: on everything except the token request itself.
 - **Base address**: `Tcgplayer:BaseUrl` (default `https://api.tcgplayer.com/`). API paths take the `Tcgplayer:ApiVersion` prefix (default `v1.39.0`). The token path has none.

@@ -23,6 +23,7 @@ Pulls the store's open orders from TCGplayer and imports each one that isn't alr
 - `results[]`: `{ sourceOrderIdentifier, outcome: "succeeded" | "rejected", failureCode?, failureMessage?, resultingOrderId? }`.
   - An already-imported order is `rejected` with `failureCode: "duplicateOrder"` and the message "Already imported". Its items are **not** fetched again.
   - A per-order `incompleteOrder` or `tcgplayerResponseInvalid` result carries a specific message, for example "TCGplayer returned 3 of this order's 4 lines", or "Line quantities total 5 but TCGplayer reports 6 items".
+  - The wire format is unchanged: the stream keeps one `duplicateOrder` result per already-imported order, and `failedCount` still counts them. Only the presentation differs. On an API press the UI collapses them into one summary line, "N already imported", and lists new and rejected orders individually (FR-011). Pressing again while orders are still open is therefore a normal outcome, not a failure. PDF results are unchanged.
 - **No new orders**: a final `completed` snapshot with `ordersDetected: 0`, or with every result a `duplicateOrder`. The UI shows "No new orders", distinct from any failure (FR-011).
 
 ### Attempt-wide failures

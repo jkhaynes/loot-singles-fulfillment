@@ -138,11 +138,11 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 - [x] T023 Write a unit test for the version in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerUserAgentTests.cs`. `TcgplayerUserAgent.Value` must equal `LootSinglesFulfillment/{InformationalVersion without the +hash} (Loot Investments LLC)`. Confirm red, then implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerUserAgent.cs`.
 - [x] T024 Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerServiceCollectionExtensions.cs`, `AddTcgplayer(IServiceCollection, IConfiguration)`. It binds the options, registers the singleton limiter and token cache, and adds a typed `HttpClient` with:
   - the base address and API-version prefix;
-  - a 30-second timeout;
+  - an infinite `HttpClient.Timeout` (each attempt is bounded by a 30-second handler instead);
   - the `User-Agent` default header;
-  - the handler chain rate limit → auth, so the token request is counted too.
+  - the handler chain auth → rate limit → per-attempt timeout (30 s) → primary, so the token request is counted too.
 
-  **R15 (2026-10-09)**: per-attempt 30 s timeout moved inside the rate limiter; HttpClient.Timeout infinite.
+  **R15 (2026-10-09)**: per-attempt 30 s timeout moved inside the rate limiter; HttpClient.Timeout infinite. Wording corrected 2026-10-10 to match the code.
 
   Call it from `backend/src/LootSingles.Api/Program.cs` **and** `backend/tests/LootSingles.E2EHost/Program.cs`. This one registration is shared on purpose (plan.md, Structure Decision).
 
@@ -342,18 +342,18 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
 Open orders stay open on TCGplayer until they ship, so every press sees the already-imported ones again. On the API path they are a normal outcome, not a failure. PDF behaviour is unchanged. Run these before T058's finish step.
 
-- [ ] T063 Update the contracts and plan text:
+- [x] T063 Update the contracts and plan text:
   - `contracts/import-api.md`: the API results list keeps a `duplicateOrder` result per already-imported order (the wire format is unchanged), and the UI collapses them into one "N already imported" line on API presses; "No new orders" is unchanged;
   - the completion-log wording in `plan.md` and `research.md` wherever it describes FR-025, to match the amended FR-025;
   - the doc drift left from U14b: `plan.md`, `tasks.md` T024 and `contracts/` still describe a 30 s HttpClient timeout and "rate limit → auth"; the pipeline is auth → rate limit → per-attempt timeout (30 s) → primary, with an infinite HttpClient timeout.
-- [ ] T064 Write tests in `backend/tests/LootSingles.IntegrationTests/Logging/ImportLoggingTests.cs` (or wherever the API completion-log tests live) for FR-025 as amended:
+- [x] T064 Write tests in `backend/tests/LootSingles.IntegrationTests/Logging/ImportLoggingTests.cs` (or wherever the API completion-log tests live) for FR-025 as amended:
   - an API attempt whose results are only imported and already-imported orders logs exactly one **Information** entry, with the already-imported count and **no** already-imported order numbers;
   - an API attempt with already-imported orders plus a real rejection logs one **Warning** whose per-type breakdown lists only the real failure type with its order numbers, with the already-imported count alongside;
   - an attempt-wide API failure still logs one Warning as before;
   - the existing PDF duplicate tests stay unchanged and green (006 FR-004).
 
   Confirm red.
-- [ ] T065 Implement T064 in `backend/src/LootSingles.Application/Import/ImportAttemptLog.cs`, branching once on the attempt's source. Keep the PDF path byte-for-byte as it is. Confirm T064 is green and every existing logging test passes.
+- [x] T065 Implement T064 in `backend/src/LootSingles.Application/Import/ImportAttemptLog.cs`, branching once on the attempt's source. Keep the PDF path byte-for-byte as it is. Confirm T064 is green and every existing logging test passes.
 - [ ] T066 Write tests in `frontend/tests/import/ImportPage.test.tsx`: after an API press, already-imported results render as one "N already imported" line and not as individual rows; imported and rejected orders still render one row each; "No new orders" still shows when every result is already imported; a PDF import still shows one row per duplicate. Confirm red, then implement in `ImportPage.tsx`, and run `npm --prefix frontend run build`. Update `frontend/e2e/tcgplayer-import.spec.ts` where the second press or later assertions depend on the old per-row display (always `--reporter=list`).
 
 ### Manual: live confirmation (a person, never an AI tool)
