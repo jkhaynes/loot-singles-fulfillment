@@ -8,7 +8,8 @@ public sealed record OrderDetail(
     OrderStatus Status,
     IReadOnlyList<OrderLineDetail> Lines,
     int? ClaimedByEmployeeId = null,
-    string? ClaimedByEmployeeName = null
+    string? ClaimedByEmployeeName = null,
+    OrderImportSource ImportSource = OrderImportSource.PackingSlipPdf
 );
 
 public sealed record OrderLineDetail(
@@ -23,7 +24,8 @@ public sealed record OrderLineDetail(
     string Condition,
     int Quantity,
     string? ImageUrl = null,
-    PickingIssueDetail? CurrentIssue = null
+    PickingIssueDetail? CurrentIssue = null,
+    string? Language = null
 );
 
 public sealed record PickingIssueDetail(

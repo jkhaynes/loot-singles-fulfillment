@@ -1,4 +1,5 @@
 using LootSingles.Application.CardCatalog;
+using LootSingles.Domain.Orders;
 
 namespace LootSingles.Application.Orders;
 
@@ -16,6 +17,14 @@ public sealed class OrdersService(
         if (order is null)
         {
             return null;
+        }
+
+        // API-imported lines carry TCGplayer's own stored image. They must never reach a
+        // third-party catalog provider (TCGplayer API agreement), and a line without a stored
+        // image stays without one.
+        if (order.ImportSource == OrderImportSource.TcgplayerApi)
+        {
+            return order;
         }
 
         var indexedLines = order

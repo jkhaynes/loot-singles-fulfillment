@@ -259,14 +259,14 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
 **Independent Test**: Open an imported synthetic order. Lines with an image show it, the line without one shows none, the no-number line reads "No number", and no `ICardCatalogProvider` is called (quickstart §A).
 
-- [ ] T041 [P] [US2] Write integration tests in `backend/tests/LootSingles.IntegrationTests/Orders/TcgplayerOrderImageTests.cs`, using a **recording** fake `ICardCatalogProvider` for every product line (the `OrdersControllerTests.cs` pattern):
+- [x] T041 [P] [US2] Write integration tests in `backend/tests/LootSingles.IntegrationTests/Orders/TcgplayerOrderImageTests.cs`, using a **recording** fake `ICardCatalogProvider` for every product line (the `OrdersControllerTests.cs` pattern):
   - `GET /api/orders/{id}` for a `TcgplayerApi` order returns each line's stored `imageUrl`, or `null`, and **the fake records zero calls**, even for a line with no image (FR-019, SC-005);
   - `collectorNumber` is `null` for the no-number line;
   - `language` is returned;
   - a `PackingSlipPdf` order still calls the provider and resolves images as before.
 
   Confirm red.
-- [ ] T042 [US2] In `backend/src/LootSingles.Application/Orders/OrdersService.cs` (`GetByIdAsync`), branch once on `Order.ImportSource`: API orders take `ImageUrl` from the line and never call `CardImageEnrichmentService`. Add `Language` to `OrderDetail.cs`, `OrderDetailProjection.cs` and `OrderLineDetailResponse` in `backend/src/LootSingles.Api/Controllers/OrdersController.cs`, and project `ImportSource` and `ImageUrl` as needed. Confirm T041 is green.
+- [x] T042 [US2] In `backend/src/LootSingles.Application/Orders/OrdersService.cs` (`GetByIdAsync`), branch once on `Order.ImportSource`: API orders take `ImageUrl` from the line and never call `CardImageEnrichmentService`. Add `Language` to `OrderDetail.cs`, `OrderDetailProjection.cs` and `OrderLineDetailResponse` in `backend/src/LootSingles.Api/Controllers/OrdersController.cs`, and project `ImportSource` and `ImageUrl` as needed. Confirm T041 is green.
 - [ ] T043 [P] [US2] Write tests in `frontend/tests/orders/FocusedPickView.test.tsx`, `OrderDetailPage.test.tsx` and `OrderFinish.test.tsx`:
   - a line with a `null` collector number renders **"No number"**, never blank or "null";
   - a line with `language` "Japanese" shows "Japanese" next to the condition, and "English" or `null` shows nothing extra;
