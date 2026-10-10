@@ -321,7 +321,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 - [x] T050 [P] Extend the credential scan, in `backend/tests/LootSingles.IntegrationTests/Configuration/DeploymentConfigurationTests.cs` and in the `credential_pattern` step of `.github/workflows/pr-quality-gate.yml` together, to catch `PrivateKey`, `client_secret` and `X-Tcg-Access-Token` value assignments (FR-023, SC-008).
   - Make test fakes avoid the pattern, following the precedent in commit `ff87871`.
   - Confirm the 020 probe and authorize scripts under `specs/020-tcgplayer-api-import/probe/` don't trip it: they interpolate variables and contain no values.
-- [x] T051 [P] Add `ARG APP_VERSION=0.0.0-local` to `Dockerfile` and pass `-p:InformationalVersion=$APP_VERSION` to `dotnet publish`. In `.github/workflows/deploy-stage.yml`, pass `--build-arg APP_VERSION=1.0.0+${GITHUB_SHA::7}` to the image build (research.md §11). Production reuses stage's image, so it carries the same version.
+- [x] T051 [P] Add `ARG APP_VERSION=0.0.0-local` to `Dockerfile` and pass `-p:InformationalVersion=$APP_VERSION` to `dotnet publish`. In `.github/workflows/deploy-stage.yml`, pass `--build-arg APP_VERSION=1.0.0-sha.${GITHUB_SHA::7}` to the image build (research.md §11). (Amended after the final review: the earlier `1.0.0+sha` form lost the SHA to the `+hash` trim, so every build reported `1.0.0`.) Production reuses stage's image, so it carries the same version.
 - [x] T052 [P] Write `docs/prd/Loot_Singles_Fulfillment_PRD_v0.7.md` (research.md §16), changing these sections:
   - **§25 and §40.6:** the API is primary and PDF is the fallback;
   - **§27:** API orders carry no slip;

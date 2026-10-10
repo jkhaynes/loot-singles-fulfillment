@@ -27,7 +27,8 @@ public sealed class TcgplayerUserAgentTests
 
     [Theory]
     [InlineData("1.0.0+64314de0e298006fa460384dfff40043e0d9c334", "1.0.0")]
-    [InlineData("1.0.0+abc1234", "1.0.0")]
+    [InlineData("1.0.0-sha.abc1234+0123456789abcdef", "1.0.0-sha.abc1234")]
+    [InlineData("1.0.0-sha.abc1234", "1.0.0-sha.abc1234")]
     [InlineData("0.0.0-local", "0.0.0-local")]
     public void For_TrimsTheSourceLinkHashSuffix(string informationalVersion, string expected) =>
         Assert.Equal(

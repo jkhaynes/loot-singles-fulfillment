@@ -151,8 +151,9 @@ A `429` is treated as `Unavailable`, not retried. Seeing one would mean the limi
 **Decision**:
 - Every TCGplayer request carries `User-Agent: LootSinglesFulfillment/{version} (Loot Investments LLC)`.
 - `{version}` is the assembly's `InformationalVersion`. The Dockerfile gains `ARG APP_VERSION=0.0.0-local`, passed to `dotnet publish -p:InformationalVersion=$APP_VERSION`.
-- `deploy-stage.yml` passes `APP_VERSION=1.0.0+{short sha}` as a build argument. Production deploys the image stage built, so it carries the same version.
+- `deploy-stage.yml` passes `APP_VERSION=1.0.0-sha.{short sha}` as a build argument, a SemVer pre-release with no `+`. Production deploys the image stage built, so it carries the same version.
 - Any SourceLink `+hash` suffix is trimmed so the header stays one clean token.
+- *Amended after the final review:* the earlier `1.0.0+{short sha}` contradicted the trim above, which cut the SHA off and left every build reporting `1.0.0`, the stale fixed version this decision rules out. The `-sha.` separator survives the trim.
 
 **Rationale**: The addendum requires an **accurate** version. A hardcoded "1.0" would go stale. The commit SHA identifies exactly what is running and needs no manual bumping.
 

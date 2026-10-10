@@ -251,6 +251,26 @@ public sealed class DeploymentConfigurationTests
         Assert.Empty(offenders);
     }
 
+    [Fact]
+    public void Stage_build_stamps_a_version_whose_commit_survives_the_user_agent_trim()
+    {
+        // 020 research.md §11: the commit SHA is what makes the TCGplayer User-Agent version
+        // accurate, so it must not sit after a "+", which TcgplayerUserAgent trims.
+        var workflow = ReadWorkflow("deploy-stage.yml");
+        var line = workflow
+            .Split('\n')
+            .Single(l => l.Contains("echo \"version=", StringComparison.Ordinal));
+        var start = line.IndexOf("version=", StringComparison.Ordinal) + "version=".Length;
+        var version = line[start..line.IndexOf('"', start)]
+            .Replace("${GITHUB_SHA::7}", "abc1234", StringComparison.Ordinal);
+
+        Assert.Contains(
+            "abc1234",
+            LootSingles.Infrastructure.Tcgplayer.TcgplayerUserAgent.For(version),
+            StringComparison.Ordinal
+        );
+    }
+
     private static System.Text.RegularExpressions.Regex ReadCredentialScan()
     {
         var workflow = ReadWorkflow("pr-quality-gate.yml");

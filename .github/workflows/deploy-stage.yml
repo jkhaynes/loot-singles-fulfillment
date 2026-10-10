@@ -54,8 +54,9 @@ jobs:
         shell: bash
         run: |
           echo "image=${IMAGE_REPOSITORY,,}:sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-          # 020: the version the TCGplayer User-Agent reports (research.md §11).
-          echo "version=1.0.0+${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          # 020: the version the TCGplayer User-Agent reports (research.md §11). The SHA is a
+          # pre-release ("-sha."), not "+" build metadata, which the User-Agent trims.
+          echo "version=1.0.0-sha.${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Sign in to the container registry
         uses: docker/login-action@v3
