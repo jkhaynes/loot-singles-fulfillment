@@ -156,7 +156,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
 ### Translator and client
 
-- [ ] T025 [P] [US1] Write unit tests for `TcgplayerOrderTranslator` in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerOrderTranslatorTests.cs`, covering every row of research.md §7:
+- [x] T025 [P] [US1] Write unit tests for `TcgplayerOrderTranslator` in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerOrderTranslatorTests.cs`, covering every row of research.md §7:
   - `categoryName`, `productName` and `groupName` pass through verbatim;
   - `condition` goes through `ConditionVariantParser`, so "Near Mint Foil" gives Condition "Near Mint" and Variant "Foil", and an unknown condition gives `Condition = null`, which the validator then rejects;
   - a `printing` of "Normal" is dropped, other printings are appended, and `isFoil` with no foil text adds "Foil";
@@ -169,7 +169,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
   - the line quantities summing to a different total than `productCount`, or fewer items than `totalItems`, gives `RejectedBySource(IncompleteOrder, specific message)`. ⚠ LIVE: units vs lines, research.md §5.
 
   Confirm red.
-- [ ] T026 [US1] Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerOrderTranslator.cs` as a pure static class. The `extendedData` names come from `TcgplayerOptions.CollectorNumberField` and `RarityField`. ⚠ LIVE: the names, research.md §6. Confirm T025 is green.
+- [x] T026 [US1] Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerOrderTranslator.cs` as a pure static class. The `extendedData` names come from `TcgplayerOptions.CollectorNumberField` and `RarityField`. ⚠ LIVE: the names, research.md §6. Confirm T025 is green.
 - [ ] T027 [P] [US1] Write unit tests for `TcgplayerApiClient` in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerApiClientTests.cs`, using `StubHttpMessageHandler` and the T003 fixtures. They check that:
   - `GetStoreKeyAsync` uses `Tcgplayer:StoreKey` when it is set and otherwise calls `/stores/self` **once** per process;
   - open status **names** resolve through the manifest, and a configured name that is missing throws `ResponseInvalid`, naming the status (⚠ LIVE: "Ready To Ship");
