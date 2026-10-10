@@ -79,6 +79,7 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IImportPersistence, ImportRepository>();
 builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
 builder.Services.AddScoped<IPackingSlipSlicer, PdfPigPackingSlipSlicer>();
+builder.Services.AddScoped<OrderImporter>();
 builder.Services.AddScoped<PackingSlipImportService>();
 builder.Services.AddScoped<IPackingSlipImportService, ObservableProgressImportService>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();

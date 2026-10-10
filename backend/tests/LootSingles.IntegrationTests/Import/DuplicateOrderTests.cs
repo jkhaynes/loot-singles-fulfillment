@@ -67,12 +67,20 @@ public class DuplicateOrderTests
         var firstService = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(
+                new CoordinatedPersistence(firstContext, barrier),
+                NullLogger<OrderImporter>.Instance
+            ),
             new CoordinatedPersistence(firstContext, barrier),
             NullLogger<PackingSlipImportService>.Instance
         );
         var secondService = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(
+                new CoordinatedPersistence(secondContext, barrier),
+                NullLogger<OrderImporter>.Instance
+            ),
             new CoordinatedPersistence(secondContext, barrier),
             NullLogger<PackingSlipImportService>.Instance
         );

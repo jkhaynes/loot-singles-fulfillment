@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LootSingles.IntegrationTests.Import;
 
@@ -27,6 +28,7 @@ public class ImportLoggingTests
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
             new ImportRepository(context),
             logger
         );
@@ -52,6 +54,7 @@ public class ImportLoggingTests
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
             new ImportRepository(context),
             logger
         );
@@ -83,6 +86,7 @@ public class ImportLoggingTests
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
             new ImportRepository(context),
             logger
         );
@@ -112,6 +116,7 @@ public class ImportLoggingTests
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
             new ImportRepository(context),
             logger
         );
@@ -137,6 +142,7 @@ public class ImportLoggingTests
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
             new ImportRepository(context),
             logger
         );
@@ -169,12 +175,13 @@ public class ImportLoggingTests
         await using var context = ImportTestSupport.CreateDatabaseContext(
             new FailOrderLineInsertInterceptor()
         );
-        var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var logger = new ImportTestSupport.CapturingLogger<OrderImporter>();
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(new ImportRepository(context), logger),
             new ImportRepository(context),
-            logger
+            NullLogger<PackingSlipImportService>.Instance
         );
 
         var final = await ImportTestSupport.ImportFixtureAsync(
@@ -198,6 +205,7 @@ public class ImportLoggingTests
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
             new ImportRepository(context),
             logger
         );
@@ -224,6 +232,7 @@ public class ImportLoggingTests
         var service = new PackingSlipImportService(
             new CancellableParser(),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
             new ImportRepository(context),
             logger
         );
@@ -263,6 +272,7 @@ public class ImportLoggingTests
         var service = new PackingSlipImportService(
             new SyntheticProgressiveParser(200),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
             new ImportRepository(context),
             logger
         );

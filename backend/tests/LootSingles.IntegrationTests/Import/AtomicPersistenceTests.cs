@@ -19,6 +19,7 @@ public class AtomicPersistenceTests
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
             new ImportRepository(context),
             NullLogger<PackingSlipImportService>.Instance
         );
@@ -45,6 +46,7 @@ public class AtomicPersistenceTests
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
             new ImportRepository(context),
             NullLogger<PackingSlipImportService>.Instance
         );
@@ -68,6 +70,7 @@ public class AtomicPersistenceTests
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
             new ImportRepository(context),
             NullLogger<PackingSlipImportService>.Instance
         );

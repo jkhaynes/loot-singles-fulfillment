@@ -71,6 +71,7 @@ public sealed class PackingSlipStorageTests(SqlServerContainerFixture fixture)
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new FailingSlicer(),
+            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
             new ImportRepository(context),
             logger
         );
@@ -112,6 +113,7 @@ public sealed class PackingSlipStorageTests(SqlServerContainerFixture fixture)
         new(
             new PdfPigPackingSlipParser(),
             slicer,
+            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
             new ImportRepository(context),
             NullLogger<PackingSlipImportService>.Instance
         );

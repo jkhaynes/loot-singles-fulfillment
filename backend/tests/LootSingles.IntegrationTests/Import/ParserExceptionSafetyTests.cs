@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LootSingles.IntegrationTests.Import;
 
@@ -26,6 +27,7 @@ public sealed class ParserExceptionSafetyTests
         var service = new PackingSlipImportService(
             new ThrowingParser(),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
             new ImportRepository(context),
             logger
         );

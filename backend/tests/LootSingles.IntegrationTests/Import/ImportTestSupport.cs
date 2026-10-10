@@ -33,19 +33,24 @@ internal static class ImportTestSupport
         new(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
+            new OrderImporter(new ImportRepository(context), NullLogger<OrderImporter>.Instance),
             new ImportRepository(context),
             NullLogger<PackingSlipImportService>.Instance
         );
 
     public static PackingSlipImportService CreateDatabaseFreeService(
         IPackingSlipParser? parser = null
-    ) =>
-        new(
+    )
+    {
+        var persistence = new FakeImportPersistence();
+        return new(
             parser ?? new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new FakeImportPersistence(),
+            new OrderImporter(persistence, NullLogger<OrderImporter>.Instance),
+            persistence,
             NullLogger<PackingSlipImportService>.Instance
         );
+    }
 
     public static FileStream OpenFixture(string name) =>
         File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "PackingSlips", name));

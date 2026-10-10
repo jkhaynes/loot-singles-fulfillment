@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Text;
 using LootSingles.Application.Persistence;
 using LootSingles.Domain.Orders;
 using Microsoft.Extensions.Logging;
@@ -9,6 +8,7 @@ namespace LootSingles.Application.Import;
 public sealed class PackingSlipImportService(
     IPackingSlipParser parser,
     IPackingSlipSlicer slicer,
+    OrderImporter orderImporter,
     IImportPersistence persistence,
     ILogger<PackingSlipImportService> logger
 ) : IPackingSlipImportService
@@ -76,7 +76,7 @@ public sealed class PackingSlipImportService(
             attempt.AttemptFailureCode = FailureType.UnreadablePdf;
             attempt.AttemptFailureMessage = unreadableMessage;
             await CompleteAttemptAsync(attempt, cancellationToken);
-            LogCompletion(attempt);
+            ImportAttemptLog.LogCompletion(logger, attempt);
             yield return Update(0, 0, 0, 0, true, attempt);
             yield break;
         }
@@ -87,7 +87,7 @@ public sealed class PackingSlipImportService(
             attempt.AttemptFailureMessage =
                 "The supplied PDF does not contain any recognizable order pages from a packing slip.";
             await CompleteAttemptAsync(attempt, cancellationToken);
-            LogCompletion(attempt);
+            ImportAttemptLog.LogCompletion(logger, attempt);
             yield return Update(0, 0, 0, 0, true, attempt);
             yield break;
         }
@@ -105,71 +105,26 @@ public sealed class PackingSlipImportService(
         foreach (var block in parsed.OrderBlocks)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var result = new ImportOrderResult
-            {
-                ImportAttemptId = attempt.Id,
-                SourceOrderIdentifier = block.OrderIdentifier,
-                Outcome = ImportOutcome.Rejected,
-            };
-            attempt.ImportOrderResults.Add(result);
-
             var candidate = OrderLineExtractor.Extract(block);
-            var validationFailure = OrderCandidateValidator.Validate(candidate);
-            if (validationFailure is not null)
+            var result = await orderImporter.ImportAsync(
+                attempt,
+                candidate,
+                order =>
+                {
+                    if (!TryAttachPackingSlip(order, documentBytes, block))
+                    {
+                        withoutPackingSlip++;
+                    }
+                },
+                cancellationToken
+            );
+            if (result.Outcome == ImportOutcome.Succeeded)
             {
-                Reject(result, validationFailure.Value.Type, validationFailure.Value.Message);
-                failed++;
-            }
-            else if (await persistence.OrderExistsAsync(block.OrderIdentifier!, cancellationToken))
-            {
-                Reject(
-                    result,
-                    FailureType.DuplicateOrder,
-                    $"Order '{block.OrderIdentifier}' was already imported and was left unchanged."
-                );
-                failed++;
+                succeeded++;
             }
             else
             {
-                var order = CreateOrder(block, candidate);
-                result.Outcome = ImportOutcome.Succeeded;
-                if (!TryAttachPackingSlip(order, documentBytes, block))
-                {
-                    withoutPackingSlip++;
-                }
-                persistence.AddOrder(order);
-                try
-                {
-                    await persistence.SaveChangesAsync(cancellationToken);
-                    result.ResultingOrderId = order.Id;
-                    succeeded++;
-                }
-                catch (UniqueConstraintViolationException)
-                {
-                    persistence.DiscardOrder(order);
-                    Reject(
-                        result,
-                        FailureType.DuplicateOrder,
-                        $"Order '{block.OrderIdentifier}' was already imported by a concurrent operation."
-                    );
-                    failed++;
-                }
-                catch (OrderPersistenceException)
-                {
-                    persistence.DiscardOrder(order);
-                    logger.LogError(
-                        "Import attempt {ImportId} could not persist order {OrderId}: {FailureType}.",
-                        attempt.Id,
-                        block.OrderIdentifier,
-                        FailureType.PersistenceFailure
-                    );
-                    Reject(
-                        result,
-                        FailureType.PersistenceFailure,
-                        $"Order '{block.OrderIdentifier}' could not be saved; no order or product lines were retained. Retry the import or contact support if the problem continues."
-                    );
-                    failed++;
-                }
+                failed++;
             }
 
             processed++;
@@ -185,82 +140,9 @@ public sealed class PackingSlipImportService(
         }
 
         await CompleteAttemptAsync(attempt, cancellationToken);
-        LogCompletion(attempt);
+        ImportAttemptLog.LogCompletion(logger, attempt);
         LogPackingSlipFailures(attempt, withoutPackingSlip, succeeded);
         yield return Update(parsed.OrderBlocks.Count, processed, succeeded, failed, true, attempt);
-    }
-
-    private void LogCompletion(ImportAttempt attempt)
-    {
-        var detected = attempt.ImportOrderResults.Count;
-        var succeeded = attempt.ImportOrderResults.Count(result =>
-            result.Outcome == ImportOutcome.Succeeded
-        );
-        var failed = attempt.ImportOrderResults.Count(result =>
-            result.Outcome == ImportOutcome.Rejected
-        );
-
-        if (attempt.AttemptFailureCode is not null && detected == 0)
-        {
-            logger.LogWarning(
-                "Import attempt {ImportId} failed before any orders could be evaluated: {AttemptFailureType}. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}.",
-                attempt.Id,
-                attempt.AttemptFailureCode,
-                detected,
-                succeeded,
-                failed
-            );
-            return;
-        }
-
-        if (failed == 0 && attempt.AttemptFailureCode is null)
-        {
-            logger.LogInformation(
-                "Import attempt {ImportId} completed successfully. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}.",
-                attempt.Id,
-                detected,
-                succeeded,
-                failed
-            );
-            return;
-        }
-
-        // Built dynamically (not a static ILogger template) because the per-FailureType breakdown
-        // has variable cardinality; do not collapse this back to a static template.
-        var template = new StringBuilder(
-            "Import attempt {ImportId} completed with failures. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}."
-        );
-        var args = new List<object?> { attempt.Id, detected, succeeded, failed };
-
-        if (attempt.AttemptFailureCode is { } attemptFailureType)
-        {
-            template.Append(" AttemptFailureType={AttemptFailureType}.");
-            args.Add(attemptFailureType);
-        }
-
-        var breakdown = attempt
-            .ImportOrderResults.Where(result =>
-                result.Outcome == ImportOutcome.Rejected && result.FailureCode is not null
-            )
-            .GroupBy(result => result.FailureCode!.Value)
-            .OrderBy(group => group.Key);
-        foreach (var group in breakdown)
-        {
-            template.Append($" {group.Key}: {{{group.Key}Count}} [{{{group.Key}Ids}}]");
-            args.Add(group.Count());
-            args.Add(
-                string.Join(
-                    ",",
-                    group.Select(result =>
-                        string.IsNullOrWhiteSpace(result.SourceOrderIdentifier)
-                            ? "(missing)"
-                            : result.SourceOrderIdentifier
-                    )
-                )
-            );
-        }
-
-        logger.LogWarning(template.ToString(), args.ToArray());
     }
 
     private async Task CompleteAttemptAsync(
@@ -343,36 +225,6 @@ public sealed class PackingSlipImportService(
         using var buffer = new MemoryStream();
         await stream.CopyToAsync(buffer, cancellationToken);
         return buffer.ToArray();
-    }
-
-    private static Order CreateOrder(RawOrderBlock block, OrderCandidate candidate) =>
-        new()
-        {
-            TcgplayerOrderId = block.OrderIdentifier!,
-            Status = OrderStatus.Ready,
-            ImportedAt = DateTimeOffset.UtcNow,
-            OrderLines = candidate
-                .Lines.Select(line => new OrderLine
-                {
-                    RawDescription = line.RawDescription,
-                    ProductLine = line.ProductLine!,
-                    ProductName = line.ProductName!,
-                    Set = line.Set!,
-                    CollectorNumber = line.CollectorNumber!,
-                    Rarity = line.Rarity,
-                    Condition = line.Condition!,
-                    Variant = line.Variant,
-                    Quantity = line.Quantity!.Value,
-                })
-                .ToList(),
-        };
-
-    private static void Reject(ImportOrderResult result, FailureType type, string message)
-    {
-        result.Outcome = ImportOutcome.Rejected;
-        result.FailureCode = type;
-        result.FailureMessage = message;
-        result.ResultingOrderId = null;
     }
 
     private static bool HasSummaryMismatch(ParsedPackingSlip parsed, out string? message)
