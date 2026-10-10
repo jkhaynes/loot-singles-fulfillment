@@ -61,8 +61,8 @@ Existing web-app layout: `backend/src/`, `backend/tests/`, `frontend/src/`, `fro
 
 Research.md §8 and data-model.md cover this. The existing PDF suites in `backend/tests/LootSingles.UnitTests/Import/`, `backend/tests/LootSingles.IntegrationTests/Import/` and `…/ImportUi/` must stay green after **every** task here, with no assertion edits. Only construction may change.
 
-- [ ] T004 Add the `OrderCandidate` and `OrderLineCandidate` records, with fields exactly as in data-model.md, including `RejectedBySource`, to `backend/src/LootSingles.Application/Import/OrderCandidate.cs`.
-- [ ] T005 Write unit tests for `OrderCandidateValidator` in `backend/tests/LootSingles.UnitTests/Import/OrderCandidateValidatorTests.cs`. They cover each rule and its existing `FailureType` and message, in data-model.md's order:
+- [x] T004 Add the `OrderCandidate` and `OrderLineCandidate` records, with fields exactly as in data-model.md, including `RejectedBySource`, to `backend/src/LootSingles.Application/Import/OrderCandidate.cs`.
+- [x] T005 Write unit tests for `OrderCandidateValidator` in `backend/tests/LootSingles.UnitTests/Import/OrderCandidateValidatorTests.cs`. They cover each rule and its existing `FailureType` and message, in data-model.md's order:
   - `MissingOrderIdentifier`
   - `NoProductLines`
   - `InvalidQuantity` (null or ≤ 0)
@@ -71,7 +71,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
   - `MissingCondition`
 
   Also assert that a candidate with a **null `CollectorNumber` is valid**, and that a candidate with `RejectedBySource` set returns that rejection without running the rules. Confirm red.
-- [ ] T006 Implement `OrderCandidateValidator` in `backend/src/LootSingles.Application/Import/OrderCandidateValidator.cs`, reusing the existing failure messages verbatim. Confirm T005 is green.
+- [x] T006 Implement `OrderCandidateValidator` in `backend/src/LootSingles.Application/Import/OrderCandidateValidator.cs`, reusing the existing failure messages verbatim. Confirm T005 is green.
 - [ ] T007 Change `OrderLineExtractor` in `backend/src/LootSingles.Application/Import/OrderLineExtractor.cs` so a `RawOrderBlock` becomes an `OrderCandidate`, with `RawDescription` kept verbatim. The PDF-only "slip line must have a collector number" check stays here and becomes `RejectedBySource(MissingCollectorNumber, <existing message>)`. Fold the text-quantity parsing from `OrderLineValidator.cs` into the extractor, so an unparseable quantity becomes `Quantity = null`. Delete `OrderLineValidator.cs` once nothing uses it. Update `OrderLineExtractionTests.cs` and `OrderValidationTests.cs` so they target the extractor plus the validator. Assertions about outcomes, failure types and messages stay identical.
 - [ ] T008 Extract `OrderImporter` from `PackingSlipImportService.cs` (L105–184 and helpers) into `backend/src/LootSingles.Application/Import/OrderImporter.cs`:
   - `Task<ImportOrderResult> ImportAsync(ImportAttempt attempt, OrderCandidate candidate, Action<Order>? beforeSave, CancellationToken ct)`. The source parameter is added in T014.
