@@ -53,7 +53,9 @@ test('Get new orders imports every open TCGplayer order once and lists them as R
   // Step 3: nothing new the second time.
   await page.getByRole('button', { name: 'Get new orders' }).click()
   await expect(page.getByText('No new orders.')).toBeVisible({ timeout: 20_000 })
-  await expect(page.locator('[data-outcome="succeeded"]')).toHaveCount(0)
+  // Already-imported orders collapse into one line, not one row each (FR-011).
+  await expect(page.getByText('8 already imported')).toBeVisible()
+  await expect(page.locator('.import-order-list li')).toHaveCount(0)
 
   // The dashboard lists the new orders as ready to pick.
   await page.getByRole('link', { name: /back to dashboard/i }).click()

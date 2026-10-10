@@ -354,7 +354,7 @@ Open orders stay open on TCGplayer until they ship, so every press sees the alre
 
   Confirm red.
 - [x] T065 Implement T064 in `backend/src/LootSingles.Application/Import/ImportAttemptLog.cs`, branching once on the attempt's source. Keep the PDF path byte-for-byte as it is. Confirm T064 is green and every existing logging test passes.
-- [ ] T066 Write tests in `frontend/tests/import/ImportPage.test.tsx`: after an API press, already-imported results render as one "N already imported" line and not as individual rows; imported and rejected orders still render one row each; "No new orders" still shows when every result is already imported; a PDF import still shows one row per duplicate. Confirm red, then implement in `ImportPage.tsx`, and run `npm --prefix frontend run build`. Update `frontend/e2e/tcgplayer-import.spec.ts` where the second press or later assertions depend on the old per-row display (always `--reporter=list`).
+- [x] T066 Write tests in `frontend/tests/import/ImportPage.test.tsx`: after an API press, already-imported results render as one "N already imported" line and not as individual rows; imported and rejected orders still render one row each; "No new orders" still shows when every result is already imported; a PDF import still shows one row per duplicate. Confirm red, then implement in `ImportPage.tsx`, and run `npm --prefix frontend run build`. Update `frontend/e2e/tcgplayer-import.spec.ts` where the second press or later assertions depend on the old per-row display (always `--reporter=list`).
 
 ### Manual: live confirmation (a person, never an AI tool)
 

@@ -279,7 +279,7 @@ describe('ImportPage', () => {
       expect(screen.queryByText(/import failed/i)).not.toBeInTheDocument()
     })
 
-    it('shows No new orders when every result is already imported, and still lists them', async () => {
+    it('shows No new orders and one already-imported line when every result is already imported', async () => {
       vi.mocked(importApi.getNewOrdersFromTcgplayer).mockReturnValue(
         snapshots({
           ...base,
@@ -291,8 +291,63 @@ describe('ImportPage', () => {
       renderImportPage()
       await userEvent.click(screen.getByRole('button', { name: /get new orders/i }))
       expect(await screen.findByText(/no new orders/i)).toBeInTheDocument()
-      expect(screen.getByText('D-1')).toBeInTheDocument()
+      expect(screen.getByText('2 already imported')).toBeInTheDocument()
+      expect(screen.queryByText('D-1')).not.toBeInTheDocument()
+      expect(screen.queryByText('D-2')).not.toBeInTheDocument()
+      expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
+    })
+
+    it('collapses already-imported results into one line and keeps imported and rejected rows', async () => {
+      vi.mocked(importApi.getNewOrdersFromTcgplayer).mockReturnValue(
+        snapshots({
+          ...base,
+          ordersDetected: 4,
+          ordersProcessed: 4,
+          failedCount: 3,
+          results: [duplicate('D-1'), ...base.results, duplicate('D-2')],
+        }),
+      )
+      renderImportPage()
+      await userEvent.click(screen.getByRole('button', { name: /get new orders/i }))
+      expect(await screen.findByText('2 already imported')).toBeInTheDocument()
+      expect(screen.queryByText('D-1')).not.toBeInTheDocument()
+      expect(screen.queryByText('D-2')).not.toBeInTheDocument()
+      expect(screen.queryByText('Already imported.')).not.toBeInTheDocument()
+      expect(screen.getAllByRole('listitem')).toHaveLength(2)
+      expect(screen.getByText('A-1')).toBeInTheDocument()
+      expect(screen.getByText(/Quantity must be positive/)).toBeInTheDocument()
+      expect(screen.getByText(/4 of 4 orders processed/)).toBeInTheDocument()
+      expect(screen.queryByText(/failed/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/no new orders/i)).not.toBeInTheDocument()
+    })
+
+    it('shows no already-imported line when the API press had none', async () => {
+      vi.mocked(importApi.getNewOrdersFromTcgplayer).mockReturnValue(snapshots(base))
+      renderImportPage()
+      await userEvent.click(screen.getByRole('button', { name: /get new orders/i }))
+      await screen.findByText('A-1')
+      expect(screen.queryByText(/already imported/i)).not.toBeInTheDocument()
+    })
+
+    it('keeps one row per already-imported order on a PDF import', async () => {
+      vi.mocked(importApi.importPackingSlip).mockReturnValue(
+        snapshots({
+          ...base,
+          succeededCount: 0,
+          failedCount: 2,
+          results: [duplicate('D-1'), duplicate('D-2')],
+        }),
+      )
+      renderImportPage()
+      await userEvent.upload(
+        screen.getByLabelText(/packing slip/i),
+        new File(['pdf'], 'orders.pdf', { type: 'application/pdf' }),
+      )
+      await userEvent.click(screen.getByRole('button', { name: /^import orders$/i }))
+      expect(await screen.findByText('D-1')).toBeInTheDocument()
       expect(screen.getByText('D-2')).toBeInTheDocument()
+      expect(screen.getAllByText('Already imported.')).toHaveLength(2)
+      expect(screen.queryByText(/\d+ already imported/)).not.toBeInTheDocument()
     })
 
     it('does not show No new orders when some results are not duplicates', async () => {
@@ -301,7 +356,7 @@ describe('ImportPage', () => {
       )
       renderImportPage()
       await userEvent.click(screen.getByRole('button', { name: /get new orders/i }))
-      await screen.findByText('D-1')
+      await screen.findByText('1 already imported')
       expect(screen.queryByText(/no new orders/i)).not.toBeInTheDocument()
     })
 

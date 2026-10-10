@@ -93,6 +93,16 @@ export function ImportPage() {
     snapshot?.status === 'completed' &&
     !snapshot.attemptFailureCode &&
     snapshot.results.every((result) => result.failureCode === 'duplicateOrder')
+  // On an API press an already-imported order is a normal outcome (FR-011): count them in one line
+  // instead of listing each. PDF imports keep one row per result.
+  const isAlreadyImported = (result: ImportSnapshot['results'][number]) =>
+    result.failureCode === 'duplicateOrder'
+  const alreadyImportedCount =
+    source === 'tcgplayer' ? (snapshot?.results.filter(isAlreadyImported).length ?? 0) : 0
+  const listedResults =
+    source === 'tcgplayer'
+      ? (snapshot?.results.filter((result) => !isAlreadyImported(result)) ?? [])
+      : (snapshot?.results ?? [])
   const retry =
     snapshot?.status === 'failed' ||
     snapshot?.status === 'interrupted' ||
@@ -162,6 +172,11 @@ export function ImportPage() {
               </div>
             )}
             {noNewOrders && <p className="import-alert import-alert--info">No new orders.</p>}
+            {alreadyImportedCount > 0 && (
+              <p className="import-alert import-alert--info">
+                {alreadyImportedCount} already imported
+              </p>
+            )}
             {snapshot.status === 'failed' && !attemptFailed && (
               <p role="alert" className="import-alert import-alert--error">
                 Import failed. {snapshot.operationFailureMessage} Completed orders remain imported.
@@ -180,7 +195,7 @@ export function ImportPage() {
               </p>
             )}
             <ul className="import-order-list">
-              {snapshot.results.map((result, index) => (
+              {listedResults.map((result, index) => (
                 <li
                   key={`${result.sourceOrderIdentifier ?? 'unknown'}-${index}`}
                   data-outcome={result.outcome}
