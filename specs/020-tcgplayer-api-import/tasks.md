@@ -107,12 +107,12 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
 ### 2c. TCGplayer client and the agreement guards (research.md §1, §9–§12; contracts/)
 
-- [ ] T016 [P] Write unit tests for `TcgplayerOptions` in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerOptionsTests.cs`. They cover the defaults from contracts/configuration.md, including `OpenOrderStatuses = ["Ready To Ship"]` and `CallsPerMinute = 120`, and check that:
+- [x] T016 [P] Write unit tests for `TcgplayerOptions` in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerOptionsTests.cs`. They cover the defaults from contracts/configuration.md, including `OpenOrderStatuses = ["Ready To Ship"]` and `CallsPerMinute = 120`, and check that:
   - binding a `CallsPerMinute` below 1 or **above 150** throws at startup (stage and production share the keys, so two environments at the cap total 300; research.md §9);
   - `IsConfigured` is false when any of the three secrets is blank.
 
   Confirm red.
-- [ ] T017 [P] Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerOptions.cs`, bound manually with validation by hand like `LockoutOptions`. Add the **non-secret** defaults to `backend/src/LootSingles.Api/appsettings.json`. No key, token or placeholder secret goes into any appsettings file.
+- [x] T017 [P] Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerOptions.cs`, bound manually with validation by hand like `LockoutOptions`. Add the **non-secret** defaults to `backend/src/LootSingles.Api/appsettings.json`. No key, token or placeholder secret goes into any appsettings file.
 - [ ] T018 [P] Write unit tests for `TcgplayerRateLimiter` in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerRateLimiterTests.cs`, driven by the existing `FakeTimeProvider`. They check that:
   - N calls go through at once, and call N+1 waits until the oldest call is 60 seconds old;
   - over a long simulated run, **no 60-second window ever holds more than N**;
