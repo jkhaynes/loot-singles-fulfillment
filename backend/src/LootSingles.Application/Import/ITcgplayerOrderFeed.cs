@@ -45,6 +45,12 @@ public interface ITcgplayerOrderFeed
     /// </summary>
     long CallCount { get; }
 
+    /// <summary>
+    /// How many orders to ask for in one <see cref="GetOrdersAsync"/> call: the configured
+    /// <c>Tcgplayer:PageSize</c>, at least 1. The import service batches new orders by it.
+    /// </summary>
+    int PageSize { get; }
+
     /// <summary>Lists the order numbers of the store's open orders.</summary>
     Task<IReadOnlyList<string>> GetOpenOrderNumbersAsync(CancellationToken cancellationToken);
 

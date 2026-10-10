@@ -23,6 +23,8 @@ public sealed class TcgplayerOrderFeed(
 {
     public long CallCount => limiter.CallCount;
 
+    public int PageSize => options.PageSize;
+
     public async Task<IReadOnlyList<string>> GetOpenOrderNumbersAsync(
         CancellationToken cancellationToken
     )

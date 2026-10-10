@@ -232,7 +232,70 @@ public class ImportLoggingTests
         Assert.Equal(OrderImportSource.PackingSlipPdf, entry.GetState<OrderImportSource>("Source"));
         Assert.Equal(13, entry.GetState<int>("OrdersDetected"));
         Assert.Equal(13, entry.GetState<int>("OrdersSucceeded"));
+        Assert.Null(entry.GetState<int?>("CallCount"));
         AssertNoLeakedContent(entry, ProductMarker);
+    }
+
+    [Fact]
+    public async Task ApiImport_CompletedAttempt_ProducesOneCompletionLogWithSourceAndCallCount()
+    {
+        await using var context = ImportTestSupport.CreateDatabaseContext();
+        var importerLogger = new ImportTestSupport.CapturingLogger<OrderImporter>();
+        var logger = new ImportTestSupport.CapturingLogger<TcgplayerApiImportService>();
+        var repository = new ImportRepository(context);
+        var prefix = $"SYN-{Guid.NewGuid():N}"[..16];
+        var feed = new SyntheticOrderFeed([$"{prefix}-1", $"{prefix}-2", $"{prefix}-3"]);
+        var service = new TcgplayerApiImportService(
+            feed,
+            new OrderImporter(repository, importerLogger),
+            repository,
+            logger
+        );
+
+        ImportProgressUpdate? final = null;
+        await foreach (var update in service.ImportAsync())
+        {
+            final = update;
+        }
+
+        Assert.NotNull(final);
+        Assert.Empty(importerLogger.Entries);
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Information, entry.Level);
+        Assert.Equal(final.ImportAttempt.Id, entry.GetState<int>("ImportId"));
+        Assert.Equal(OrderImportSource.TcgplayerApi, entry.GetState<OrderImportSource>("Source"));
+        Assert.Equal(3, entry.GetState<int>("OrdersDetected"));
+        Assert.Equal(3, entry.GetState<int>("OrdersSucceeded"));
+        // Listing costs two calls and the one fetch batch three (SyntheticOrderFeed), counted
+        // from wherever the process-wide total stood when the attempt began.
+        Assert.Equal(5, entry.GetState<int?>("CallCount"));
+        AssertNoLeakedContent(entry, SyntheticOrderFeed.ProductName);
+    }
+
+    [Fact]
+    public async Task ApiImport_AttemptWideFailure_ProducesOneWarningWithFailureTypeAndCallCount()
+    {
+        await using var context = ImportTestSupport.CreateDatabaseContext();
+        var logger = new ImportTestSupport.CapturingLogger<TcgplayerApiImportService>();
+        var repository = new ImportRepository(context);
+        var feed = new SyntheticOrderFeed([]) { Unreachable = true };
+        var service = new TcgplayerApiImportService(
+            feed,
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
+            logger
+        );
+
+        await foreach (var _ in service.ImportAsync()) { }
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Equal(OrderImportSource.TcgplayerApi, entry.GetState<OrderImportSource>("Source"));
+        Assert.Equal(
+            FailureType.TcgplayerUnavailable,
+            entry.GetState<FailureType>("AttemptFailureType")
+        );
+        Assert.Equal(2, entry.GetState<int?>("CallCount"));
     }
 
     [Fact]
@@ -335,6 +398,59 @@ public class ImportLoggingTests
             entry.State,
             pair => pair.Value is string text && text.Contains(marker, StringComparison.Ordinal)
         );
+    }
+
+    /// <summary>A synthetic feed: listing costs two calls, each fetch batch three.</summary>
+    private sealed class SyntheticOrderFeed(IReadOnlyList<string> openOrders) : ITcgplayerOrderFeed
+    {
+        public const string ProductName = "Synthetic Logging Card";
+
+        public long CallCount { get; private set; } = 4_200;
+
+        public int PageSize => 50;
+
+        public bool Unreachable { get; init; }
+
+        public Task<IReadOnlyList<string>> GetOpenOrderNumbersAsync(
+            CancellationToken cancellationToken
+        )
+        {
+            CallCount += 2;
+            return Unreachable
+                ? Task.FromException<IReadOnlyList<string>>(
+                    new TcgplayerFeedException(TcgplayerFeedFailure.Unavailable, "timed out")
+                )
+                : Task.FromResult(openOrders);
+        }
+
+        public Task<IReadOnlyList<OrderCandidate>> GetOrdersAsync(
+            IReadOnlyList<string> orderNumbers,
+            CancellationToken cancellationToken
+        )
+        {
+            CallCount += 3;
+            IReadOnlyList<OrderCandidate> candidates = orderNumbers
+                .Select(number => new OrderCandidate(
+                    number,
+                    [
+                        new OrderLineCandidate(
+                            RawDescription: ProductName,
+                            ProductLine: "Magic",
+                            ProductName: ProductName,
+                            Set: "Synthetic Set",
+                            CollectorNumber: null,
+                            Rarity: null,
+                            Condition: "Near Mint",
+                            Variant: null,
+                            Language: "English",
+                            ImageUrl: null,
+                            Quantity: 1
+                        ),
+                    ]
+                ))
+                .ToList();
+            return Task.FromResult(candidates);
+        }
     }
 
     private sealed class CancellableParser : IPackingSlipParser

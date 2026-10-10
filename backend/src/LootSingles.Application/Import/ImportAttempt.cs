@@ -31,8 +31,8 @@ public class ImportAttempt
 
     /// <summary>
     /// The attempt-wide failure code, if any (FR-006).
-    /// Only ever set to <see cref="FailureType.UnreadablePdf"/> or <see cref="FailureType.SummaryMismatch"/>.
-    /// Null when the file itself was readable and no summary mismatch occurred.
+    /// For PDF imports, <see cref="FailureType.UnreadablePdf"/> or <see cref="FailureType.SummaryMismatch"/>;
+    /// for API imports, one of the <c>Tcgplayer*</c> attempt-wide failure types. Null when none occurred.
     /// Individual order failures live on <see cref="ImportOrderResult"/>, not here (FR-013).
     /// </summary>
     public FailureType? AttemptFailureCode { get; set; }

@@ -54,6 +54,7 @@ builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
 builder.Services.AddScoped<IPackingSlipSlicer, PdfPigPackingSlipSlicer>();
 builder.Services.AddScoped<OrderImporter>();
 builder.Services.AddScoped<IPackingSlipImportService, PackingSlipImportService>();
+builder.Services.AddScoped<TcgplayerApiImportService>();
 
 builder.Services.AddScoped<IPinHasher, Pbkdf2PinHasher>();
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();

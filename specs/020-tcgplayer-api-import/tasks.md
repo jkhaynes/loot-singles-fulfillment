@@ -193,7 +193,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
 ### Import service and endpoint
 
-- [ ] T030 [US1] Write unit tests for `TcgplayerApiImportService` in `backend/tests/LootSingles.UnitTests/Import/TcgplayerApiImportServiceTests.cs`, using a fake `ITcgplayerOrderFeed` and the existing fake persistence. They check that:
+- [x] T030 [US1] Write unit tests for `TcgplayerApiImportService` in `backend/tests/LootSingles.UnitTests/Import/TcgplayerApiImportServiceTests.cs`, using a fake `ITcgplayerOrderFeed` and the existing fake persistence. They check that:
   - an attempt is created with `Source = TcgplayerApi`, and `OrdersDetected` equals the number of open orders;
   - orders that already exist are reported as `DuplicateOrder` ("Already imported") **without being passed to `GetOrdersAsync`**;
   - new orders are fetched in batches of `PageSize`, each goes through `OrderImporter` with `OrderImportSource.TcgplayerApi` and **no** `beforeSave`, and a progress update follows each order;
@@ -202,7 +202,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
   - cancellation stops before the next order.
 
   Confirm red.
-- [ ] T031 [US1] Implement `backend/src/LootSingles.Application/Import/TcgplayerApiImportService.cs`, returning `IAsyncEnumerable<ImportProgressUpdate>`. Use `ImportAttemptLog` for the single completion log, with `{Source}`, the counts, `{CallCount}` (exposed by the limiter) and the failure category. There is **no per-order logging**. Register it as scoped in `Program.cs` and `E2EHost/Program.cs`. Confirm T030 is green.
+- [x] T031 [US1] Implement `backend/src/LootSingles.Application/Import/TcgplayerApiImportService.cs`, returning `IAsyncEnumerable<ImportProgressUpdate>`. Use `ImportAttemptLog` for the single completion log, with `{Source}`, the counts, `{CallCount}` (exposed by the limiter) and the failure category. There is **no per-order logging**. Register it as scoped in `Program.cs` and `E2EHost/Program.cs`. Confirm T030 is green.
 - [ ] T032 [US1] Write controller tests in `backend/tests/LootSingles.IntegrationTests/ImportUi/TcgplayerImportControllerTests.cs`. Use `WebApplicationFactory` with fake keys and `BaseUrl` pointing at a stub primary handler that serves the T003 fixtures (add a `TcgplayerStubHandler` helper to `ImportUiTestSupport.cs`). Cover these scenarios:
   - `POST /api/imports/tcgplayer` requires authentication (401 when signed out);
   - it streams NDJSON `ImportSnapshot`s in the **same shape** as `POST /api/imports`;

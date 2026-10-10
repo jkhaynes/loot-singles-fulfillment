@@ -6,7 +6,11 @@ namespace LootSingles.Application.Import;
 /// <summary>The single completion log entry for an import attempt, shared by every import source.</summary>
 public static class ImportAttemptLog
 {
-    public static void LogCompletion(ILogger logger, ImportAttempt attempt)
+    /// <param name="callCount">
+    /// TCGplayer calls this attempt made (the limiter's total at the end minus at the start),
+    /// logged as <c>{CallCount}</c>. Null for sources that make no TCGplayer calls (PDF).
+    /// </param>
+    public static void LogCompletion(ILogger logger, ImportAttempt attempt, int? callCount = null)
     {
         var detected = attempt.ImportOrderResults.Count;
         var succeeded = attempt.ImportOrderResults.Count(result =>
@@ -19,13 +23,14 @@ public static class ImportAttemptLog
         if (attempt.AttemptFailureCode is not null && detected == 0)
         {
             logger.LogWarning(
-                "Import attempt {ImportId} ({Source}) failed before any orders could be evaluated: {AttemptFailureType}. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}.",
+                "Import attempt {ImportId} ({Source}) failed before any orders could be evaluated: {AttemptFailureType}. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}. CallCount={CallCount}.",
                 attempt.Id,
                 attempt.Source,
                 attempt.AttemptFailureCode,
                 detected,
                 succeeded,
-                failed
+                failed,
+                callCount
             );
             return;
         }
@@ -33,12 +38,13 @@ public static class ImportAttemptLog
         if (failed == 0 && attempt.AttemptFailureCode is null)
         {
             logger.LogInformation(
-                "Import attempt {ImportId} ({Source}) completed successfully. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}.",
+                "Import attempt {ImportId} ({Source}) completed successfully. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}. CallCount={CallCount}.",
                 attempt.Id,
                 attempt.Source,
                 detected,
                 succeeded,
-                failed
+                failed,
+                callCount
             );
             return;
         }
@@ -46,9 +52,17 @@ public static class ImportAttemptLog
         // Built dynamically (not a static ILogger template) because the per-FailureType breakdown
         // has variable cardinality; do not collapse this back to a static template.
         var template = new StringBuilder(
-            "Import attempt {ImportId} ({Source}) completed with failures. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}."
+            "Import attempt {ImportId} ({Source}) completed with failures. Detected {OrdersDetected}, succeeded {OrdersSucceeded}, failed {OrdersFailed}. CallCount={CallCount}."
         );
-        var args = new List<object?> { attempt.Id, attempt.Source, detected, succeeded, failed };
+        var args = new List<object?>
+        {
+            attempt.Id,
+            attempt.Source,
+            detected,
+            succeeded,
+            failed,
+            callCount,
+        };
 
         if (attempt.AttemptFailureCode is { } attemptFailureType)
         {

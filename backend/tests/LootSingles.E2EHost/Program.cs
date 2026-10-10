@@ -84,6 +84,7 @@ builder.Services.AddScoped<IPackingSlipSlicer, PdfPigPackingSlipSlicer>();
 builder.Services.AddScoped<OrderImporter>();
 builder.Services.AddScoped<PackingSlipImportService>();
 builder.Services.AddScoped<IPackingSlipImportService, ObservableProgressImportService>();
+builder.Services.AddScoped<TcgplayerApiImportService>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IPackingRepository, PackingRepository>();
 builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvider(
