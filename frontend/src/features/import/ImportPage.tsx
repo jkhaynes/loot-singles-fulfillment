@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useBlocker } from 'react-router-dom'
-import { importPackingSlip } from './importApi'
+import { getNewOrdersFromTcgplayer, importPackingSlip } from './importApi'
 import type { ImportSnapshot } from './importApi'
 import './ImportPage.css'
+type ImportSource = 'tcgplayer' | 'pdf'
+
 export function ImportPage() {
   const [file, setFile] = useState<File | null>(null)
   const [snapshot, setSnapshot] = useState<ImportSnapshot | null>(null)
   const [error, setError] = useState('')
   const [running, setRunning] = useState(false)
+  const [source, setSource] = useState<ImportSource>('pdf')
   const [cancelConfirmationOpen, setCancelConfirmationOpen] = useState(false)
   const controllerRef = useRef<AbortController | null>(null)
   const mountedRef = useRef(true)
@@ -38,16 +41,20 @@ export function ImportPage() {
     }
   }, [])
 
-  async function submit(event?: FormEvent) {
-    event?.preventDefault()
-    if (!file) return
+  async function run(next: ImportSource) {
+    if (next === 'pdf' && !file) return
     setError('')
+    setSource(next)
     setRunning(true)
     setSnapshot(null)
     const controller = new AbortController()
     controllerRef.current = controller
     try {
-      for await (const next of importPackingSlip(file, controller.signal)) setSnapshot(next)
+      const stream =
+        next === 'tcgplayer'
+          ? getNewOrdersFromTcgplayer(controller.signal)
+          : importPackingSlip(file as File, controller.signal)
+      for await (const update of stream) setSnapshot(update)
     } catch (caught) {
       if (controller.signal.aborted) {
         if (mountedRef.current) {
@@ -65,6 +72,11 @@ export function ImportPage() {
     }
   }
 
+  function submit(event: FormEvent) {
+    event.preventDefault()
+    void run('pdf')
+  }
+
   function confirmCancel() {
     setCancelConfirmationOpen(false)
     controllerRef.current?.abort()
@@ -75,6 +87,12 @@ export function ImportPage() {
     if (blocker.state === 'blocked') blocker.proceed()
   }
 
+  const attemptFailed = snapshot?.attemptFailureCode?.startsWith('tcgplayer') ?? false
+  const noNewOrders =
+    source === 'tcgplayer' &&
+    snapshot?.status === 'completed' &&
+    !snapshot.attemptFailureCode &&
+    snapshot.results.every((result) => result.failureCode === 'duplicateOrder')
   const retry =
     snapshot?.status === 'failed' ||
     snapshot?.status === 'interrupted' ||
@@ -85,17 +103,12 @@ export function ImportPage() {
         <span aria-hidden="true">←</span> Back to Dashboard
       </Link>
       <section className="import-card">
-        <h1>Import packing slip</h1>
-        <p>Upload one TCGplayer packing-slip PDF (25 MB maximum).</p>
-        <form onSubmit={submit}>
-          <label htmlFor="packing-slip">Packing slip PDF</label>
-          <input
-            id="packing-slip"
-            type="file"
-            accept="application/pdf,.pdf"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-          <button disabled={!file || running}>{running ? 'Importing…' : 'Import orders'}</button>
+        <h1>Import orders</h1>
+        <p>Get the store's open orders from TCGplayer.</p>
+        <div className="import-actions">
+          <button type="button" disabled={running} onClick={() => void run('tcgplayer')}>
+            {running && source === 'tcgplayer' ? 'Getting orders…' : 'Get new orders'}
+          </button>
           {running && (
             <button
               type="button"
@@ -105,7 +118,23 @@ export function ImportPage() {
               Cancel Import
             </button>
           )}
-        </form>
+        </div>
+        <section className="import-fallback">
+          <h2>Import packing slip</h2>
+          <p>Fallback: upload one TCGplayer packing-slip PDF (25 MB maximum).</p>
+          <form onSubmit={submit}>
+            <label htmlFor="packing-slip">Packing slip PDF</label>
+            <input
+              id="packing-slip"
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+            <button disabled={!file || running}>
+              {running && source === 'pdf' ? 'Importing…' : 'Import orders'}
+            </button>
+          </form>
+        </section>
         {error && (
           <p role="alert" className="import-alert import-alert--error">
             {error}
@@ -126,7 +155,14 @@ export function ImportPage() {
                 This PDF could not be read as a packing slip. {snapshot.attemptFailureMessage}
               </p>
             )}
-            {snapshot.status === 'failed' && (
+            {attemptFailed && (
+              <div role="alert" className="import-alert import-alert--error">
+                <p>{snapshot.attemptFailureMessage}</p>
+                <p>Packing-slip PDF import below still works.</p>
+              </div>
+            )}
+            {noNewOrders && <p className="import-alert import-alert--info">No new orders.</p>}
+            {snapshot.status === 'failed' && !attemptFailed && (
               <p role="alert" className="import-alert import-alert--error">
                 Import failed. {snapshot.operationFailureMessage} Completed orders remain imported.
               </p>
@@ -140,7 +176,7 @@ export function ImportPage() {
             {snapshot.status === 'cancelled' && (
               <p role="alert" className="import-alert import-alert--warning">
                 Import cancelled. Completed orders remain imported and remaining processing stopped.
-                You can safely retry this PDF.
+                You can safely retry.
               </p>
             )}
             <ul className="import-order-list">
@@ -159,7 +195,7 @@ export function ImportPage() {
               ))}
             </ul>
             {retry && (
-              <button type="button" onClick={() => submit()}>
+              <button type="button" onClick={() => void run(source)}>
                 Retry import
               </button>
             )}

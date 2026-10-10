@@ -228,7 +228,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
   Confirm red.
 - [x] T036 [US1] In `frontend/src/features/import/importApi.ts`, extract the stream reader, add `getNewOrdersFromTcgplayer`, and add the new `failureCode` and `attemptFailureCode` literals. Confirm T035 is green.
-- [ ] T037 [P] [US1] Write tests in `frontend/tests/import/ImportPage.test.tsx`:
+- [x] T037 [P] [US1] Write tests in `frontend/tests/import/ImportPage.test.tsx`:
   - **Get new orders** is the primary action, with packing-slip upload below it, labelled as the fallback;
   - pressing it shows progress and then the per-order results;
   - `completed` with zero detected, or with every result `duplicateOrder`, shows **"No new orders"**, distinct from a failure;
@@ -236,7 +236,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
   - Cancel, navigation guard and Interrupted work as for PDF.
 
   Confirm red.
-- [ ] T038 [US1] Implement the button, banners and "No new orders" state in `frontend/src/features/import/ImportPage.tsx` and `ImportPage.css`, reusing the existing running, cancel and guard machinery for both sources. Confirm T037 is green, then run `npm --prefix frontend run build`.
+- [x] T038 [US1] Implement the button, banners and "No new orders" state in `frontend/src/features/import/ImportPage.tsx` and `ImportPage.css`, reusing the existing running, cancel and guard machinery for both sources. Confirm T037 is green, then run `npm --prefix frontend run build`.
 
 ### End to end
 

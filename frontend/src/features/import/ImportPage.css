@@ -45,6 +45,20 @@
 .import-card h1 {
   margin: 0 0 var(--space-2);
 }
+.import-actions {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+.import-fallback {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+.import-fallback h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-body);
+}
 .import-card form {
   display: grid;
   gap: var(--space-3);
@@ -89,6 +103,12 @@
 .import-alert--warning {
   border-color: var(--color-warning);
   color: var(--color-warning);
+}
+.import-alert--info {
+  border-color: var(--color-border);
+}
+.import-alert p {
+  margin: 0;
 }
 .import-alert--error {
   border-color: var(--color-danger);

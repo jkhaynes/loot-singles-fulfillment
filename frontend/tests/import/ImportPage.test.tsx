@@ -9,6 +9,7 @@ import * as importApi from '../../src/features/import/importApi'
 vi.mock('../../src/features/import/importApi', async (original) => ({
   ...(await original<typeof import('../../src/features/import/importApi')>()),
   importPackingSlip: vi.fn(),
+  getNewOrdersFromTcgplayer: vi.fn(),
 }))
 
 async function* snapshots(...items: importApi.ImportSnapshot[]) {
@@ -210,5 +211,206 @@ describe('ImportPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /leave and stop/i }))
     expect(await screen.findByText(/dashboard destination/i)).toBeInTheDocument()
     expect(importMock.mock.calls[0][1]?.aborted).toBe(true)
+  })
+
+  describe('Get new orders from TCGplayer', () => {
+    const duplicate = (id: string): importApi.ImportOrderResult => ({
+      sourceOrderIdentifier: id,
+      outcome: 'rejected',
+      failureCode: 'duplicateOrder',
+      failureMessage: 'Already imported.',
+      resultingOrderId: null,
+    })
+
+    function pendingApiImport() {
+      return vi.mocked(importApi.getNewOrdersFromTcgplayer).mockImplementation(async function* (
+        signal?: AbortSignal,
+      ) {
+        yield { ...base, status: 'inProgress', ordersProcessed: 1 }
+        await new Promise<void>((_resolve, reject) => {
+          signal?.addEventListener(
+            'abort',
+            () => reject(new DOMException('The operation was aborted.', 'AbortError')),
+            { once: true },
+          )
+        })
+      })
+    }
+
+    it('offers Get new orders as the primary action and packing-slip upload as the fallback', () => {
+      renderImportPage()
+      const primary = screen.getByRole('button', { name: /get new orders/i })
+      const fallbackHeading = screen.getByRole('heading', { name: /import packing slip/i })
+      expect(primary.compareDocumentPosition(fallbackHeading)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      )
+      expect(screen.getByText(/fallback/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/packing slip/i)).toBeInTheDocument()
+    })
+
+    it('shows progress and then the per-order results', async () => {
+      vi.mocked(importApi.getNewOrdersFromTcgplayer).mockReturnValue(
+        snapshots({ ...base, status: 'inProgress', ordersProcessed: 1 }, base),
+      )
+      renderImportPage()
+      await userEvent.click(screen.getByRole('button', { name: /get new orders/i }))
+      expect(await screen.findByText('A-1')).toBeInTheDocument()
+      expect(screen.getByText(/Quantity must be positive/)).toBeInTheDocument()
+      expect(screen.getByText(/2 of 2/)).toBeInTheDocument()
+      expect(screen.queryByText(/no new orders/i)).not.toBeInTheDocument()
+      expect(importApi.importPackingSlip).not.toHaveBeenCalled()
+    })
+
+    it('shows No new orders when nothing was detected', async () => {
+      vi.mocked(importApi.getNewOrdersFromTcgplayer).mockReturnValue(
+        snapshots({
+          ...base,
+          ordersDetected: 0,
+          ordersProcessed: 0,
+          succeededCount: 0,
+          failedCount: 0,
+          results: [],
+        }),
+      )
+      renderImportPage()
+      await userEvent.click(screen.getByRole('button', { name: /get new orders/i }))
+      expect(await screen.findByText(/no new orders/i)).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument()
+      expect(screen.queryByText(/import failed/i)).not.toBeInTheDocument()
+    })
+
+    it('shows No new orders when every result is already imported, and still lists them', async () => {
+      vi.mocked(importApi.getNewOrdersFromTcgplayer).mockReturnValue(
+        snapshots({
+          ...base,
+          succeededCount: 0,
+          failedCount: 2,
+          results: [duplicate('D-1'), duplicate('D-2')],
+        }),
+      )
+      renderImportPage()
+      await userEvent.click(screen.getByRole('button', { name: /get new orders/i }))
+      expect(await screen.findByText(/no new orders/i)).toBeInTheDocument()
+      expect(screen.getByText('D-1')).toBeInTheDocument()
+      expect(screen.getByText('D-2')).toBeInTheDocument()
+    })
+
+    it('does not show No new orders when some results are not duplicates', async () => {
+      vi.mocked(importApi.getNewOrdersFromTcgplayer).mockReturnValue(
+        snapshots({ ...base, results: [duplicate('D-1'), ...base.results] }),
+      )
+      renderImportPage()
+      await userEvent.click(screen.getByRole('button', { name: /get new orders/i }))
+      await screen.findByText('D-1')
+      expect(screen.queryByText(/no new orders/i)).not.toBeInTheDocument()
+    })
+
+    it.each([
+      [
+        'tcgplayerNotConfigured',
+        "Getting orders from TCGplayer isn't set up here. Use packing-slip upload instead.",
+      ],
+      [
+        'tcgplayerUnavailable',
+        "Couldn't reach TCGplayer. Orders already imported are kept. Try again in a few minutes, or upload a packing slip.",
+      ],
+      [
+        'tcgplayerAccessRefused',
+        "TCGplayer refused the store's connection. A manager needs to check the TCGplayer API setup. You can upload a packing slip meanwhile.",
+      ],
+      ['tcgplayerResponseInvalid', "TCGplayer has no order status named 'Ready To Ship'."],
+    ] as const)(
+      'shows the server message, Retry and a pointer to PDF upload for %s',
+      async (code, message) => {
+        vi.mocked(importApi.getNewOrdersFromTcgplayer).mockReturnValue(
+          snapshots({
+            ...base,
+            status: 'failed',
+            ordersDetected: 0,
+            ordersProcessed: 0,
+            succeededCount: 0,
+            failedCount: 0,
+            attemptFailureCode: code,
+            attemptFailureMessage: message,
+            results: [],
+          }),
+        )
+        renderImportPage()
+        await userEvent.click(screen.getByRole('button', { name: /get new orders/i }))
+        expect(await screen.findByText(message, { exact: false })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
+        expect(screen.getByText(/packing-slip pdf import below/i)).toBeInTheDocument()
+        expect(screen.queryByText(/no new orders/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(/completed orders remain imported/i)).not.toBeInTheDocument()
+      },
+    )
+
+    it('retries the API import without a file', async () => {
+      vi.mocked(importApi.getNewOrdersFromTcgplayer)
+        .mockReturnValueOnce(
+          snapshots({
+            ...base,
+            status: 'failed',
+            attemptFailureCode: 'tcgplayerUnavailable',
+            attemptFailureMessage: "Couldn't reach TCGplayer.",
+          }),
+        )
+        .mockReturnValueOnce(snapshots(base))
+      renderImportPage()
+      await userEvent.click(screen.getByRole('button', { name: /get new orders/i }))
+      await userEvent.click(await screen.findByRole('button', { name: /retry/i }))
+      expect(await screen.findByText(/Quantity must be positive/)).toBeInTheDocument()
+      expect(importApi.getNewOrdersFromTcgplayer).toHaveBeenCalledTimes(2)
+      expect(importApi.importPackingSlip).not.toHaveBeenCalled()
+    })
+
+    it('shows Interrupted guidance for a lost API connection', async () => {
+      vi.mocked(importApi.getNewOrdersFromTcgplayer).mockReturnValue(
+        snapshots({ ...base, status: 'interrupted' }),
+      )
+      renderImportPage()
+      await userEvent.click(screen.getByRole('button', { name: /get new orders/i }))
+      expect(await screen.findByText(/incomplete and potentially stale/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
+    })
+
+    it('keeps running when cancellation is declined and shows Cancelled after confirmation', async () => {
+      const importMock = pendingApiImport()
+      renderImportPage()
+      await userEvent.click(screen.getByRole('button', { name: /get new orders/i }))
+      expect(await screen.findByText(/1 of 2/)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /import orders/i })).toBeDisabled()
+
+      await userEvent.click(screen.getByRole('button', { name: /cancel import/i }))
+      await userEvent.click(screen.getByRole('button', { name: /keep importing/i }))
+      expect(importMock.mock.calls[0][0]?.aborted).toBe(false)
+
+      await userEvent.click(screen.getByRole('button', { name: /cancel import/i }))
+      await userEvent.click(screen.getByRole('button', { name: /stop import/i }))
+      expect(await screen.findByText(/import cancelled/i)).toBeInTheDocument()
+      expect(screen.queryByText(/connection lost/i)).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
+      expect(importMock.mock.calls[0][0]?.aborted).toBe(true)
+    })
+
+    it('guards navigation while an API import runs and aborts on confirmed leave', async () => {
+      const importMock = pendingApiImport()
+      renderImportPage()
+      await userEvent.click(screen.getByRole('button', { name: /get new orders/i }))
+      await screen.findByText(/1 of 2/)
+
+      const whileRunning = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(whileRunning)
+      expect(whileRunning.defaultPrevented).toBe(true)
+
+      await userEvent.click(screen.getByRole('link', { name: /back to dashboard/i }))
+      await userEvent.click(screen.getByRole('button', { name: /stay and continue/i }))
+      expect(importMock.mock.calls[0][0]?.aborted).toBe(false)
+
+      await userEvent.click(screen.getByRole('link', { name: /back to dashboard/i }))
+      await userEvent.click(screen.getByRole('button', { name: /leave and stop/i }))
+      expect(await screen.findByText(/dashboard destination/i)).toBeInTheDocument()
+      expect(importMock.mock.calls[0][0]?.aborted).toBe(true)
+    })
   })
 })
