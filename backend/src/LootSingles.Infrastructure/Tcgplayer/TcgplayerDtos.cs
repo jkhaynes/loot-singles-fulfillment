@@ -62,17 +62,17 @@ public sealed record TcgplayerOrderItem
 public sealed record TcgplayerSku
 {
     [JsonPropertyName("skuId")]
-    public int SkuId { get; init; }
+    public int? SkuId { get; init; }
 
     [JsonPropertyName("productId")]
-    public int ProductId { get; init; }
+    public int? ProductId { get; init; }
 }
 
 /// <summary>One row of <c>GET /catalog/products/{productIds}?getExtendedFields=true</c>.</summary>
 public sealed record TcgplayerProduct
 {
     [JsonPropertyName("productId")]
-    public int ProductId { get; init; }
+    public int? ProductId { get; init; }
 
     [JsonPropertyName("imageUrl")]
     public string? ImageUrl { get; init; }

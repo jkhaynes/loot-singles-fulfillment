@@ -86,7 +86,8 @@ public static class TcgplayerOrderTranslator
     ) =>
         item.SkuId is { } skuId
         && skusById.TryGetValue(skuId, out var sku)
-        && productsById.TryGetValue(sku.ProductId, out var product)
+        && sku.ProductId is { } productId
+        && productsById.TryGetValue(productId, out var product)
             ? product
             : null;
 

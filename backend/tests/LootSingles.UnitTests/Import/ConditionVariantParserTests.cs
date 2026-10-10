@@ -10,6 +10,7 @@ public class ConditionVariantParserTests
     [InlineData("Lightly Played Foil", "Lightly Played", "Foil")]
     [InlineData("Near Mint Reverse Holofoil", "Near Mint", "Reverse Holofoil")]
     [InlineData("Near Mint", "Near Mint", null)]
+    [InlineData("Unopened", "Unopened", null)]
     public void Parse_SeparatesKnownConditionPrefixFromVariant(
         string source,
         string expectedCondition,

@@ -30,10 +30,11 @@ public sealed class TcgplayerOrderTranslatorTests
     }
 
     private static readonly IReadOnlyDictionary<int, TcgplayerSku> Skus =
-        LoadEnvelope<TcgplayerSku>("skus.json").Results.ToDictionary(sku => sku.SkuId);
+        LoadEnvelope<TcgplayerSku>("skus.json").Results.ToDictionary(sku => sku.SkuId!.Value);
 
     private static readonly IReadOnlyDictionary<int, TcgplayerProduct> Products =
-        LoadEnvelope<TcgplayerProduct>("products.json").Results.ToDictionary(p => p.ProductId);
+        LoadEnvelope<TcgplayerProduct>("products.json")
+            .Results.ToDictionary(p => p.ProductId!.Value);
 
     private static TcgplayerOrderDetails Details(string orderNumber) =>
         LoadEnvelope<TcgplayerOrderDetails>("order-details.json")
@@ -336,6 +337,20 @@ public sealed class TcgplayerOrderTranslatorTests
     }
 
     [Fact]
+    public void Sealed_fixture_order_translates_and_passes_validation()
+    {
+        // Ruling R12: TCGplayer's sealed/accessory condition "Unopened" is a known condition, so
+        // the order imports with "No number" (spec Edge Cases, 2026-10-09).
+        var candidate = TranslateFixture("SYN-0009-A1", "items-sealed.json");
+
+        var line = OnlyLine(candidate);
+        Assert.Equal("Unopened", line.Condition);
+        Assert.Null(line.Variant);
+        Assert.Null(line.CollectorNumber);
+        Assert.Null(OrderCandidateValidator.Validate(candidate));
+    }
+
+    [Fact]
     public void Line_without_a_number_passes_validation()
     {
         // A line with no catalog number imports like any other (FR-008, spec Edge Cases).
@@ -428,6 +443,29 @@ public sealed class TcgplayerOrderTranslatorTests
     {
         var line = OnlyLine(TranslateOne(Item(skuId: null, productImageUrl: null, rarity: null)));
 
+        Assert.Null(line.CollectorNumber);
+        Assert.Null(line.ImageUrl);
+        Assert.Null(line.Rarity);
+    }
+
+    [Fact]
+    public void Sku_without_a_product_id_leaves_no_catalog_data()
+    {
+        var skus = new Dictionary<int, TcgplayerSku>
+        {
+            [7000001] = new() { SkuId = 7000001, ProductId = null },
+        };
+
+        var candidate = TcgplayerOrderTranslator.Translate(
+            new TcgplayerOrderDetails { OrderNumber = "SYN-9004-A1", ProductCount = 1 },
+            [Item(productImageUrl: null, rarity: null)],
+            1,
+            skus,
+            Products,
+            Options
+        );
+
+        var line = OnlyLine(candidate);
         Assert.Null(line.CollectorNumber);
         Assert.Null(line.ImageUrl);
         Assert.Null(line.Rarity);
