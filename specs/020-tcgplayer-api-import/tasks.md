@@ -372,13 +372,15 @@ The first live press imported about 1,568 orders that were not open. TCGplayer's
 - [ ] T069 Implement T068 in `TcgplayerOptions`, `TcgplayerApiClient`, `TcgplayerDtos`, the feed and wherever the openness rule belongs (one pure function, called once per details row before items are fetched). Confirm green, then the full unit and integration suites.
 - [ ] T070 Update the synthetic fixtures and stubs, invented values only: details rows carry delivery type, pickup status and order type; add non-open "leaked" orders (a delivered shipped order and a picked-up pickup order) to the search results the integration and E2E stubs serve, and confirm the existing integration and Playwright suites still import exactly the open ones (`--reporter=list`).
 
-- [ ] T071 Write a dev-only reset script, `scripts/dev/Clear-DevOrders.ps1`, that a person runs to empty a development database of orders before re-testing the import:
+- [x] T071 Write a dev-only reset script, `scripts/dev/Clear-DevOrders.ps1`, that a person runs to empty a development database of orders before re-testing the import:
   - deletes every order and everything that hangs off an order (lines, packing slips, claims, picking issues, pick/pack records, import attempts and their per-order results), in foreign-key order inside one transaction, and leaves employees, PINs and configuration untouched; derive the table list from the EF model, not by guessing;
   - takes the connection string the way the app does (the API project's user-secrets `ConnectionStrings:LootSingles`, or `-ConnectionString`), prints only the server and database names and the row counts it will delete, and requires typing the database name to confirm;
   - refuses to run unless the database name contains `dev` (or LocalDB), so it can never touch stage or production;
   - an integration test runs it (or the SQL it executes) against a Testcontainers database seeded with an order of each kind and asserts orders are gone and employees remain.
 
   The person then runs it once to clear the orders the first live press imported (2026-10-10).
+
+  Done: `scripts/dev/Clear-DevOrders.ps1`, `scripts/dev/clear-dev-orders.sql`, `scripts/dev/ClearDevOrders.cs`; tests in `ClearDevOrdersTests.cs`. **Still to do (a person):** run `pwsh -File scripts/dev/Clear-DevOrders.ps1` once against the dev database and type its name to confirm.
 
 ### Manual: live confirmation (a person, never an AI tool)
 
