@@ -113,7 +113,8 @@ public sealed class PackingSlipImportService(
             };
             attempt.ImportOrderResults.Add(result);
 
-            var (lineResults, validationFailure) = ValidateBlock(block);
+            var candidate = OrderLineExtractor.Extract(block);
+            var validationFailure = OrderCandidateValidator.Validate(candidate);
             if (validationFailure is not null)
             {
                 Reject(result, validationFailure.Value.Type, validationFailure.Value.Message);
@@ -130,7 +131,7 @@ public sealed class PackingSlipImportService(
             }
             else
             {
-                var order = CreateOrder(block, lineResults);
+                var order = CreateOrder(block, candidate);
                 result.Outcome = ImportOutcome.Succeeded;
                 if (!TryAttachPackingSlip(order, documentBytes, block))
                 {
@@ -271,45 +272,6 @@ public sealed class PackingSlipImportService(
         await persistence.SaveChangesAsync(cancellationToken);
     }
 
-    private static (
-        List<OrderLineValidationResult> LineResults,
-        (FailureType Type, string Message)? Failure
-    ) ValidateBlock(RawOrderBlock block)
-    {
-        var lineResults = new List<OrderLineValidationResult>();
-        if (string.IsNullOrWhiteSpace(block.OrderIdentifier))
-            return (
-                lineResults,
-                (
-                    FailureType.MissingOrderIdentifier,
-                    "An order page is missing its order identifier."
-                )
-            );
-        if (block.ProductLines.Count == 0)
-            return (
-                lineResults,
-                (
-                    FailureType.NoProductLines,
-                    $"Order '{block.OrderIdentifier}' contains no product lines."
-                )
-            );
-
-        foreach (var line in block.ProductLines)
-        {
-            var validation = OrderLineValidator.Validate(line);
-            lineResults.Add(validation);
-            if (!validation.IsValid)
-                return (
-                    lineResults,
-                    (
-                        validation.FailureType!.Value,
-                        $"Order '{block.OrderIdentifier}': {validation.FailureMessage}"
-                    )
-                );
-        }
-        return (lineResults, null);
-    }
-
     /// <summary>
     /// Slices this order's pages out of the batch and attaches them. Returns false when no slip
     /// could be produced, which the caller counts — this must not log per order.
@@ -383,16 +345,26 @@ public sealed class PackingSlipImportService(
         return buffer.ToArray();
     }
 
-    private static Order CreateOrder(
-        RawOrderBlock block,
-        List<OrderLineValidationResult> lineResults
-    ) =>
+    private static Order CreateOrder(RawOrderBlock block, OrderCandidate candidate) =>
         new()
         {
             TcgplayerOrderId = block.OrderIdentifier!,
             Status = OrderStatus.Ready,
             ImportedAt = DateTimeOffset.UtcNow,
-            OrderLines = lineResults.Select(result => result.OrderLine!).ToList(),
+            OrderLines = candidate
+                .Lines.Select(line => new OrderLine
+                {
+                    RawDescription = line.RawDescription,
+                    ProductLine = line.ProductLine!,
+                    ProductName = line.ProductName!,
+                    Set = line.Set!,
+                    CollectorNumber = line.CollectorNumber!,
+                    Rarity = line.Rarity,
+                    Condition = line.Condition!,
+                    Variant = line.Variant,
+                    Quantity = line.Quantity!.Value,
+                })
+                .ToList(),
         };
 
     private static void Reject(ImportOrderResult result, FailureType type, string message)

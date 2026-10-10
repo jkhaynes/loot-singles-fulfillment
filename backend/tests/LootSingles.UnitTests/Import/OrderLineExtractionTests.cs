@@ -16,7 +16,7 @@ public class OrderLineExtractionTests
             RawDescription = RealFixtureDescription,
         };
 
-        var result = OrderLineExtractor.Extract(source);
+        var result = LineOutcome.Run(source);
 
         Assert.True(result.IsValid);
         var orderLine = result.OrderLine!;
@@ -39,7 +39,7 @@ public class OrderLineExtractionTests
             RawDescription = RealFixtureDescription,
         };
 
-        var result = OrderLineExtractor.Extract(source);
+        var result = LineOutcome.Run(source);
 
         Assert.True(result.IsValid);
         Assert.Equal(RealFixtureDescription, result.OrderLine!.RawDescription);
@@ -83,7 +83,7 @@ public class OrderLineExtractionTests
         string? expectedVariant
     )
     {
-        var result = OrderLineExtractor.Extract(
+        var result = LineOutcome.Run(
             new RawProductLine { QuantityText = "1", RawDescription = description }
         );
 
@@ -106,7 +106,7 @@ public class OrderLineExtractionTests
             RawDescription = "SomeGame - AmbiguousSegment - #12 - Common - Near Mint",
         };
 
-        var result = OrderLineExtractor.Extract(source);
+        var result = LineOutcome.Run(source);
 
         Assert.False(result.IsValid);
         Assert.Equal(FailureType.MissingProductName, result.FailureType);
@@ -122,7 +122,7 @@ public class OrderLineExtractionTests
                 "Pokemon - ME05: Pitch Black: Fomantis - 085/084 - #085/084 - Illustration Rare - Near Mint Holofoil",
         };
 
-        var result = OrderLineExtractor.Extract(source);
+        var result = LineOutcome.Run(source);
 
         Assert.True(result.IsValid);
         var orderLine = result.OrderLine!;
@@ -148,7 +148,7 @@ public class OrderLineExtractionTests
         string expectedProductName
     )
     {
-        var result = OrderLineExtractor.Extract(
+        var result = LineOutcome.Run(
             new RawProductLine { QuantityText = "1", RawDescription = description }
         );
 
@@ -167,7 +167,7 @@ public class OrderLineExtractionTests
             RawDescription = "Pokemon - Some Set: Card - 099 - #100/150 - Common - Near Mint",
         };
 
-        var result = OrderLineExtractor.Extract(source);
+        var result = LineOutcome.Run(source);
 
         Assert.True(result.IsValid);
         var orderLine = result.OrderLine!;
@@ -193,7 +193,7 @@ public class OrderLineExtractionTests
         string expectedProductName
     )
     {
-        var result = OrderLineExtractor.Extract(
+        var result = LineOutcome.Run(
             new RawProductLine { QuantityText = "1", RawDescription = description }
         );
 
@@ -212,7 +212,7 @@ public class OrderLineExtractionTests
             RawDescription = "Pokemon - 067/086 - #067/086 - Rare - Near Mint",
         };
 
-        var result = OrderLineExtractor.Extract(source);
+        var result = LineOutcome.Run(source);
 
         Assert.False(result.IsValid);
         Assert.Equal(FailureType.MissingProductName, result.FailureType);

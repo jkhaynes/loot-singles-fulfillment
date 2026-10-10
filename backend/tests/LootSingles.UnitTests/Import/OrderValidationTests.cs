@@ -38,7 +38,7 @@ public class OrderValidationTests
         FailureType expectedFailure
     )
     {
-        var result = OrderLineValidator.Validate(
+        var result = LineOutcome.Run(
             new RawProductLine { QuantityText = quantity, RawDescription = description }
         );
 
@@ -50,7 +50,7 @@ public class OrderValidationTests
     [Fact]
     public void Validate_MissingOptionalRarityAndVariant_RemainsValid()
     {
-        var result = OrderLineValidator.Validate(
+        var result = LineOutcome.Run(
             new RawProductLine
             {
                 QuantityText = "1",
