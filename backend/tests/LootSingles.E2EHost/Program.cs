@@ -88,28 +88,38 @@ builder.Configuration.AddInMemoryCollection(
         ["Tcgplayer:PageSize"] = "2",
     }
 );
+
+// 020 T047: a request to this host carrying the outage header gets a TCGplayer that answers 503,
+// for that request only. The header is read from the incoming request (the stub runs inside its
+// async flow), so a spec can simulate an outage without a global switch that would break any other
+// spec getting orders at the same moment.
+builder.Services.AddHttpContextAccessor();
 builder
     .Services.AddTcgplayer(builder.Configuration)
-    .ConfigurePrimaryHttpMessageHandler(() =>
-        new TcgplayerStubHandler
+    .ConfigurePrimaryHttpMessageHandler(services => new TcgplayerStubHandler
+    {
+        OpenOrderNumbers =
+        [
+            .. new[] { 1, 2, 3, 4, 5, 8, 9, 10 }.Select(TcgplayerStubHandler.OrderNumber),
+        ],
+        // Each batch's order-details call is held back, as ObservableProgressImportService
+        // holds back PDF progress, so Playwright can see an import part-way through.
+        Override = async request =>
         {
-            OpenOrderNumbers =
-            [
-                .. new[] { 1, 2, 3, 4, 5, 8, 9, 10 }.Select(TcgplayerStubHandler.OrderNumber),
-            ],
-            // Each batch's order-details call is held back, as ObservableProgressImportService
-            // holds back PDF progress, so Playwright can see an import part-way through.
-            Override = async request =>
+            var incoming = services.GetRequiredService<IHttpContextAccessor>().HttpContext;
+            if (incoming?.Request.Headers[E2ETcgplayerOutage.Header].ToString() == "unavailable")
             {
-                if (request.Route == "details")
-                {
-                    await Task.Delay(TimeSpan.FromMilliseconds(750));
-                }
+                return new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable);
+            }
 
-                return null;
-            },
-        }
-    );
+            if (request.Route == "details")
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(750));
+            }
+
+            return null;
+        },
+    });
 builder.Services.AddScoped<IPinHasher, Pbkdf2PinHasher>();
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddSingleton(new LockoutOptions());
@@ -684,4 +694,10 @@ internal sealed class ObservableProgressImportService(PackingSlipImportService i
             }
         }
     }
+}
+
+/// <summary>The request header that makes this host's stub TCGplayer answer 503 (T047).</summary>
+internal static class E2ETcgplayerOutage
+{
+    public const string Header = "X-E2E-Tcgplayer-Outage";
 }
