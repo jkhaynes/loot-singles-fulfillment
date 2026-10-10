@@ -130,12 +130,12 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
   Confirm red.
 - [x] T021 [P] Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerTokenCache.cs` (a singleton guarded by a `SemaphoreSlim`) and `TcgplayerAuthenticationHandler.cs`. Confirm T020 is green.
-- [ ] T022 Add the application port `backend/src/LootSingles.Application/Import/ITcgplayerOrderFeed.cs`:
+- [x] T022 Add the application port `backend/src/LootSingles.Application/Import/ITcgplayerOrderFeed.cs`:
   - `Task<IReadOnlyList<string>> GetOpenOrderNumbersAsync(CancellationToken)`
   - `Task<IReadOnlyList<OrderCandidate>> GetOrdersAsync(IReadOnlyList<string> orderNumbers, CancellationToken)`
   - a `TcgplayerFeedFailure` enum (`NotConfigured`, `Unavailable`, `AccessRefused`, `ResponseInvalid`)
   - a `TcgplayerFeedException` carrying the failure plus a safe message, with no response content
-- [ ] T023 Write a unit test for the version in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerUserAgentTests.cs`. `TcgplayerUserAgent.Value` must equal `LootSinglesFulfillment/{InformationalVersion without the +hash} (Loot Investments LLC)`. Confirm red, then implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerUserAgent.cs`.
+- [x] T023 Write a unit test for the version in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerUserAgentTests.cs`. `TcgplayerUserAgent.Value` must equal `LootSinglesFulfillment/{InformationalVersion without the +hash} (Loot Investments LLC)`. Confirm red, then implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerUserAgent.cs`.
 - [ ] T024 Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerServiceCollectionExtensions.cs`, `AddTcgplayer(IServiceCollection, IConfiguration)`. It binds the options, registers the singleton limiter and token cache, and adds a typed `HttpClient` with:
   - the base address and API-version prefix;
   - a 30-second timeout;
