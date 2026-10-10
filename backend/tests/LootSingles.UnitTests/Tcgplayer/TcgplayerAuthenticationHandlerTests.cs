@@ -174,7 +174,10 @@ public sealed class TcgplayerAuthenticationHandlerTests
         var stub = StubHttpMessageHandler.Throwing(new HttpRequestException("connection refused"));
         var cache = NewCache(new FakeTimeProvider(Issued));
         using var invoker = new HttpMessageInvoker(
-            new TcgplayerAuthenticationHandler(cache) { InnerHandler = stub }
+            new TcgplayerAuthenticationHandler(cache, new TcgplayerOptions())
+            {
+                InnerHandler = stub,
+            }
         );
 
         var exception = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
@@ -213,7 +216,10 @@ public sealed class TcgplayerAuthenticationHandlerTests
             NullLogger<TcgplayerTokenCache>.Instance
         );
         using var invoker = new HttpMessageInvoker(
-            new TcgplayerAuthenticationHandler(cache) { InnerHandler = stub }
+            new TcgplayerAuthenticationHandler(cache, new TcgplayerOptions())
+            {
+                InnerHandler = stub,
+            }
         );
 
         var exception = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
@@ -222,6 +228,39 @@ public sealed class TcgplayerAuthenticationHandlerTests
 
         Assert.Equal(TcgplayerFeedFailure.NotConfigured, exception.Failure);
         Assert.Empty(stub.Requests);
+    }
+
+    [Theory]
+    [InlineData("https://elsewhere.example/v1.39.0/stores/self")]
+    [InlineData("http://api.tcgplayer.com/v1.39.0/stores/self")]
+    [InlineData("https://api.tcgplayer.com:8443/v1.39.0/stores/self")]
+    public async Task A_request_to_any_other_scheme_host_or_port_passes_through_without_a_token(
+        string url
+    )
+    {
+        var stub = StubHttpMessageHandler.RespondingPerRequest(_ => new HttpResponseMessage(
+            HttpStatusCode.Unauthorized
+        ));
+        using var invoker = new HttpMessageInvoker(
+            new TcgplayerAuthenticationHandler(
+                NewCache(new FakeTimeProvider(Issued)),
+                new TcgplayerOptions()
+            )
+            {
+                InnerHandler = stub,
+            }
+        );
+
+        using var response = await invoker.SendAsync(
+            new HttpRequestMessage(HttpMethod.Get, url),
+            default
+        );
+
+        // No token is fetched or attached, and a 401 is handed back rather than refreshed.
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        var only = Assert.Single(stub.Requests);
+        Assert.Equal(new Uri(url), only.RequestUri);
+        Assert.Null(only.Headers.Authorization);
     }
 
     [Fact]
@@ -330,7 +369,10 @@ public sealed class TcgplayerAuthenticationHandlerTests
                 ? _stub
                 : new SerializingGate(tokenGate) { InnerHandler = _stub };
             _invoker = new HttpMessageInvoker(
-                new TcgplayerAuthenticationHandler(NewCache(Time)) { InnerHandler = inner }
+                new TcgplayerAuthenticationHandler(NewCache(Time), new TcgplayerOptions())
+                {
+                    InnerHandler = inner,
+                }
             );
         }
 

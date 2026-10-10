@@ -9,16 +9,27 @@ namespace LootSingles.Infrastructure.Tcgplayer;
 /// tcgplayer-upstream.md). The token comes from <see cref="TcgplayerTokenCache"/>, which sends its
 /// token request through this handler's own inner pipeline, so placing the rate-limit handler
 /// beneath this one counts token requests and retries too. A 401 gets one token refresh and one
-/// retry; a second 401 is <see cref="TcgplayerFeedFailure.AccessRefused"/>.
+/// retry; a second 401 is <see cref="TcgplayerFeedFailure.AccessRefused"/>. Only a request to the
+/// configured <see cref="TcgplayerOptions.BaseUrl"/> (same scheme, host and port) is authenticated;
+/// any other passes through untouched, so the token can never reach another host.
 /// </summary>
-public sealed class TcgplayerAuthenticationHandler(TcgplayerTokenCache tokenCache)
-    : DelegatingHandler
+public sealed class TcgplayerAuthenticationHandler(
+    TcgplayerTokenCache tokenCache,
+    TcgplayerOptions options
+) : DelegatingHandler
 {
+    private readonly Uri _baseUrl = new(options.BaseUrl);
+
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken
     )
     {
+        if (!TargetsBaseUrl(request.RequestUri))
+        {
+            return await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+
         // A request can only be sent once; buffering lets the retry copy any body.
         if (request.Content is not null)
         {
@@ -53,6 +64,16 @@ public sealed class TcgplayerAuthenticationHandler(TcgplayerTokenCache tokenCach
             "TCGplayer answered 401 to a freshly fetched bearer token."
         );
     }
+
+    private bool TargetsBaseUrl(Uri? requestUri) =>
+        requestUri is { IsAbsoluteUri: true }
+        && Uri.Compare(
+            requestUri,
+            _baseUrl,
+            UriComponents.SchemeAndServer,
+            UriFormat.Unescaped,
+            StringComparison.OrdinalIgnoreCase
+        ) == 0;
 
     private Task<HttpResponseMessage> SendInnerAsync(
         HttpRequestMessage request,
