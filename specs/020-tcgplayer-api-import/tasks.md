@@ -142,6 +142,8 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
   - the `User-Agent` default header;
   - the handler chain rate limit → auth, so the token request is counted too.
 
+  **R15 (2026-10-09)**: per-attempt 30 s timeout moved inside the rate limiter; HttpClient.Timeout infinite.
+
   Call it from `backend/src/LootSingles.Api/Program.cs` **and** `backend/tests/LootSingles.E2EHost/Program.cs`. This one registration is shared on purpose (plan.md, Structure Decision).
 
 **Checkpoint**: The shared import core is extracted with the PDF behaviour proven unchanged, the schema is migrated, and every TCGplayer request is throttled, identified and authenticated with the configured credentials only.

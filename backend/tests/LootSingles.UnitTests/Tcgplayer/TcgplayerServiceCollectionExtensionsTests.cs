@@ -1,4 +1,5 @@
 using System.Net;
+using LootSingles.Application.Import;
 using LootSingles.Infrastructure.Tcgplayer;
 using LootSingles.UnitTests.CardCatalog;
 using Microsoft.Extensions.Configuration;
@@ -109,14 +110,182 @@ public sealed class TcgplayerServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void Client_has_a_30_second_timeout()
+    public void Client_has_no_overall_timeout_because_each_attempt_is_bounded_inside_the_limiter()
     {
+        // Ruling R15: a whole-call timeout would also count the time spent waiting for a
+        // rate-limit slot, failing a large import instead of slowing it down (FR-021, SC-002).
         using var provider = Build(null);
         var client = provider
             .GetRequiredService<IHttpClientFactory>()
             .CreateClient(TcgplayerServiceCollectionExtensions.HttpClientName);
 
-        Assert.Equal(TimeSpan.FromSeconds(30), client.Timeout);
+        Assert.Equal(Timeout.InfiniteTimeSpan, client.Timeout);
+    }
+
+    // ---- R15: the 30-second bound covers one HTTP attempt, not the wait for a slot ----
+
+    private static readonly DateTimeOffset Start = new(2026, 10, 9, 12, 0, 0, TimeSpan.Zero);
+
+    private const string ManifestBody =
+        """{"results":[{"orderStatusTypes":[{"id":2,"name":"Ready To Ship"}]}]}""";
+
+    private static ServiceProvider BuildWithClock(
+        FakeTimeProvider time,
+        HttpMessageHandler primary,
+        params (string Key, string? Value)[] values
+    )
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<TimeProvider>(time);
+        services.AddTcgplayer(Config([.. Secrets, ("Tcgplayer:StoreKey", "SYNSTORE1"), .. values]));
+        services
+            .AddHttpClient(TcgplayerServiceCollectionExtensions.HttpClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => primary);
+        return services.BuildServiceProvider();
+    }
+
+    [Fact]
+    public async Task A_request_waiting_longer_than_30_seconds_for_a_rate_limit_slot_still_succeeds()
+    {
+        var time = new FakeTimeProvider(Start);
+        var upstream = new SlowUpstream(hangApiCalls: false, hangToken: false);
+        await using var provider = BuildWithClock(
+            time,
+            upstream,
+            ("Tcgplayer:CallsPerMinute", "2")
+        );
+        var client = provider.GetRequiredService<TcgplayerApiClient>();
+
+        // The token request and the first manifest call use both slots of this minute.
+        Assert.Equal([2], await client.GetOpenOrderStatusIdsAsync(CancellationToken.None));
+
+        var waiting = client.GetOpenOrderStatusIdsAsync(CancellationToken.None);
+        await SettleAsync(time, expectedTimers: 1);
+        time.Advance(TimeSpan.FromSeconds(31));
+        await SettleAsync(time, expectedTimers: 1);
+        Assert.False(waiting.IsCompleted);
+
+        time.Advance(TimeSpan.FromSeconds(29));
+
+        Assert.Equal([2], await waiting.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.Equal(3, provider.GetRequiredService<TcgplayerRateLimiter>().CallCount);
+    }
+
+    [Fact]
+    public async Task An_attempt_TCGplayer_does_not_answer_within_30_seconds_is_Unavailable()
+    {
+        var time = new FakeTimeProvider(Start);
+        var upstream = new SlowUpstream(hangApiCalls: true, hangToken: false);
+        await using var provider = BuildWithClock(time, upstream);
+        var client = provider.GetRequiredService<TcgplayerApiClient>();
+
+        var call = client.GetOpenOrderStatusIdsAsync(CancellationToken.None);
+        await SettleAsync(time, expectedTimers: 1);
+        time.Advance(TimeSpan.FromSeconds(29));
+        await SettleAsync(time, expectedTimers: 1);
+        Assert.False(call.IsCompleted);
+
+        time.Advance(TimeSpan.FromSeconds(1));
+
+        var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
+            call.WaitAsync(TimeSpan.FromSeconds(10))
+        );
+        Assert.Equal(TcgplayerFeedFailure.Unavailable, failure.Failure);
+    }
+
+    [Fact]
+    public async Task A_token_request_TCGplayer_does_not_answer_within_30_seconds_is_Unavailable()
+    {
+        var time = new FakeTimeProvider(Start);
+        var upstream = new SlowUpstream(hangApiCalls: false, hangToken: true);
+        await using var provider = BuildWithClock(time, upstream);
+        var client = provider.GetRequiredService<TcgplayerApiClient>();
+
+        var call = client.GetOpenOrderStatusIdsAsync(CancellationToken.None);
+        await SettleAsync(time, expectedTimers: 1);
+        time.Advance(TimeSpan.FromSeconds(30));
+
+        var failure = await Assert.ThrowsAsync<TcgplayerFeedException>(() =>
+            call.WaitAsync(TimeSpan.FromSeconds(10))
+        );
+        Assert.Equal(TcgplayerFeedFailure.Unavailable, failure.Failure);
+    }
+
+    [Fact]
+    public async Task Caller_cancellation_while_waiting_for_a_slot_is_OperationCanceledException()
+    {
+        var time = new FakeTimeProvider(Start);
+        var upstream = new SlowUpstream(hangApiCalls: false, hangToken: false);
+        await using var provider = BuildWithClock(
+            time,
+            upstream,
+            ("Tcgplayer:CallsPerMinute", "2")
+        );
+        var client = provider.GetRequiredService<TcgplayerApiClient>();
+        await client.GetOpenOrderStatusIdsAsync(CancellationToken.None);
+
+        using var cancel = new CancellationTokenSource();
+        var waiting = client.GetOpenOrderStatusIdsAsync(cancel.Token);
+        await SettleAsync(time, expectedTimers: 1);
+        time.Advance(TimeSpan.FromSeconds(31));
+        await cancel.CancelAsync();
+
+        var thrown = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            waiting.WaitAsync(TimeSpan.FromSeconds(10))
+        );
+        Assert.Equal(cancel.Token, thrown.CancellationToken);
+        Assert.Equal(2, upstream.Requests);
+    }
+
+    /// <summary>
+    /// Waits briefly, in real time, until the fake clock holds the expected number of pending
+    /// timers, so an Advance sees a settled pipeline. The deadline only guards against a hang.
+    /// </summary>
+    private static async Task SettleAsync(FakeTimeProvider time, int expectedTimers)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (time.ActiveTimerCount != expectedTimers)
+        {
+            if (DateTime.UtcNow > deadline)
+            {
+                throw new TimeoutException("The pipeline did not settle on the fake clock.");
+            }
+            await Task.Delay(1);
+        }
+    }
+
+    /// <summary>
+    /// Synthetic upstream: answers the token request and the manifest, or never answers one of
+    /// them until the request is cancelled.
+    /// </summary>
+    private sealed class SlowUpstream(bool hangApiCalls, bool hangToken) : HttpMessageHandler
+    {
+        private int _requests;
+
+        public int Requests => Volatile.Read(ref _requests);
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        )
+        {
+            Interlocked.Increment(ref _requests);
+            var isToken = request.RequestUri!.AbsolutePath == "/token";
+            if (isToken ? hangToken : hangApiCalls)
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    isToken
+                        ? """{"access_token":"synthetic-bearer-token-not-real","expires_in":1209600}"""
+                        : ManifestBody
+                ),
+            };
+        }
     }
 
     [Fact]

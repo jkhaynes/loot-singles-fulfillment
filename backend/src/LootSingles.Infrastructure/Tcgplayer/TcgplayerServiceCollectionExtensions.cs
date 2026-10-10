@@ -35,6 +35,7 @@ public static class TcgplayerServiceCollectionExtensions
         services.AddSingleton<TcgplayerStoreKeyCache>();
         services.AddTransient<TcgplayerAuthenticationHandler>();
         services.AddTransient<TcgplayerRateLimitHandler>();
+        services.AddTransient<TcgplayerAttemptTimeoutHandler>();
 
         return services
             .AddHttpClient(
@@ -47,7 +48,10 @@ public static class TcgplayerServiceCollectionExtensions
                         new Uri(options.BaseUrl),
                         $"{options.ApiVersion}/"
                     );
-                    client.Timeout = TimeSpan.FromSeconds(30);
+                    // No whole-call timeout: it would count the wait for a rate-limit slot and
+                    // fail a large import instead of slowing it down (ruling R15). Each attempt
+                    // is bounded by TcgplayerAttemptTimeoutHandler instead.
+                    client.Timeout = Timeout.InfiniteTimeSpan;
                     client.DefaultRequestHeaders.TryAddWithoutValidation(
                         "User-Agent",
                         TcgplayerUserAgent.Value
@@ -58,6 +62,9 @@ public static class TcgplayerServiceCollectionExtensions
             // the call and the 401 retry each wait for a slot (ruling R9).
             .AddHttpMessageHandler<TcgplayerAuthenticationHandler>()
             .AddHttpMessageHandler<TcgplayerRateLimitHandler>()
+            // Innermost: bounds each attempt (token request and 401 retry too) to 30 seconds
+            // once it has its slot, so waiting for the limiter never times a request out.
+            .AddHttpMessageHandler<TcgplayerAttemptTimeoutHandler>()
             // The API client is a transient typed client on this same pipeline; the store key it
             // resolves lives in the singleton TcgplayerStoreKeyCache.
             .AddTypedClient<TcgplayerApiClient>();
