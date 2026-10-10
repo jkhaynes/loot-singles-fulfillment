@@ -23,9 +23,7 @@ The three name lists:
 - are matched **exactly** (case and spacing) against the manifest each import. A configured name the manifest lacks stops the import with `tcgplayerResponseInvalid`, naming it. The import never falls back to a wider search;
 - fall back to their defaults when the key is absent, and fail startup when the key is present but every entry is blank, so none of them can ever be empty.
 
-In-store pickup orders are recognised by the manifest's `orderDeliveryTypes` entry named `InStorePickup`. That name is a constant in code (`TcgplayerOpenOrderRule.InStorePickupDeliveryType`), not configuration: it identifies a kind of order rather than choosing which ones are open.
-
-The manifest must **always** contain the `InStorePickup` delivery type and the `Normal` order type (`TcgplayerOpenOrderRule.NormalOrderType`), even when `Tcgplayer:OrderTypes` is reconfigured to leave `Normal` out. The rule needs `InStorePickup` to tell pickup orders apart, and an order whose details carry no order type counts as `Normal`. If either is missing, every press fails with `tcgplayerResponseInvalid` naming it.
+They are sent together as the order search's `orderStatusIds`, `pickupStatusIds` and `orderTypeIds` filters, and the search's result is the list of open orders (FR-004; contracts/tcgplayer-upstream.md).
 
 ## Configured vs not configured
 

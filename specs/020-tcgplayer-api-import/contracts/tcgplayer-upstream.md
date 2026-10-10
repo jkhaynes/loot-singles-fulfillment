@@ -18,17 +18,18 @@
 |---|---|---|---|---|
 | 1 | `POST /token`, form `grant_type=client_credentials&client_id={PublicKey}&client_secret={PrivateKey}`, header `X-Tcg-Access-Token: {AccessToken}` | Bearer token from the **existing** credentials | No cached token, the cached token is within 24 h of expiry, or a 401 occurred (once) | Usually 0, and 1 per ~14 days |
 | 2 | `GET /{v}/stores/self` | Resolve the store key | Only when `Tcgplayer:StoreKey` is unset; cached for the process lifetime | 0 or 1 |
-| 3 | `GET /{v}/stores/{storeKey}/orders/manifest` | Map the configured open order status, open pickup status and order type names, and the `InStorePickup` delivery type and `Normal` order type, to ids | Each import, and again per batch of new orders fetched (to reject an order whose details can't decide its openness) | 1 + ⌈new ÷ PageSize⌉ |
-| 4 | `GET /{v}/stores/{storeKey}/orders?orderStatusIds={ids}&pickupStatusIds={ids}&orderTypeIds={ids}&offset={o}&limit={PageSize}` | Candidate order numbers (the filters are partial; see below) | Each import, paged | ⌈searched orders ÷ PageSize⌉ |
-| 5 | `GET /{v}/stores/{storeKey}/orders/{n1,n2,…}` | Openness (FR-004) for **every** searched order, then the `productCount` cross-check for **new** open orders; customer fields are **not bound** | Each import, in batches of PageSize: once over all searched orders, again over the new open ones | ⌈searched ÷ PageSize⌉ + ⌈new ÷ PageSize⌉ |
+| 3 | `GET /{v}/stores/{storeKey}/orders/manifest` | Map the configured open order status, open pickup status and order type names to ids | Each import | 1 |
+| 4 | `GET /{v}/stores/{storeKey}/orders?orderStatusIds={ids}&pickupStatusIds={ids}&orderTypeIds={ids}&offset={o}&limit={PageSize}` | Open order numbers (all three filters, always; see below) | Each import, paged | ⌈open orders ÷ PageSize⌉ |
+| 5 | `GET /{v}/stores/{storeKey}/orders/{n1,n2,…}` | `productCount` cross-check; customer fields are **not bound** | **New** orders only, in batches of PageSize | ⌈new ÷ PageSize⌉ |
 | 6 | `GET /{v}/stores/{storeKey}/orders/{orderNumber}/items?includeItemDetails=true&offset={o}&limit={PageSize}` | Lines | Per **new** order, paged | ≥ 1 per new order |
 | 7 | `GET /{v}/catalog/skus/{sku1,sku2,…}` | SKU → product | Per batch of 50 distinct SKUs on new orders | ⌈SKUs ÷ 50⌉ |
 | 8 | `GET /{v}/catalog/products/{p1,p2,…}?getExtendedFields=true` | Collector number, rarity, image | Per batch of 50 distinct products | ⌈products ÷ 50⌉ |
 
-**Typical day** (50 new orders, about 120 distinct cards): 1 + 1 + 1 + 1 + 1 + 50 + 3 + 3 ≈ **61 calls**, within one window.
-**Large backlog** (200 new orders): about 235 calls, roughly 2 minutes at 120 a minute.
+**Typical day** (50 new orders, about 120 distinct cards): 1 + 1 + 1 + 50 + 3 + 3 ≈ **59 calls**, within one window.
+**Steady state** (a press with no new orders): manifest + ⌈open ÷ PageSize⌉ search pages, usually **2 calls**.
+**Large backlog** (200 new orders): about 225 calls, roughly 2 minutes at 120 a minute.
 
-## The search filters are partial
+## The search filters are partial, so all three are sent
 
 Search (#4) takes comma-separated id lists named `orderStatusIds`, `pickupStatusIds` and `orderTypeIds` (TCGplayer documentation, "Search Orders"). Live finding, 2026-10-10, from a counts-only diagnostic a person ran:
 
@@ -36,7 +37,7 @@ Search (#4) takes comma-separated id lists named `orderStatusIds`, `pickupStatus
 - `pickupStatusIds` narrows only in-store pickup orders, and returns every shipped order;
 - `orderTypeIds` is partial in the same way.
 
-Sending only `orderStatusIds` imported about 1,568 orders that were not open, mostly long-collected pickup orders. Sent together, `orderStatusIds` (open order statuses) and `pickupStatusIds` (open pickup statuses) matched the seller portal's open-orders count. So the search always sends all three, and the search result is only a candidate list: each order's own details row (#5) decides whether it is open (FR-004, research.md §3) before anything else is fetched for it. An order that is not open is skipped silently: no items call, no result, no count.
+Sending only `orderStatusIds` imported about 1,568 orders that were not open, mostly long-collected pickup orders. Sent together, the three filters return exactly the open orders (confirmed live: 19 Ready To Ship plus 3 Received, matching the seller portal). So the search always sends all three, none may be empty, and the import trusts its result: it does not re-check each order's status (FR-004, research.md §3). A test pins the exact query, and the test stub's search leaks the orders a missing filter would let through.
 
 ## Forbidden requests
 

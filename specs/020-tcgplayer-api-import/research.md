@@ -35,22 +35,21 @@ Every fact about the TCGplayer API below comes from TCGplayer's **published docu
 - its delivery type is not in-store pickup and its order status is one of `Tcgplayer:OpenOrderStatuses` (default `["Processing", "Ready To Ship"]`), or
 - its delivery type is in-store pickup and its pickup status is one of `Tcgplayer:OpenPickupStatuses` (default `["Received"]`).
 
-This matches the seller portal's open-orders view. All three lists are **names**. Each import resolves them to ids with `GET /stores/{storeKey}/orders/manifest` (`orderStatusTypes`, `orderPickupStatusTypes`, `orderTypes`), along with the `orderDeliveryTypes` entry named `InStorePickup`. A configured name, or `InStorePickup`, missing from the manifest stops the import with a typed `TcgplayerResponseInvalid` failure that names it. It never falls back to searching every order.
+This matches the seller portal's open-orders view. All three lists are **names**. Each import resolves them to ids with `GET /stores/{storeKey}/orders/manifest` (`orderStatusTypes`, `orderPickupStatusTypes`, `orderTypes`). A configured name missing from the manifest stops the import with a typed `TcgplayerResponseInvalid` failure that names it. It never falls back to searching every order.
 
-**The search filters are partial** (live finding, 2026-10-10, counts only): `orderStatusIds` narrows only shipped orders and returns every in-store pickup order; `pickupStatusIds` narrows only pickup orders and returns every shipped order; `orderTypeIds` behaves the same partial way. Sending only `orderStatusIds` imported about 1,568 orders that were not open into the dev database. So:
+**The search filters are partial** (live finding, 2026-10-10, counts only): `orderStatusIds` narrows only shipped orders and returns every in-store pickup order; `pickupStatusIds` narrows only pickup orders and returns every shipped order; `orderTypeIds` behaves the same partial way. Sending only `orderStatusIds` imported about 1,568 orders that were not open into the dev database. Sent together, the filters return exactly the open orders (confirmed live: 19 Ready To Ship plus 3 Received). So:
 
-1. The search sends `orderStatusIds`, `pickupStatusIds` and `orderTypeIds` together (the documented names, comma-separated ids). Together they cut the result down to roughly the open orders, but the result is still only a list of candidates.
-2. Every searched order's details row is read (call #5, batched) and checked with **one pure rule**, `TcgplayerOpenOrderRule.IsOpen`, before anything else about that order is fetched or decided, including whether it was already imported.
-3. An order that is not open is **skipped silently**: no items call, no result row, not "already imported", and no part of any count, log entry or progress total. The orders detected, and the progress total, are the open orders only.
-
-A details row that lacks a value the rule needs (no delivery type; a shipped order with no order status; a pickup order with no pickup status) makes that order **undecidable** (ruling R30, 2026-10-10). It is kept, so it is detected and never silently skipped, and it alone is rejected as `TcgplayerResponseInvalid` with a message naming the order and the field, exactly as an order TCGplayer returned no details for. The rest of the press continues. An order whose type can never be open is not open whatever else is missing. A row with no order type is treated as Normal: TCGplayer may omit it, and Normal is the ordinary kind of order.
+1. The search sends `orderStatusIds`, `pickupStatusIds` and `orderTypeIds` together (the documented names, comma-separated ids), and its result **is** the list of open orders.
+2. The import trusts that search (Product Owner decision 2026-10-10, spec Clarifications): it does not read each order's details to re-check its status. Order details are read only for new orders, for the `productCount` cross-check (§5).
+3. None of the three lists may be empty: an empty list fails startup (configuration contract), and the client refuses to search with an empty filter, since an empty filter could mean "every order".
+4. Tests pin the exact search query with all three filters. The integration and E2E stub's search honours its filters the way the live search does (a search missing a filter returns the orders only that filter excludes), so a search that dropped a filter would import the fixtures' not-open orders and fail the tests.
 
 **Rationale**:
 - The spec requires the three lists to change through configuration without code (FR-004).
 - Names are what a person sees in the seller portal. The ids appear only at runtime, and we can't look at them.
-- The manifest call costs one request per import; checking details costs one request per page of searched orders.
+- The manifest call costs one request per import.
 
-**Alternatives rejected**: configuring numeric ids (nobody here can read them without seeing live data); trusting the search filters alone (they are partial, which is how the 1,568 orders got in).
+**Alternatives rejected**: configuring numeric ids (nobody here can read them without seeing live data); re-checking each searched order's own details after the search (ruled out 2026-10-10: the three filters together are exact, the original leak came from sending one filter only, and the re-check cost a details call per page of open orders on every press).
 
 ## 4. Paging and completeness (FR-005)
 
@@ -68,7 +67,7 @@ A details row that lacks a value the rule needs (no delivery type; a shipped ord
 
 **Uncertainty**: The documentation doesn't say whether `productCount` counts distinct lines or units. The plan assumes units, because that is the meaning a packing slip's "items" total has. If the assumption is wrong, every order fails loudly with a specific reason rather than importing wrongly, which is the safe direction (Principle V). This is on the live-verification list. If it turns out to count lines, the fix is a one-line change in the translator, covered by its unit test.
 
-**Customer data**: the details DTO declares **only** `orderNumber`, `orderStatusTypeId`, `orderDeliveryTypeId`, `orderPickupStatusTypeId`, `orderTypeId` and `productCount`. The `customer`, `shippingAddress` and `orderValue` objects are never bound into objects, so they cannot reach storage, logs or the UI (FR-017). Raw response bodies are never logged.
+**Customer data**: the details DTO declares **only** `orderNumber` and `productCount`. The `customer`, `shippingAddress` and `orderValue` objects are never bound into objects, so they cannot reach storage, logs or the UI (FR-017). Raw response bodies are never logged.
 
 ## 6. Collector number, rarity and image (FR-008, FR-019)
 

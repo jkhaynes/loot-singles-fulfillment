@@ -47,7 +47,7 @@ New values are appended, so existing stored integers keep their meaning.
 | `IncompleteOrder` | Per order | The order's lines could not all be retrieved, or their quantities don't match its product count. Nothing is created for that order. |
 | `TcgplayerUnavailable` | Attempt | TCGplayer could not be reached, timed out, or returned 5xx or 429. |
 | `TcgplayerAccessRefused` | Attempt | TCGplayer rejected the store's credentials (401 after one refresh, or 403). |
-| `TcgplayerResponseInvalid` | Attempt or per order | A response didn't have the documented shape, a configured open status is missing from the manifest, or paging stalled. It is attempt-wide when search or manifest is affected, and per order when only that order's items or details are (including details that can't decide its openness). |
+| `TcgplayerResponseInvalid` | Attempt or per order | A response didn't have the documented shape, a configured open status is missing from the manifest, or paging stalled. It is attempt-wide when search or manifest is affected, and per order when only that order's items or details are (including TCGplayer returning no details for it). |
 | `TcgplayerNotConfigured` | Attempt | No TCGplayer credentials are configured in this environment. No call was made. |
 
 `ImportOrderResult` is unchanged. API orders record `SourceOrderIdentifier` = the TCGplayer order number.
@@ -104,13 +104,13 @@ Response DTOs declare **only** the fields read (research.md §5–§7). There is
 | Envelope `TcgplayerResponse<T>` | `success`, `errors`, `results`, `totalItems?` |
 | Token | `access_token`, `.expires` |
 | Store self | `sellerKey` |
-| Manifest | `orderStatusTypes[]`, `orderPickupStatusTypes[]`, `orderDeliveryTypes[]`, `orderTypes[]`, each `{id, name}` |
-| Order details | `orderNumber`, `orderStatusTypeId`, `orderDeliveryTypeId`, `orderPickupStatusTypeId` (absent or null on shipped orders), `orderTypeId` (absent means Normal), `productCount` |
+| Manifest | `orderStatusTypes[]`, `orderPickupStatusTypes[]`, `orderTypes[]`, each `{id, name}` |
+| Order details | `orderNumber`, `productCount` |
 | Order item | `skuId`, `categoryName`, `productName`, `groupName`, `condition`, `printing`, `isFoil`, `language`, `rarity`, `quantity`, `productImageUrl` |
 | SKU | `skuId`, `productId` |
 | Product | `productId`, `imageUrl`, `extendedData[] {name, value}` |
 
-**Openness** (FR-004, research.md §3): `TcgplayerOpenOrderIds` holds the ids the manifest resolved: the open order statuses, open pickup statuses and order types from configuration, and the delivery type named `InStorePickup`. A pickup order is recognised by that manifest name alone; it is a constant in code, `TcgplayerOpenOrderRule.InStorePickupDeliveryType`. `TcgplayerOpenOrderRule.Decide(details, ids)` is the one pure rule over an order details row: open when the order type is allowed and either it is not pickup with an open order status, or pickup with an open pickup status; not open otherwise; **undecidable**, with a reason naming the order and field, when the row lacks a value the decision needs (then the order alone is rejected, ruling R30). A live Received pickup order's order status is Processing, so the pickup status, not the order status, decides a pickup order.
+**Open orders** (FR-004, research.md §3): `TcgplayerOpenOrderIds` holds the ids the manifest resolved for the configured open order statuses, open pickup statuses and order types. The search sends all three as its filters, and its result is the list of open orders; no order's details are re-checked.
 
 `TcgplayerOptions` (configuration section `Tcgplayer`) is defined in [contracts/configuration.md](contracts/configuration.md).
 
