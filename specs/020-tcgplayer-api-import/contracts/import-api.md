@@ -30,7 +30,7 @@ Pulls the store's open orders from TCGplayer and imports each one that isn't alr
 
 These end the stream with `status: "failed"` and `attemptFailureCode` set. Results already streamed stay valid.
 
-| `attemptFailureCode` | When | `attemptFailureMessage` (shown verbatim) |
+| `attemptFailureCode` | When | `attemptFailureMessage` (shown verbatim; see the display notes below for `tcgplayerResponseInvalid`) |
 |---|---|---|
 | `tcgplayerNotConfigured` | No credentials in this environment. No call is made. | "Getting orders from TCGplayer isn't set up here. Use packing-slip upload instead." |
 | `tcgplayerUnavailable` | TCGplayer is unreachable, times out, or returns 5xx or 429 | "Couldn't reach TCGplayer. Orders already imported are kept. Try again in a few minutes, or upload a packing slip." |
@@ -38,6 +38,14 @@ These end the stream with `status: "failed"` and `attemptFailureCode` set. Resul
 | `tcgplayerResponseInvalid` | The manifest or search response didn't have the expected shape, a configured open status doesn't exist, or paging stalled | A specific message, for example "TCGplayer has no order status named 'Ready To Ship'." |
 
 None of these messages contains credentials, raw response content or customer data (FR-023, FR-017).
+
+How the import screen shows them: the failure banner sits directly under "Get new orders", and the packing-slip section follows it.
+
+- `tcgplayerNotConfigured`, `tcgplayerUnavailable` and `tcgplayerAccessRefused`: the banner shows `attemptFailureMessage` verbatim.
+- `tcgplayerResponseInvalid`: the banner leads with a fixed plain-language line, "TCGplayer sent a reply the app didn't understand. A manager should check the TCGplayer setup.", and shows `attemptFailureMessage` underneath in small muted text as the technical detail.
+- Every one of the four ends with "You can still upload a packing slip below."
+- When the attempt failed before any order was detected, the "0 of 0 orders processed" count is not shown.
+- There is no separate Retry button for an API press: "Get new orders" stays enabled after a failure or cancel, and pressing it again is the retry. PDF imports keep their Retry button.
 
 ### Server errors
 

@@ -147,7 +147,7 @@ test('When TCGplayer is down, Get new orders says so and a packing slip uploads 
     "Couldn't reach TCGplayer. Orders already imported are kept. Try again in a few minutes, or upload a packing slip.",
     { timeout: 20_000 },
   )
-  await expect(outage).toContainText('Packing-slip PDF import below still works.')
+  await expect(outage).toContainText('You can still upload a packing slip below.')
 
   await page.getByLabel(/packing slip/i).setInputFiles(fallbackSlip)
   await page.getByRole('button', { name: 'Import orders', exact: true }).click()

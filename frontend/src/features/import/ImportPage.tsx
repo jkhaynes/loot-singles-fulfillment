@@ -103,48 +103,21 @@ export function ImportPage() {
     source === 'tcgplayer'
       ? (snapshot?.results.filter((result) => !isAlreadyImported(result)) ?? [])
       : (snapshot?.results ?? [])
+  // Pressing Get new orders again is the API retry, so only a PDF import offers a Retry button.
   const retry =
-    snapshot?.status === 'failed' ||
-    snapshot?.status === 'interrupted' ||
-    snapshot?.status === 'cancelled'
-  return (
-    <main className="import-page">
-      <Link to="/" className="import-back-action">
-        <span aria-hidden="true">←</span> Back to Dashboard
-      </Link>
-      <section className="import-card">
-        <h1>Import orders</h1>
-        <p>Get the store's open orders from TCGplayer.</p>
-        <div className="import-actions">
-          <button type="button" disabled={running} onClick={() => void run('tcgplayer')}>
-            {running && source === 'tcgplayer' ? 'Getting orders…' : 'Get new orders'}
-          </button>
-          {running && (
-            <button
-              type="button"
-              className="import-cancel-action"
-              onClick={() => setCancelConfirmationOpen(true)}
-            >
-              Cancel Import
-            </button>
-          )}
-        </div>
-        <section className="import-fallback">
-          <h2>Import packing slip</h2>
-          <p>Fallback: upload one TCGplayer packing-slip PDF (25 MB maximum).</p>
-          <form onSubmit={submit}>
-            <label htmlFor="packing-slip">Packing slip PDF</label>
-            <input
-              id="packing-slip"
-              type="file"
-              accept="application/pdf,.pdf"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-            <button disabled={!file || running}>
-              {running && source === 'pdf' ? 'Importing…' : 'Import orders'}
-            </button>
-          </form>
-        </section>
+    source === 'pdf' &&
+    (snapshot?.status === 'failed' ||
+      snapshot?.status === 'interrupted' ||
+      snapshot?.status === 'cancelled')
+  // A count of 0 of 0 says nothing when the attempt failed before finding any orders.
+  const showProgress = !(snapshot?.attemptFailureCode && snapshot.ordersDetected === 0)
+
+  // Progress, results and banners for the latest run. They render under the control that started
+  // it: the API results under Get new orders, the PDF results in the packing-slip section.
+  function renderStatus(placement: ImportSource) {
+    if (placement !== source) return null
+    return (
+      <>
         {error && (
           <p role="alert" className="import-alert import-alert--error">
             {error}
@@ -152,9 +125,11 @@ export function ImportPage() {
         )}
         {snapshot && (
           <div className="import-results" aria-live="polite">
-            <p className="import-progress">
-              {snapshot.ordersProcessed} of {snapshot.ordersDetected} orders processed
-            </p>
+            {showProgress && (
+              <p className="import-progress">
+                {snapshot.ordersProcessed} of {snapshot.ordersDetected} orders processed
+              </p>
+            )}
             {snapshot.attemptFailureCode === 'summaryMismatch' && (
               <p role="alert" className="import-alert import-alert--warning">
                 Summary mismatch: {snapshot.attemptFailureMessage}
@@ -167,8 +142,18 @@ export function ImportPage() {
             )}
             {attemptFailed && (
               <div role="alert" className="import-alert import-alert--error">
-                <p>{snapshot.attemptFailureMessage}</p>
-                <p>Packing-slip PDF import below still works.</p>
+                {snapshot.attemptFailureCode === 'tcgplayerResponseInvalid' ? (
+                  <>
+                    <p>
+                      TCGplayer sent a reply the app didn't understand. A manager should check the
+                      TCGplayer setup.
+                    </p>
+                    <p className="import-alert__detail">{snapshot.attemptFailureMessage}</p>
+                  </>
+                ) : (
+                  <p>{snapshot.attemptFailureMessage}</p>
+                )}
+                <p>You can still upload a packing slip below.</p>
               </div>
             )}
             {noNewOrders && <p className="import-alert import-alert--info">No new orders.</p>}
@@ -216,6 +201,56 @@ export function ImportPage() {
             )}
           </div>
         )}
+      </>
+    )
+  }
+
+  return (
+    <main className="import-page">
+      <Link to="/" className="import-back-action">
+        <span aria-hidden="true">←</span> Back to Dashboard
+      </Link>
+      <section className="import-card">
+        <h1>Import orders</h1>
+        <p>Get the store's open orders from TCGplayer.</p>
+        <div className="import-actions">
+          <button type="button" disabled={running} onClick={() => void run('tcgplayer')}>
+            {running && source === 'tcgplayer' ? 'Getting orders…' : 'Get new orders'}
+          </button>
+          {running && (
+            <button
+              type="button"
+              className="import-cancel-action"
+              onClick={() => setCancelConfirmationOpen(true)}
+            >
+              Cancel Import
+            </button>
+          )}
+        </div>
+        {renderStatus('tcgplayer')}
+        <section className="import-fallback">
+          <h2>TCGplayer not working? Upload a packing slip instead.</h2>
+          <p>One TCGplayer packing-slip PDF, 25 MB maximum.</p>
+          <form onSubmit={submit}>
+            <div className="import-file-picker">
+              <input
+                id="packing-slip"
+                className="import-file-picker__input"
+                type="file"
+                accept="application/pdf,.pdf"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+              <label htmlFor="packing-slip" className="import-file-picker__button">
+                Choose packing slip PDF
+              </label>
+              <span className="import-file-picker__name">{file?.name ?? 'No file chosen'}</span>
+            </div>
+            <button className="import-secondary-action" disabled={!file || running}>
+              {running && source === 'pdf' ? 'Importing…' : 'Import orders'}
+            </button>
+          </form>
+          {renderStatus('pdf')}
+        </section>
       </section>
       {cancelConfirmationOpen && (
         <div
