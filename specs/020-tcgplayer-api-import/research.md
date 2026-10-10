@@ -121,7 +121,7 @@ Every fact about the TCGplayer API below comes from TCGplayer's **published docu
 **Decision**: Add a singleton `TcgplayerRateLimiter` that keeps a sliding 60-second log of call timestamps, using `TimeProvider`. It sits in the TCGplayer `HttpClient` pipeline as a `DelegatingHandler`, so **every** request is counted, including token and catalog calls. When the window is full, a request waits until the oldest call leaves the window. The budget is `Tcgplayer:CallsPerMinute`, defaulting to **120** per environment.
 
 **Rationale**:
-- Production and stage each run at most one replica (019 runbook: max replicas 1), so an in-process limiter is the whole of each environment's traffic. Both environments may use the same TCGplayer account, so 120 each keeps the combined peak at 240, under 300 with margin.
+- Production and stage each run at most one replica (019 runbook: max replicas 1), so an in-process limiter is the whole of each environment's traffic. Both environments may use the same TCGplayer account, so 120 each keeps the combined peak at 240, under 300 with margin. Startup rejects any value above **150**, so even a misconfiguration of both environments together cannot exceed 300.
 - At 120 a minute, a 200-order backlog takes about 2 minutes, which SC-002 allows. A typical 50-order day takes about 56 calls, which fits in one window and so is not throttled at all (SC-001).
 - A sliding log is exact. A fixed window would allow a 2× burst across the minute boundary.
 
@@ -230,7 +230,7 @@ The calls match TCGplayer's own reference, so the 403s are application permissio
 
 1. **Open status**: the manifest's statuses are Unknown, Processing, Ready To Ship, Shipped, Delivered and Cancelled. The name is **"Ready To Ship"**, with a capital "To", and the configured default now uses that exact spelling. Whether Processing orders should also import is a Product Owner question; adding it is a configuration change.
 2. **`productCount` counts units**: on a sampled order with 2 lines totalling 3 cards, `productCount` was 3, the sum of line quantities 3, and the items `totalItems` 2. The items `totalItems` counts lines. §5's units check stands.
-3. **Collector number**: the product's `extendedData` holds it under `Number` (display name "#"). 8 of 8 sampled products had it. The other names seen were `FlavorText`, `OracleText`, `P`, `T`, `Rarity` and `SubType`. The sample was all Magic, so Pokémon and Lorcana are unconfirmed; a missing number shows "No number" (FR-011).
+3. **Collector number**: the product's `extendedData` holds it under `Number` (display name "#"). 8 of 8 sampled products had it. The other names seen were `FlavorText`, `OracleText`, `P`, `T`, `Rarity` and `SubType`. The sample was all Magic, so Pokémon and Lorcana are unconfirmed; a missing number shows "No number" (FR-008).
 4. **Wording**: conditions seen were "Near Mint", "Lightly Played", "Near Mint Foil" and "Lightly Played Foil". `printing` is its own field ("Normal" or "Foil") and agrees with `isFoil`. The foil suffix on the condition is the case §7 already handles through `ConditionVariantParser`. Language was English and rarities Mythic and Rare.
 5. **Images**: lines carry `productImageUrl`, and both line and product images are served from `tcgplayer-cdn.tcgplayer.com`, TCGplayer's own server.
 

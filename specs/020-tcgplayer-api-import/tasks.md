@@ -107,7 +107,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 ### 2c. TCGplayer client and the agreement guards (research.md §1, §9–§12; contracts/)
 
 - [ ] T016 [P] Write unit tests for `TcgplayerOptions` in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerOptionsTests.cs`. They cover the defaults from contracts/configuration.md, including `OpenOrderStatuses = ["Ready To Ship"]` and `CallsPerMinute = 120`, and check that:
-  - binding a `CallsPerMinute` below 1 or **above 300** throws at startup;
+  - binding a `CallsPerMinute` below 1 or **above 150** throws at startup (stage and production share the keys, so two environments at the cap total 300; research.md §9);
   - `IsConfigured` is false when any of the three secrets is blank.
 
   Confirm red.
@@ -159,6 +159,8 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
   - `categoryName`, `productName` and `groupName` pass through verbatim;
   - `condition` goes through `ConditionVariantParser`, so "Near Mint Foil" gives Condition "Near Mint" and Variant "Foil", and an unknown condition gives `Condition = null`, which the validator then rejects;
   - a `printing` of "Normal" is dropped, other printings are appended, and `isFoil` with no foil text adds "Foil";
+  - foil reported three ways at once, as live data does (condition "Near Mint Foil", `printing` "Foil", `isFoil` true), gives Condition "Near Mint" and Variant "Foil" **exactly once**, never "Foil Foil" (research.md §14);
+  - a sealed or accessory line (no `Number` in its product's `extendedData`) translates like any card without a number: `CollectorNumber` null, product name and image kept, and the order is not rejected (spec Edge Cases, decided 2026-10-09);
   - `rarity` falls back to the catalog `Rarity`;
   - catalog `Number` "067/086" becomes `CollectorNumber` "#067/086", and a missing `Number` gives null;
   - `language` and `ImageUrl` come from `productImageUrl`, falling back to the product `imageUrl`;
@@ -344,7 +346,13 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
   - condition and printing wording (T025).
 
   Write the synthetic fixtures (T003) to match any shape corrections, with invented values only. Record each outcome here.
-- [ ] T062 [MANUAL] Add the stage secrets (`tcgplayer-setup.md` Part 3), deploy, and press **Get new orders** on stage. Check imported orders against the TCGplayer seller portal (lines, quantities, conditions, variants, images) and check the logs for `{CallCount}` within budget. Then repeat on production.
+- [ ] T062 [MANUAL] Add the stage secrets (`tcgplayer-setup.md` Part 3), deploy, and press **Get new orders** on stage. Check:
+  - imported orders against the TCGplayer seller portal: lines, quantities, conditions, variants (foil shown once) and images;
+  - **cross-source duplicates (FR-010)**: before pressing, upload one open order's packing slip by PDF. The press must report that order "Already imported", which proves the API's order number matches the slip's text exactly;
+  - **timing (SC-001)**: a typical batch shows its results within 30 seconds;
+  - the logs show `{CallCount}` within budget.
+
+  Then repeat on production.
 
 ---
 
@@ -363,7 +371,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 - **US2 (T041–T045)** needs US1's import, so there are API orders to view. Its frontend tasks (T043–T044) can run in parallel with T041–T042.
 - **US3 (T046–T047)** and **US4 (T048–T049)** need US1 and are independent of each other and of US2.
 - **Polish (T050–T058)** comes after the desired stories. T050–T054 run in parallel. T057 then T058 are last.
-- **Manual (T059–T062)**: T059 is blocked on TCGplayer. T060–T061 follow it, and can land at any point after Phase 2. T062 needs a deployment.
+- **Manual (T059–T062)**: T059–T061 are done (2026-10-09). T062 needs a deployment.
 
 ## Parallel Example: User Story 1
 
@@ -381,4 +389,4 @@ T037 ImportPage tests → T038 ImportPage
 2. **Add US2**: the images and "No number" that make API orders pickable visually.
 3. **Add US3 and US4**: proof of the failure paths and packing.
 4. **Polish and the branch-review gate.**
-5. **Go live** once T059 unblocks: run T060–T062. Production is the last step, after stage is verified against the seller portal.
+5. **Go live** with T062. Production is the last step, after stage is verified against the seller portal.

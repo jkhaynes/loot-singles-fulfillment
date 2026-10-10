@@ -56,7 +56,7 @@ Customer fields are never bound into objects. Test data is synthetic. A person, 
 
 **Scale/Scope**: one store, a handful of employees, tens to low hundreds of orders a day.
 
-All earlier unknowns are resolved in [research.md](research.md). The items that only a live call can settle (status name, `productCount` semantics, `extendedData` names, the store-key field) are deliberately left to the **human** live-verification list (research.md §14) and designed to fail safely if the assumptions are wrong.
+All earlier unknowns are resolved in [research.md](research.md). The items that only a live call could settle (status name, `productCount` semantics, `extendedData` names, the store-key field) were confirmed by a person's read-only probe on 2026-10-09 (research.md §14).
 
 ## Constitution Check
 
@@ -95,7 +95,7 @@ All earlier unknowns are resolved in [research.md](research.md). The items that 
 | `TcgplayerApiClient` (Infrastructure/Tcgplayer) | Typed HTTP calls #2–#8 (contracts/tcgplayer-upstream.md), paging, DTOs | `HttpClient` | A version bump is configuration (`ApiVersion`) | HTTP status → `TcgplayerFeedFailure` in one place | Typed client; no interface (only the feed uses it) |
 | `TcgplayerOrderTranslator` (Infrastructure/Tcgplayer) | Pure mapping from DTOs to candidates (research.md §7), reusing `ConditionVariantParser` | Application parser | Field-name changes go through options | Missing pieces become null fields or `RejectedBySource(IncompleteOrder, …)` | Pure static, so it can be unit-tested exhaustively |
 | `TcgplayerAuthenticationHandler` (Infrastructure/Tcgplayer) | Attaches the bearer token; fetches it (#1) with the existing credentials; refreshes once on 401 | `TcgplayerTokenCache` (singleton), options | none | A second 401 means `AccessRefused` | `DelegatingHandler`, so every call is covered and the client stays unaware of auth |
-| `TcgplayerRateLimitHandler` and `TcgplayerRateLimiter` (Infrastructure/Tcgplayer) | Enforce N calls per 60 seconds across the process, waiting when full | `TimeProvider` | The budget is configuration, capped at 300 at startup | Waits; honours cancellation | Concrete singleton that is directly testable (research.md §9) |
+| `TcgplayerRateLimitHandler` and `TcgplayerRateLimiter` (Infrastructure/Tcgplayer) | Enforce N calls per 60 seconds across the process, waiting when full | `TimeProvider` | The budget is configuration, capped at 150 per environment at startup, so both together stay at or under 300 | Waits; honours cancellation | Concrete singleton that is directly testable (research.md §9) |
 | `ImportsController` | Adds `POST /api/imports/tcgplayer`; the NDJSON streaming is shared by both routes | Both services | none | Unchanged streaming error handling | Extracts the existing `StreamSnapshotsAsync` to take any update stream |
 | `OrdersService.GetByIdAsync` | Chooses the image source by `Order.ImportSource` | Enrichment service (PDF orders only) | none | API orders never enrich | One branch at the single image read point |
 | Frontend import page | Primary "Get new orders", PDF as fallback, new banners | `importApi` with a shared NDJSON reader | none | Banners per `attemptFailureCode`; "No new orders" | The stream reader is extracted from `importPackingSlip` and shared |
@@ -182,16 +182,16 @@ README.md                                    # TCGplayer Integration section rew
 
 ## Sequencing Notes for `/speckit-tasks`
 
-0. **Before tasks: a person runs the read-only probe** (quickstart §0) and records what it finds in research.md §14. Any assumption it disproves (status name, `productCount` meaning, `extendedData` names, store-key field, condition and printing wording) is corrected in this plan first. Synthetic fixtures are then written to match the confirmed shapes, still with invented values.
+0. **Done 2026-10-09. Before tasks: a person runs the read-only probe** (quickstart §0) and records what it finds in research.md §14. Any assumption it disproves (status name, `productCount` meaning, `extendedData` names, store-key field, condition and printing wording) is corrected in this plan first. Synthetic fixtures are then written to match the confirmed shapes, still with invented values.
 1. **Extract the import core, with no behaviour change.** The PDF suite must stay green throughout. This lands before any TCGplayer code.
 2. **Make the schema changes and migration** (`ImportSource`, nullable `CollectorNumber`, `Language`, `ImageUrl`, `ImportAttempt.Source`, `FailureType` values).
-3. **Build the agreement guards test-first:** limiter, User-Agent, token handler (existing credentials, refresh once, never `/app/authorize`), and options validation (300 cap, not-configured state).
+3. **Build the agreement guards test-first:** limiter, User-Agent, token handler (existing credentials, refresh once, never `/app/authorize`), and options validation (150-per-environment cap, not-configured state).
 4. **Add the translator and client with synthetic fixtures**, then the feed.
 5. **Add `TcgplayerApiImportService`, the controller route and the integration scenarios** (quickstart A).
 6. **Make the image source follow `ImportSource`**, and show "No number" and language in the picking views.
 7. **Change the frontend import page**, then the E2E stub and the Playwright flow.
 8. **Version build argument, secrets runbook, 019 contract update, PRD v0.7, README.**
-9. **Manual: the live-verification run** (quickstart D), performed by a person. It is gated on the Product Owner confirming the credentials precondition.
+9. **Manual: the live-verification run** (quickstart D), performed by a person on stage, then production. The credentials precondition is met (research.md §14).
 
 ## Complexity Tracking
 

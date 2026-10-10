@@ -113,7 +113,7 @@ A packer scans the label of an API-imported order at the packing desk. The desk 
 - **An order has more lines than TCGplayer returns in one response.** Every line is fetched before the order is created. An order whose full set of lines cannot be retrieved is rejected, never created with some lines missing.
 - **The application nears the 300-calls-per-minute limit on a very large import.** The import slows down to stay under the limit rather than exceeding it, and keeps showing progress.
 - **TCGplayer reports an order's line quantities summing to a different total than the order's own product count.** The order is rejected with a specific reason rather than imported with an inconsistent picture.
-- **A line's product cannot be placed in a game the application supports**, for example a sealed product or an accessory. The order is handled the same way the PDF importer handles an unsupported product line today, never silently dropped or partially imported.
+- **A line is not a single card**, for example a sealed product or an accessory. TCGplayer's product data has no collector number for it, so it is handled like any line without one: the order is imported, and the line shows its product name, image and "No number" (FR-008). The line is never dropped, and the order is never partially imported. (Decided 2026-10-09.)
 - **TCGplayer returns customer and shipping fields with order details.** They are discarded on receipt and never stored, logged or displayed.
 - **The API's response doesn't match the documented shape**, with missing fields, unexpected types or an empty body. The affected order, or the whole import if no order can be read, fails safely with a specific reason, and no partial order is created.
 - **An order changes or is cancelled on TCGplayer after it has been imported.** Out of scope. "Get new orders" only adds orders not already in the application, as the PDF path does today. It does not detect or flag later changes or cancellations, which people continue to handle as they do now. PRD open questions 20 and 21 stay open.
@@ -161,7 +161,7 @@ A packer scans the label of an API-imported order at the packing desk. The desk 
 - **FR-022**: Every TCGplayer API request MUST identify Loot Investments LLC and the application name and version.
 - **FR-023**: TCGplayer credentials MUST NOT appear in the repository, logs, error messages shown to employees, or test fixtures.
 - **FR-024**: Automated tests MUST use synthetic TCGplayer responses built from TCGplayer's published response formats, never responses captured from the live API.
-- **FR-025**: The system MUST log each import's start, outcome, order counts and any failure category, with safe fields only: no customer data, credentials or raw API responses.
+- **FR-025**: The system MUST log each import's outcome, order counts and any failure category in one completion entry, as PDF imports do, with safe fields only: no customer data, credentials or raw API responses.
 
 ### Key Entities
 
@@ -184,11 +184,11 @@ A packer scans the label of an API-imported order at the packing desk. The desk 
 
 ## Assumptions
 
-- **Precondition:** Loot's keys, issued by TCGplayer in 2026, are authorized for Loot's own store through TCGplayer's Store Authorization Workflow, a one-time step a person performs. The resulting store access token is stored only as a secret. A probe on 2026-10-08 showed that the keys alone reach the store's identity but are refused its orders (HTTP 403), so this step is required.
+- **Precondition:** Loot's keys, issued by TCGplayer in 2026, are authorized for Loot's own store through TCGplayer's Store Authorization Workflow, a one-time step a person performs. The resulting store access token is stored only as a secret. This step is done (2026-10-08), and TCGplayer enabled order and catalog access on 2026-10-09 (research.md §14).
 - TCGplayer's published Seller API (v1.39) is the contract: searching the store's orders by status, reading order details, reading order lines with product details, and reading product data from TCGplayer's catalog for a line's product.
 - Any authenticated employee may run "Get new orders", following the precedent of feature 004, which lets any authenticated employee upload a packing slip.
 - The results and progress experience for API imports follows the existing import screen's patterns: per-order results, distinct failure states and safe retry.
 - No PDF-imported order is migrated or re-imported. Existing orders stay as they are (PRD open question 26).
-- Card images are fetched from TCGplayer when a line is displayed, as the existing catalog enrichment does, so that no API-derived image data needs to be stored. This is a planning-level choice that planning may revisit.
+- Each API-imported line's TCGplayer image address is stored at import and shown from there, so viewing an order never calls TCGplayer or any other service. (Planning revised the earlier assumption of fetching at display time; plan.md, research.md §13.)
 - The PRD will be amended (v0.7) to record decisions 1–4, retire §28's "do not depend on API access" stance and revise §25 and §40.6. That amendment is documentation work in this feature, not a new requirement.
 - No accessibility scope beyond the existing design language, consistent with prior features.
