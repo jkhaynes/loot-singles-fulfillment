@@ -184,7 +184,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
   Confirm red.
 - [x] T028 [US1] Implement `backend/src/LootSingles.Infrastructure/Tcgplayer/TcgplayerApiClient.cs` and `TcgplayerDtos.cs`. The DTOs declare **only** the fields listed in data-model.md: **no** customer, shipping, email, name or `orderValue` properties. Never log a request or response body. Confirm T027 is green.
-- [ ] T029 [US1] Write a unit test for `TcgplayerOrderFeed` in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerOrderFeedTests.cs`, with a stubbed client. It checks that:
+- [x] T029 [US1] Write a unit test for `TcgplayerOrderFeed` in `backend/tests/LootSingles.UnitTests/Tcgplayer/TcgplayerOrderFeedTests.cs`, with a stubbed client. It checks that:
   - `GetOrdersAsync` fetches details per batch, items per order, then batched SKU and product lookups;
   - it translates each order, and a per-order `ResponseInvalid` (for example, a malformed items body) becomes `RejectedBySource(TcgplayerResponseInvalid, …)` for that order only;
   - `NotConfigured` is thrown before any request when `IsConfigured` is false.

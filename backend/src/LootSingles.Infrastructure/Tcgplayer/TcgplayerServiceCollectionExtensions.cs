@@ -1,3 +1,4 @@
+using LootSingles.Application.Import;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -36,6 +37,10 @@ public static class TcgplayerServiceCollectionExtensions
         services.AddTransient<TcgplayerAuthenticationHandler>();
         services.AddTransient<TcgplayerRateLimitHandler>();
         services.AddTransient<TcgplayerAttemptTimeoutHandler>();
+
+        // Stateless over the transient typed client and the singleton options and limiter, so it
+        // is transient too: the same lifetime as the client it composes.
+        services.AddTransient<ITcgplayerOrderFeed, TcgplayerOrderFeed>();
 
         return services
             .AddHttpClient(
