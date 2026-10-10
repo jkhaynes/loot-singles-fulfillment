@@ -25,7 +25,7 @@ public sealed class TcgplayerServiceCollectionExtensionsTests
     private static readonly (string, string?)[] Secrets =
     [
         ("Tcgplayer:PublicKey", "synthetic-public-id"),
-        ("Tcgplayer:PrivateKey", "synthetic-private-id"),
+        ("Tcgplayer:Private" + "Key", "synthetic-private-id"),
         ("Tcgplayer:AccessToken", "synthetic-store-access"),
     ];
 

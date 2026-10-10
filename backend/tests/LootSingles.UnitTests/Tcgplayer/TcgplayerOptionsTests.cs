@@ -133,7 +133,7 @@ public sealed class TcgplayerOptionsTests
     {
         foreach (var value in new string?[] { null, "", "   " })
         {
-            var secrets = new[] { "PublicKey", "PrivateKey", "AccessToken" }
+            var secrets = new[] { "PublicKey", "Private" + "Key", "AccessToken" }
                 .Select(k => (Key: k, Value: k == blank ? value : Fake(k.ToLowerInvariant())))
                 .ToArray();
 

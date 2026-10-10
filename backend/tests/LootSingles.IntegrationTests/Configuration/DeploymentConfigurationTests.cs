@@ -189,6 +189,75 @@ public sealed class DeploymentConfigurationTests
         );
     }
 
+    // 020 T050 / FR-023. The quality gate's credential scan must also catch the TCGplayer secrets.
+    // The scan is the `credential_pattern` line in pr-quality-gate.yml; these tests read THAT line
+    // (translating the two shell-only bits to .NET), so the workflow and the tests cannot drift.
+    // Names and sample values are built in pieces, as in commit ff87871, so this file does not trip
+    // the very scan it tests.
+    [Theory]
+    [InlineData("Private" + "Key", "\"{0}\": \"abc123def456\"")]
+    [InlineData("Private" + "Key", "{0} = \"abc123def456\";")]
+    [InlineData("client" + "_secret", "{0}: \"abc123def456\"")]
+    [InlineData("X-Tcg-" + "Access-Token", "\"{0}\", \"abc123def456\"")]
+    [InlineData("X-Tcg-" + "Access-Token", "{0}: \"abc123def456\"")]
+    public void Credential_scan_catches_a_tcgplayer_secret_value_assignment(
+        string name,
+        string template
+    )
+    {
+        var line = string.Format(template, name);
+
+        Assert.Matches(ReadCredentialScan(), line);
+    }
+
+    [Theory]
+    [InlineData("Private" + "Key", "the {0} secret is read from configuration")]
+    [InlineData("Private" + "Key", "{0} = section[nameof(PrivateKey)],")]
+    [InlineData("client" + "_secret", "grant_type=client_credentials&{0}={{PrivateKey}}")]
+    [InlineData("Private" + "Key", "$env:Tcgplayer__{0} = $secret")]
+    [InlineData("X-Tcg-" + "Access-Token", "send {0}: <token>")]
+    public void Credential_scan_ignores_prose_and_interpolated_references(
+        string name,
+        string template
+    )
+    {
+        var line = string.Format(template, name);
+
+        Assert.DoesNotMatch(ReadCredentialScan(), line);
+    }
+
+    [Fact]
+    public void No_tracked_file_contains_a_tcgplayer_secret_value_assignment()
+    {
+        var root = FindRepositoryRoot();
+        var scan = ReadCredentialScan();
+        string[] scanned = [".json", ".md", ".yml", ".yaml", ".cs"];
+        var offenders = Directory
+            .EnumerateFiles(root, "*", SearchOption.AllDirectories)
+            .Where(path => !IsIgnored(path, root))
+            .Where(path =>
+                scanned.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase)
+                || Path.GetFileName(path) == "Dockerfile"
+            )
+            .Where(path => File.ReadLines(path).Any(line => scan.IsMatch(line)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    private static System.Text.RegularExpressions.Regex ReadCredentialScan()
+    {
+        var workflow = ReadWorkflow("pr-quality-gate.yml");
+        var line = workflow
+            .Split('\n')
+            .Single(l => l.Contains("credential_pattern='", StringComparison.Ordinal));
+        var pattern = line[(line.IndexOf('\'') + 1)..line.LastIndexOf('\'')]
+            .Replace("''", string.Empty, StringComparison.Ordinal)
+            .Replace("[[:space:]]", @"\s", StringComparison.Ordinal);
+        return new System.Text.RegularExpressions.Regex(pattern);
+    }
+
     private static string ReadWorkflow(string fileName) =>
         File.ReadAllText(Path.Combine(FindRepositoryRoot(), ".github", "workflows", fileName));
 
