@@ -102,8 +102,10 @@ builder
         [
             .. new[] { 1, 2, 3, 4, 5, 8, 9, 10 }.Select(TcgplayerStubHandler.OrderNumber),
         ],
-        // Each batch's order-details call is held back, as ObservableProgressImportService
-        // holds back PDF progress, so Playwright can see an import part-way through.
+        // Each order's items call is held back, as ObservableProgressImportService holds back
+        // PDF progress, so Playwright can see an import part-way through. Items, not details:
+        // details are also read for every searched order before any progress (FR-004), and
+        // holding those would only delay the first snapshot.
         Override = async request =>
         {
             var incoming = services.GetRequiredService<IHttpContextAccessor>().HttpContext;
@@ -112,9 +114,9 @@ builder
                 return new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable);
             }
 
-            if (request.Route == "details")
+            if (request.Route == "items")
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(750));
+                await Task.Delay(TimeSpan.FromMilliseconds(375));
             }
 
             return null;
