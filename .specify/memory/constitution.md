@@ -1,42 +1,45 @@
 <!--
 Sync Impact Report
-Version change: 3.5.0 → 3.5.1
-PATCH — updated Principle II's approved-PRD reference from
-`docs/prd/Loot_Singles_Fulfillment_PRD_v0.5.md` to
-`docs/prd/Loot_Singles_Fulfillment_PRD_v0.6.md`. No principle was added, removed, or redefined,
-and the requirement itself is unchanged: every requirement MUST still trace to a confirmed Product
-Owner decision, the approved PRD, or an approved Spec Kit feature specification. Only the document
-that reference resolves to has changed.
+Version change: 3.5.1 → 4.0.0
+MAJOR — the development-process governance is redefined. Spec Kit is no longer the sole AI-assisted
+methodology: it owns design (specification through analysis), and Superpowers owns implementation.
+`/speckit-implement`, the Branch Review gate (`/branch-review`, `/review-remediation`) and
+convergence verification (`/speckit-converge`) leave the workflow, replaced by Superpowers'
+subagent-driven-development (per-task spec-compliance and code-quality review),
+requesting-code-review and finishing-a-development-branch. A small-change track lets bug fixes,
+tweaks and refactors with no new user-visible behavior skip the spec. No engineering rule
+changed: TDD (IV) still applies to every track, and the stop-and-return rule for
+contradictory requirements or flawed plans is unchanged.
 
 Modified principles:
-  II. No Invented Requirements — approved-PRD path now points at v0.6. Substance unchanged.
+  IV. Test-Driven Development — closing paragraph: Superpowers' test-driven-development is now the
+    way this policy is carried out, and the constitution governs where they differ. The TDD rules
+    themselves are unchanged.
 
 Modified sections:
-  None.
+  Spec Kit Ownership — renamed "Spec Kit and Superpowers Ownership"; Spec Kit owns design,
+    Superpowers owns implementation; review findings now return to plan/clarify or are fixed
+    test-first on the branch.
+  Development Workflow — lifecycle rewritten; small-change and spike tracks added; feature
+    branches in the main checkout, no worktrees.
 
 Added sections:
   None.
 
 Removed sections:
-  None.
+  None (the Branch Review gate and convergence loop text inside Development Workflow were removed).
 
 Rationale:
-PRD v0.6 was approved by the Product Owner on 2026-09-22 and supersedes v0.5. It carries a single
-amendment, A17, arising from feature 019 (automated stage and production deployment): hosting
-(§40.8) now serves the web application and the API from one origin per environment, from the same
-container, superseding v0.5's use of Azure Static Web Apps. The session cookie is `SameSite=Strict`,
-and a browser does not attach a `Strict` cookie to a request originating from a different site, so a
-separate origin for the web application would break authentication outright. The alternative —
-relaxing the cookie to `Lax` or `None` — would have weakened a credential control to satisfy a
-hosting arrangement, which is a Principle VII deviation and needs explicit Product Owner and
-Developer approval; amending the PRD was the cheaper and safer of the two. No product behavior
-changed. `CLAUDE.md` and `README.md` were updated in the same change.
+The Developer adopted the workflow already used on the sibling project Back Room (2026-10-09):
+Spec Kit for design, Superpowers for implementation. Superpowers' subagent-driven-development
+reviews every task against the spec and for code quality as it lands, which covers what the
+branch-review and converge gates checked, without a second review loop.
 
-Leaving this constitution pointing at v0.5 would make the highest governing document cite a
-superseded PRD, so every later feature would trace its requirements through the wrong artifact.
+Templates: `.specify/templates/*` reference `/speckit-implement` only as Spec Kit's own
+command text; they need no change. CLAUDE.md and
+docs/development/ai-assisted-development-workflow.md were updated in the same change.
 
-The previous amendment (3.4.3 → 3.5.0, 2026-09-22) scoped Principle XI's logging requirement to how
-the application emits logs rather than what the hosting platform does with stdout; its full
+The previous amendment (3.5.0 → 3.5.1, 2026-09-22) pointed Principle II at PRD v0.6; its
 rationale is in this file's git history.
 
 Follow-up TODOs: None.
@@ -102,7 +105,7 @@ The planned stack is xUnit for backend testing, Vitest and React Testing Library
 
 **Verification:** A feature is not complete merely because production code exists. Completion requires that required automated tests exist, required tests pass, existing tests pass, implementation satisfies the approved specification, and applicable acceptance criteria have verification evidence.
 
-This constitution is the sole authoritative TDD policy for this project. No separate TDD methodology, tool, or extension governs feature implementation.
+This constitution is the authoritative TDD policy for this project. Superpowers' test-driven-development discipline is how it is carried out during implementation; where the two differ, this principle governs.
 
 ### V. Safe Failure Over Silent Corruption
 
@@ -298,11 +301,9 @@ I/O, change tracking, or entity materialization.
 When multiple EF Core approaches are valid, prefer the simplest approach that produces correct
 SQL, minimizes unnecessary tracking and materialization, and remains clear to future maintainers.
 
-## Spec Kit Ownership
+## Spec Kit and Superpowers Ownership
 
-Spec Kit is this project's sole AI-assisted feature development methodology.
-
-It owns the complete structured feature lifecycle:
+Spec Kit owns feature **design**:
 
 - Constitution
 - Feature specification
@@ -311,13 +312,16 @@ It owns the complete structured feature lifecycle:
 - Checklists where useful
 - Task breakdown
 - Artifact analysis
-- Implementation
-- Branch review
-- Convergence verification
 
-No second planning or implementation methodology is layered on top of Spec Kit.
+Superpowers owns feature **implementation**: carrying out the approved `tasks.md` test-first on the
+feature branch, per-task spec-compliance and code-quality review, code review before merge, and
+finishing the branch. `/speckit-implement`, `/branch-review`, `/review-remediation` and
+`/speckit-converge` are not used.
 
-If implementation surfaces:
+Superpowers' own planning (brainstorming, writing-plans) MUST NOT be layered on top of a Spec Kit
+feature. The approved `tasks.md` is the plan; a second plan would compete with it.
+
+If implementation or review surfaces:
 
 - A contradictory requirement
 - A missing business rule
@@ -326,9 +330,10 @@ If implementation surfaces:
 - A requirement that cannot reasonably be implemented as specified
 - A conflict with this constitution
 
-work MUST stop and return to the appropriate Spec Kit clarification or planning phase.
-
-This rule applies equally to findings surfaced by the Branch Review gate (`/branch-review`): a Required finding rooted in a flawed technical plan returns to `/speckit-plan`; a Required finding rooted in an unresolved or contradictory requirement returns to `/speckit-clarify`. Required findings that are ordinary implementation-level defects are captured as new tasks in the feature's existing `tasks.md` — not a separate or competing task-tracking system — via `/review-remediation`, and resolved through `/speckit-implement`. Optional findings do not block completion; whether to act on one is the Product Owner's decision.
+work MUST stop and return to the appropriate Spec Kit clarification or planning phase: a flawed
+technical plan returns to `/speckit-plan`, and an unresolved or contradictory requirement returns
+to `/speckit-clarify`. Ordinary implementation-level defects found in review are fixed on the
+branch, test-first.
 
 The specification and plan MUST NOT be silently redesigned during implementation.
 
@@ -359,7 +364,18 @@ Architecture MUST NOT be considered acceptable solely because it compiles, passe
 
 ## Development Workflow
 
-The normal feature lifecycle is:
+Changes take one of three tracks, by size:
+
+- **Feature** (new behavior, several files, worth remembering why): the full lifecycle below.
+- **Small change** (bug fix, tweak or refactor with no new user-visible behavior): no spec.
+  Superpowers directly: systematic-debugging for bugs, test-driven-development otherwise. Anything
+  that adds user-visible behavior is a feature.
+- **Spike**: Superpowers brainstorming on a throwaway branch, no spec. If it survives, it is
+  promoted to a feature.
+
+Principle IV (TDD) applies to every track.
+
+The feature lifecycle is:
 
 Requirement  
 → Spec Kit specification  
@@ -370,34 +386,25 @@ Requirement
 → task breakdown  
 → analyze  
 → human approval  
-→ feature branch or worktree  
-→ Spec Kit implementation using strict Red → Green → Refactor TDD per Principle IV  
+→ feature branch in the main checkout (no git worktrees)  
+→ Superpowers subagent-driven-development: one subagent per task, strict Red → Green → Refactor
+  TDD per Principle IV, then spec-compliance and code-quality review of each task  
 → automated build/tests  
-→ branch review (`/branch-review`, with `/review-remediation`)  
-→ convergence verification  
-→ pull request  
+→ code review (requesting-code-review)  
+→ finishing the branch: pull request  
 → CI  
 → human review  
 → merge
 
-Branch review evaluates the actual implementation against the approved specification, plan, and this constitution, reviewing the feature branch against its base branch; it is distinct from the human architecture and changeability review earlier in this list, which evaluates the proposed design before implementation exists. Each finding is classified Required or Optional, separately from its severity, so a low-severity finding may still be Required. Required findings are captured as new tasks in the existing `tasks.md` and resolved through implementation; Optional findings do not block progress. This step is required for application-code changes before convergence verification.
+Code review evaluates the actual implementation against the approved specification, plan and
+this constitution; it is distinct from the human architecture and changeability review, which
+evaluates the proposed design before implementation exists. Critical and Important findings are
+fixed before merge, test-first. A review round with no Critical or Important findings is the
+stopping point: further rounds have diminishing returns, and remediation can introduce defects of
+its own.
 
-If convergence surfaces remaining required work:
-
-Implementation  
-→ convergence verification  
-→ repeat until converged.
-
-If branch review surfaces remaining Required findings:
-
-Implementation  
-→ branch review  
-→ repeat until no Required findings remain, before proceeding to convergence verification.
-
-A review round that surfaces no Required findings is the stopping point. Further rounds have
-diminishing returns, and remediation can introduce defects of its own.
-
-The Spec Kit task breakdown (`tasks.md`) is the tracker for in-progress feature work. No GitHub issue is required per feature.
+The Spec Kit task breakdown (`tasks.md`) is the tracker for in-progress feature work; tasks are
+checked off as they land. No GitHub issue is required per feature.
 
 Before task generation is approved, the technical plan SHOULD be reviewed specifically for:
 
@@ -437,4 +444,4 @@ Safety-related principles, including Sections V, VI, and VII, MUST NOT be weaken
 
 Changes to maintainability or simplicity principles MUST preserve the balance between reasonable extensibility and avoiding speculative over-engineering.
 
- **Version**: 3.5.1 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-09-22
+ **Version**: 4.0.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-10-09

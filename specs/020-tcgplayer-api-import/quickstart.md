@@ -81,7 +81,7 @@ Without secrets, "Get new orders" shows the **not set up here** message and PDF 
 3. Work through the **live-verification list** (research.md §14) and record each answer **in words** in `tasks.md`. Do not paste response data, tokens or order contents into any AI tool, issue or commit.
 4. If `productCount` or the `extendedData` names differ from the plan's assumptions, record it. Then:
    - an `extendedData` name difference needs only a configuration change;
-   - a `productCount` semantics difference needs a translator change through `/speckit-implement`.
+   - a `productCount` semantics difference needs a translator change, made test-first.
 5. Repeat on production, after the stage run is clean.
 
 **Rollback note**: rolling back the image after API orders exist leaves the old image unable to read a null `CollectorNumber` on those orders (data-model.md). Prefer fixing forward. If a rollback is unavoidable, PDF orders are unaffected.

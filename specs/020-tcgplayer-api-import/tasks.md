@@ -333,7 +333,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 - [ ] T055 Evaluate logging per the constitution's Observability standard: one completion log per API attempt with `{Source}`, the counts, `{CallCount}` and the failure category, and **no** per-order, body, token or PII logging. Confirm `ImportLoggingTests.cs` covers the API attempt; add the assertion if it is missing.
 - [ ] T056 Run CSharpier over the changed C# files (`dotnet csharpier format` on this branch's files only) and `npm --prefix frontend run format`, and confirm `dotnet csharpier check backend` and `npm --prefix frontend run format:check` pass.
 - [ ] T057 Run the full regression: both backend test projects, `npm --prefix frontend run test`, `build` and `lint`, and the Playwright suite (`npm --prefix frontend run test:e2e`). Compare against the T001 baseline. Every pre-existing test must still pass.
-- [ ] T058 Run `/branch-review` and resolve Required findings through `/review-remediation` and `/speckit-implement` (`CLAUDE.md`, Branch Review Gate).
+- [ ] T058 Run Superpowers requesting-code-review on the branch and fix Critical and Important findings test-first (`CLAUDE.md`, Workflow). Then finish the branch with finishing-a-development-branch or `/ship`.
 
 ### Manual: live confirmation (a person, never an AI tool)
 
@@ -388,5 +388,5 @@ T037 ImportPage tests → T038 ImportPage
 1. **MVP**: Phases 1–3, so "Get new orders" works end to end against the synthetic stub. Stop and validate with quickstart §A and §B steps 1–3.
 2. **Add US2**: the images and "No number" that make API orders pickable visually.
 3. **Add US3 and US4**: proof of the failure paths and packing.
-4. **Polish and the branch-review gate.**
+4. **Polish and code review.**
 5. **Go live** with T062. Production is the last step, after stage is verified against the seller portal.
