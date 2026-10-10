@@ -3,6 +3,7 @@ using LootSingles.Application.Import;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace LootSingles.Api.Controllers;
@@ -12,7 +13,8 @@ namespace LootSingles.Api.Controllers;
 [Authorize]
 public sealed class ImportsController(
     IPackingSlipImportService importService,
-    IOptions<JsonOptions> jsonOptions
+    IOptions<JsonOptions> jsonOptions,
+    ILogger<ImportsController> logger
 ) : ControllerBase
 {
     public const long MaximumFileBytes = 26_214_400;
@@ -166,8 +168,14 @@ public sealed class ImportsController(
         {
             throw;
         }
-        catch
+        catch (Exception exception)
         {
+            // The type only: an exception message could embed response text.
+            logger.LogError(
+                "Import stream ended by an unexpected {ExceptionType}",
+                exception.GetType().Name
+            );
+
             if (!Response.HasStarted)
             {
                 await WriteProblemAsync(
