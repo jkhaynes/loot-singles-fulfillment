@@ -9,6 +9,8 @@ public static partial class OrderLineExtractor
     /// rejections (unreadable quantity, an unparseable description, no collector number) are
     /// reported through <see cref="OrderCandidate.RejectedBySource"/> with the importer's original
     /// messages; everything else is left to <see cref="OrderCandidateValidator"/>.
+    /// It consults the shared validator only to keep first-failing-line precedence for those
+    /// rejections; do not simplify that away.
     /// </summary>
     public static OrderCandidate Extract(RawOrderBlock block)
     {
@@ -43,14 +45,7 @@ public static partial class OrderLineExtractor
                     return new OrderCandidate(block.OrderIdentifier, lines);
                 }
 
-                return Rejected(
-                    block,
-                    lines,
-                    (
-                        extractionFailure.Type,
-                        $"Order '{block.OrderIdentifier}': {extractionFailure.Message}"
-                    )
-                );
+                return Rejected(block, lines, (extractionFailure.Type, extractionFailure.Message));
             }
 
             lines.Add(line!);
@@ -59,12 +54,13 @@ public static partial class OrderLineExtractor
         return new OrderCandidate(block.OrderIdentifier, lines);
     }
 
+    // Every source rejection gets the order prefix here, so the messages cannot drift apart.
     // The failure of an earlier line must still win over this one, so when the lines read so far
     // already fail validation, return them without the rejection and let the validator report it.
     private static OrderCandidate Rejected(
         RawOrderBlock block,
         List<OrderLineCandidate> linesSoFar,
-        (FailureType Type, string Message) rejection
+        (FailureType Type, string Message) failure
     )
     {
         var earlier = new OrderCandidate(block.OrderIdentifier, linesSoFar);
@@ -72,7 +68,10 @@ public static partial class OrderLineExtractor
             ? earlier
             : earlier with
             {
-                RejectedBySource = rejection,
+                RejectedBySource = (
+                    failure.Type,
+                    $"Order '{block.OrderIdentifier}': {failure.Message}"
+                ),
             };
     }
 
