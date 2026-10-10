@@ -25,6 +25,8 @@ The three name lists:
 
 In-store pickup orders are recognised by the manifest's `orderDeliveryTypes` entry named `InStorePickup`. That name is a constant in code (`TcgplayerOpenOrderRule.InStorePickupDeliveryType`), not configuration: it identifies a kind of order rather than choosing which ones are open.
 
+The manifest must **always** contain the `InStorePickup` delivery type and the `Normal` order type (`TcgplayerOpenOrderRule.NormalOrderType`), even when `Tcgplayer:OrderTypes` is reconfigured to leave `Normal` out. The rule needs `InStorePickup` to tell pickup orders apart, and an order whose details carry no order type counts as `Normal`. If either is missing, every press fails with `tcgplayerResponseInvalid` naming it.
+
 ## Configured vs not configured
 
 - **Configured** means all three secrets are present and non-blank. If any is missing, the feature is **not configured**:
