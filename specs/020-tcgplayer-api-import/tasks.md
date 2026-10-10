@@ -303,14 +303,14 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
 **Independent Test**: An API-imported, picked order scanned at the packing desk shows the no-slip guidance with its order number, and can be recorded as packed (quickstart §B step 5).
 
-- [ ] T048 [US4] Write an integration test in `backend/tests/LootSingles.IntegrationTests/Packing/TcgplayerPackingTests.cs`:
+- [x] T048 [US4] Write an integration test in `backend/tests/LootSingles.IntegrationTests/Packing/TcgplayerPackingTests.cs`:
   - for an API-imported order, `GET /api/packing/orders/{code}` returns `hasPackingSlip: false`;
   - `GET /api/orders/{id}/packing-slip` returns 404;
   - recording the order as packed succeeds;
   - no `OrderPackingSlip` row exists for any `TcgplayerApi` order (data-model.md invariant, FR-018).
 
   Confirm red or green, and record which.
-- [ ] T049 [US4] Extend `frontend/e2e/tcgplayer-import.spec.ts` (quickstart §B step 5): pick an API-imported order to Picked, scan it at the packing desk, and check the "No packing slip is stored for this order. Print it from TCGplayer…" text and order number, then record it as packed.
+- [x] T049 [US4] Extend `frontend/e2e/tcgplayer-import.spec.ts` (quickstart §B step 5): pick an API-imported order to Picked, scan it at the packing desk, and check the "No packing slip is stored for this order. Print it from TCGplayer…" text and order number, then record it as packed.
 
 **Checkpoint**: All four stories work independently.
 

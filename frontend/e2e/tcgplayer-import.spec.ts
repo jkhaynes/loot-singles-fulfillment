@@ -86,6 +86,37 @@ test('Get new orders imports every open TCGplayer order once and lists them as R
   await expect(
     page.getByRole('article').locator('dd > strong[data-emphasis="high"]').first(),
   ).toHaveText('2')
+
+  // quickstart.md section B step 5 (T049): an API order has no stored packing slip, so the packing desk
+  // says to print it from TCGplayer. SYN-0009 is the sealed box: one line of one, so one click
+  // picks the whole order. Opened by number rather than Pick Next, which would take the oldest
+  // Ready order, a seeded one other specs expect to find. Packed in this same test so the order
+  // never lingers in the packing queue other specs count.
+  await page.goto('/orders')
+  await page
+    .getByRole('article', { name: /SYN-0009-A1/i })
+    .getByRole('button', { name: /claim/i })
+    .click()
+  await expect(page).toHaveURL(/\/orders\/\d+$/)
+  const orderId = page.url().split('/').pop()!
+  const boxCard = page.getByRole('article', { name: /Synthetic Booster Box/ })
+  await expect(boxCard).toBeVisible()
+  await boxCard.getByRole('button', { name: 'Picked' }).click()
+  await expect(page.getByLabel(/Order status: Picked/)).toBeVisible()
+
+  await page.goto('/packing')
+  const scanBox = page.getByLabel(/scan a label/i)
+  await scanBox.fill(orderId)
+  await scanBox.press('Enter')
+  const desk = page.getByRole('region', { name: new RegExp(`Order ${orderId}`) })
+  await expect(desk).toContainText('SYN-0009-A1')
+  await expect(desk).toContainText(
+    'No packing slip is stored for this order. Print it from TCGplayer using the order number above.',
+  )
+  await expect(desk.getByRole('link', { name: /print packing slip/i })).toHaveCount(0)
+
+  await desk.getByRole('button', { name: /mark packed/i }).click()
+  await expect(desk).toContainText(/already been packed/i)
 })
 
 // T047 (US3, FR-016): the E2E host's stub TCGplayer answers 503 to any request carrying this
