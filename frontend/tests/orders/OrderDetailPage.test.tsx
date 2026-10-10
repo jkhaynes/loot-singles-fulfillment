@@ -1411,6 +1411,40 @@ describe('OrderDetailPage — API-imported lines', () => {
     expect(within(card).queryByText(/English/)).not.toBeInTheDocument()
   })
 
+  it('asks TCGplayer for a sharp rendition of the line thumbnail', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      readyOrder([
+        buildLine({
+          productName: 'Api Card',
+          imageUrl: 'https://tcgplayer-cdn.tcgplayer.com/product/900001_75w.jpg',
+        }),
+        buildLine({
+          productName: 'Pdf Card',
+          imageUrl: 'https://cards.scryfall.io/large/front/a/b/ab12.jpg',
+        }),
+      ]),
+    )
+
+    renderPage()
+
+    const api = await screen.findByRole('article', { name: /Api Card/i })
+    const apiImage = within(api).getByRole('img', { name: 'Api Card' })
+    expect(apiImage).toHaveAttribute(
+      'src',
+      'https://tcgplayer-cdn.tcgplayer.com/product/900001_400w.jpg',
+    )
+    expect(apiImage).toHaveAttribute(
+      'srcset',
+      'https://tcgplayer-cdn.tcgplayer.com/product/900001_400w.jpg 400w, https://tcgplayer-cdn.tcgplayer.com/product/900001_in_1000x1000.jpg 1000w',
+    )
+    expect(apiImage).toHaveAttribute('sizes')
+
+    const pdf = screen.getByRole('article', { name: /Pdf Card/i })
+    const pdfImage = within(pdf).getByRole('img', { name: 'Pdf Card' })
+    expect(pdfImage).toHaveAttribute('src', 'https://cards.scryfall.io/large/front/a/b/ab12.jpg')
+    expect(pdfImage).not.toHaveAttribute('srcset')
+  })
+
   it('still emphasises a quantity above one', async () => {
     vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
       readyOrder([

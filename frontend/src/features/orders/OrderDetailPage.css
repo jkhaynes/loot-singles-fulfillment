@@ -160,11 +160,16 @@
   font-size: var(--font-size-body-small);
 }
 
+/* A card-shaped box (63:88, a trading card) at the row's existing height. The image fills it
+   whatever its source size, so a small thumbnail is scaled up to the card instead of sitting
+   tiny in the corner. */
 .order-detail-line__image {
   display: block;
-  width: 100%;
-  min-height: 13rem;
-  max-height: 13rem;
+  justify-self: center;
+  height: 13rem;
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 63 / 88;
   border-radius: var(--radius-small);
   background: var(--color-surface);
   object-fit: contain;
@@ -240,8 +245,7 @@
   }
 
   .order-detail-line__image {
-    min-height: 10rem;
-    max-height: 10rem;
+    height: 10rem;
   }
 
   .order-detail-line__attributes {
@@ -556,10 +560,16 @@
   text-align: center;
 }
 
+/* The card is the centre of the screen: a card-shaped box (63:88) sized by height, so any source
+   — a large catalog scan or a small TCGplayer image — fills it at the same size. It may shrink
+   on a short screen so the name, number and buttons still fit without scrolling. */
 .focused-pick__image {
+  flex: 0 1 auto;
+  height: 43vh;
   min-height: 0;
-  max-height: 40vh;
+  width: auto;
   max-width: 100%;
+  aspect-ratio: 63 / 88;
   border-radius: var(--radius-small);
   object-fit: contain;
 }

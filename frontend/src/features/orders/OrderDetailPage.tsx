@@ -27,6 +27,7 @@ import { PrintLabelButton } from '../labels/PrintLabelButton'
 import type { LabelContent } from './ordersApi'
 import { ReportIssueForm } from './ReportIssueForm'
 import { ReportedIssueDetails } from './ReportedIssueDetails'
+import { cardImageSources } from './cardImage'
 import './OrderDetailPage.css'
 
 type LoadState = 'loading' | 'loaded' | 'not-found' | 'error'
@@ -482,7 +483,8 @@ export function OrderDetailPage() {
                   {line.imageUrl !== null ? (
                     <img
                       className="order-detail-line__image"
-                      src={line.imageUrl}
+                      {...cardImageSources(line.imageUrl)}
+                      sizes="(max-width: 600px) 115px, 150px"
                       alt={line.productName}
                     />
                   ) : (

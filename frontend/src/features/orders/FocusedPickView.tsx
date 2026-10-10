@@ -6,6 +6,7 @@ import { ReportIssueForm } from './ReportIssueForm'
 import { ReportedIssueDetails } from './ReportedIssueDetails'
 import { nonEnglishLanguage, pickingIssueTypeLabel } from './ordersApi'
 import type { PickingIssueDetail, ReportIssueRequest } from './ordersApi'
+import { cardImageSources } from './cardImage'
 
 /**
  * Picking one card at a time (016-mobile-picking, PRD §8, §12, §18).
@@ -158,7 +159,12 @@ export function FocusedPickView({
         aria-label={`Product ${line.productName}`}
       >
         {line.imageUrl !== null ? (
-          <img className="focused-pick__image" src={line.imageUrl} alt={line.productName} />
+          <img
+            className="focused-pick__image"
+            {...cardImageSources(line.imageUrl)}
+            sizes="31vh"
+            alt={line.productName}
+          />
         ) : (
           <div className="focused-pick__placeholder">
             <span>No image</span>

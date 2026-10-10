@@ -275,6 +275,43 @@ describe('FocusedPickView — card identity', () => {
   })
 })
 
+describe('FocusedPickView — card image', () => {
+  it('asks TCGplayer for a sharp rendition of an API line thumbnail', () => {
+    renderView([
+      buildLine({
+        set: 'Alpha',
+        productName: 'Api Card',
+        imageUrl: 'https://tcgplayer-cdn.tcgplayer.com/product/900001_75w.jpg',
+      }),
+    ])
+
+    const image = screen.getByRole('img', { name: 'Api Card' })
+    expect(image).toHaveAttribute(
+      'src',
+      'https://tcgplayer-cdn.tcgplayer.com/product/900001_400w.jpg',
+    )
+    expect(image).toHaveAttribute(
+      'srcset',
+      'https://tcgplayer-cdn.tcgplayer.com/product/900001_400w.jpg 400w, https://tcgplayer-cdn.tcgplayer.com/product/900001_in_1000x1000.jpg 1000w',
+    )
+    expect(image).toHaveAttribute('sizes')
+  })
+
+  it('shows any other image exactly as stored', () => {
+    renderView([
+      buildLine({
+        set: 'Alpha',
+        productName: 'Pdf Card',
+        imageUrl: 'https://cards.scryfall.io/large/front/a/b/ab12.jpg',
+      }),
+    ])
+
+    const image = screen.getByRole('img', { name: 'Pdf Card' })
+    expect(image).toHaveAttribute('src', 'https://cards.scryfall.io/large/front/a/b/ab12.jpg')
+    expect(image).not.toHaveAttribute('srcset')
+  })
+})
+
 describe('FocusedPickView — claim lost mid-pick', () => {
   const blocked = { canRecordOutcome: false, blockedReason: 'A manager released this order.' }
 
