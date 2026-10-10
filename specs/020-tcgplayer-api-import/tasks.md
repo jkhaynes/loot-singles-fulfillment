@@ -203,7 +203,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
 
   Confirm red.
 - [x] T031 [US1] Implement `backend/src/LootSingles.Application/Import/TcgplayerApiImportService.cs`, returning `IAsyncEnumerable<ImportProgressUpdate>`. Use `ImportAttemptLog` for the single completion log, with `{Source}`, the counts, `{CallCount}` (exposed by the limiter) and the failure category. There is **no per-order logging**. Register it as scoped in `Program.cs` and `E2EHost/Program.cs`. Confirm T030 is green.
-- [ ] T032 [US1] Write controller tests in `backend/tests/LootSingles.IntegrationTests/ImportUi/TcgplayerImportControllerTests.cs`. Use `WebApplicationFactory` with fake keys and `BaseUrl` pointing at a stub primary handler that serves the T003 fixtures (add a `TcgplayerStubHandler` helper to `ImportUiTestSupport.cs`). Cover these scenarios:
+- [x] T032 [US1] Write controller tests in `backend/tests/LootSingles.IntegrationTests/ImportUi/TcgplayerImportControllerTests.cs`. Use `WebApplicationFactory` with fake keys and `BaseUrl` pointing at a stub primary handler that serves the T003 fixtures (add a `TcgplayerStubHandler` helper to `ImportUiTestSupport.cs`). Cover these scenarios:
   - `POST /api/imports/tcgplayer` requires authentication (401 when signed out);
   - it streams NDJSON `ImportSnapshot`s in the **same shape** as `POST /api/imports`;
   - a full import creates Ready orders whose lines match the fixtures, including a quantity of 3 and a null collector number;
@@ -216,7 +216,7 @@ Research.md §8 and data-model.md cover this. The existing PDF suites in `backen
   - every stub-received request carries the exact User-Agent, and none targets `/app/authorize` or uses a method other than GET apart from `/token`.
 
   Confirm red.
-- [ ] T033 [US1] In `backend/src/LootSingles.Api/Controllers/ImportsController.cs`, generalise `StreamSnapshotsAsync` to accept any `IAsyncEnumerable<ImportProgressUpdate>` and add `[HttpPost("tcgplayer")]`, keeping the PDF route behaviour identical. Confirm T032 and the existing `ImportUi/` suite are green.
+- [x] T033 [US1] In `backend/src/LootSingles.Api/Controllers/ImportsController.cs`, generalise `StreamSnapshotsAsync` to accept any `IAsyncEnumerable<ImportProgressUpdate>` and add `[HttpPost("tcgplayer")]`, keeping the PDF route behaviour identical. Confirm T032 and the existing `ImportUi/` suite are green.
 - [ ] T034 [US1] Write an integration test in `backend/tests/LootSingles.IntegrationTests/Import/TcgplayerPiiTests.cs` with log capture through `ImportTestSupport.CapturingLogger<T>`. After a full stub-backed import, no invented customer or shipping value from `order-details.json` appears in **any** column of **any** table, and none appears in any captured log message (FR-017, SC-004). The test must also confirm that no token, key or raw body was logged. Confirm it passes. It guards the DTO design, so it may pass on first run; if so, mutate the details DTO temporarily to prove it can fail, and record that here.
 
 ### Frontend
