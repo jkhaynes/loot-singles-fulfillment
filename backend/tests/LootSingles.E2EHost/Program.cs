@@ -446,6 +446,9 @@ static async Task SeedAsync(IServiceProvider services)
             ("e2epickerthirteen", "E2E Picker Thirteen"),
             ("e2epickerfourteen", "E2E Picker Fourteen"),
             ("e2epickerfifteen", "E2E Picker Fifteen"),
+            // Seeded for tcgplayer-import.spec.ts alone: it claims an imported order and holds the
+            // claim until Picked, and an employee has one active claim.
+            ("e2epickersixteen", "E2E Picker Sixteen"),
         }
     )
     {
