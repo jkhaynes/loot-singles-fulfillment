@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "errors": [],
+  "totalItems": 1,
+  "results": [
+    {
+      "skuId": 7000012,
+      "categoryName": "Synthetic TCG",
+      "productName": "Synthetic Troll",
+      "groupName": "Synthetic Set Alpha",
+      "condition": "Lightly Played",
+      "printing": "Normal",
+      "isFoil": false,
+      "language": "English",
+      "rarity": "Uncommon",
+      "quantity": 1,
+      "productImageUrl": "https://img.example.test/synthetic/7000012.jpg"
+    }
+  ]
+}

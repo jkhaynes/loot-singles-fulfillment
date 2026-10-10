@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "errors": [],
+  "totalItems": 3,
+  "results": [
+    {
+      "skuId": 7000006,
+      "categoryName": "Synthetic TCG",
+      "productName": "Synthetic Archer",
+      "groupName": "Synthetic Set Alpha",
+      "condition": "Near Mint",
+      "printing": "Normal",
+      "isFoil": false,
+      "language": "English",
+      "rarity": "Common",
+      "quantity": 1,
+      "productImageUrl": "https://img.example.test/synthetic/7000006.jpg"
+    },
+    {
+      "skuId": 7000007,
+      "categoryName": "Synthetic TCG",
+      "productName": "Synthetic Knight",
+      "groupName": "Synthetic Set Alpha",
+      "condition": "Near Mint",
+      "printing": "Normal",
+      "isFoil": false,
+      "language": "English",
+      "rarity": "Common",
+      "quantity": 1,
+      "productImageUrl": "https://img.example.test/synthetic/7000007.jpg"
+    }
+  ]
+}

@@ -1,0 +1,207 @@
+{
+  "success": true,
+  "errors": [
+    "Product not found: 8000011"
+  ],
+  "results": [
+    {
+      "productId": 8000001,
+      "name": "Synthetic Dragonling",
+      "imageUrl": "https://img.example.test/synthetic/product-8000001.jpg",
+      "extendedData": [
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Rare"
+        },
+        {
+          "name": "Number",
+          "displayName": "Card Number",
+          "value": "001/100"
+        }
+      ]
+    },
+    {
+      "productId": 8000002,
+      "name": "Synthetic Sprite",
+      "imageUrl": "https://img.example.test/synthetic/product-8000002.jpg",
+      "extendedData": [
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        },
+        {
+          "name": "Number",
+          "displayName": "Card Number",
+          "value": "002/100"
+        }
+      ]
+    },
+    {
+      "productId": 8000003,
+      "name": "Synthetic Golem",
+      "imageUrl": "https://img.example.test/synthetic/product-8000003.jpg",
+      "extendedData": [
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Uncommon"
+        },
+        {
+          "name": "Number",
+          "displayName": "Card Number",
+          "value": "003/100"
+        }
+      ]
+    },
+    {
+      "productId": 8000004,
+      "name": "Synthetic Phoenix",
+      "imageUrl": "https://img.example.test/synthetic/product-8000004.jpg",
+      "extendedData": [
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Rare"
+        },
+        {
+          "name": "Number",
+          "displayName": "Card Number",
+          "value": "004/100"
+        }
+      ]
+    },
+    {
+      "productId": 8000005,
+      "name": "Synthetic Kitsune",
+      "imageUrl": "https://img.example.test/synthetic/product-8000005.jpg",
+      "extendedData": [
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Rare"
+        },
+        {
+          "name": "Number",
+          "displayName": "Card Number",
+          "value": "005/100"
+        }
+      ]
+    },
+    {
+      "productId": 8000006,
+      "name": "Synthetic Archer",
+      "imageUrl": "https://img.example.test/synthetic/product-8000006.jpg",
+      "extendedData": [
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        },
+        {
+          "name": "Number",
+          "displayName": "Card Number",
+          "value": "006/100"
+        }
+      ]
+    },
+    {
+      "productId": 8000007,
+      "name": "Synthetic Knight",
+      "imageUrl": "https://img.example.test/synthetic/product-8000007.jpg",
+      "extendedData": [
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        },
+        {
+          "name": "Number",
+          "displayName": "Card Number",
+          "value": "007/100"
+        }
+      ]
+    },
+    {
+      "productId": 8000008,
+      "name": "Synthetic Mage",
+      "imageUrl": "https://img.example.test/synthetic/product-8000008.jpg",
+      "extendedData": [
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        },
+        {
+          "name": "Number",
+          "displayName": "Card Number",
+          "value": "008/100"
+        }
+      ]
+    },
+    {
+      "productId": 8000009,
+      "name": "Synthetic Imp",
+      "imageUrl": "https://img.example.test/synthetic/product-8000009.jpg",
+      "extendedData": [
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        },
+        {
+          "name": "Number",
+          "displayName": "Card Number",
+          "value": "009/100"
+        }
+      ]
+    },
+    {
+      "productId": 8000010,
+      "name": "Synthetic Product Without Name",
+      "imageUrl": "https://img.example.test/synthetic/product-8000010.jpg",
+      "extendedData": [
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        },
+        {
+          "name": "Number",
+          "displayName": "Card Number",
+          "value": "010/100"
+        }
+      ]
+    },
+    {
+      "productId": 8000012,
+      "name": "Synthetic Troll",
+      "imageUrl": "https://img.example.test/synthetic/product-8000012.jpg",
+      "extendedData": [
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Uncommon"
+        },
+        {
+          "name": "Number",
+          "displayName": "Card Number",
+          "value": "012/100"
+        }
+      ]
+    },
+    {
+      "productId": 8000013,
+      "name": "Synthetic Booster Box",
+      "imageUrl": "https://img.example.test/synthetic/product-8000013.jpg",
+      "extendedData": [
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "None"
+        }
+      ]
+    }
+  ]
+}

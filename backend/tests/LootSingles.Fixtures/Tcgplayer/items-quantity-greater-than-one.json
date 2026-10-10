@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "errors": [],
+  "totalItems": 2,
+  "results": [
+    {
+      "skuId": 7000002,
+      "categoryName": "Synthetic TCG",
+      "productName": "Synthetic Sprite",
+      "groupName": "Synthetic Set Alpha",
+      "condition": "Near Mint",
+      "printing": "Normal",
+      "isFoil": false,
+      "language": "English",
+      "rarity": "Common",
+      "quantity": 1,
+      "productImageUrl": "https://img.example.test/synthetic/7000002.jpg"
+    },
+    {
+      "skuId": 7000003,
+      "categoryName": "Synthetic TCG",
+      "productName": "Synthetic Golem",
+      "groupName": "Synthetic Set Alpha",
+      "condition": "Near Mint",
+      "printing": "Normal",
+      "isFoil": false,
+      "language": "English",
+      "rarity": "Uncommon",
+      "quantity": 2,
+      "productImageUrl": "https://img.example.test/synthetic/7000003.jpg"
+    }
+  ]
+}

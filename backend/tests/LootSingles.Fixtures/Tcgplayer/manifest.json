@@ -1,0 +1,30 @@
+{
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "orderStatusTypes": [
+        {
+          "id": 1,
+          "name": "Processing"
+        },
+        {
+          "id": 2,
+          "name": "Ready To Ship"
+        },
+        {
+          "id": 3,
+          "name": "Shipped"
+        },
+        {
+          "id": 4,
+          "name": "Delivered"
+        },
+        {
+          "id": 5,
+          "name": "Cancelled"
+        }
+      ]
+    }
+  ]
+}

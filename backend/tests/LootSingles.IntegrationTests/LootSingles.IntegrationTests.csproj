@@ -30,5 +30,10 @@
             Link="Fixtures\PackingSlips\%(Filename)%(Extension)"
             CopyToOutputDirectory="PreserveNewest"
         />
+        <None
+            Include="..\LootSingles.Fixtures\Tcgplayer\*.json"
+            Link="Fixtures\Tcgplayer\%(Filename)%(Extension)"
+            CopyToOutputDirectory="PreserveNewest"
+        />
     </ItemGroup>
 </Project>

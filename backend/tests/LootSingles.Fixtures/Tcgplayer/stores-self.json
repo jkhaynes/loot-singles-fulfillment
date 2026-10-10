@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "sellerKey": "SYNSTORE1",
+      "storeName": "Synthetic Test Store"
+    }
+  ]
+}
