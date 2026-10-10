@@ -356,6 +356,30 @@ Open orders stay open on TCGplayer until they ship, so every press sees the alre
 - [x] T065 Implement T064 in `backend/src/LootSingles.Application/Import/ImportAttemptLog.cs`, branching once on the attempt's source. Keep the PDF path byte-for-byte as it is. Confirm T064 is green and every existing logging test passes.
 - [x] T066 Write tests in `frontend/tests/import/ImportPage.test.tsx`: after an API press, already-imported results render as one "N already imported" line and not as individual rows; imported and rejected orders still render one row each; "No new orders" still shows when every result is already imported; a PDF import still shows one row per duplicate. Confirm red, then implement in `ImportPage.tsx`, and run `npm --prefix frontend run build`. Update `frontend/e2e/tcgplayer-import.spec.ts` where the second press or later assertions depend on the old per-row display (always `--reporter=list`).
 
+### Amendment 2026-10-10 (2): what counts as an open order (spec Clarifications 2026-10-10, FR-004, Edge Cases)
+
+The first live press imported about 1,568 orders that were not open. TCGplayer's search filters are partial: `orderStatusIds` narrows only shipped orders and keeps every in-store pickup order, and `pickupStatusIds` narrows only pickup orders and keeps every shipped order. The live counts diagnostic is `probe/Count-OpenOrders.ps1`. Run these before T058's finish step.
+
+- [ ] T067 Update the plan text for the amended FR-004:
+  - `contracts/configuration.md`: `Tcgplayer:OpenOrderStatuses` default becomes `["Processing", "Ready To Ship"]`; add `Tcgplayer:OpenPickupStatuses` (default `["Received"]`) and `Tcgplayer:OrderTypes` (default `["Normal"]`), resolved by name from the manifest's `orderPickupStatusTypes` and `orderTypes`;
+  - `contracts/tcgplayer-upstream.md` and `research.md` §3: the search sends `orderStatusIds`, `pickupStatusIds` and `orderTypeIds` together (documented names, comma-separated), and why: the live partial-filter finding;
+  - `data-model.md`: the details row also binds `orderDeliveryTypeId`, `orderPickupStatusTypeId` and `orderTypeId`, and the manifest's `orderDeliveryTypes` name for in-store pickup (`InStorePickup`) is how a pickup order is recognised.
+- [ ] T068 Write failing tests first:
+  - options: the new keys, their defaults, and that each list must be non-empty;
+  - client: the search query carries all three filters; the manifest resolves pickup-status, order-type and delivery-type names, and a configured name missing from the manifest is `TcgplayerResponseInvalid` naming it;
+  - openness, as a pure rule over a details row and the resolved ids: shipped + Processing or Ready To Ship → open; shipped + Shipped, Delivered or Cancelled → not; pickup + Received → open; pickup + Ready for Pickup or Picked Up → not; Direct → not;
+  - feed and service: with a stub whose search "leaks" non-open orders the way the live API does, only open orders are detected, fetched for items and imported, and the skipped ones appear in no count, result or log breakdown.
+- [ ] T069 Implement T068 in `TcgplayerOptions`, `TcgplayerApiClient`, `TcgplayerDtos`, the feed and wherever the openness rule belongs (one pure function, called once per details row before items are fetched). Confirm green, then the full unit and integration suites.
+- [ ] T070 Update the synthetic fixtures and stubs, invented values only: details rows carry delivery type, pickup status and order type; add non-open "leaked" orders (a delivered shipped order and a picked-up pickup order) to the search results the integration and E2E stubs serve, and confirm the existing integration and Playwright suites still import exactly the open ones (`--reporter=list`).
+
+- [ ] T071 Write a dev-only reset script, `scripts/dev/Clear-DevOrders.ps1`, that a person runs to empty a development database of orders before re-testing the import:
+  - deletes every order and everything that hangs off an order (lines, packing slips, claims, picking issues, pick/pack records, import attempts and their per-order results), in foreign-key order inside one transaction, and leaves employees, PINs and configuration untouched; derive the table list from the EF model, not by guessing;
+  - takes the connection string the way the app does (the API project's user-secrets `ConnectionStrings:LootSingles`, or `-ConnectionString`), prints only the server and database names and the row counts it will delete, and requires typing the database name to confirm;
+  - refuses to run unless the database name contains `dev` (or LocalDB), so it can never touch stage or production;
+  - an integration test runs it (or the SQL it executes) against a Testcontainers database seeded with an order of each kind and asserts orders are gone and employees remain.
+
+  The person then runs it once to clear the orders the first live press imported (2026-10-10).
+
 ### Manual: live confirmation (a person, never an AI tool)
 
 - [x] T059 [MANUAL] Complete the Store Authorization Workflow (`tcgplayer-setup.md` Part 1). **Authorization done 2026-10-08**: the store access token is saved in user-secrets. TCGplayer enabled access after an email; on 2026-10-09 `Check-TcgplayerAccess.ps1` found 62 of 68 read-only endpoints open, including every call this feature makes (research.md §14).
