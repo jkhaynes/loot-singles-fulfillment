@@ -307,6 +307,34 @@ describe('ImportPage', () => {
 
     it.each([
       [
+        'zero detected orders',
+        { ordersDetected: 0, ordersProcessed: 0, failedCount: 0, results: [] },
+        /0 of 0 orders processed/,
+      ],
+      [
+        'only duplicates',
+        { failedCount: 2, results: [duplicate('D-1'), duplicate('D-2')] },
+        /2 of 2 orders processed/,
+      ],
+    ] as const)(
+      'does not show No new orders for a PDF import with %s',
+      async (_name, overrides, progress) => {
+        vi.mocked(importApi.importPackingSlip).mockReturnValue(
+          snapshots({ ...base, succeededCount: 0, ...overrides, results: [...overrides.results] }),
+        )
+        renderImportPage()
+        await userEvent.upload(
+          screen.getByLabelText(/packing slip/i),
+          new File(['pdf'], 'orders.pdf', { type: 'application/pdf' }),
+        )
+        await userEvent.click(screen.getByRole('button', { name: /^import orders$/i }))
+        expect(await screen.findByText(progress)).toBeInTheDocument()
+        expect(screen.queryByText(/no new orders/i)).not.toBeInTheDocument()
+      },
+    )
+
+    it.each([
+      [
         'tcgplayerNotConfigured',
         "Getting orders from TCGplayer isn't set up here. Use packing-slip upload instead.",
       ],

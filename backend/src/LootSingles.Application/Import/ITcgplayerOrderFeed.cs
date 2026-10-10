@@ -55,6 +55,10 @@ public interface ITcgplayerOrderFeed
     Task<IReadOnlyList<string>> GetOpenOrderNumbersAsync(CancellationToken cancellationToken);
 
     /// <summary>Fetches the given orders, with their items, as import candidates.</summary>
+    /// <returns>
+    /// Exactly one candidate per requested (distinct) order number; a number TCGplayer did not
+    /// return comes back as a rejected candidate, never dropped.
+    /// </returns>
     Task<IReadOnlyList<OrderCandidate>> GetOrdersAsync(
         IReadOnlyList<string> orderNumbers,
         CancellationToken cancellationToken
