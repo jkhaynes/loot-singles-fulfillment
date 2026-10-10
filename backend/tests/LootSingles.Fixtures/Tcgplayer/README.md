@@ -29,3 +29,5 @@ Counting rules the fixtures follow: `productCount` in order details is the sum o
 | `items-catalog-not-found.json` | `SYN-0010-A1`: one line whose SKU (7000099) is unknown to the catalog, and one whose product (8000011) is. |
 | `skus.json` | `GET /catalog/skus/...`: SKU to product id; 7000099 is reported in `errors` as not found. |
 | `products.json` | `GET /catalog/products/...?getExtendedFields=true`: image, `Rarity` and `Number` entries; the sealed box (8000013) has no `Number`; 8000011 is reported in `errors` as not found. |
+
+`token.json`'s `.expires` is a fixed date (2026-10-23). A test that serves it on the real clock will see an expired token once that date passes, so it must shift `.expires` forward first (as `TcgplayerStubHandler` does). A test on a `FakeTimeProvider` anchored to `.issued` needs no shift.
