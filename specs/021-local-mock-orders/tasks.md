@@ -148,13 +148,13 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
 
 ### 6a. Schema and "touched"
 
-- [ ] T012 [US4] Write `backend/tests/LootSingles.IntegrationTests/Orders/FirstClaimedAtTests.cs`:
+- [X] T012 [US4] Write `backend/tests/LootSingles.IntegrationTests/Orders/FirstClaimedAtTests.cs`:
   - Pick Next and claiming a specific order set `FirstClaimedAt`.
   - Release and force-release leave it unchanged.
   - A second claim after a release doesn't move it.
   
   Confirm red: the property doesn't exist yet.
-- [ ] T013 [US4] Add `FirstClaimedAt`, `DeletedAt` and `DeletedByEmployeeId` to `backend/src/LootSingles.Domain/Orders/Order.cs`, per data-model.md. Then:
+- [X] T013 [US4] Add `FirstClaimedAt`, `DeletedAt` and `DeletedByEmployeeId` to `backend/src/LootSingles.Domain/Orders/Order.cs`, per data-model.md. Then:
   - In `backend/src/LootSingles.Infrastructure/Persistence/Configurations/OrderConfiguration.cs`, add `HasQueryFilter(o => o.DeletedAt == null)`. Make the `TcgplayerOrderId` unique index filtered `[DeletedAt] IS NULL`, extend the `ClaimedByEmployeeId` filter with `AND [DeletedAt] IS NULL`, and give `DeletedByEmployeeId` a Restrict foreign key to `Employees`.
   - In `backend/src/LootSingles.Infrastructure/Persistence/OrderRepository.cs`, set `FirstClaimedAt` in both claim `ExecuteUpdateAsync` setters (`ClaimNextAvailableAsync` and `ClaimSpecificAsync`), as `o.FirstClaimedAt ?? now`.
   - Generate the migration `AddOrderSoftDelete` in `backend/src/LootSingles.Infrastructure/Persistence/Migrations/`. Add a SQL backfill to `Up` for `FirstClaimedAt`, per data-model.md "Backfill".

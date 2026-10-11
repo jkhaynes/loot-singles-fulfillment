@@ -38,6 +38,7 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                 return null;
             }
 
+            var now = DateTimeOffset.UtcNow;
             var attemptResult = await ExecuteConditionalUpdateAsync(
                 candidateId.Value,
                 ct =>
@@ -52,7 +53,11 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                                         order => order.ClaimedByEmployeeId,
                                         actorEmployeeId
                                     )
-                                    .SetProperty(order => order.ClaimedAt, DateTimeOffset.UtcNow)
+                                    .SetProperty(order => order.ClaimedAt, now)
+                                    .SetProperty(
+                                        order => order.FirstClaimedAt,
+                                        order => order.FirstClaimedAt ?? now
+                                    )
                                     .SetProperty(order => order.Status, OrderStatus.InProgress),
                             ct
                         ),
@@ -74,8 +79,10 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
         int orderId,
         int actorEmployeeId,
         CancellationToken cancellationToken
-    ) =>
-        ExecuteConditionalUpdateAsync(
+    )
+    {
+        var now = DateTimeOffset.UtcNow;
+        return ExecuteConditionalUpdateAsync(
             orderId,
             ct =>
                 context
@@ -91,7 +98,11 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                         setters =>
                             setters
                                 .SetProperty(order => order.ClaimedByEmployeeId, actorEmployeeId)
-                                .SetProperty(order => order.ClaimedAt, DateTimeOffset.UtcNow)
+                                .SetProperty(order => order.ClaimedAt, now)
+                                .SetProperty(
+                                    order => order.FirstClaimedAt,
+                                    order => order.FirstClaimedAt ?? now
+                                )
                                 .SetProperty(
                                     order => order.Status,
                                     OrderStatusComputation.FromCurrentLines(claimedAfterWrite: true)
@@ -100,6 +111,7 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                     ),
             cancellationToken
         );
+    }
 
     public Task<ClaimAttemptResult> ReleaseAsync(
         int orderId,

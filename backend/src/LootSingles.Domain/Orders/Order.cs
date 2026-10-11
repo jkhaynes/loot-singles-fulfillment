@@ -57,6 +57,25 @@ public class Order
     public DateTimeOffset? ClaimedAt { get; set; }
 
     /// <summary>
+    /// When this order was first claimed, by Pick Next or by claiming it directly (021 R6). Set
+    /// once by the first claim and never cleared or moved, including by release. Not null means the
+    /// order is "touched".
+    /// </summary>
+    public DateTimeOffset? FirstClaimedAt { get; set; }
+
+    /// <summary>
+    /// When a Manager/Admin soft-deleted this order (021 R7). Not null means the order is deleted
+    /// and hidden from every query by the global query filter. Set together with
+    /// <see cref="DeletedByEmployeeId"/>.
+    /// </summary>
+    public DateTimeOffset? DeletedAt { get; set; }
+
+    /// <summary>
+    /// The Manager/Admin who deleted this order. Null iff <see cref="DeletedAt"/> is null.
+    /// </summary>
+    public int? DeletedByEmployeeId { get; set; }
+
+    /// <summary>
     /// Navigation to the claiming employee, for surfacing the claimant's display name (FR-005).
     /// </summary>
     public Employee? ClaimedByEmployee { get; set; }

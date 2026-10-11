@@ -179,6 +179,15 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                     b.Property<int?>("ClaimedByEmployeeId")
                         .HasColumnType("int");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("DeletedByEmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset?>("FirstClaimedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<int>("ImportSource")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -204,12 +213,15 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ClaimedByEmployeeId")
                         .IsUnique()
-                        .HasFilter("[ClaimedByEmployeeId] IS NOT NULL");
+                        .HasFilter("[ClaimedByEmployeeId] IS NOT NULL AND [DeletedAt] IS NULL");
+
+                    b.HasIndex("DeletedByEmployeeId");
 
                     b.HasIndex("PackedByEmployeeId");
 
                     b.HasIndex("TcgplayerOrderId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[DeletedAt] IS NULL");
 
                     b.ToTable("Orders");
                 });
@@ -409,6 +421,11 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                     b.HasOne("LootSingles.Domain.Employees.Employee", "ClaimedByEmployee")
                         .WithMany()
                         .HasForeignKey("ClaimedByEmployeeId");
+
+                    b.HasOne("LootSingles.Domain.Employees.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("DeletedByEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("LootSingles.Domain.Employees.Employee", "PackedByEmployee")
                         .WithMany()
