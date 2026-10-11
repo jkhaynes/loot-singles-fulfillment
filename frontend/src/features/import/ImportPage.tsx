@@ -111,6 +111,26 @@ export function ImportPage() {
       snapshot?.status === 'cancelled')
   // A count of 0 of 0 says nothing when the attempt failed before finding any orders.
   const showProgress = !(snapshot?.attemptFailureCode && snapshot.ordersDetected === 0)
+  // These server messages already point to packing-slip upload, so the banner doesn't repeat it.
+  const failureMessageMentionsPackingSlip =
+    snapshot?.attemptFailureCode === 'tcgplayerNotConfigured' ||
+    snapshot?.attemptFailureCode === 'tcgplayerUnavailable' ||
+    snapshot?.attemptFailureCode === 'tcgplayerAccessRefused'
+
+  // Cancel sits with the control that started the run: under Get new orders for an API press,
+  // next to the progress in the packing-slip section for a PDF import.
+  function renderCancel(placement: ImportSource) {
+    if (!running || placement !== source) return null
+    return (
+      <button
+        type="button"
+        className="import-cancel-action"
+        onClick={() => setCancelConfirmationOpen(true)}
+      >
+        Cancel Import
+      </button>
+    )
+  }
 
   // Progress, results and banners for the latest run. They render under the control that started
   // it: the API results under Get new orders, the PDF results in the packing-slip section.
@@ -153,7 +173,9 @@ export function ImportPage() {
                 ) : (
                   <p>{snapshot.attemptFailureMessage}</p>
                 )}
-                <p>You can still upload a packing slip below.</p>
+                {!failureMessageMentionsPackingSlip && (
+                  <p>You can still upload a packing slip below.</p>
+                )}
               </div>
             )}
             {noNewOrders && <p className="import-alert import-alert--info">No new orders.</p>}
@@ -175,8 +197,10 @@ export function ImportPage() {
             )}
             {snapshot.status === 'cancelled' && (
               <p role="alert" className="import-alert import-alert--warning">
-                Import cancelled. Completed orders remain imported and remaining processing stopped.
-                You can safely retry.
+                Import cancelled. Completed orders remain imported and remaining processing stopped.{' '}
+                {source === 'tcgplayer'
+                  ? 'Press Get new orders to try again.'
+                  : 'You can safely retry.'}
               </p>
             )}
             <ul className="import-order-list">
@@ -217,15 +241,7 @@ export function ImportPage() {
           <button type="button" disabled={running} onClick={() => void run('tcgplayer')}>
             {running && source === 'tcgplayer' ? 'Getting orders…' : 'Get new orders'}
           </button>
-          {running && (
-            <button
-              type="button"
-              className="import-cancel-action"
-              onClick={() => setCancelConfirmationOpen(true)}
-            >
-              Cancel Import
-            </button>
-          )}
+          {renderCancel('tcgplayer')}
         </div>
         {renderStatus('tcgplayer')}
         <section className="import-fallback">
@@ -249,6 +265,7 @@ export function ImportPage() {
               {running && source === 'pdf' ? 'Importing…' : 'Import orders'}
             </button>
           </form>
+          {renderCancel('pdf')}
           {renderStatus('pdf')}
         </section>
       </section>

@@ -155,7 +155,8 @@ test('When TCGplayer is down, Get new orders says so and a packing slip uploads 
     "Couldn't reach TCGplayer. Orders already imported are kept. Try again in a few minutes, or upload a packing slip.",
     { timeout: 20_000 },
   )
-  await expect(outage).toContainText('You can still upload a packing slip below.')
+  // The message already points to the packing slip, so the banner doesn't say it a second time.
+  await expect(outage).not.toContainText('You can still upload a packing slip below.')
 
   await page.getByLabel(/packing slip/i).setInputFiles(fallbackSlip)
   await page.getByRole('button', { name: 'Import orders', exact: true }).click()

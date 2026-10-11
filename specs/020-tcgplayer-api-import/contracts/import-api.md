@@ -43,9 +43,11 @@ How the import screen shows them: the failure banner sits directly under "Get ne
 
 - `tcgplayerNotConfigured`, `tcgplayerUnavailable` and `tcgplayerAccessRefused`: the banner shows `attemptFailureMessage` verbatim.
 - `tcgplayerResponseInvalid`: the banner leads with a fixed plain-language line, "TCGplayer sent a reply the app didn't understand. A manager should check the TCGplayer setup.", and shows `attemptFailureMessage` underneath in small muted text as the technical detail.
-- Every one of the four ends with "You can still upload a packing slip below."
+- `tcgplayerResponseInvalid` ends with "You can still upload a packing slip below." The other three messages already point to packing-slip upload, so the banner shows them without that line and the advice appears once.
 - When the attempt failed before any order was detected, the "0 of 0 orders processed" count is not shown.
 - There is no separate Retry button for an API press: "Get new orders" stays enabled after a failure or cancel, and pressing it again is the retry. PDF imports keep their Retry button.
+- A cancelled API press reads "Import cancelled. Completed orders remain imported and remaining processing stopped. Press Get new orders to try again." A cancelled PDF import keeps "… You can safely retry." with its Retry button.
+- While an import runs, "Cancel Import" sits with the control that started it: under "Get new orders" for an API press, and in the packing-slip section above the PDF progress for a PDF import.
 
 ### Server errors
 

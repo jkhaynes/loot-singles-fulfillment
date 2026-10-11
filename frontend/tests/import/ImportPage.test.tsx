@@ -168,9 +168,33 @@ describe('ImportPage', () => {
 
     expect(await screen.findByText(/import cancelled/i)).toBeInTheDocument()
     expect(screen.getByText(/remaining processing stopped/i)).toBeInTheDocument()
+    expect(screen.getByText(/you can safely retry/i)).toBeInTheDocument()
+    expect(screen.queryByText(/press get new orders to try again/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/connection lost/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
     expect(importMock.mock.calls[0][1]?.aborted).toBe(true)
+  })
+
+  it('shows Cancel Import with the packing-slip progress during a PDF import, not under Get new orders', async () => {
+    pendingImport()
+    renderImportPage()
+    await userEvent.upload(screen.getByLabelText(/packing slip/i), new File(['x'], 'x.pdf'))
+    await userEvent.click(screen.getByRole('button', { name: /import orders/i }))
+    const progress = await screen.findByText(/1 of 2 orders processed/)
+
+    const cancel = screen.getByRole('button', { name: /cancel import/i })
+    const fallbackSection = screen
+      .getByRole('heading', { name: /tcgplayer not working\? upload a packing slip instead\./i })
+      .closest('section')
+    expect(fallbackSection).toContainElement(cancel)
+    expect(fallbackSection).toContainElement(progress)
+    expect(
+      screen.getByRole('button', { name: /get new orders/i }).parentElement,
+    ).not.toContainElement(cancel)
+    expect(screen.getByRole('button', { name: /importing/i }).compareDocumentPosition(cancel)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+    expect(cancel.compareDocumentPosition(progress)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 
   it('guards application navigation and aborts before confirmed navigation', async () => {
@@ -462,7 +486,7 @@ describe('ImportPage', () => {
         "TCGplayer refused the store's connection. A manager needs to check the TCGplayer API setup. You can upload a packing slip meanwhile.",
       ],
     ] as const)(
-      'shows the server message verbatim and a pointer to the packing slip below for %s',
+      'shows the server message verbatim, whose packing-slip advice appears once, for %s',
       async (code, message) => {
         vi.mocked(importApi.getNewOrdersFromTcgplayer).mockReturnValue(
           snapshots(attemptFailure(code, message)),
@@ -471,7 +495,8 @@ describe('ImportPage', () => {
         await userEvent.click(screen.getByRole('button', { name: /get new orders/i }))
         const alert = await screen.findByRole('alert')
         expect(alert).toHaveTextContent(message)
-        expect(alert).toHaveTextContent('You can still upload a packing slip below.')
+        expect(alert).not.toHaveTextContent('You can still upload a packing slip below.')
+        expect(alert.textContent?.match(/packing.slip/gi)).toHaveLength(1)
         expect(screen.queryByText(/didn't understand/i)).not.toBeInTheDocument()
         expect(screen.queryByText(/below still works/i)).not.toBeInTheDocument()
         expect(screen.queryByText(/no new orders/i)).not.toBeInTheDocument()
@@ -550,10 +575,29 @@ describe('ImportPage', () => {
       await userEvent.click(screen.getByRole('button', { name: /cancel import/i }))
       await userEvent.click(screen.getByRole('button', { name: /stop import/i }))
       expect(await screen.findByText(/import cancelled/i)).toBeInTheDocument()
+      expect(screen.getByText(/press get new orders to try again\./i)).toBeInTheDocument()
+      expect(screen.queryByText(/safely retry/i)).not.toBeInTheDocument()
       expect(screen.queryByText(/connection lost/i)).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: /get new orders/i })).toBeEnabled()
       expect(importMock.mock.calls[0][0]?.aborted).toBe(true)
+    })
+
+    it('keeps Cancel Import under Get new orders during an API import, outside the packing-slip section', async () => {
+      pendingApiImport()
+      renderImportPage()
+      await userEvent.click(screen.getByRole('button', { name: /getting orders|get new orders/i }))
+      await screen.findByText(/1 of 2/)
+
+      const cancel = screen.getByRole('button', { name: /cancel import/i })
+      const fallbackSection = screen
+        .getByRole('heading', { name: /tcgplayer not working\? upload a packing slip instead\./i })
+        .closest('section')
+      expect(fallbackSection).not.toContainElement(cancel)
+      expect(
+        screen.getByRole('button', { name: /getting orders/i }).parentElement,
+      ).toContainElement(cancel)
+      expect(screen.getAllByRole('button', { name: /cancel import/i })).toHaveLength(1)
     })
 
     it('guards navigation while an API import runs and aborts on confirmed leave', async () => {
