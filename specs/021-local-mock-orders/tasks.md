@@ -26,12 +26,18 @@ The existing web-app layout: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 ## Phase 1: Setup
 
-- [ ] T001 Confirm a clean baseline on branch `021-local-mock-orders`. Run each of these and record its pass count in this task:
+- [X] T001 Confirm a clean baseline on branch `021-local-mock-orders`. Run each of these and record its pass count in this task:
   - `dotnet build backend/LootSingles.sln`
+    - 0 warnings, 0 errors
   - both backend test projects
+    - UnitTests: 496 passed, 0 failed, 0 skipped
+    - IntegrationTests: 327 passed, 0 failed, 0 skipped
   - `npm --prefix frontend run test`
+    - 333 passed, 0 failed (20 files)
   - `npm --prefix frontend run build`
+    - succeeded, no errors
   - `npm --prefix frontend run lint`
+    - 0 errors, 2 pre-existing warnings (AuthContext.tsx only-export-components; PackingDeskPage.tsx set-state-in-effect)
   
   This is the reference that the refactors in Phase 2 and T023 must keep.
 
