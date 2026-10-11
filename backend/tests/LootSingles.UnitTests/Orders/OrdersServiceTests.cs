@@ -12,7 +12,7 @@ public sealed class OrdersServiceTests
     {
         var service = new OrdersService(new FakeOrderRepository([]), NewEnrichmentService());
 
-        var result = await service.GetAllAsync(CancellationToken.None);
+        var result = await service.GetAllAsync(false, false, CancellationToken.None);
 
         Assert.Empty(result);
     }
@@ -27,7 +27,7 @@ public sealed class OrdersServiceTests
         ];
         var service = new OrdersService(new FakeOrderRepository(expected), NewEnrichmentService());
 
-        var result = await service.GetAllAsync(CancellationToken.None);
+        var result = await service.GetAllAsync(false, false, CancellationToken.None);
 
         Assert.Same(expected, result);
     }
@@ -49,7 +49,7 @@ public sealed class OrdersServiceTests
         ];
         var service = new OrdersService(new FakeOrderRepository(expected), NewEnrichmentService());
 
-        var result = await service.GetAllAsync(CancellationToken.None);
+        var result = await service.GetAllAsync(false, false, CancellationToken.None);
 
         Assert.Equal(7, result[0].ClaimedByEmployeeId);
         Assert.Equal("Sam", result[0].ClaimedByEmployeeName);
@@ -188,6 +188,8 @@ public sealed class OrdersServiceTests
     private sealed class FakeOrderDetailRepository(OrderDetail order) : IOrderRepository
     {
         public Task<IReadOnlyList<OrderListItem>> GetAllAsync(
+            bool callerIsManagerAdmin,
+            bool allowTouchedOrders,
             CancellationToken cancellationToken
         ) => Task.FromResult<IReadOnlyList<OrderListItem>>([]);
 
@@ -225,6 +227,8 @@ public sealed class OrdersServiceTests
     private sealed class FakeOrderRepository(IReadOnlyList<OrderListItem> orders) : IOrderRepository
     {
         public Task<IReadOnlyList<OrderListItem>> GetAllAsync(
+            bool callerIsManagerAdmin,
+            bool allowTouchedOrders,
             CancellationToken cancellationToken
         ) => Task.FromResult(orders);
 

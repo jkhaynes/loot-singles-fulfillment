@@ -8,5 +8,11 @@ public sealed record OrderListItem(
     OrderStatus Status,
     DateTimeOffset ImportedAt,
     int? ClaimedByEmployeeId = null,
-    string? ClaimedByEmployeeName = null
-);
+    string? ClaimedByEmployeeName = null,
+    bool CanDelete = false,
+    string? DeleteBlockedReason = null
+)
+{
+    /// <summary>The reason a Manager/Admin sees when the production rule blocks deletion (FR-021).</summary>
+    public const string ClaimedBeforeReason = "claimed_before";
+}

@@ -4,7 +4,11 @@ namespace LootSingles.Application.Orders;
 
 public interface IOrderRepository
 {
-    Task<IReadOnlyList<OrderListItem>> GetAllAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<OrderListItem>> GetAllAsync(
+        bool callerIsManagerAdmin,
+        bool allowTouchedOrders,
+        CancellationToken cancellationToken
+    );
 
     Task<OrderDetail?> GetByIdAsync(int orderId, CancellationToken cancellationToken);
 

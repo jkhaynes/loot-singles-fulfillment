@@ -423,8 +423,10 @@ public sealed class OrdersControllerTests
             {
                 Assert.Equal(
                     [
+                        "canDelete",
                         "claimedByEmployeeId",
                         "claimedByEmployeeName",
+                        "deleteBlockedReason",
                         "importedAt",
                         "orderId",
                         "status",

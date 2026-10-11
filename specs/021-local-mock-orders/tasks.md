@@ -213,7 +213,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
 
 ### 6c. Endpoints
 
-- [ ] T019 [US4] Write `backend/tests/LootSingles.IntegrationTests/Orders/OrderDeletionEndpointTests.cs` per contracts/api.md:
+- [X] T019 [US4] Write `backend/tests/LootSingles.IntegrationTests/Orders/OrderDeletionEndpointTests.cs` per contracts/api.md:
   - `DELETE /api/orders/{id}` returns 204, 404 `order_not_found`, 404 `order_already_deleted` or 409 `order_claimed_before`.
   - `GET /api/orders/deletion-summary` returns its shape.
   - `POST /api/orders/delete-all` returns `{ deletedCount, keptCount }`, or 400 `invalid_as_of` when `asOf` is missing or in the future.
@@ -222,7 +222,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
   - Re-import after delete: delete an imported order, then re-import it through the PDF path (an existing fixture slip) and through the API path (stub). Each creates a new visible order, and the deleted row is unchanged (FR-017).
   
   Confirm red.
-- [ ] T020 [US4] In `backend/src/LootSingles.Api/Controllers/OrdersController.cs`, add the three endpoints with `[Authorize(Roles = nameof(EmployeeRole.ManagerAdmin))]`. Also:
+- [X] T020 [US4] In `backend/src/LootSingles.Api/Controllers/OrdersController.cs`, add the three endpoints with `[Authorize(Roles = nameof(EmployeeRole.ManagerAdmin))]`. Also:
   - Add `CanDelete` and `DeleteBlockedReason` to `backend/src/LootSingles.Application/Orders/OrderListItem.cs`, and compute them in `OrderRepository.GetAllAsync`'s projection from the caller's role and `OrderDeletionOptions`.
   - Map `OrderDeletionResult` to the contract's status codes.
   

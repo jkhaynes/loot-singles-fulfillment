@@ -30,7 +30,7 @@ public sealed class OrderDeletionRepository(LootSinglesDbContext context) : IOrd
             cancellationToken
         );
 
-        var rowsAffected = await Deletable(allowTouched)
+        var rowsAffected = await context.Orders.Deletable(allowTouched)
             .Where(order => order.Id == orderId)
             .ExecuteUpdateAsync(
                 setters =>
@@ -84,7 +84,7 @@ public sealed class OrderDeletionRepository(LootSinglesDbContext context) : IOrd
             cancellationToken
         );
 
-        var deletedCount = await Deletable(allowTouched)
+        var deletedCount = await context.Orders.Deletable(allowTouched)
             .Where(order => order.ImportedAt <= asOf)
             .ExecuteUpdateAsync(
                 setters =>
@@ -124,7 +124,7 @@ public sealed class OrderDeletionRepository(LootSinglesDbContext context) : IOrd
     )
     {
         var visible = context.Orders.AsNoTracking().Where(order => order.ImportedAt <= now);
-        var deletable = Deletable(allowTouched)
+        var deletable = context.Orders.Deletable(allowTouched)
             .AsNoTracking()
             .Where(order => order.ImportedAt <= now);
 
@@ -146,16 +146,4 @@ public sealed class OrderDeletionRepository(LootSinglesDbContext context) : IOrd
             withUnresolvedIssueCount
         );
     }
-
-    /// <summary>
-    /// Visible orders that may be deleted (data-model.md "Deletability"). Under the production rule,
-    /// only an order nobody has ever claimed. <c>ClaimedByEmployeeId</c> is checked as well as
-    /// <c>FirstClaimedAt</c> so the rule doesn't rely on the backfill alone.
-    /// </summary>
-    private IQueryable<Order> Deletable(bool allowTouched) =>
-        allowTouched
-            ? context.Orders
-            : context.Orders.Where(order =>
-                order.FirstClaimedAt == null && order.ClaimedByEmployeeId == null
-            );
 }

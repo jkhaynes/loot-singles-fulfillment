@@ -30,7 +30,11 @@ public sealed class SqlServerQueryTranslationTests(SqlServerContainerFixture fix
         var (context, commands) = CreateObservedContext(lease);
         await using (context)
         {
-            var result = await new OrderRepository(context).GetAllAsync(CancellationToken.None);
+            var result = await new OrderRepository(context).GetAllAsync(
+                true,
+                false,
+                CancellationToken.None
+            );
             Assert.Equal(["A", "B", "C"], result.Select(row => row.TcgplayerOrderId));
         }
 

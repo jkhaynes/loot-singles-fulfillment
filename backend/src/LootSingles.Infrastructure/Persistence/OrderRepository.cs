@@ -218,8 +218,15 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
         return new ClaimAttemptResult(rowsAffected == 1, currentOrder);
     }
 
-    public async Task<IReadOnlyList<OrderListItem>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<OrderListItem>> GetAllAsync(
+        bool callerIsManagerAdmin,
+        bool allowTouchedOrders,
+        CancellationToken cancellationToken
+    )
     {
+        // The same rule deletion applies (OrderDeletability), as a subquery so the two cannot drift.
+        var deletableIds = context.Orders.Deletable(allowTouchedOrders).Select(order => order.Id);
+
         return await context
             .Orders.AsNoTracking()
             .OrderByDescending(order => order.ImportedAt)
@@ -230,7 +237,11 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                 order.Status,
                 order.ImportedAt,
                 order.ClaimedByEmployeeId,
-                order.ClaimedByEmployee != null ? order.ClaimedByEmployee.DisplayName : null
+                order.ClaimedByEmployee != null ? order.ClaimedByEmployee.DisplayName : null,
+                callerIsManagerAdmin && deletableIds.Contains(order.Id),
+                callerIsManagerAdmin && !deletableIds.Contains(order.Id)
+                    ? OrderListItem.ClaimedBeforeReason
+                    : null
             ))
             .ToListAsync(cancellationToken);
     }

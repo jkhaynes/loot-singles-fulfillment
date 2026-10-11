@@ -279,6 +279,8 @@ public sealed class OrderClaimServiceTests
         public ClaimAttemptResult ForceReleaseResult { get; set; } = new(false, null);
 
         public Task<IReadOnlyList<OrderListItem>> GetAllAsync(
+            bool callerIsManagerAdmin,
+            bool allowTouchedOrders,
             CancellationToken cancellationToken
         ) => Task.FromResult<IReadOnlyList<OrderListItem>>([]);
 
