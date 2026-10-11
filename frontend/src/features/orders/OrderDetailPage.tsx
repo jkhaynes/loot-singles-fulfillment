@@ -188,6 +188,7 @@ export function OrderDetailPage() {
         claimedByEmployeeName: claimed.claimedByEmployeeName,
       })
     } catch (error) {
+      if (showIfDeleted(error)) return
       if (error instanceof OrderAlreadyClaimedError) {
         setActionError(
           error.claimedByEmployeeName !== null
@@ -227,7 +228,8 @@ export function OrderDetailPage() {
         claimedByEmployeeId: updated.claimedByEmployeeId,
         claimedByEmployeeName: updated.claimedByEmployeeName,
       })
-    } catch {
+    } catch (error) {
+      if (showIfDeleted(error)) return
       setActionError("Couldn't force-release this order. Try refreshing the page.")
     } finally {
       setIsForceReleasing(false)
@@ -371,7 +373,11 @@ export function OrderDetailPage() {
               the order. Offered once picking has produced something to print, held orders
               included — theirs is the label most likely to be needed twice (FR-016). */}
           {hasStartedPicking && (
-            <PrintLabelButton orderId={order!.orderId} className="order-detail-bar__release" />
+            <PrintLabelButton
+              orderId={order!.orderId}
+              className="order-detail-bar__release"
+              onOrderGone={() => showIfDeleted(new OrderNotFoundError())}
+            />
           )}
         </header>
       ) : (

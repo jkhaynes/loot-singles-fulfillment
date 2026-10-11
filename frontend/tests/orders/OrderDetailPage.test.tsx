@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OrderDetailPage } from '../../src/features/orders/OrderDetailPage'
 import * as ordersApi from '../../src/features/orders/ordersApi'
@@ -1488,6 +1488,10 @@ describe('OrderDetailPage — API-imported lines', () => {
     const completeOrder = () =>
       claimedOrder([buildLine({ productName: 'Only Card', pickOutcome: 'picked' })])
 
+    function LocationProbe() {
+      return <p data-testid="location">{useLocation().pathname}</p>
+    }
+
     function expectNotFoundState() {
       expect(screen.getByRole('alert')).toHaveTextContent(NOT_FOUND)
       expect(screen.queryByRole('article')).not.toBeInTheDocument()
@@ -1532,18 +1536,63 @@ describe('OrderDetailPage — API-imported lines', () => {
       expectNotFoundState()
     })
 
-    it('shows it when releasing finds the order gone', async () => {
+    it('shows it when releasing finds the order gone, without leaving the page', async () => {
       vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
         claimedOrder([line(1, 'Pikachu', null)]),
       )
       vi.mocked(ordersApi.releaseOrder).mockRejectedValue(new ordersApi.OrderNotFoundError())
 
-      renderPage()
+      render(
+        <AuthProvider>
+          <MemoryRouter initialEntries={['/orders/42']}>
+            <Routes>
+              <Route path="/orders/:orderId" element={<OrderDetailPage />} />
+              <Route path="/orders" element={<p>Browse Orders list</p>} />
+            </Routes>
+            <LocationProbe />
+          </MemoryRouter>
+        </AuthProvider>,
+      )
       await userEvent.click(await screen.findByRole('button', { name: 'Release' }))
 
       expect(await screen.findByText(NOT_FOUND)).toBeInTheDocument()
       expectNotFoundState()
-      expect(screen.queryByText('Browse Orders list')).not.toBeInTheDocument()
+      // Navigation to the list would have changed the location; it is still the order's.
+      expect(screen.getByTestId('location')).toHaveTextContent('/orders/42')
+    })
+
+    it('shows it when claiming finds the order gone', async () => {
+      vi.mocked(ordersApi.getOrderDetail).mockResolvedValue({
+        ...claimedOrder([line(1, 'Pikachu', null)]),
+        status: 'ready',
+        claimedByEmployeeId: null,
+        claimedByEmployeeName: null,
+      })
+      vi.mocked(ordersApi.claimOrder).mockRejectedValue(new ordersApi.OrderNotFoundError())
+
+      renderPage()
+      await userEvent.click(await screen.findByRole('button', { name: /^claim/i }))
+
+      expect(await screen.findByText(NOT_FOUND)).toBeInTheDocument()
+      expectNotFoundState()
+    })
+
+    it('shows it when force-releasing finds the order gone', async () => {
+      vi.mocked(authApi.me).mockResolvedValue({
+        employeeId: 2,
+        displayName: 'Test Manager',
+        role: 'ManagerAdmin',
+      })
+      vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+        claimedOrder([line(1, 'Pikachu', null)]),
+      )
+      vi.mocked(ordersApi.forceReleaseOrder).mockRejectedValue(new ordersApi.OrderNotFoundError())
+
+      renderPage()
+      await userEvent.click(await screen.findByRole('button', { name: 'Force-Release' }))
+
+      expect(await screen.findByText(NOT_FOUND)).toBeInTheDocument()
+      expectNotFoundState()
     })
 
     // Finishing is the phone's review screen.
@@ -1555,6 +1604,18 @@ describe('OrderDetailPage — API-imported lines', () => {
       afterEach(() => {
         restore?.()
         restore = null
+      })
+
+      it('shows it when reprinting the label finds the order gone', async () => {
+        vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(completeOrder())
+        vi.mocked(ordersApi.getOrderLabel).mockRejectedValue(new ordersApi.OrderNotFoundError())
+
+        renderPage()
+        await screen.findByRole('article')
+        await userEvent.click(screen.getByRole('button', { name: /print label/i }))
+
+        expect(await screen.findByText(NOT_FOUND)).toBeInTheDocument()
+        expectNotFoundState()
       })
 
       async function openReviewAndFinish() {
