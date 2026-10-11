@@ -252,7 +252,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
   - while `confirmWord` isn't typed exactly, the confirm button is disabled.
 
   ImportPage's two uses don't pass the new props, so their behaviour is unchanged. Confirm T024 is green and `frontend/tests/import/` still is.
-- [ ] T026 [US4] Write `frontend/tests/orders/OrdersPage.deletion.test.tsx`. Wrap it in `AuthProvider`, and mock `authApi.me` the way `OrderDetailPage.test.tsx:30,83` does. Tests:
+- [X] T026 [US4] Write `frontend/tests/orders/OrdersPage.deletion.test.tsx`. Wrap it in `AuthProvider`, and mock `authApi.me` the way `OrderDetailPage.test.tsx:30,83` does. Tests:
   - A picker sees no ⋯ delete option and no **Delete orders…** (FR-010).
   - A Manager/Admin's ⋯ menu offers **Delete order…** when `canDelete`, and shows "Can't delete on production: this order has been claimed, so its pick history is kept." when `deleteBlockedReason === 'claimed_before'` (FR-021).
   - The single confirmation reads "Delete order SYN-…?", with the claim warning only when `claimedByEmployeeName` is set and the issue warning only when `status === 'NeedsAttention'` (FR-014, FR-022).
