@@ -230,13 +230,13 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
 
 ### 6d. Frontend
 
-- [ ] T021 [P] [US4] Write `frontend/tests/orders/ordersApi.deletion.test.ts` for the new functions in `ordersApi.ts`:
+- [X] T021 [P] [US4] Write `frontend/tests/orders/ordersApi.deletion.test.ts` for the new functions in `ordersApi.ts`:
   - `getDeletionSummary()`;
   - `deleteOrder(id)`, which throws `OrderNotFoundError`, `OrderAlreadyDeletedError` or `OrderClaimedBeforeError` by `error` code;
   - `deleteAllOrders(asOf)`.
   
   Also cover the new `OrderListItem` fields. Confirm red.
-- [ ] T022 [US4] Implement T021 in `frontend/src/features/orders/ordersApi.ts`, following the `claimOrder` pattern (lines 325–351). Confirm green.
+- [X] T022 [US4] Implement T021 in `frontend/src/features/orders/ordersApi.ts`, following the `claimOrder` pattern (lines 325–351). Confirm green.
 - [ ] T023 [US4] Extract `frontend/src/components/ConfirmationDialog.tsx` and `ConfirmationDialog.css` from the `import-confirmation` markup and CSS in `frontend/src/features/import/ImportPage.tsx` (lines 272–311) and `ImportPage.css` (lines 202–232). It takes only what the two existing uses need: `title`, `children` (the body), `keepLabel`, `confirmLabel`, `onKeep` and `onConfirm`. The dialog uses `role="alertdialog"`. Move ImportPage's two confirmations onto it. **This is a pure refactor with no new behaviour**: `frontend/tests/import/` must stay green with no assertion edits.
 - [ ] T024 [US4] Write `frontend/tests/components/ConfirmationDialog.test.tsx`:
   - The labels render as given.
