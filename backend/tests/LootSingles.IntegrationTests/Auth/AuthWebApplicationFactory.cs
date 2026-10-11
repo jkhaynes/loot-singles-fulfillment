@@ -29,6 +29,9 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Not Development (the WebApplicationFactory default): Development turns on the synthetic
+        // TCGplayer source (feature 021). A test that needs Development calls UseEnvironment itself.
+        builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:LootSingles", _databaseLease.ConnectionString);
         builder.ConfigureServices(services =>
         {

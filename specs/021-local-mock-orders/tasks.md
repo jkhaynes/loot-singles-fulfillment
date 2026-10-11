@@ -66,7 +66,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
 
 ### 2b. Keep Development-only behaviour out of the test hosts (research R2)
 
-- [ ] T006 Make `WebApplicationFactory` hosts run as a `Testing` environment by default. In `backend/tests/LootSingles.IntegrationTests/Auth/AuthWebApplicationFactory.cs`, and in any other `WebApplicationFactory<Program>` subclass or `WithWebHostBuilder` helper that doesn't already call `UseEnvironment`, add `builder.UseEnvironment("Testing")`. Confirm the whole integration suite is still green.
+- [X] T006 Make `WebApplicationFactory` hosts run as a `Testing` environment by default. In `backend/tests/LootSingles.IntegrationTests/Auth/AuthWebApplicationFactory.cs`, and in any other `WebApplicationFactory<Program>` subclass or `WithWebHostBuilder` helper that doesn't already call `UseEnvironment`, add `builder.UseEnvironment("Testing")`. Confirm the whole integration suite is still green.
   - A test that *needs* Development (US1) sets it explicitly.
   - If any test relied on Development-only behaviour, record what it was here and fix it by configuring the test explicitly. Don't rely on the environment.
   - Check that the E2E host (`backend/tests/LootSingles.E2EHost`, run without a launch profile) still reports Production, and leave it unchanged.
