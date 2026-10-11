@@ -41,8 +41,14 @@ public sealed class OrderDeletionService(
                 return OrderDeletionResult.NotFound;
             case OrderDeletionOutcome.AlreadyDeleted:
                 return OrderDeletionResult.AlreadyDeleted;
-            default:
+            case OrderDeletionOutcome.ClaimedBefore:
                 return OrderDeletionResult.ClaimedBefore;
+            default:
+                throw new ArgumentOutOfRangeException(
+                    nameof(attempt),
+                    attempt.Outcome,
+                    "Unknown order deletion outcome."
+                );
         }
     }
 

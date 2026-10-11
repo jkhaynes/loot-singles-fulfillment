@@ -130,6 +130,13 @@ export function OrdersPage() {
         removeOrder(orderId)
         setDeletionNotice('That order was already deleted.')
       } else if (error instanceof OrderClaimedBeforeError) {
+        setOrders((current) =>
+          current.map((item) =>
+            item.orderId === orderId
+              ? { ...item, canDelete: false, deleteBlockedReason: 'claimed_before' }
+              : item,
+          ),
+        )
         setDeletionError("Someone claimed this order, so it can't be deleted.")
       } else {
         setDeletionError("Couldn't delete this order. Try again.")
@@ -307,8 +314,9 @@ export function OrdersPage() {
         >
           {deletionSummary.keptCount > 0 && (
             <p>
-              {countOf(deletionSummary.keptCount, 'order', 'orders')} will be kept because
-              they&apos;ve been claimed.
+              {deletionSummary.keptCount === 1
+                ? "1 order will be kept because it's been claimed."
+                : `${deletionSummary.keptCount} orders will be kept because they've been claimed.`}
             </p>
           )}
           {deleteAllWarning(deletionSummary) && <p>{deleteAllWarning(deletionSummary)}</p>}

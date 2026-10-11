@@ -246,6 +246,26 @@ describe('OrdersPage deletion', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 
+  it('shows the reason in the row menu after someone claimed the order first', async () => {
+    signInAs('ManagerAdmin')
+    vi.mocked(ordersApi.getOrders).mockResolvedValue([order()])
+    vi.mocked(ordersApi.deleteOrder).mockRejectedValue(new OrderClaimedBeforeError())
+
+    renderPage()
+    await openRowMenu('SYN-0001')
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete order…' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Delete order' }))
+    await screen.findByText("Someone claimed this order, so it can't be deleted.")
+    await openRowMenu('SYN-0001')
+
+    expect(
+      screen.getByText(
+        "Can't delete on production: this order has been claimed, so its pick history is kept.",
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Delete order…' })).not.toBeInTheDocument()
+  })
+
   it('keeps the row and shows an error when the delete fails otherwise', async () => {
     signInAs('ManagerAdmin')
     vi.mocked(ordersApi.getOrders).mockResolvedValue([order()])
@@ -318,6 +338,27 @@ describe('OrdersPage deletion', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Delete orders' }))
 
     expect(await screen.findByText('2 orders deleted · 4 kept')).toBeInTheDocument()
+  })
+
+  it.each([
+    [1, "1 order will be kept because it's been claimed."],
+    [3, "3 orders will be kept because they've been claimed."],
+  ])('words the kept line for %i kept order(s)', async (keptCount, expected) => {
+    signInAs('ManagerAdmin')
+    vi.mocked(ordersApi.getOrders).mockResolvedValue([order()])
+    vi.mocked(ordersApi.getDeletionSummary).mockResolvedValue({
+      asOf: '2026-10-11T12:34:56.789Z',
+      deletableCount: 2,
+      keptCount,
+      claimedCount: 0,
+      withUnresolvedIssueCount: 0,
+    })
+
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete orders…' }))
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Delete 2 orders?' })
+    expect(within(dialog).getByText(expected)).toBeInTheDocument()
   })
 
   it('deletes nothing when Keep orders is chosen', async () => {
