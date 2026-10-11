@@ -160,7 +160,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
   - Generate the migration `AddOrderSoftDelete` in `backend/src/LootSingles.Infrastructure/Persistence/Migrations/`. Add a SQL backfill to `Up` for `FirstClaimedAt`, per data-model.md "Backfill".
   
   Confirm T012 is green and the whole suite stays green.
-- [ ] T014 [US4] Write `backend/tests/LootSingles.IntegrationTests/Persistence/OrderSoftDeleteSchemaTests.cs`. Use a raw `UPDATE` to set `DeletedAt` and `DeletedByEmployeeId` on an order, then assert:
+- [X] T014 [US4] Write `backend/tests/LootSingles.IntegrationTests/Persistence/OrderSoftDeleteSchemaTests.cs`. Use a raw `UPDATE` to set `DeletedAt` and `DeletedByEmployeeId` on an order, then assert:
   - the order is absent from `GET /api/orders`, `GET /api/orders/{id}` (404 `order_not_found`), Pick Next, every dashboard count, the packing desk lookup by order number, and `GET /api/orders/{id}/label` (FR-016, FR-018);
   - it is absent from the packing desk's awaiting-packing list (`PackingRepository.GetAwaitingPackingAsync`);
   - claim, release, force-release, record-pick, report-issue, mark-packed and the packing-slip retrieval on it return 404 `order_not_found` (or the packing desk's not-found answer);
