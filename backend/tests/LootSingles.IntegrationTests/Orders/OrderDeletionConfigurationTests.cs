@@ -34,6 +34,21 @@ public sealed class OrderDeletionConfigurationTests
     }
 
     [Fact]
+    public async Task Configuration_overrides_the_Development_default()
+    {
+        await using var root = new AuthWebApplicationFactory();
+        await using var factory = root.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Development");
+            builder.UseSetting("OrderDeletion:AllowTouchedOrders", "false");
+        });
+
+        var options = factory.Services.GetRequiredService<OrderDeletionOptions>();
+
+        Assert.False(options.AllowTouchedOrders);
+    }
+
+    [Fact]
     public async Task A_Development_host_deletes_a_claimed_order()
     {
         await using var root = new AuthWebApplicationFactory();

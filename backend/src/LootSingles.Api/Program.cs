@@ -20,6 +20,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration.Memory;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -116,13 +117,20 @@ if (syntheticTcgplayer)
 }
 // 021 FR-013 / research R5: Development may delete an order in any state. appsettings.Development.json
 // is git-ignored, so the environment supplies it. Outside Development, absent means the strict rule.
+// Unlike the synthetic TCGplayer block above, this is a DEFAULT, not an override: the source is
+// inserted first (lowest precedence), so appsettings, user secrets, environment variables and the
+// command line can still set the key, e.g. to try the strict production rule locally.
 if (builder.Environment.IsDevelopment())
 {
-    builder.Configuration.AddInMemoryCollection(
-        new Dictionary<string, string?>
+    builder.Configuration.Sources.Insert(
+        0,
+        new MemoryConfigurationSource
         {
-            [$"{OrderDeletionOptions.SectionName}:{nameof(OrderDeletionOptions.AllowTouchedOrders)}"] =
-                "true",
+            InitialData = new Dictionary<string, string?>
+            {
+                [$"{OrderDeletionOptions.SectionName}:{nameof(OrderDeletionOptions.AllowTouchedOrders)}"] =
+                    "true",
+            },
         }
     );
 }
