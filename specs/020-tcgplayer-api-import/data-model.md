@@ -47,7 +47,7 @@ New values are appended, so existing stored integers keep their meaning.
 | `IncompleteOrder` | Per order | The order's lines could not all be retrieved, or their quantities don't match its product count. Nothing is created for that order. |
 | `TcgplayerUnavailable` | Attempt | TCGplayer could not be reached, timed out, or returned 5xx or 429. |
 | `TcgplayerAccessRefused` | Attempt | TCGplayer rejected the store's credentials (401 after one refresh, or 403). |
-| `TcgplayerResponseInvalid` | Attempt or per order | A response didn't have the documented shape, a configured open status is missing from the manifest, or paging stalled. It is attempt-wide when search or manifest is affected, and per order when only that order's items or details are (including TCGplayer returning no details for it). |
+| `TcgplayerResponseInvalid` | Attempt or per order | A response didn't have the documented shape, a configured open order status, open pickup status or order type name is missing from the manifest, or paging stalled. It is attempt-wide when search or manifest is affected, and per order when only that order's items or details are (including TCGplayer returning no details for it). |
 | `TcgplayerNotConfigured` | Attempt | No TCGplayer credentials are configured in this environment. No call was made. |
 
 `ImportOrderResult` is unchanged. API orders record `SourceOrderIdentifier` = the TCGplayer order number.
