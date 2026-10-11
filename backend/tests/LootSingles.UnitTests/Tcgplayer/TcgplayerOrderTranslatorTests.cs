@@ -7,7 +7,7 @@ namespace LootSingles.UnitTests.Tcgplayer;
 
 /// <summary>
 /// research.md section 7 (field mapping), section 5 (product count is units) and section 14
-/// (live-confirmed wording). Driven by the synthetic fixtures in LootSingles.Fixtures/Tcgplayer,
+/// (live-confirmed wording). Driven by the synthetic fixtures in LootSingles.Infrastructure/Tcgplayer/Synthetic/Data,
 /// plus small inline items for the edge rules.
 /// </summary>
 public sealed class TcgplayerOrderTranslatorTests

@@ -19,7 +19,7 @@ The real token, rate-limit, timeout and User-Agent handlers and the whole import
 - the filtered unique index on the order number lets a re-import create a fresh copy;
 - the stored packing slip is removed in the same transaction.
 
-A new `Orders.FirstClaimedAt`, set by the first claim and never cleared, defines "touched". Production refuses to delete touched orders. Stage and Development opt in with `OrderDeletion:AllowTouchedOrders=true`, so a missing setting gives the strict rule.
+A new `Orders.FirstClaimedAt`, set by the first claim and never cleared, defines "touched". Production refuses to delete touched orders. Development (set by `Program.cs`, lowest precedence) and stage (portal env var) opt in with `OrderDeletion:AllowTouchedOrders=true`, so a missing setting gives the strict rule.
 
 The UI adds a per-row ⋯ menu on Browse Orders and a **Delete orders…** action. Both confirmations use a `ConfirmationDialog` extracted from the Import page. A picker whose order was deleted sees "This order no longer exists".
 
@@ -117,9 +117,8 @@ backend/src/LootSingles.Infrastructure/
 ├── Persistence/Configurations/OrderConfiguration.cs                   # query filter, filtered indexes, FK
 └── Persistence/Migrations/<ts>_AddOrderSoftDelete.cs                  # + backfill
 backend/src/LootSingles.Api/
-├── Program.cs                                                         # Development-only AddSyntheticTcgplayer; options binding
+├── Program.cs                                                         # Development-only AddSyntheticTcgplayer; options binding; supplies OrderDeletion:AllowTouchedOrders=true when IsDevelopment() (appsettings.Development.json is git-ignored)
 ├── Controllers/OrdersController.cs                                    # DELETE, delete-all, deletion-summary; list fields
-└── appsettings.Development.json                                       # OrderDeletion:AllowTouchedOrders=true
 backend/tests/
 ├── LootSingles.UnitTests/Orders/OrderDeletionServiceTests.cs
 ├── LootSingles.UnitTests/Tcgplayer/SyntheticDataTests.cs              # no TCGplayer hosts in data

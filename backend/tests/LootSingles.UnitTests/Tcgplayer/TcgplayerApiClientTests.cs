@@ -11,7 +11,7 @@ namespace LootSingles.UnitTests.Tcgplayer;
 /// <summary>
 /// T027: the typed client for TCGplayer calls #2–#8 (contracts/tcgplayer-upstream.md). It only
 /// fetches and pages; translation is the translator's job. Driven by the synthetic fixtures in
-/// LootSingles.Fixtures/Tcgplayer, whose search pages assume a page size of 5 and whose paged
+/// LootSingles.Infrastructure/Tcgplayer/Synthetic/Data, whose search pages assume a page size of 5 and whose paged
 /// items assume a page size of 2. The auth and rate-limit handlers are not in this pipeline; they
 /// have their own tests.
 /// </summary>

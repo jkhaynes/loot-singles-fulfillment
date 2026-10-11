@@ -49,7 +49,7 @@ The local configuration also uses the stub's page size of 2, so paging runs too.
 
 **Finding**: Both environments run as ASP.NET "Production". The only setting that differs today is `HealthChecks__ExposeDatabaseEndpoint`, which is set on production.
 
-**Decision**: Add a new setting, `OrderDeletion:AllowTouchedOrders` (bool, default **false**). It's set to `true` in `appsettings.Development.json` and, as a manual portal step, on the stage Container App (`OrderDeletion__AllowTouchedOrders=true`). With the setting absent, the production rule applies (FR-013).
+**Decision**: Add a new setting, `OrderDeletion:AllowTouchedOrders` (bool, default **false**). `appsettings.Development.json` is git-ignored, so `Program.cs` supplies `true` when `IsDevelopment()` as the lowest-precedence configuration source (environment variables and user secrets can still set it to false), and it is set, as a manual portal step, on the stage Container App (`OrderDeletion__AllowTouchedOrders=true`). With the setting absent, the production rule applies (FR-013).
 
 **Rationale**: The safe direction is the default. A missing or mistyped setting gives the strictest behavior, so production can only become permissive if someone sets it there on purpose. The frontend never needs to know the environment's name. The server says, for each order, whether it can be deleted and why not (contracts/api.md).
 
@@ -94,7 +94,7 @@ The per-row ⋯ menu is used only on Browse Orders, so it stays local to `featur
 
 **Finding**: Every order API call already maps a 404 to `OrderNotFoundError`, but `OrderDetailPage`'s action handlers ignore it. They show "Couldn't record that pick. Try refreshing the page." and leave the stale order on screen.
 
-**Decision**: When a pick, issue report, release, finish or label action raises `OrderNotFoundError`, the page switches to the existing not-found state and shows "This order no longer exists" (FR-018). The not-found state's wording changes to fit both causes.
+**Decision**: When a claim, pick, issue report, release, force-release, finish or Print label action raises `OrderNotFoundError`, the page switches to the existing not-found state and shows "This order no longer exists" (FR-018). The not-found state's wording changes to fit both causes.
 
 ## R10. Out of scope, by Product Owner decision or the spec
 

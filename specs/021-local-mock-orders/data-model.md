@@ -59,6 +59,6 @@ There's no restore. Re-importing the same TCGplayer order number creates a new, 
 
 | Key | Default | Development | Stage | Production |
 |---|---|---|---|---|
-| `OrderDeletion:AllowTouchedOrders` | `false` | `true` (`appsettings.Development.json`) | `true` (portal env var, quickstart §D) | not set |
+| `OrderDeletion:AllowTouchedOrders` | `false` | `true` (supplied by `Program.cs` when `IsDevelopment()`, lowest precedence) | `true` (portal env var, quickstart §D) | not set |
 
 The synthetic TCGplayer source has **no** configuration key. It depends only on the environment being Development (research R2).

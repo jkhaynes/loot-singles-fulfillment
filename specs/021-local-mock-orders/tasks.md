@@ -283,11 +283,12 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T031 Update the docs:
+- [X] T031 Update the docs:
   - In `docs/state.md`, if it exists, say what 021 adds.
   - In `specs/020-tcgplayer-api-import/quickstart.md` §C, replace "Without secrets, 'Get new orders' shows the not set up here message" with a pointer to 021: locally it imports synthetic orders.
   - Any doc that references `backend/tests/LootSingles.Fixtures/Tcgplayer` now points to the new data folder. Search the repo for that path.
-- [ ] T032 Run the full suites (both backend test projects, plus frontend test, build, lint and `test:e2e`) and record the counts here, compared with T001.
+- [X] T032 Run the full suites (both backend test projects, plus frontend test, build, lint and `test:e2e`) and record the counts here, compared with T001.
+  - Counts (T001 baseline in brackets): build 0 warnings [0]; Unit 515 [496]; Integration 390, 0 skipped, so `SqlServerQueryTranslationTests` ran [327]; Frontend Vitest 379 [333]; `npm run build` clean; lint 0 errors, 2 warnings [0, 2]; Playwright E2E 40 passed. `docs/state.md` does not exist, so T031 skipped that bullet.
 - [ ] T033 Walk through quickstart §B and §C on LocalDB, using the connection-string override from the local-DB setup note, never the developer's own dev database. Record what was seen.
 - [ ] T034 [MANUAL] **Before merging to `main`** (a merge deploys to stage), add `OrderDeletion__AllowTouchedOrders=true` to the stage Container App (quickstart §D). Until it's set, stage applies the strict production rule, which is safe but doesn't match FR-013 for stage. After the stage deploy, check that a claimed order can be deleted on stage. After the production deploy, check that a claimed order can't be deleted on production (quickstart §E).
 

@@ -41,7 +41,7 @@ Each row names a behavior the tests must show, and the requirement it covers:
 
 ## C. Production rule, locally
 
-Set `$env:OrderDeletion__AllowTouchedOrders = 'false'`, restart, and claim one order then release it. Its ⋯ menu says it can't be deleted, and **Delete orders…** reports it as kept.
+Development defaults `OrderDeletion:AllowTouchedOrders` to `true` in `Program.cs` as the lowest-precedence source, so an environment variable or user secret overrides it. Set `$env:OrderDeletion__AllowTouchedOrders = 'false'`, restart, and claim one order then release it. Its ⋯ menu says it can't be deleted, and **Delete orders…** reports it as kept.
 
 ## D. Stage setup (a person)
 
