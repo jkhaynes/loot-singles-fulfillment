@@ -265,8 +265,8 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
   - In `frontend/src/features/orders/OrdersPage.tsx` and `OrdersPage.css`: add `useAuth`, the Actions-cell menu, a quiet **Delete orders…** header button for Manager/Admins, both `ConfirmationDialog` uses, and the result message.
   
   Use the copy from the mockup and spec (FR-021–FR-023). Confirm green.
-- [ ] T028 [US4] Write tests in `frontend/tests/orders/OrderDetailPage.test.tsx`. When `recordPicked`, `reportIssue`, `releaseOrder`, the finish action or `getOrderLabel` rejects with `OrderNotFoundError`, the page shows the not-found state "This order no longer exists. It may have been deleted." and no longer shows the lines (FR-018, US4 scenario 6). Confirm red.
-- [ ] T029 [US4] Implement T028 in `frontend/src/features/orders/OrderDetailPage.tsx`. In each action handler's catch block, an `OrderNotFoundError` sets `loadState` to `'not-found'`. Update the not-found text (line ~441) to the wording in T028. Confirm green, and confirm the existing detail-page tests are still green.
+- [X] T028 [US4] Write tests in `frontend/tests/orders/OrderDetailPage.test.tsx`. When `recordPicked`, `reportIssue`, `releaseOrder`, the finish action or `getOrderLabel` rejects with `OrderNotFoundError`, the page shows the not-found state "This order no longer exists. It may have been deleted." and no longer shows the lines (FR-018, US4 scenario 6). Confirm red.
+- [X] T029 [US4] Implement T028 in `frontend/src/features/orders/OrderDetailPage.tsx`. In each action handler's catch block, an `OrderNotFoundError` sets `loadState` to `'not-found'`. Update the not-found text (line ~441) to the wording in T028. Confirm green, and confirm the existing detail-page tests are still green.
 
 ### 6e. End to end
 

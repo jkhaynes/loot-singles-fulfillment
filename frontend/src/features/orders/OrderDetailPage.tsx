@@ -83,6 +83,18 @@ export function OrderDetailPage() {
     }
   }, [orderId])
 
+  /**
+   * An order deleted while this page is open is gone for good (FR-018): drop the stale lines for
+   * the not-found state rather than leave the picker acting on them behind a generic error.
+   * Returns whether the error was that.
+   */
+  function showIfDeleted(error: unknown): boolean {
+    if (!(error instanceof OrderNotFoundError)) return false
+    setOrder(null)
+    setLoadState('not-found')
+    return true
+  }
+
   /** Giving up an order without finishing it. Unchanged since feature 013. */
   async function handleRelease() {
     if (!order) return
@@ -93,7 +105,8 @@ export function OrderDetailPage() {
       await releaseOrder(order.orderId)
       // Back to the list so the picker can claim the next order (PO decision 2026-09-19).
       navigate('/orders')
-    } catch {
+    } catch (error) {
+      if (showIfDeleted(error)) return
       setActionError("Couldn't release this order. Try refreshing the page.")
     } finally {
       setIsReleasing(false)
@@ -129,8 +142,9 @@ export function OrderDetailPage() {
       await releaseOrder(order.orderId)
       setEnding(label)
       // Left set on success: the picking view is gone, and nothing should finish it again.
-    } catch {
+    } catch (error) {
       isFinishing.current = false
+      if (showIfDeleted(error)) return
       setActionError("Couldn't finish this order. Try refreshing the page.")
     } finally {
       setIsReleasing(false)
@@ -251,7 +265,8 @@ export function OrderDetailPage() {
     try {
       setOrder(withLoadedImages(await tracked(recordPicked(order.orderId, lineId)), order))
       setIssueFormLineId(null)
-    } catch {
+    } catch (error) {
+      if (showIfDeleted(error)) return
       setActionError("Couldn't record that pick. Try refreshing the page.")
     } finally {
       setRecordingLineId(null)
@@ -266,7 +281,8 @@ export function OrderDetailPage() {
     try {
       setOrder(withLoadedImages(await tracked(reportIssue(order.orderId, lineId, request)), order))
       setIssueFormLineId(null)
-    } catch {
+    } catch (error) {
+      if (showIfDeleted(error)) return
       setActionError("Couldn't report that issue. Try refreshing the page.")
     } finally {
       setRecordingLineId(null)
@@ -438,7 +454,7 @@ export function OrderDetailPage() {
         <p className="order-detail-state">Loading order…</p>
       ) : loadState === 'not-found' ? (
         <p role="alert" className="order-detail-state order-detail-state--error">
-          Order not found. It may have been removed or the address may be incorrect.
+          This order no longer exists. It may have been deleted.
         </p>
       ) : loadState === 'error' ? (
         <p role="alert" className="order-detail-state order-detail-state--error">

@@ -522,7 +522,7 @@ describe('OrderDetailPage', () => {
 
     renderPage(999)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/order not found/i)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/this order no longer exists/i)
     expect(screen.queryByText(/couldn.?t load order/i)).not.toBeInTheDocument()
   })
 
@@ -1479,5 +1479,124 @@ describe('OrderDetailPage — API-imported lines', () => {
 
     const card = await screen.findByRole('article', { name: /Triple/i })
     expect(card.querySelector('[data-emphasis="high"]')).toHaveTextContent('3')
+  })
+
+  // 021 FR-018 / US4 scenario 6: an order deleted while a picker has it open must say so, not
+  // leave them acting on stale lines behind a generic error.
+  describe('when the order is deleted mid-pick', () => {
+    const NOT_FOUND = 'This order no longer exists. It may have been deleted.'
+    const completeOrder = () =>
+      claimedOrder([buildLine({ productName: 'Only Card', pickOutcome: 'picked' })])
+
+    function expectNotFoundState() {
+      expect(screen.getByRole('alert')).toHaveTextContent(NOT_FOUND)
+      expect(screen.queryByRole('article')).not.toBeInTheDocument()
+      expect(screen.queryByText('Only Card')).not.toBeInTheDocument()
+      expect(screen.queryByText('Pikachu')).not.toBeInTheDocument()
+    }
+
+    it('shows the not-found state when initial loading finds no order', async () => {
+      vi.mocked(ordersApi.getOrderDetail).mockRejectedValue(new ordersApi.OrderNotFoundError())
+
+      renderPage(999)
+
+      expect(await screen.findByText(NOT_FOUND)).toBeInTheDocument()
+    })
+
+    it('shows it when recording a pick finds the order gone', async () => {
+      vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+        claimedOrder([line(1, 'Pikachu', null)]),
+      )
+      vi.mocked(ordersApi.recordPicked).mockRejectedValue(new ordersApi.OrderNotFoundError())
+
+      renderPage()
+      const card = await screen.findByRole('article', { name: /Pikachu/i })
+      await userEvent.click(within(card).getByRole('button', { name: 'Picked' }))
+
+      expect(await screen.findByText(NOT_FOUND)).toBeInTheDocument()
+      expectNotFoundState()
+    })
+
+    it('shows it when reporting an issue finds the order gone', async () => {
+      vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+        claimedOrder([line(1, 'Pikachu', null)]),
+      )
+      vi.mocked(ordersApi.reportIssue).mockRejectedValue(new ordersApi.OrderNotFoundError())
+
+      renderPage()
+      await userEvent.click(await screen.findByRole('button', { name: 'Report Issue' }))
+      await userEvent.selectOptions(screen.getByLabelText('Issue type'), 'cardNotFound')
+      await userEvent.click(screen.getByRole('button', { name: 'Submit Issue' }))
+
+      expect(await screen.findByText(NOT_FOUND)).toBeInTheDocument()
+      expectNotFoundState()
+    })
+
+    it('shows it when releasing finds the order gone', async () => {
+      vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+        claimedOrder([line(1, 'Pikachu', null)]),
+      )
+      vi.mocked(ordersApi.releaseOrder).mockRejectedValue(new ordersApi.OrderNotFoundError())
+
+      renderPage()
+      await userEvent.click(await screen.findByRole('button', { name: 'Release' }))
+
+      expect(await screen.findByText(NOT_FOUND)).toBeInTheDocument()
+      expectNotFoundState()
+      expect(screen.queryByText('Browse Orders list')).not.toBeInTheDocument()
+    })
+
+    // Finishing is the phone's review screen.
+    describe('on a phone', () => {
+      let restore: (() => void) | null = null
+      beforeEach(() => {
+        restore = installMatchMedia(390).restore
+      })
+      afterEach(() => {
+        restore?.()
+        restore = null
+      })
+
+      async function openReviewAndFinish() {
+        const user = userEvent.setup()
+        renderPage()
+        await screen.findByRole('article')
+        await user.click(screen.getByRole('button', { name: 'Next card', exact: true }))
+        await user.click(await screen.findByRole('button', { name: /finish picking/i }))
+      }
+
+      it('shows it when finishing cannot fetch the label because the order is gone', async () => {
+        vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(completeOrder())
+        vi.mocked(ordersApi.getOrderLabel).mockRejectedValue(new ordersApi.OrderNotFoundError())
+
+        await openReviewAndFinish()
+
+        expect(await screen.findByText(NOT_FOUND)).toBeInTheDocument()
+        expectNotFoundState()
+        expect(ordersApi.releaseOrder).not.toHaveBeenCalled()
+      })
+
+      it('shows it when finishing finds the order gone at release', async () => {
+        vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(completeOrder())
+        vi.mocked(ordersApi.getOrderLabel).mockResolvedValue({
+          orderId: 42,
+          tcgplayerOrderId: 'ORDER-DETAIL-42',
+          cardCount: 1,
+          pickedBy: [{ employeeId: 1, displayName: 'Test Picker' }],
+          pickedAt: '2026-09-21T14:14:00Z',
+          isHeld: false,
+          unresolvedProducts: [],
+          setAsideCount: null,
+          shipsShort: false,
+        })
+        vi.mocked(ordersApi.releaseOrder).mockRejectedValue(new ordersApi.OrderNotFoundError())
+
+        await openReviewAndFinish()
+
+        expect(await screen.findByText(NOT_FOUND)).toBeInTheDocument()
+        expectNotFoundState()
+        expect(screen.queryByText('Pick complete')).not.toBeInTheDocument()
+      })
+    })
   })
 })
