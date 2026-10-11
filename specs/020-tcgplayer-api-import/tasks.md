@@ -402,7 +402,7 @@ The first live press imported about 1,568 orders that were not open. TCGplayer's
   - condition and printing wording (T025).
 
   Write the synthetic fixtures (T003) to match any shape corrections, with invented values only. Record each outcome here.
-- [ ] T062 [MANUAL] Add the stage secrets (`tcgplayer-setup.md` Part 3), deploy, and press **Get new orders** on stage. Check:
+- [x] T062 [MANUAL] Add the stage secrets (`tcgplayer-setup.md` Part 3), deploy, and press **Get new orders** on stage. Check:
   - imported orders against the TCGplayer seller portal: lines, quantities, conditions, variants (foil shown once) and images;
   - **cross-source duplicates (FR-010)**: before pressing, upload one open order's packing slip by PDF. The press must report that order "Already imported", which proves the API's order number matches the slip's text exactly;
   - **timing (SC-001)**: a typical batch shows its results within 30 seconds;
@@ -427,7 +427,7 @@ The first live press imported about 1,568 orders that were not open. TCGplayer's
 - **US2 (T041–T045)** needs US1's import, so there are API orders to view. Its frontend tasks (T043–T044) can run in parallel with T041–T042.
 - **US3 (T046–T047)** and **US4 (T048–T049)** need US1 and are independent of each other and of US2.
 - **Polish (T050–T058)** comes after the desired stories. T050–T054 run in parallel. T057 then T058 are last.
-- **Manual (T059–T062)**: T059–T061 are done (2026-10-09). T062 needs a deployment.
+- **Manual (T059–T062)**: T059–T061 are done (2026-10-09). T062 passed on stage (2026-10-10); production follows.
 
 ## Parallel Example: User Story 1
 
