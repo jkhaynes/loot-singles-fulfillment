@@ -114,6 +114,18 @@ if (syntheticTcgplayer)
         }
     );
 }
+// 021 FR-013 / research R5: Development may delete an order in any state. appsettings.Development.json
+// is git-ignored, so the environment supplies it. Outside Development, absent means the strict rule.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddInMemoryCollection(
+        new Dictionary<string, string?>
+        {
+            [$"{OrderDeletionOptions.SectionName}:{nameof(OrderDeletionOptions.AllowTouchedOrders)}"] =
+                "true",
+        }
+    );
+}
 var tcgplayerClient = builder.Services.AddTcgplayer(builder.Configuration);
 if (syntheticTcgplayer)
 {

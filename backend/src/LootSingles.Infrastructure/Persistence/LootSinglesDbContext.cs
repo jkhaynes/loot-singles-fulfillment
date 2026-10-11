@@ -91,10 +91,12 @@ public class LootSinglesDbContext : DbContext, IDataProtectionKeyContext
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         base.OnConfiguring(optionsBuilder);
-        // The Order soft-delete filter (021 R7) makes EF warn that OrderPackingSlip and
+        // The Order soft-delete filter (021 R7) makes EF warn that OrderLine, OrderPackingSlip and
         // PackingSlipAccess require an Order that may be filtered out. Deliberately no matching
-        // filters: slip rows are only reached through a filtered Order and are deleted with their
-        // order, and access rows are the retrieval log FR-016 keeps on purpose.
+        // filters: lines and slips are only reached through a filtered Order, slips are deleted
+        // with their order, and access rows are the retrieval log FR-016 keeps on purpose. The
+        // T014 guard suite (OrderSoftDeleteSchemaTests) is what keeps any direct read of these
+        // dependents from surfacing a deleted order.
         optionsBuilder.ConfigureWarnings(warnings =>
             warnings.Ignore(
                 CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning
