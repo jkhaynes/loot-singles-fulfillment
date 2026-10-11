@@ -51,18 +51,18 @@ The existing web-app layout: `backend/src/`, `backend/tests/`, `frontend/src/`, 
 
 The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…/Import/`, `backend/tests/LootSingles.IntegrationTests/ImportUi/`, `…/Import/`, `…/Packing/TcgplayerPackingTests.cs`) and `frontend/e2e/tcgplayer-import.spec.ts` must stay green after each task, with no assertion edits.
 
-- [ ] T002 Move every file in `backend/tests/LootSingles.Fixtures/Tcgplayer/`, including `README.md`, to `backend/src/LootSingles.Infrastructure/Tcgplayer/Synthetic/Data/`. Embed the JSON files as `EmbeddedResource` in `backend/src/LootSingles.Infrastructure/LootSingles.Infrastructure.csproj`, following the CardCatalog precedent at lines 7–13. In the README, add one line saying the data now also feeds local Development runs.
-- [ ] T003 Move `backend/tests/LootSingles.IntegrationTests/ImportUi/TcgplayerStubHandler.cs` to `backend/src/LootSingles.Infrastructure/Tcgplayer/Synthetic/SyntheticTcgplayerHandler.cs`:
+- [X] T002 Move every file in `backend/tests/LootSingles.Fixtures/Tcgplayer/`, including `README.md`, to `backend/src/LootSingles.Infrastructure/Tcgplayer/Synthetic/Data/`. Embed the JSON files as `EmbeddedResource` in `backend/src/LootSingles.Infrastructure/LootSingles.Infrastructure.csproj`, following the CardCatalog precedent at lines 7–13. In the README, add one line saying the data now also feeds local Development runs.
+- [X] T003 Move `backend/tests/LootSingles.IntegrationTests/ImportUi/TcgplayerStubHandler.cs` to `backend/src/LootSingles.Infrastructure/Tcgplayer/Synthetic/SyntheticTcgplayerHandler.cs`:
   - Rename the class to `SyntheticTcgplayerHandler` and make it `public sealed`. Its nested `RecordedRequest` becomes `public` too.
   - Read the fixtures from the embedded resources instead of `AppContext.BaseDirectory/Fixtures/Tcgplayer`.
   - Change `BaseUrl` to `https://tcgplayer-synthetic.invalid/`. `.invalid` is a reserved name that never resolves.
   - Keep the rest of the public surface unchanged: `OpenOrderNumbers`, `LeakedOrderNumbers`, `Override`, `Requests`, `OrderNumber`, `Classify`.
-- [ ] T004 Repoint every consumer at the moved handler and data, and delete the old copies:
+- [X] T004 Repoint every consumer at the moved handler and data, and delete the old copies:
   - In `backend/tests/LootSingles.UnitTests/LootSingles.UnitTests.csproj` and `backend/tests/LootSingles.IntegrationTests/LootSingles.IntegrationTests.csproj`, remove the Tcgplayer `<None … CopyToOutputDirectory>` links. Tests that read a fixture file directly read it through a small helper on the handler, for example `SyntheticTcgplayerHandler.ReadData(name)`.
   - In `backend/tests/LootSingles.E2EHost/LootSingles.E2EHost.csproj`, remove the `<Compile Include=…TcgplayerStubHandler.cs>` link and the JSON copy.
   - Update the `using` lines and type names in `backend/tests/LootSingles.E2EHost/Program.cs`, `backend/tests/LootSingles.IntegrationTests/ImportUi/ImportUiTestSupport.cs`, `TcgplayerStubHandlerTests.cs` (rename it `SyntheticTcgplayerHandlerTests.cs` and move it to `backend/tests/LootSingles.IntegrationTests/Tcgplayer/`), and every other user found by searching for `TcgplayerStubHandler`.
   - Delete the empty `backend/tests/LootSingles.Fixtures/Tcgplayer/` folder. Confirm the Phase 2a suites are green.
-- [ ] T005 [P] Write `backend/tests/LootSingles.UnitTests/Tcgplayer/SyntheticDataTests.cs`. Assert that no embedded synthetic resource contains the text `tcgplayer.com` or `tcgplayer-cdn`, and that every image URL host ends in `.test` or `.invalid` (research R4, SC-003). This guards existing behaviour, so it should pass at once. If it fails, fix the data, not the test.
+- [X] T005 [P] Write `backend/tests/LootSingles.UnitTests/Tcgplayer/SyntheticDataTests.cs`. Assert that no embedded synthetic resource contains the text `tcgplayer.com` or `tcgplayer-cdn`, and that every image URL host ends in `.test` or `.invalid` (research R4, SC-003). This guards existing behaviour, so it should pass at once. If it fails, fix the data, not the test.
 
 ### 2b. Keep Development-only behaviour out of the test hosts (research R2)
 

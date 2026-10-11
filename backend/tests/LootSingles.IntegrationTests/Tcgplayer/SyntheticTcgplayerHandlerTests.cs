@@ -1,6 +1,7 @@
 using System.Text.Json;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 
-namespace LootSingles.IntegrationTests.ImportUi;
+namespace LootSingles.IntegrationTests.Tcgplayer;
 
 /// <summary>
 /// T072: the stub's search honours its filters the way the live search does, each covering only
@@ -8,7 +9,7 @@ namespace LootSingles.IntegrationTests.ImportUi;
 /// filter. The query-level regression test for the first live press, which sent one filter only
 /// and imported long-collected pickup orders.
 /// </summary>
-public sealed class TcgplayerStubHandlerTests
+public sealed class SyntheticTcgplayerHandlerTests
 {
     // The fixture manifest's ids for the default names: Processing and Ready To Ship, Received,
     // Normal.
@@ -21,7 +22,7 @@ public sealed class TcgplayerStubHandlerTests
     {
         var numbers = await SearchAsync($"{Statuses}&{PickupStatuses}&{Types}");
 
-        Assert.Equal(Enumerable.Range(1, 10).Select(TcgplayerStubHandler.OrderNumber), numbers);
+        Assert.Equal(Enumerable.Range(1, 10).Select(SyntheticTcgplayerHandler.OrderNumber), numbers);
     }
 
     [Fact]
@@ -29,9 +30,9 @@ public sealed class TcgplayerStubHandlerTests
     {
         var numbers = await SearchAsync($"{Statuses}&{Types}");
 
-        Assert.Contains(TcgplayerStubHandler.OrderNumber(12), numbers);
-        Assert.DoesNotContain(TcgplayerStubHandler.OrderNumber(11), numbers);
-        Assert.DoesNotContain(TcgplayerStubHandler.OrderNumber(13), numbers);
+        Assert.Contains(SyntheticTcgplayerHandler.OrderNumber(12), numbers);
+        Assert.DoesNotContain(SyntheticTcgplayerHandler.OrderNumber(11), numbers);
+        Assert.DoesNotContain(SyntheticTcgplayerHandler.OrderNumber(13), numbers);
     }
 
     [Theory]
@@ -45,16 +46,16 @@ public sealed class TcgplayerStubHandlerTests
         var numbers = await SearchAsync(query);
 
         Assert.Equal(
-            [TcgplayerStubHandler.OrderNumber(leaked)],
-            TcgplayerStubHandler.LeakedOrderNumbers.Intersect(numbers)
+            [SyntheticTcgplayerHandler.OrderNumber(leaked)],
+            SyntheticTcgplayerHandler.LeakedOrderNumbers.Intersect(numbers)
         );
     }
 
     private static async Task<List<string>> SearchAsync(string filters)
     {
-        using var client = new HttpClient(new TcgplayerStubHandler())
+        using var client = new HttpClient(new SyntheticTcgplayerHandler())
         {
-            BaseAddress = new Uri(TcgplayerStubHandler.BaseUrl),
+            BaseAddress = new Uri(SyntheticTcgplayerHandler.BaseUrl),
         };
         using var response = await client.GetAsync(
             $"stores/SYNSTORE1/orders?{filters}&offset=0&limit=50"

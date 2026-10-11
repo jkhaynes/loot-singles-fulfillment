@@ -1,11 +1,11 @@
 using System.Net;
 using System.Text.Json.Nodes;
 
-namespace LootSingles.IntegrationTests.ImportUi;
+namespace LootSingles.Infrastructure.Tcgplayer.Synthetic;
 
 /// <summary>
 /// A stand-in for TCGplayer that serves the synthetic fixtures in
-/// LootSingles.Fixtures/Tcgplayer (never live data). Search and items page by the requested
+/// Synthetic/Data (embedded resources, never live data). Search and items page by the requested
 /// offset and limit; order details are filtered to the requested numbers. The search honours its
 /// filters the way the live search does, each covering only part of the orders (research.md §3):
 /// <c>orderStatusIds</c> and <c>orderTypeIds</c> narrow only shipped orders and
@@ -13,9 +13,9 @@ namespace LootSingles.IntegrationTests.ImportUi;
 /// orders only that filter excludes. Every request is recorded (method, path, query, User-Agent)
 /// so tests can check the agreement guards.
 /// </summary>
-internal sealed class TcgplayerStubHandler : HttpMessageHandler
+public sealed class SyntheticTcgplayerHandler : HttpMessageHandler
 {
-    public const string BaseUrl = "https://tcgplayer-stub.test/";
+    public const string BaseUrl = "https://tcgplayer-synthetic.invalid/";
 
     private readonly Lock _gate = new();
     private readonly List<RecordedRequest> _requests = [];
@@ -206,8 +206,23 @@ internal sealed class TcgplayerStubHandler : HttpMessageHandler
         return token.ToJsonString();
     }
 
-    private static string Fixture(string name) =>
-        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Tcgplayer", name));
+    private static string Fixture(string name) => ReadData(name);
+
+    private const string DataResourcePrefix = "LootSingles.Infrastructure.Tcgplayer.Synthetic.Data.";
+
+    /// <summary>The text of one embedded synthetic data file, for example <c>token.json</c>.</summary>
+    public static string ReadData(string name)
+    {
+        using var stream =
+            typeof(SyntheticTcgplayerHandler).Assembly.GetManifestResourceStream(
+                DataResourcePrefix + name
+            )
+            ?? throw new InvalidOperationException(
+                $"Embedded synthetic data '{name}' was not found."
+            );
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
 
     public static HttpResponseMessage Json(string body) =>
         new(HttpStatusCode.OK)
@@ -215,7 +230,7 @@ internal sealed class TcgplayerStubHandler : HttpMessageHandler
             Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json"),
         };
 
-    internal sealed record RecordedRequest(
+    public sealed record RecordedRequest(
         HttpMethod Method,
         string Path,
         string Query,

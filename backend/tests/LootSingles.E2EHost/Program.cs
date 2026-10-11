@@ -15,11 +15,11 @@ using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using LootSingles.Infrastructure.Tcgplayer;
-using LootSingles.IntegrationTests.ImportUi;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Testcontainers.MsSql;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 
 const string FakePikachuImageUrl = "https://static.e2e-fixtures.local/pikachu.png";
 const string FakeLightningBoltImageUrl = "https://static.e2e-fixtures.local/lightning-bolt.png";
@@ -84,7 +84,7 @@ builder.Configuration.AddInMemoryCollection(
         ["Tcgplayer:PrivateKey"] = "synthetic-private-id",
         ["Tcgplayer:AccessToken"] = "synthetic-store-access",
         ["Tcgplayer:StoreKey"] = "",
-        ["Tcgplayer:BaseUrl"] = TcgplayerStubHandler.BaseUrl,
+        ["Tcgplayer:BaseUrl"] = SyntheticTcgplayerHandler.BaseUrl,
         ["Tcgplayer:PageSize"] = "2",
     }
 );
@@ -96,11 +96,11 @@ builder.Configuration.AddInMemoryCollection(
 builder.Services.AddHttpContextAccessor();
 builder
     .Services.AddTcgplayer(builder.Configuration)
-    .ConfigurePrimaryHttpMessageHandler(services => new TcgplayerStubHandler
+    .ConfigurePrimaryHttpMessageHandler(services => new SyntheticTcgplayerHandler
     {
         OpenOrderNumbers =
         [
-            .. new[] { 1, 2, 3, 4, 5, 8, 9, 10 }.Select(TcgplayerStubHandler.OrderNumber),
+            .. new[] { 1, 2, 3, 4, 5, 8, 9, 10 }.Select(SyntheticTcgplayerHandler.OrderNumber),
         ],
         // Each order's items call is held back, as ObservableProgressImportService holds back
         // PDF progress, so Playwright can see an import part-way through.

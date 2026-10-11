@@ -1,6 +1,7 @@
 using System.Text.Json;
 using LootSingles.Application.Import;
 using LootSingles.Infrastructure.Tcgplayer;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 
 namespace LootSingles.UnitTests.Tcgplayer;
 
@@ -15,12 +16,9 @@ public sealed class TcgplayerOrderTranslatorTests
 
     // ---- Fixture loading -------------------------------------------------------------------
 
-    private static string FixturePath(string file) =>
-        Path.Combine(AppContext.BaseDirectory, "Fixtures", "Tcgplayer", file);
-
     private static (List<T> Results, int? TotalItems) LoadEnvelope<T>(string file)
     {
-        using var document = JsonDocument.Parse(File.ReadAllText(FixturePath(file)));
+        using var document = JsonDocument.Parse(SyntheticTcgplayerHandler.ReadData(file));
         var root = document.RootElement;
         var results = root.GetProperty("results").Deserialize<List<T>>()!;
         int? totalItems = root.TryGetProperty("totalItems", out var total)

@@ -3,6 +3,7 @@ using LootSingles.Application.Import;
 using LootSingles.Infrastructure.Tcgplayer;
 using LootSingles.UnitTests.CardCatalog;
 using Microsoft.Extensions.Logging.Abstractions;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 
 namespace LootSingles.UnitTests.Tcgplayer;
 
@@ -312,9 +313,7 @@ public sealed class TcgplayerAuthenticationHandlerTests
         );
 
     private static string TokenJson(string token) =>
-        File.ReadAllText(
-                Path.Combine(AppContext.BaseDirectory, "Fixtures", "Tcgplayer", "token.json")
-            )
+        SyntheticTcgplayerHandler.ReadData("token.json")
             .Replace(FixtureToken, token);
 
     /// <summary>

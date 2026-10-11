@@ -6,6 +6,7 @@ using LootSingles.IntegrationTests.Auth;
 using LootSingles.IntegrationTests.ImportUi;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 
 namespace LootSingles.IntegrationTests.Packing;
 
@@ -19,7 +20,7 @@ public sealed class TcgplayerPackingTests
     public async Task An_API_imported_order_has_no_slip_and_can_still_be_packed()
     {
         await using var root = new AuthWebApplicationFactory();
-        var stub = new TcgplayerStubHandler();
+        var stub = new SyntheticTcgplayerHandler();
         await using var factory = ImportUiTestSupport.WithTcgplayerStub(root, stub);
         using var client = await ImportUiTestSupport.LoginAsync(factory);
         await ImportUiTestSupport.PostTcgplayerAsync(client);

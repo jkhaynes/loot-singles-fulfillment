@@ -5,6 +5,7 @@ using LootSingles.Infrastructure.Persistence;
 using LootSingles.IntegrationTests.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 
 namespace LootSingles.IntegrationTests.ImportUi;
 
@@ -30,7 +31,7 @@ public sealed class TcgplayerFallbackTests
     )
     {
         await using var root = new AuthWebApplicationFactory();
-        var stub = new TcgplayerStubHandler
+        var stub = new SyntheticTcgplayerHandler
         {
             Override = _ => Task.FromResult<HttpResponseMessage?>(new(upstreamStatus)),
         };
