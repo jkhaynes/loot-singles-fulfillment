@@ -191,7 +191,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
   - `OrderDeletionService.cs`, with its result types.
   
   Confirm T015 is green.
-- [ ] T017 [US4] Write `backend/tests/LootSingles.IntegrationTests/Orders/OrderDeletionRepositoryTests.cs` on Testcontainers SQL:
+- [X] T017 [US4] Write `backend/tests/LootSingles.IntegrationTests/Orders/OrderDeletionRepositoryTests.cs` on Testcontainers SQL:
   - With `allowTouched=false`, an untouched order is deleted. Orders that were claimed, claimed then released, picked, have an issue, or are packed are refused as `ClaimedBefore`, and their rows are unchanged (FR-013, FR-020, SC-008).
   - With `allowTouched=true`, all of them are deleted, and the claim fields stay (FR-016).
   - After a single delete and after delete-all, every deleted row has `DeletedAt` equal to the injected `TimeProvider` time and `DeletedByEmployeeId` equal to the acting Manager/Admin (FR-015, SC-007).
@@ -202,7 +202,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
   - `GetSummaryAsync` returns `deletableCount`, `keptCount`, `claimedCount` and `withUnresolvedIssueCount` as defined in contracts/api.md.
   
   Confirm red.
-- [ ] T018 [US4] Implement `backend/src/LootSingles.Infrastructure/Persistence/OrderDeletionRepository.cs`:
+- [X] T018 [US4] Implement `backend/src/LootSingles.Infrastructure/Persistence/OrderDeletionRepository.cs`:
   - One transaction per call.
   - A conditional `ExecuteUpdateAsync` setting `DeletedAt` and `DeletedByEmployeeId`. The condition is in research R7.
   - `ExecuteDeleteAsync` on `OrderPackingSlips` for the orders just marked.

@@ -18,6 +18,7 @@ using LootSingles.Infrastructure.Tcgplayer;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.MsSql;
 using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 
@@ -155,6 +156,13 @@ builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvide
 builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();
 builder.Services.AddScoped<OrderClaimService>();
+builder.Services.AddSingleton(
+    builder.Configuration.GetSection(OrderDeletionOptions.SectionName).Get<OrderDeletionOptions>()
+        ?? new OrderDeletionOptions()
+);
+builder.Services.AddScoped<IOrderDeletionRepository, OrderDeletionRepository>();
+builder.Services.AddScoped<OrderDeletionService>();
+builder.Services.TryAddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IPickingRepository, PickingRepository>();
 builder.Services.AddScoped<PickingService>();
 builder

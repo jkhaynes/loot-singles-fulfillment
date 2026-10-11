@@ -3,6 +3,7 @@ using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace LootSingles.Infrastructure.Persistence;
 
@@ -83,6 +84,23 @@ public class LootSinglesDbContext : DbContext, IDataProtectionKeyContext
     /// DbSet for PackingSlipAccess entities (017-pick-completion-handoff).
     /// </summary>
     public DbSet<PackingSlipAccess> PackingSlipAccesses => Set<PackingSlipAccess>();
+
+    /// <summary>
+    /// Applies to every host and test, wherever the provider itself is configured.
+    /// </summary>
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        base.OnConfiguring(optionsBuilder);
+        // The Order soft-delete filter (021 R7) makes EF warn that OrderPackingSlip and
+        // PackingSlipAccess require an Order that may be filtered out. Deliberately no matching
+        // filters: slip rows are only reached through a filtered Order and are deleted with their
+        // order, and access rows are the retrieval log FR-016 keeps on purpose.
+        optionsBuilder.ConfigureWarnings(warnings =>
+            warnings.Ignore(
+                CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning
+            )
+        );
+    }
 
     /// <summary>
     /// Configures the model using the Fluent API.

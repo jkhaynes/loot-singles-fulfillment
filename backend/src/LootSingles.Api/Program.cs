@@ -154,6 +154,13 @@ builder.Services.AddScoped<ICardCatalogProvider>(sp =>
 builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();
 builder.Services.AddScoped<OrderClaimService>();
+// 021 FR-013: absent or false is the strict production rule; Development and stage set it to true.
+builder.Services.AddSingleton(
+    builder.Configuration.GetSection(OrderDeletionOptions.SectionName).Get<OrderDeletionOptions>()
+        ?? new OrderDeletionOptions()
+);
+builder.Services.AddScoped<IOrderDeletionRepository, OrderDeletionRepository>();
+builder.Services.AddScoped<OrderDeletionService>();
 builder.Services.AddScoped<PickingService>();
 
 // 019 T035 / research.md §5 / FR-026. Data Protection encrypts the session cookie, and its key ring
