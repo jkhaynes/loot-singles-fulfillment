@@ -260,7 +260,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
   - **Delete orders…** calls `getDeletionSummary`, shows "Delete N orders?" with the kept count when it's greater than 0, requires `DELETE`, calls `deleteAllOrders(asOf)`, then reloads the list and shows "N orders deleted" (plus "· M kept" when M > 0).
   
   Confirm red.
-- [ ] T027 [US4] Implement T026:
+- [X] T027 [US4] Implement T026:
   - Create `frontend/src/features/orders/OrderRowMenu.tsx` (a ⋯ button with a small popover, closed by Escape or an outside click).
   - In `frontend/src/features/orders/OrdersPage.tsx` and `OrdersPage.css`: add `useAuth`, the Actions-cell menu, a quiet **Delete orders…** header button for Manager/Admins, both `ConfirmationDialog` uses, and the result message.
   

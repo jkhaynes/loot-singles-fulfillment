@@ -33,6 +33,15 @@
   color: var(--color-danger);
 }
 
+.orders-header__notice {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  border: 1px solid var(--color-success);
+  color: var(--color-success);
+}
+
 .orders-navigation {
   display: flex;
   gap: var(--space-3);
@@ -64,6 +73,100 @@
 .orders-navigation a:focus-visible {
   outline: 2px solid var(--color-brand-primary);
   outline-offset: 2px;
+}
+
+/* Delete orders… stays quiet: no border or fill, so it never competes with the navigation. */
+.orders-navigation__quiet {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.orders-navigation__quiet:hover {
+  color: var(--color-danger);
+}
+
+.orders-navigation__quiet:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}
+
+.order-list-item > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.order-list-item > div:last-child > .order-list-item__label {
+  flex-basis: 100%;
+}
+
+.order-row-menu {
+  position: relative;
+}
+
+.order-row-menu__toggle {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.order-row-menu__toggle:focus-visible,
+.order-row-menu__item:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}
+
+.order-row-menu__popover {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  width: max-content;
+  max-width: 18rem;
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-surface);
+}
+
+.order-row-menu__item {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--color-danger);
+  font-size: var(--font-size-body-small);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.order-row-menu__item:hover {
+  background: var(--color-surface-elevated);
+}
+
+.order-row-menu__reason {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-small);
 }
 
 .orders-state,

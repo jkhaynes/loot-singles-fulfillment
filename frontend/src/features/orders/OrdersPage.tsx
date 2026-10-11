@@ -4,17 +4,45 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   getOrders,
   claimOrder,
+  deleteOrder,
+  getDeletionSummary,
+  deleteAllOrders,
   orderStatusLabel,
   OrderAlreadyClaimedError,
+  OrderAlreadyDeletedError,
+  OrderClaimedBeforeError,
   EmployeeHasActiveClaimError,
 } from './ordersApi'
-import type { OrderListItem } from './ordersApi'
+import type { DeletionSummary, OrderListItem } from './ordersApi'
+import { useAuth } from '../auth/AuthContext'
+import { ConfirmationDialog } from '../../components/ConfirmationDialog'
+import { OrderRowMenu } from './OrderRowMenu'
 import './OrdersPage.css'
 
 const importTimeFormatter = new Intl.DateTimeFormat('en-US', {
   dateStyle: 'medium',
   timeStyle: 'short',
 })
+
+function countOf(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`
+}
+
+/** The delete-all warning line: how many deletable orders are claimed or have an open issue (FR-014). */
+function deleteAllWarning(summary: DeletionSummary): string {
+  const parts: string[] = []
+  if (summary.claimedCount > 0) {
+    parts.push(`${summary.claimedCount} ${summary.claimedCount === 1 ? 'is' : 'are'} claimed.`)
+  }
+  if (summary.withUnresolvedIssueCount > 0) {
+    parts.push(
+      summary.withUnresolvedIssueCount === 1
+        ? '1 has an unresolved picking issue.'
+        : `${summary.withUnresolvedIssueCount} have unresolved picking issues.`,
+    )
+  }
+  return parts.join(' ')
+}
 
 export function OrdersPage() {
   const navigate = useNavigate()
@@ -23,6 +51,13 @@ export function OrdersPage() {
   const [hasError, setHasError] = useState(false)
   const [claimingOrderId, setClaimingOrderId] = useState<number | null>(null)
   const [claimError, setClaimError] = useState<ReactNode | null>(null)
+  const { employee } = useAuth()
+  const isManagerAdmin = employee?.role === 'ManagerAdmin'
+  const [orderToDelete, setOrderToDelete] = useState<OrderListItem | null>(null)
+  const [deletionSummary, setDeletionSummary] = useState<DeletionSummary | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deletionNotice, setDeletionNotice] = useState<string | null>(null)
+  const [deletionError, setDeletionError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -74,6 +109,66 @@ export function OrdersPage() {
     }
   }
 
+  function removeOrder(orderId: number) {
+    setOrders((current) => current.filter((item) => item.orderId !== orderId))
+  }
+
+  function clearDeletionMessages() {
+    setDeletionNotice(null)
+    setDeletionError(null)
+  }
+
+  async function confirmDeleteOrder() {
+    if (!orderToDelete || isDeleting) return
+    const { orderId } = orderToDelete
+    setIsDeleting(true)
+    try {
+      await deleteOrder(orderId)
+      removeOrder(orderId)
+    } catch (error) {
+      if (error instanceof OrderAlreadyDeletedError) {
+        removeOrder(orderId)
+        setDeletionNotice('That order was already deleted.')
+      } else if (error instanceof OrderClaimedBeforeError) {
+        setDeletionError("Someone claimed this order, so it can't be deleted.")
+      } else {
+        setDeletionError("Couldn't delete this order. Try again.")
+      }
+    } finally {
+      setIsDeleting(false)
+      setOrderToDelete(null)
+    }
+  }
+
+  async function startDeleteAll() {
+    clearDeletionMessages()
+    try {
+      setDeletionSummary(await getDeletionSummary())
+    } catch {
+      setDeletionError("Couldn't check which orders can be deleted. Try again.")
+    }
+  }
+
+  async function confirmDeleteAll() {
+    if (!deletionSummary || isDeleting) return
+    setIsDeleting(true)
+    try {
+      const result = await deleteAllOrders(deletionSummary.asOf)
+      const deleted = `${countOf(result.deletedCount, 'order', 'orders')} deleted`
+      setDeletionNotice(result.keptCount > 0 ? `${deleted} · ${result.keptCount} kept` : deleted)
+      try {
+        setOrders(await getOrders())
+      } catch {
+        setHasError(true)
+      }
+    } catch {
+      setDeletionError("Couldn't delete the orders. Try again.")
+    } finally {
+      setIsDeleting(false)
+      setDeletionSummary(null)
+    }
+  }
+
   return (
     <main className="orders-page">
       <header className="orders-header">
@@ -85,12 +180,27 @@ export function OrdersPage() {
               {claimError}
             </p>
           )}
+          {deletionError && (
+            <p role="alert" className="orders-header__error">
+              {deletionError}
+            </p>
+          )}
+          {deletionNotice && (
+            <p role="status" className="orders-header__notice">
+              {deletionNotice}
+            </p>
+          )}
         </div>
         <nav className="orders-navigation" aria-label="Order navigation">
           <Link to="/">Dashboard</Link>
           <Link to="/import" data-emphasis="primary">
             Import Orders
           </Link>
+          {isManagerAdmin && (
+            <button type="button" className="orders-navigation__quiet" onClick={startDeleteAll}>
+              Delete orders…
+            </button>
+          )}
         </nav>
       </header>
 
@@ -150,10 +260,59 @@ export function OrdersPage() {
                     {claimingOrderId === order.orderId ? 'Claiming…' : 'Claim'}
                   </button>
                 )}
+                {isManagerAdmin && (
+                  <OrderRowMenu
+                    order={order}
+                    onDelete={() => {
+                      clearDeletionMessages()
+                      setOrderToDelete(order)
+                    }}
+                  />
+                )}
               </div>
             </article>
           ))}
         </section>
+      )}
+
+      {orderToDelete && (
+        <ConfirmationDialog
+          title={`Delete order ${orderToDelete.tcgplayerOrderId}?`}
+          keepLabel="Keep order"
+          confirmLabel="Delete order"
+          destructive
+          busy={isDeleting}
+          onKeep={() => setOrderToDelete(null)}
+          onConfirm={confirmDeleteOrder}
+        >
+          {orderToDelete.claimedByEmployeeName && (
+            <p>{orderToDelete.claimedByEmployeeName} is picking this order.</p>
+          )}
+          {orderToDelete.status === 'needsAttention' && (
+            <p>This order has an unresolved picking issue.</p>
+          )}
+        </ConfirmationDialog>
+      )}
+
+      {deletionSummary && (
+        <ConfirmationDialog
+          title={`Delete ${countOf(deletionSummary.deletableCount, 'order', 'orders')}?`}
+          keepLabel="Keep orders"
+          confirmLabel="Delete orders"
+          destructive
+          confirmWord="DELETE"
+          busy={isDeleting}
+          onKeep={() => setDeletionSummary(null)}
+          onConfirm={confirmDeleteAll}
+        >
+          {deletionSummary.keptCount > 0 && (
+            <p>
+              {countOf(deletionSummary.keptCount, 'order', 'orders')} will be kept because
+              they&apos;ve been claimed.
+            </p>
+          )}
+          {deleteAllWarning(deletionSummary) && <p>{deleteAllWarning(deletionSummary)}</p>}
+        </ConfirmationDialog>
       )}
     </main>
   )
