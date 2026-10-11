@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using LootSingles.Application.Orders;
 using LootSingles.Application.Packing;
 using LootSingles.Application.Picking;
@@ -16,6 +17,8 @@ public sealed class OrdersController(
     OrdersService ordersService,
     OrderClaimService orderClaimService,
     PickingService pickingService,
+    OrderDeletionService orderDeletionService,
+    OrderDeletionOptions orderDeletionOptions,
     IPackingRepository packingRepository,
     ILogger<OrdersController> logger
 ) : ControllerBase
@@ -332,7 +335,11 @@ public sealed class OrdersController(
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken cancellationToken)
     {
-        var orders = await ordersService.GetAllAsync(cancellationToken);
+        var orders = await ordersService.GetAllAsync(
+            User.IsInRole(nameof(EmployeeRole.ManagerAdmin)),
+            orderDeletionOptions.AllowTouchedOrders,
+            cancellationToken
+        );
 
         return Ok(
             orders
@@ -342,10 +349,74 @@ public sealed class OrdersController(
                     order.Status,
                     order.ImportedAt,
                     order.ClaimedByEmployeeId,
-                    order.ClaimedByEmployeeName
+                    order.ClaimedByEmployeeName,
+                    order.CanDelete,
+                    order.DeleteBlockedReason
                 ))
                 .ToList()
         );
+    }
+
+    [HttpDelete("{orderId:int}")]
+    [Authorize(Roles = nameof(EmployeeRole.ManagerAdmin))]
+    public async Task<IActionResult> Delete(int orderId, CancellationToken cancellationToken)
+    {
+        var result = await orderDeletionService.DeleteAsync(
+            orderId,
+            ActorEmployeeId(),
+            cancellationToken
+        );
+
+        return result.Outcome switch
+        {
+            OrderDeletionOutcome.Deleted => NoContent(),
+            OrderDeletionOutcome.NotFound => NotFound(new { error = "order_not_found" }),
+            OrderDeletionOutcome.AlreadyDeleted => NotFound(
+                new { error = "order_already_deleted" }
+            ),
+            OrderDeletionOutcome.ClaimedBefore => Conflict(new { error = "order_claimed_before" }),
+            _ => throw new InvalidOperationException(
+                $"Unexpected outcome {result.Outcome} for Delete."
+            ),
+        };
+    }
+
+    [HttpGet("deletion-summary")]
+    [Authorize(Roles = nameof(EmployeeRole.ManagerAdmin))]
+    public async Task<IActionResult> DeletionSummary(CancellationToken cancellationToken) =>
+        Ok(await orderDeletionService.GetSummaryAsync(cancellationToken));
+
+    [HttpPost("delete-all")]
+    [Authorize(Roles = nameof(EmployeeRole.ManagerAdmin))]
+    public async Task<IActionResult> DeleteAll(CancellationToken cancellationToken)
+    {
+        // The body is read here rather than model-bound so that a missing, null or unreadable asOf
+        // gets the contract's { "error": "invalid_as_of" } and not the default ProblemDetails.
+        DeleteAllRequest? request = null;
+        try
+        {
+            request = await JsonSerializer.DeserializeAsync<DeleteAllRequest>(
+                Request.Body,
+                JsonSerializerOptions.Web,
+                cancellationToken
+            );
+        }
+        catch (JsonException) { }
+
+        if (request?.AsOf is not { } asOf)
+        {
+            return BadRequest(new { error = "invalid_as_of" });
+        }
+
+        var result = await orderDeletionService.DeleteAllAsync(
+            ActorEmployeeId(),
+            asOf,
+            cancellationToken
+        );
+
+        return result.Outcome == OrderDeleteAllOutcome.Done
+            ? Ok(new { deletedCount = result.DeletedCount, keptCount = result.KeptCount })
+            : BadRequest(new { error = "invalid_as_of" });
     }
 
     [HttpGet("{orderId:int}")]
@@ -403,8 +474,12 @@ public sealed record OrderResponse(
     OrderStatus Status,
     DateTimeOffset ImportedAt,
     int? ClaimedByEmployeeId,
-    string? ClaimedByEmployeeName
+    string? ClaimedByEmployeeName,
+    bool CanDelete,
+    string? DeleteBlockedReason
 );
+
+public sealed record DeleteAllRequest(DateTimeOffset? AsOf);
 
 public sealed record OrderDetailResponse(
     int OrderId,

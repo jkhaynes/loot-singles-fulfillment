@@ -1,3 +1,4 @@
+using LootSingles.Domain.Employees;
 using LootSingles.Domain.Orders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -12,7 +13,20 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
 {
     public void Configure(EntityTypeBuilder<Order> builder)
     {
-        builder.HasIndex(order => order.TcgplayerOrderId).IsUnique();
+        // Soft-deleted orders are hidden from every query (021 R7), and their order number is free
+        // to import again, so uniqueness only covers orders that are not deleted (FR-017).
+        builder.HasQueryFilter(order => order.DeletedAt == null);
+
+        builder
+            .HasIndex(order => order.TcgplayerOrderId)
+            .IsUnique()
+            .HasFilter("[DeletedAt] IS NULL");
+
+        builder
+            .HasOne<Employee>()
+            .WithMany()
+            .HasForeignKey(order => order.DeletedByEmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder
             .Property(order => order.ImportSource)
@@ -24,6 +38,6 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder
             .HasIndex(order => order.ClaimedByEmployeeId)
             .IsUnique()
-            .HasFilter("[ClaimedByEmployeeId] IS NOT NULL");
+            .HasFilter("[ClaimedByEmployeeId] IS NOT NULL AND [DeletedAt] IS NULL");
     }
 }

@@ -1,5 +1,7 @@
 # Synthetic TCGplayer fixtures
 
+These files now live in Infrastructure as embedded resources and also feed local Development runs (feature 021), not only the tests.
+
 Every file here is **synthetic**: written by hand from TCGplayer's published v1.39.0 schema (see `specs/020-tcgplayer-api-import/contracts/tcgplayer-upstream.md`), with invented values only. None of it is a recording of a live response.
 
 Why: the TCGplayer API agreement forbids putting API data into third-party generative AI tools, including AI coding assistants (CLAUDE.md, "TCGplayer API Agreement"; research.md section 4f). Real responses must never be pasted, saved or copied into this folder. Order numbers are `SYN-NNNN-A1`, SKUs are `70000nn`, product ids are `80000nn`, and names are invented.
@@ -16,7 +18,7 @@ Counting rules the fixtures follow: `productCount` in order details is the sum o
 | `search-page1.json` | Order search with all three filters, first page (offset 0): 5 order numbers, `totalItems` 10. |
 | `search-page2.json` | Order search with all three filters, second page (offset 5): 5 order numbers, `totalItems` 10. |
 | `order-details.json` | Order details for all 13 orders, with invented `customer`, `shippingAddress` and `orderValue` objects that must never be stored (SC-004). Each row carries `orderStatusTypeId`, `orderDeliveryTypeId`, `orderPickupStatusTypeId` (null or absent on shipped orders) and `orderTypeId`, which the import doesn't bind; the integration stub's search filters on them. `SYN-0004-A1` is an in-store pickup order that is Received (order status Processing); `SYN-0005-A1` is a shipped order in Processing. `SYN-0006-A1` has `productCount` 5 against a line quantity of 2. |
-| (leaked orders) | `SYN-0011-A1` (shipped, Delivered), `SYN-0012-A1` (in-store pickup, Picked Up, order status Processing) and `SYN-0013-A1` (Direct, Ready To Ship) are **not open**. TCGplayer's search filters are each partial (contracts/tcgplayer-upstream.md), so a search missing the order-status, pickup-status or order-type filter respectively would return one; `TcgplayerStubHandler` models that. A correct search never returns them, so they have no `items-*` file. |
+| (leaked orders) | `SYN-0011-A1` (shipped, Delivered), `SYN-0012-A1` (in-store pickup, Picked Up, order status Processing) and `SYN-0013-A1` (Direct, Ready To Ship) are **not open**. TCGplayer's search filters are each partial (contracts/tcgplayer-upstream.md), so a search missing the order-status, pickup-status or order-type filter respectively would return one; `SyntheticTcgplayerHandler` models that. A correct search never returns them, so they have no `items-*` file. |
 | `items-normal.json` | `SYN-0001-A1`: one ordinary line. |
 | `items-quantity-greater-than-one.json` | `SYN-0002-A1`: lines with quantities 1 and 2 (productCount 3). |
 | `items-foil.json` | `SYN-0003-A1`: a foil line as live data reports it: condition "Near Mint Foil", printing "Foil", `isFoil` true. |
@@ -31,4 +33,4 @@ Counting rules the fixtures follow: `productCount` in order details is the sum o
 | `skus.json` | `GET /catalog/skus/...`: SKU to product id; 7000099 is reported in `errors` as not found. |
 | `products.json` | `GET /catalog/products/...?getExtendedFields=true`: image, `Rarity` and `Number` entries; the sealed box (8000013) has no `Number`; 8000011 is reported in `errors` as not found. |
 
-`token.json`'s `.expires` is a fixed date (2026-10-23). A test that serves it on the real clock will see an expired token once that date passes, so it must shift `.expires` forward first (as `TcgplayerStubHandler` does). A test on a `FakeTimeProvider` anchored to `.issued` needs no shift.
+`token.json`'s `.expires` is a fixed date (2026-10-23). A test that serves it on the real clock will see an expired token once that date passes, so it must shift `.expires` forward first (as `SyntheticTcgplayerHandler` does). A test on a `FakeTimeProvider` anchored to `.issued` needs no shift.

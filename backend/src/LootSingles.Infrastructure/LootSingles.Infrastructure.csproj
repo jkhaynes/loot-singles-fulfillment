@@ -6,6 +6,8 @@
     <ItemGroup>
         <EmbeddedResource Include="CardCatalog\Data\pokemon-series-abbreviations.json" />
         <EmbeddedResource Include="CardCatalog\Data\tcgplayer-magic-to-scryfall-set-codes.json" />
+        <!-- 021: the invented TCGplayer data behind SyntheticTcgplayerHandler. -->
+        <EmbeddedResource Include="Tcgplayer\Synthetic\Data\*.json" />
         <Content Include="CardCatalog\Data\tcgplayer-magic-to-scryfall-set-codes.json">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
             <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

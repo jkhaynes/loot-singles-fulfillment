@@ -1,6 +1,7 @@
 using System.Net;
 using LootSingles.Application.Import;
 using LootSingles.Infrastructure.Tcgplayer;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 using LootSingles.UnitTests.CardCatalog;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -312,10 +313,7 @@ public sealed class TcgplayerAuthenticationHandlerTests
         );
 
     private static string TokenJson(string token) =>
-        File.ReadAllText(
-                Path.Combine(AppContext.BaseDirectory, "Fixtures", "Tcgplayer", "token.json")
-            )
-            .Replace(FixtureToken, token);
+        SyntheticTcgplayerHandler.ReadData("token.json").Replace(FixtureToken, token);
 
     /// <summary>
     /// The auth handler over the shared <see cref="StubHttpMessageHandler"/>. Token requests get

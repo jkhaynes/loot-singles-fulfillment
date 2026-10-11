@@ -49,7 +49,7 @@ test('opens an available order and shows its picking details', async ({ page }) 
   await expect(page.getByRole('heading', { name: /E2E-ORDER-00001/i })).toBeVisible()
 
   await page.goto('/orders/2147483647')
-  await expect(page.getByRole('alert')).toContainText(/order not found/i)
+  await expect(page.getByRole('alert')).toContainText(/this order no longer exists/i)
 })
 
 test('falls back to the placeholder for a line whose provider fails, without an error state', async ({

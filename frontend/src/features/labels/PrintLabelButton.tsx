@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { getOrderLabel, OrderNotStartedError } from '../orders/ordersApi'
+import { getOrderLabel, OrderNotFoundError, OrderNotStartedError } from '../orders/ordersApi'
 import type { LabelContent } from '../orders/ordersApi'
 import { PrintableLabel } from './PrintableLabel'
 
@@ -17,9 +17,16 @@ export interface PrintLabelButtonProps {
   orderId: number
   className?: string
   children?: string
+  /** Called when the order turns out to have been deleted, so the page can drop its stale view. */
+  onOrderGone?: () => void
 }
 
-export function PrintLabelButton({ orderId, className, children }: PrintLabelButtonProps) {
+export function PrintLabelButton({
+  orderId,
+  className,
+  children,
+  onOrderGone,
+}: PrintLabelButtonProps) {
   const [label, setLabel] = useState<LabelContent | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -41,10 +48,13 @@ export function PrintLabelButton({ orderId, className, children }: PrintLabelBut
       setLabel(await getOrderLabel(orderId))
     } catch (caught) {
       shouldPrint.current = false
+      if (caught instanceof OrderNotFoundError) onOrderGone?.()
       setError(
-        caught instanceof OrderNotStartedError
-          ? 'Nothing has been picked on this order yet, so there is no label to print.'
-          : "Couldn't load this order's label. Try again.",
+        caught instanceof OrderNotFoundError
+          ? 'This order no longer exists. It may have been deleted.'
+          : caught instanceof OrderNotStartedError
+            ? 'Nothing has been picked on this order yet, so there is no label to print.'
+            : "Couldn't load this order's label. Try again.",
       )
     } finally {
       setIsLoading(false)

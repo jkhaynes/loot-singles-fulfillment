@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using LootSingles.Infrastructure.Persistence;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 using LootSingles.IntegrationTests.Auth;
 using LootSingles.IntegrationTests.ImportUi;
 using Microsoft.Data.SqlClient;
@@ -39,7 +40,7 @@ public sealed class TcgplayerPiiTests
 
         var logs = new ImportTestSupport.CapturingLoggerProvider();
         await using var root = new AuthWebApplicationFactory();
-        var stub = new TcgplayerStubHandler();
+        var stub = new SyntheticTcgplayerHandler();
         await using var stubbed = ImportUiTestSupport.WithTcgplayerStub(root, stub);
         await using var factory = stubbed.WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
@@ -103,14 +104,12 @@ public sealed class TcgplayerPiiTests
     // Every leaf under customer and shippingAddress, for every order in the fixture.
     private static List<string> InventedCustomerAndShippingValues()
     {
-        var path = Path.Combine(
-            AppContext.BaseDirectory,
-            "Fixtures",
-            "Tcgplayer",
-            "order-details.json"
-        );
         var values = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var order in JsonNode.Parse(File.ReadAllText(path))!["results"]!.AsArray())
+        foreach (
+            var order in JsonNode.Parse(SyntheticTcgplayerHandler.ReadData("order-details.json"))![
+                "results"
+            ]!.AsArray()
+        )
         {
             foreach (var section in new[] { "customer", "shippingAddress" })
                 Collect(order![section], values);

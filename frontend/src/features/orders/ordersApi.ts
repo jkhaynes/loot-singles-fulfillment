@@ -5,6 +5,8 @@ export interface OrderListItem {
   importedAt: string
   claimedByEmployeeId: number | null
   claimedByEmployeeName: string | null
+  canDelete: boolean
+  deleteBlockedReason: 'claimed_before' | null
 }
 
 export type PickOutcome = 'picked' | 'hasIssue'
@@ -147,6 +149,20 @@ export class OrderNotFoundError extends Error {
   constructor() {
     super('Order not found')
     this.name = 'OrderNotFoundError'
+  }
+}
+
+export class OrderAlreadyDeletedError extends Error {
+  constructor() {
+    super('This order has already been deleted')
+    this.name = 'OrderAlreadyDeletedError'
+  }
+}
+
+export class OrderClaimedBeforeError extends Error {
+  constructor() {
+    super('This order has been claimed before and cannot be deleted')
+    this.name = 'OrderClaimedBeforeError'
   }
 }
 
@@ -320,6 +336,68 @@ export async function getOrderLabel(orderId: number): Promise<LabelContent> {
   }
 
   return (await response.json()) as LabelContent
+}
+
+export interface DeletionSummary {
+  /** Opaque server timestamp; pass back unchanged to deleteAllOrders. */
+  asOf: string
+  deletableCount: number
+  keptCount: number
+  claimedCount: number
+  withUnresolvedIssueCount: number
+}
+
+export interface DeleteAllResult {
+  deletedCount: number
+  keptCount: number
+}
+
+export async function getDeletionSummary(): Promise<DeletionSummary> {
+  const response = await fetch('/api/orders/deletion-summary', { credentials: 'include' })
+
+  if (!response.ok) {
+    throw new Error(`Failed to load the deletion summary (status ${response.status})`)
+  }
+
+  return (await response.json()) as DeletionSummary
+}
+
+export async function deleteOrder(orderId: number): Promise<void> {
+  const response = await fetch(`/api/orders/${orderId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+
+  if (response.status === 404) {
+    const body = (await response.json()) as { error?: string }
+    if (body.error === 'order_already_deleted') {
+      throw new OrderAlreadyDeletedError()
+    }
+    throw new OrderNotFoundError()
+  }
+
+  if (response.status === 409) {
+    throw new OrderClaimedBeforeError()
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete order (status ${response.status})`)
+  }
+}
+
+export async function deleteAllOrders(asOf: string): Promise<DeleteAllResult> {
+  const response = await fetch('/api/orders/delete-all', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ asOf }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete orders (status ${response.status})`)
+  }
+
+  return (await response.json()) as DeleteAllResult
 }
 
 export async function claimOrder(orderId: number): Promise<OrderClaimUpdate> {

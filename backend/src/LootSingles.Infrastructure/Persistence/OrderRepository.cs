@@ -38,6 +38,7 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                 return null;
             }
 
+            var now = DateTimeOffset.UtcNow;
             var attemptResult = await ExecuteConditionalUpdateAsync(
                 candidateId.Value,
                 ct =>
@@ -52,7 +53,11 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                                         order => order.ClaimedByEmployeeId,
                                         actorEmployeeId
                                     )
-                                    .SetProperty(order => order.ClaimedAt, DateTimeOffset.UtcNow)
+                                    .SetProperty(order => order.ClaimedAt, now)
+                                    .SetProperty(
+                                        order => order.FirstClaimedAt,
+                                        order => order.FirstClaimedAt ?? now
+                                    )
                                     .SetProperty(order => order.Status, OrderStatus.InProgress),
                             ct
                         ),
@@ -74,8 +79,10 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
         int orderId,
         int actorEmployeeId,
         CancellationToken cancellationToken
-    ) =>
-        ExecuteConditionalUpdateAsync(
+    )
+    {
+        var now = DateTimeOffset.UtcNow;
+        return ExecuteConditionalUpdateAsync(
             orderId,
             ct =>
                 context
@@ -91,7 +98,11 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                         setters =>
                             setters
                                 .SetProperty(order => order.ClaimedByEmployeeId, actorEmployeeId)
-                                .SetProperty(order => order.ClaimedAt, DateTimeOffset.UtcNow)
+                                .SetProperty(order => order.ClaimedAt, now)
+                                .SetProperty(
+                                    order => order.FirstClaimedAt,
+                                    order => order.FirstClaimedAt ?? now
+                                )
                                 .SetProperty(
                                     order => order.Status,
                                     OrderStatusComputation.FromCurrentLines(claimedAfterWrite: true)
@@ -100,6 +111,7 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                     ),
             cancellationToken
         );
+    }
 
     public Task<ClaimAttemptResult> ReleaseAsync(
         int orderId,
@@ -206,8 +218,15 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
         return new ClaimAttemptResult(rowsAffected == 1, currentOrder);
     }
 
-    public async Task<IReadOnlyList<OrderListItem>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<OrderListItem>> GetAllAsync(
+        bool callerIsManagerAdmin,
+        bool allowTouchedOrders,
+        CancellationToken cancellationToken
+    )
     {
+        // The same rule deletion applies (OrderDeletability), as a subquery so the two cannot drift.
+        var deletableIds = context.Orders.Deletable(allowTouchedOrders).Select(order => order.Id);
+
         return await context
             .Orders.AsNoTracking()
             .OrderByDescending(order => order.ImportedAt)
@@ -218,7 +237,11 @@ public sealed class OrderRepository(LootSinglesDbContext context) : IOrderReposi
                 order.Status,
                 order.ImportedAt,
                 order.ClaimedByEmployeeId,
-                order.ClaimedByEmployee != null ? order.ClaimedByEmployee.DisplayName : null
+                order.ClaimedByEmployee != null ? order.ClaimedByEmployee.DisplayName : null,
+                callerIsManagerAdmin && deletableIds.Contains(order.Id),
+                callerIsManagerAdmin && !deletableIds.Contains(order.Id)
+                    ? OrderListItem.ClaimedBeforeReason
+                    : null
             ))
             .ToListAsync(cancellationToken);
     }

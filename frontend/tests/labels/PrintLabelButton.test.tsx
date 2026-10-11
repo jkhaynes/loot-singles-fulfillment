@@ -71,4 +71,28 @@ describe('PrintLabelButton', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/nothing has been picked/i)
     expect(window.print).not.toHaveBeenCalled()
   })
+
+  // 021 FR-018: a label for a deleted order says so rather than offering "Try again".
+  it('says the order is gone, and tells the caller, when the order was deleted', async () => {
+    vi.mocked(ordersApi.getOrderLabel).mockRejectedValue(new ordersApi.OrderNotFoundError())
+    const onOrderGone = vi.fn()
+    render(<PrintLabelButton orderId={121} onOrderGone={onOrderGone} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /print label/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This order no longer exists. It may have been deleted.',
+    )
+    expect(onOrderGone).toHaveBeenCalledTimes(1)
+    expect(window.print).not.toHaveBeenCalled()
+  })
+
+  it('says the order is gone when no caller is listening', async () => {
+    vi.mocked(ordersApi.getOrderLabel).mockRejectedValue(new ordersApi.OrderNotFoundError())
+    render(<PrintLabelButton orderId={121} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /print label/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no longer exists/i)
+  })
 })

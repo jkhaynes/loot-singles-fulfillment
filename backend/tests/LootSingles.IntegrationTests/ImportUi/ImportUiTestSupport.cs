@@ -7,6 +7,7 @@ using LootSingles.Domain.Employees;
 using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Persistence;
 using LootSingles.Infrastructure.Tcgplayer;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 using LootSingles.IntegrationTests.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -92,7 +93,7 @@ internal static class ImportUiTestSupport
     /// </summary>
     public static WebApplicationFactory<Program> WithTcgplayerStub(
         WebApplicationFactory<Program> factory,
-        TcgplayerStubHandler stub,
+        SyntheticTcgplayerHandler stub,
         bool configured = true
     ) =>
         factory.WithWebHostBuilder(builder =>
@@ -101,7 +102,7 @@ internal static class ImportUiTestSupport
             builder.UseSetting("Tcgplayer:PrivateKey", configured ? "synthetic-private-id" : "");
             builder.UseSetting("Tcgplayer:AccessToken", configured ? "synthetic-store-access" : "");
             builder.UseSetting("Tcgplayer:StoreKey", "");
-            builder.UseSetting("Tcgplayer:BaseUrl", TcgplayerStubHandler.BaseUrl);
+            builder.UseSetting("Tcgplayer:BaseUrl", SyntheticTcgplayerHandler.BaseUrl);
             builder.UseSetting("Tcgplayer:PageSize", "2");
             builder.ConfigureServices(services =>
                 services

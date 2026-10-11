@@ -3,6 +3,7 @@ using System.Text.Json;
 using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Persistence;
 using LootSingles.Infrastructure.Tcgplayer;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 using LootSingles.IntegrationTests.Auth;
 using LootSingles.IntegrationTests.Import;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -28,7 +29,7 @@ public sealed class TcgplayerImportControllerTests
     public async Task Signed_out_requests_get_401_and_reach_no_TCGplayer()
     {
         await using var root = new AuthWebApplicationFactory();
-        var stub = new TcgplayerStubHandler();
+        var stub = new SyntheticTcgplayerHandler();
         await using var factory = ImportUiTestSupport.WithTcgplayerStub(root, stub);
         using var client = factory.CreateClient(
             new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") }
@@ -44,7 +45,7 @@ public sealed class TcgplayerImportControllerTests
     public async Task Full_import_streams_snapshots_and_creates_Ready_orders_matching_the_fixtures()
     {
         await using var root = new AuthWebApplicationFactory();
-        var stub = new TcgplayerStubHandler();
+        var stub = new SyntheticTcgplayerHandler();
         await using var factory = ImportUiTestSupport.WithTcgplayerStub(root, stub);
         using var client = await ImportUiTestSupport.LoginAsync(factory);
 
@@ -111,7 +112,7 @@ public sealed class TcgplayerImportControllerTests
     {
         var logs = new ImportTestSupport.CapturingLoggerProvider();
         await using var root = new AuthWebApplicationFactory();
-        var stub = new TcgplayerStubHandler();
+        var stub = new SyntheticTcgplayerHandler();
         await using var stubbed = ImportUiTestSupport.WithTcgplayerStub(root, stub);
         await using var factory = stubbed.WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
@@ -123,7 +124,7 @@ public sealed class TcgplayerImportControllerTests
             )
         );
         using var client = await ImportUiTestSupport.LoginAsync(factory);
-        var leaked = TcgplayerStubHandler.LeakedOrderNumbers;
+        var leaked = SyntheticTcgplayerHandler.LeakedOrderNumbers;
 
         var first = await ImportUiTestSupport.PostTcgplayerAsync(client);
         var second = await ImportUiTestSupport.PostTcgplayerAsync(client);
@@ -175,7 +176,7 @@ public sealed class TcgplayerImportControllerTests
     public async Task Snapshots_have_exactly_the_shape_of_the_PDF_route()
     {
         await using var root = new AuthWebApplicationFactory();
-        var stub = new TcgplayerStubHandler();
+        var stub = new SyntheticTcgplayerHandler();
         await using var factory = ImportUiTestSupport.WithTcgplayerStub(root, stub);
         using var client = await ImportUiTestSupport.LoginAsync(factory);
 
@@ -198,7 +199,7 @@ public sealed class TcgplayerImportControllerTests
     public async Task A_second_call_reports_every_order_as_a_duplicate_without_fetching_items()
     {
         await using var root = new AuthWebApplicationFactory();
-        var stub = new TcgplayerStubHandler();
+        var stub = new SyntheticTcgplayerHandler();
         await using var factory = ImportUiTestSupport.WithTcgplayerStub(root, stub);
         using var client = await ImportUiTestSupport.LoginAsync(factory);
         // Only the eight that import, so every listed order is already in the application.
@@ -234,7 +235,7 @@ public sealed class TcgplayerImportControllerTests
     public async Task An_order_first_imported_from_a_packing_slip_is_a_duplicate()
     {
         await using var root = new AuthWebApplicationFactory();
-        var stub = new TcgplayerStubHandler();
+        var stub = new SyntheticTcgplayerHandler();
         await using var factory = ImportUiTestSupport.WithTcgplayerStub(root, stub);
         using var client = await ImportUiTestSupport.LoginAsync(factory);
         await ImportUiTestSupport.PostFixtureAsync(client, "valid-multi-order-batch.pdf");
@@ -267,7 +268,7 @@ public sealed class TcgplayerImportControllerTests
     public async Task Two_concurrent_calls_import_each_order_exactly_once()
     {
         await using var root = new AuthWebApplicationFactory();
-        var stub = new TcgplayerStubHandler();
+        var stub = new SyntheticTcgplayerHandler();
         await using var factory = ImportUiTestSupport.WithTcgplayerStub(root, stub);
         using var first = await ImportUiTestSupport.LoginAsync(factory);
         using var second = factory.CreateClient(
@@ -286,7 +287,7 @@ public sealed class TcgplayerImportControllerTests
         {
             if (
                 request.Route == "items"
-                && request.Path.Contains(TcgplayerStubHandler.OrderNumber(1))
+                && request.Path.Contains(SyntheticTcgplayerHandler.OrderNumber(1))
             )
             {
                 if (Interlocked.Increment(ref heldItems) == 2)
@@ -329,7 +330,7 @@ public sealed class TcgplayerImportControllerTests
     public async Task An_outage_after_two_orders_fails_the_stream_keeps_them_and_a_retry_imports_the_rest_once()
     {
         await using var root = new AuthWebApplicationFactory();
-        var stub = new TcgplayerStubHandler();
+        var stub = new SyntheticTcgplayerHandler();
         await using var factory = ImportUiTestSupport.WithTcgplayerStub(root, stub);
         using var client = await ImportUiTestSupport.LoginAsync(factory);
         // PageSize is 2: the first batch fetched is SYN-0001 and SYN-0002; TCGplayer fails on the
@@ -337,8 +338,8 @@ public sealed class TcgplayerImportControllerTests
         stub.Override = request =>
             Task.FromResult(
                 request.Route == "items"
-                && !request.Path.Contains(TcgplayerStubHandler.OrderNumber(1))
-                && !request.Path.Contains(TcgplayerStubHandler.OrderNumber(2))
+                && !request.Path.Contains(SyntheticTcgplayerHandler.OrderNumber(1))
+                && !request.Path.Contains(SyntheticTcgplayerHandler.OrderNumber(2))
                     ? new HttpResponseMessage(HttpStatusCode.InternalServerError)
                     : null
             );
@@ -360,7 +361,7 @@ public sealed class TcgplayerImportControllerTests
             Assert.Equal(2, snapshot.GetProperty("succeededCount").GetInt32());
         }
         Assert.Equal(
-            [TcgplayerStubHandler.OrderNumber(1), TcgplayerStubHandler.OrderNumber(2)],
+            [SyntheticTcgplayerHandler.OrderNumber(1), SyntheticTcgplayerHandler.OrderNumber(2)],
             await OrderNumbersAsync(factory)
         );
 
@@ -386,7 +387,7 @@ public sealed class TcgplayerImportControllerTests
     public async Task A_401_after_a_token_refresh_ends_the_stream_access_refused()
     {
         await using var root = new AuthWebApplicationFactory();
-        var stub = new TcgplayerStubHandler();
+        var stub = new SyntheticTcgplayerHandler();
         await using var factory = ImportUiTestSupport.WithTcgplayerStub(root, stub);
         using var client = await ImportUiTestSupport.LoginAsync(factory);
         stub.Override = _ =>
@@ -418,7 +419,7 @@ public sealed class TcgplayerImportControllerTests
     public async Task Without_credentials_the_stream_ends_not_configured_and_TCGplayer_gets_no_request()
     {
         await using var root = new AuthWebApplicationFactory();
-        var stub = new TcgplayerStubHandler();
+        var stub = new SyntheticTcgplayerHandler();
         await using var factory = ImportUiTestSupport.WithTcgplayerStub(
             root,
             stub,
@@ -446,7 +447,7 @@ public sealed class TcgplayerImportControllerTests
     public async Task Every_request_carries_the_User_Agent_never_authorizes_and_only_the_token_is_not_a_GET()
     {
         await using var root = new AuthWebApplicationFactory();
-        var stub = new TcgplayerStubHandler();
+        var stub = new SyntheticTcgplayerHandler();
         await using var factory = ImportUiTestSupport.WithTcgplayerStub(root, stub);
         using var client = await ImportUiTestSupport.LoginAsync(factory);
 

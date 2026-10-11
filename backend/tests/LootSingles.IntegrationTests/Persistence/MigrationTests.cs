@@ -28,6 +28,9 @@ public sealed class MigrationTests(SqlServerContainerFixture fixture)
                 "20260923044233_AddDataProtectionKeys",
                 // 020 T015. Additive only: new columns with defaults, plus one nullable relaxation.
                 "20261010023033_AddTcgplayerApiImport",
+                // 021 T013. Additive only: three nullable columns and a nullable foreign key. Two
+                // unique indexes are rebuilt with a wider filter, which every existing row satisfies.
+                "20261011052509_AddOrderSoftDelete",
             ],
             migrations
         );

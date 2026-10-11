@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using LootSingles.Application.Import;
 using LootSingles.Infrastructure.Tcgplayer;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 using LootSingles.UnitTests.CardCatalog;
 
 namespace LootSingles.UnitTests.Tcgplayer;
@@ -10,7 +11,7 @@ namespace LootSingles.UnitTests.Tcgplayer;
 /// <summary>
 /// T027: the typed client for TCGplayer calls #2–#8 (contracts/tcgplayer-upstream.md). It only
 /// fetches and pages; translation is the translator's job. Driven by the synthetic fixtures in
-/// LootSingles.Fixtures/Tcgplayer, whose search pages assume a page size of 5 and whose paged
+/// LootSingles.Infrastructure/Tcgplayer/Synthetic/Data, whose search pages assume a page size of 5 and whose paged
 /// items assume a page size of 2. The auth and rate-limit handlers are not in this pipeline; they
 /// have their own tests.
 /// </summary>
@@ -929,8 +930,7 @@ public sealed class TcgplayerApiClientTests
 
     private static string OrderNumber(int index) => $"SYN-{index:0000}-A1";
 
-    private static string Fixture(string name) =>
-        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Tcgplayer", name));
+    private static string Fixture(string name) => SyntheticTcgplayerHandler.ReadData(name);
 
     private static Func<HttpRequestMessage, HttpResponseMessage> Json(
         string body,

@@ -15,10 +15,11 @@ using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using LootSingles.Infrastructure.Tcgplayer;
-using LootSingles.IntegrationTests.ImportUi;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.MsSql;
 
 const string FakePikachuImageUrl = "https://static.e2e-fixtures.local/pikachu.png";
@@ -84,8 +85,13 @@ builder.Configuration.AddInMemoryCollection(
         ["Tcgplayer:PrivateKey"] = "synthetic-private-id",
         ["Tcgplayer:AccessToken"] = "synthetic-store-access",
         ["Tcgplayer:StoreKey"] = "",
-        ["Tcgplayer:BaseUrl"] = TcgplayerStubHandler.BaseUrl,
+        ["Tcgplayer:BaseUrl"] = SyntheticTcgplayerHandler.BaseUrl,
         ["Tcgplayer:PageSize"] = "2",
+        // 021 T030: production's rule, stated outright rather than left to the default, so
+        // order-deletion.spec.ts exercises the strict rule whatever the default becomes.
+        [
+            $"{OrderDeletionOptions.SectionName}:{nameof(OrderDeletionOptions.AllowTouchedOrders)}"
+        ] = "false",
     }
 );
 
@@ -96,11 +102,11 @@ builder.Configuration.AddInMemoryCollection(
 builder.Services.AddHttpContextAccessor();
 builder
     .Services.AddTcgplayer(builder.Configuration)
-    .ConfigurePrimaryHttpMessageHandler(services => new TcgplayerStubHandler
+    .ConfigurePrimaryHttpMessageHandler(services => new SyntheticTcgplayerHandler
     {
         OpenOrderNumbers =
         [
-            .. new[] { 1, 2, 3, 4, 5, 8, 9, 10 }.Select(TcgplayerStubHandler.OrderNumber),
+            .. new[] { 1, 2, 3, 4, 5, 8, 9, 10 }.Select(SyntheticTcgplayerHandler.OrderNumber),
         ],
         // Each order's items call is held back, as ObservableProgressImportService holds back
         // PDF progress, so Playwright can see an import part-way through.
@@ -155,6 +161,13 @@ builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvide
 builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();
 builder.Services.AddScoped<OrderClaimService>();
+builder.Services.AddSingleton(
+    builder.Configuration.GetSection(OrderDeletionOptions.SectionName).Get<OrderDeletionOptions>()
+        ?? new OrderDeletionOptions()
+);
+builder.Services.AddScoped<IOrderDeletionRepository, OrderDeletionRepository>();
+builder.Services.AddScoped<OrderDeletionService>();
+builder.Services.TryAddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IPickingRepository, PickingRepository>();
 builder.Services.AddScoped<PickingService>();
 builder
@@ -645,6 +658,40 @@ static async Task SeedAsync(IServiceProvider services)
                     ImageUrl = "https://tcgplayer-cdn.tcgplayer.com/product/990001_75w.jpg",
                 },
             ],
+        }
+    );
+    // 021 T030: two orders for order-deletion.spec.ts, on the production (strict) rule. One is
+    // untouched and gets deleted by the spec; the other is held by a picker of its own, so the spec
+    // can see a Manager/Admin refused. Newest of all, so Pick Next never takes either.
+    var deletionPicker = new Employee
+    {
+        Username = "e2epickerseventeen",
+        NormalizedUsername = "E2EPICKERSEVENTEEN",
+        DisplayName = "E2E Picker Seventeen",
+        PinHash = pinHasher.Hash("1234"),
+        Role = EmployeeRole.Picker,
+        CreatedAt = DateTimeOffset.UtcNow,
+    };
+    context.Employees.Add(deletionPicker);
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-DELETE-00001",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(85),
+            OrderLines = [SetAwareLine("Pokemon", "Delete Set", "Deletable Card", "#001/050", 1)],
+        }
+    );
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-DELETE-00002",
+            Status = OrderStatus.InProgress,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(86),
+            ClaimedByEmployee = deletionPicker,
+            ClaimedAt = DateTimeOffset.UtcNow,
+            FirstClaimedAt = DateTimeOffset.UtcNow,
+            OrderLines = [SetAwareLine("Pokemon", "Delete Set", "Claimed Card", "#002/050", 1)],
         }
     );
     await context.SaveChangesAsync();

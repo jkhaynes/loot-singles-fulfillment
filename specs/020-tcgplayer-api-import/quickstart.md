@@ -60,7 +60,7 @@ The E2E host serves the synthetic fixtures through the stub handler. Expected:
 
 ## C. Local run with the app
 
-Without secrets, "Get new orders" shows the **not set up here** message and PDF upload still works. This is the expected state on any machine without keys.
+Without secrets, locally "Get new orders" imports synthetic orders (see feature 021, `specs/021-local-mock-orders/quickstart.md`), and PDF upload still works. Outside Development the **not set up here** message still shows.
 
 ## D. First real run (a person, not an AI tool)
 

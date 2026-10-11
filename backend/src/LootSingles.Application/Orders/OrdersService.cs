@@ -8,8 +8,11 @@ public sealed class OrdersService(
     CardImageEnrichmentService cardImageEnrichmentService
 )
 {
-    public Task<IReadOnlyList<OrderListItem>> GetAllAsync(CancellationToken cancellationToken) =>
-        orderRepository.GetAllAsync(cancellationToken);
+    public Task<IReadOnlyList<OrderListItem>> GetAllAsync(
+        bool callerIsManagerAdmin,
+        bool allowTouchedOrders,
+        CancellationToken cancellationToken
+    ) => orderRepository.GetAllAsync(callerIsManagerAdmin, allowTouchedOrders, cancellationToken);
 
     public async Task<OrderDetail?> GetByIdAsync(int orderId, CancellationToken cancellationToken)
     {

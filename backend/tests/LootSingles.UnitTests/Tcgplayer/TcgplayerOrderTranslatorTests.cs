@@ -1,12 +1,13 @@
 using System.Text.Json;
 using LootSingles.Application.Import;
 using LootSingles.Infrastructure.Tcgplayer;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 
 namespace LootSingles.UnitTests.Tcgplayer;
 
 /// <summary>
 /// research.md section 7 (field mapping), section 5 (product count is units) and section 14
-/// (live-confirmed wording). Driven by the synthetic fixtures in LootSingles.Fixtures/Tcgplayer,
+/// (live-confirmed wording). Driven by the synthetic fixtures in LootSingles.Infrastructure/Tcgplayer/Synthetic/Data,
 /// plus small inline items for the edge rules.
 /// </summary>
 public sealed class TcgplayerOrderTranslatorTests
@@ -15,12 +16,9 @@ public sealed class TcgplayerOrderTranslatorTests
 
     // ---- Fixture loading -------------------------------------------------------------------
 
-    private static string FixturePath(string file) =>
-        Path.Combine(AppContext.BaseDirectory, "Fixtures", "Tcgplayer", file);
-
     private static (List<T> Results, int? TotalItems) LoadEnvelope<T>(string file)
     {
-        using var document = JsonDocument.Parse(File.ReadAllText(FixturePath(file)));
+        using var document = JsonDocument.Parse(SyntheticTcgplayerHandler.ReadData(file));
         var root = document.RootElement;
         var results = root.GetProperty("results").Deserialize<List<T>>()!;
         int? totalItems = root.TryGetProperty("totalItems", out var total)

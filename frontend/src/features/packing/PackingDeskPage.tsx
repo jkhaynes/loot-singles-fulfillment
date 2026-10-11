@@ -76,6 +76,10 @@ export function PackingDeskPage() {
         )
       } else if (caught instanceof OrderAlreadyPackedError) {
         setError('This order has already been packed.')
+      } else if (caught instanceof PackingOrderNotFoundError) {
+        // FR-018: the order was deleted while it sat on the desk.
+        setOrder(null)
+        setError('This order no longer exists. It may have been deleted.')
       } else {
         setError("Couldn't mark that order packed. Try again.")
       }

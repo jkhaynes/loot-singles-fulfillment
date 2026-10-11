@@ -117,6 +117,21 @@ describe('PackingDeskPage', () => {
     expect(packingApi.getAwaitingPacking).toHaveBeenCalledTimes(2)
   })
 
+  it('tells the packer the order no longer exists when marking it packed gets a 404 (FR-018)', async () => {
+    vi.mocked(packingApi.resolvePackingCode).mockResolvedValue(view())
+    vi.mocked(packingApi.markPacked).mockRejectedValue(new packingApi.PackingOrderNotFoundError())
+    renderDesk()
+
+    await userEvent.type(await screen.findByLabelText(/scan a label/i), '121{Enter}')
+    await userEvent.click(await screen.findByRole('button', { name: /mark packed/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This order no longer exists. It may have been deleted.',
+    )
+    expect(screen.queryByText('Order 121')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /mark packed/i })).not.toBeInTheDocument()
+  })
+
   it('shows every contributor, not a truncated list', async () => {
     // FR-043 — the label shows two and a count because its stock is fixed. The desk has no such
     // constraint, so it shows everyone.
