@@ -3,6 +3,7 @@ using LootSingles.Application.Import;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace LootSingles.Api.Controllers;
@@ -12,7 +13,8 @@ namespace LootSingles.Api.Controllers;
 [Authorize]
 public sealed class ImportsController(
     IPackingSlipImportService importService,
-    IOptions<JsonOptions> jsonOptions
+    IOptions<JsonOptions> jsonOptions,
+    ILogger<ImportsController> logger
 ) : ControllerBase
 {
     public const long MaximumFileBytes = 26_214_400;
@@ -83,10 +85,38 @@ public sealed class ImportsController(
         Response.ContentType = "application/x-ndjson";
 
         await using var stream = file.OpenReadStream();
-        await StreamSnapshotsAsync(stream, HttpContext.RequestAborted);
+        await StreamSnapshotsAsync(
+            importService.ImportAsync(stream, HttpContext.RequestAborted),
+            attemptFailureEndsFailed: false,
+            HttpContext.RequestAborted
+        );
     }
 
-    private async Task StreamSnapshotsAsync(Stream stream, CancellationToken cancellationToken)
+    /// <summary>
+    /// "Get new orders" (feature 020, contracts/import-api.md): imports the store's open TCGplayer
+    /// orders and streams the same snapshots as the PDF route. It takes no parameters, so nothing a
+    /// client sends can change the statuses, store or credentials used.
+    /// </summary>
+    [HttpPost("tcgplayer")]
+    public async Task PostTcgplayer([FromServices] TcgplayerApiImportService tcgplayerImport)
+    {
+        Response.StatusCode = StatusCodes.Status200OK;
+        Response.ContentType = "application/x-ndjson";
+
+        // An attempt-wide TCGplayer failure (not configured, unavailable, refused, invalid
+        // response) ends the stream Failed; the PDF route's attempt codes stay Completed.
+        await StreamSnapshotsAsync(
+            tcgplayerImport.ImportAsync(HttpContext.RequestAborted),
+            attemptFailureEndsFailed: true,
+            HttpContext.RequestAborted
+        );
+    }
+
+    private async Task StreamSnapshotsAsync(
+        IAsyncEnumerable<ImportProgressUpdate> updates,
+        bool attemptFailureEndsFailed,
+        CancellationToken cancellationToken
+    )
     {
         ImportSnapshot? lastSnapshot = null;
         var lastProcessedCount = 0;
@@ -94,15 +124,14 @@ public sealed class ImportsController(
 
         try
         {
-            await foreach (
-                var update in importService
-                    .ImportAsync(stream, cancellationToken)
-                    .WithCancellation(cancellationToken)
-            )
+            await foreach (var update in updates.WithCancellation(cancellationToken))
             {
-                var status = update.IsComplete
-                    ? ImportOperationStatus.Completed
-                    : ImportOperationStatus.InProgress;
+                var status =
+                    !update.IsComplete ? ImportOperationStatus.InProgress
+                    : attemptFailureEndsFailed
+                    && update.ImportAttempt.AttemptFailureCode is not null
+                        ? ImportOperationStatus.Failed
+                    : ImportOperationStatus.Completed;
 
                 lastSnapshot = ImportSnapshot.From(update, status);
 
@@ -139,8 +168,14 @@ public sealed class ImportsController(
         {
             throw;
         }
-        catch
+        catch (Exception exception)
         {
+            // The type only: an exception message could embed response text.
+            logger.LogError(
+                "Import stream ended by an unexpected {ExceptionType}",
+                exception.GetType().Name
+            );
+
             if (!Response.HasStarted)
             {
                 await WriteProblemAsync(

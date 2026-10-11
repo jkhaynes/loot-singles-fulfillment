@@ -388,7 +388,8 @@ public sealed class OrdersController(
                             line.CurrentIssue.Note,
                             line.CurrentIssue.ReportedByEmployeeName,
                             line.CurrentIssue.ReportedAt
-                        )
+                        ),
+                    line.Language
                 ))
                 .ToList(),
             order.ClaimedByEmployeeId,
@@ -428,13 +429,14 @@ public sealed record OrderLineDetailResponse(
     string ProductName,
     string ProductLine,
     string Set,
-    string CollectorNumber,
+    string? CollectorNumber,
     string? Rarity,
     string? Variant,
     string Condition,
     int Quantity,
     string? ImageUrl,
-    PickingIssueResponse? CurrentIssue
+    PickingIssueResponse? CurrentIssue,
+    string? Language
 );
 
 public sealed record PickingIssueResponse(

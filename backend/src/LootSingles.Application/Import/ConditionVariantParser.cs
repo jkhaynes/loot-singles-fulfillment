@@ -9,6 +9,8 @@ public static class ConditionVariantParser
         "Heavily Played",
         "Near Mint",
         "Damaged",
+        // TCGplayer's condition for sealed and accessory products (ruling R12).
+        "Unopened",
     ];
 
     public static ConditionVariant Parse(string source, string? parentheticalMarker = null)

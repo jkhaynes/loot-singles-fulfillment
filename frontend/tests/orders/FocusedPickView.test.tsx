@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { FocusedPickView } from '../../src/features/orders/FocusedPickView'
@@ -272,6 +272,56 @@ describe('FocusedPickView — card identity', () => {
     // PRD §17. The placeholder is small on purpose — nothing to look at must not outrank the name.
     expect(screen.getByText('No image')).toBeInTheDocument()
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+})
+
+describe('FocusedPickView — card image', () => {
+  it('asks TCGplayer for a sharp rendition of an API line thumbnail', () => {
+    renderView([
+      buildLine({
+        set: 'Alpha',
+        productName: 'Api Card',
+        imageUrl: 'https://tcgplayer-cdn.tcgplayer.com/product/900001_75w.jpg',
+      }),
+    ])
+
+    const image = screen.getByRole('img', { name: 'Api Card' })
+    expect(image).toHaveAttribute(
+      'src',
+      'https://tcgplayer-cdn.tcgplayer.com/product/900001_400w.jpg',
+    )
+    expect(image).toHaveAttribute(
+      'srcset',
+      'https://tcgplayer-cdn.tcgplayer.com/product/900001_400w.jpg 400w, https://tcgplayer-cdn.tcgplayer.com/product/900001_in_1000x1000.jpg 1000w',
+    )
+    expect(image).toHaveAttribute('sizes')
+  })
+
+  it('falls back to the stored thumbnail, then to no image, when loading fails', () => {
+    const thumbnail = 'https://tcgplayer-cdn.tcgplayer.com/product/900001_75w.jpg'
+    renderView([buildLine({ set: 'Alpha', productName: 'Api Card', imageUrl: thumbnail })])
+
+    fireEvent.error(screen.getByRole('img', { name: 'Api Card' }))
+    expect(screen.getByRole('img', { name: 'Api Card' })).toHaveAttribute('src', thumbnail)
+    expect(screen.getByRole('img', { name: 'Api Card' })).not.toHaveAttribute('srcset')
+
+    fireEvent.error(screen.getByRole('img', { name: 'Api Card' }))
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(screen.getByText('No image')).toBeInTheDocument()
+  })
+
+  it('shows any other image exactly as stored', () => {
+    renderView([
+      buildLine({
+        set: 'Alpha',
+        productName: 'Pdf Card',
+        imageUrl: 'https://cards.scryfall.io/large/front/a/b/ab12.jpg',
+      }),
+    ])
+
+    const image = screen.getByRole('img', { name: 'Pdf Card' })
+    expect(image).toHaveAttribute('src', 'https://cards.scryfall.io/large/front/a/b/ab12.jpg')
+    expect(image).not.toHaveAttribute('srcset')
   })
 })
 
@@ -788,5 +838,33 @@ describe('FocusedPickView — reported with no report to show (018 BR-001)', () 
     expect(screen.getByRole('button', { name: 'Pulled all 4' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /report an issue/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Next card ›' })).not.toBeInTheDocument()
+  })
+})
+
+describe('FocusedPickView — API-imported lines', () => {
+  it('reads "No number" for a line with no collector number, never blank or null', () => {
+    const { container } = renderView([buildLine({ collectorNumber: null })])
+
+    expect(container.querySelector('.focused-pick__number')).toHaveTextContent('No number')
+    expect(screen.queryByText('null')).not.toBeInTheDocument()
+  })
+
+  it('shows a language other than English beside the condition', () => {
+    renderView([buildLine({ condition: 'Near Mint', language: 'Japanese' })])
+
+    expect(screen.getByText('Near Mint · Japanese')).toBeInTheDocument()
+  })
+
+  it.each([['English'], [null]])('shows nothing extra for language %s', (language) => {
+    renderView([buildLine({ condition: 'Near Mint', language })])
+
+    expect(screen.getByText('Near Mint')).toBeInTheDocument()
+    expect(screen.queryByText(/English/)).not.toBeInTheDocument()
+  })
+
+  it('still emphasises a quantity above one', () => {
+    renderView([buildLine({ quantity: 3, collectorNumber: null, language: 'Japanese' })])
+
+    expect(screen.getByText('3')).toHaveAttribute('data-emphasis', 'high')
   })
 })

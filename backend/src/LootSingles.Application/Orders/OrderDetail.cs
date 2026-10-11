@@ -7,6 +7,9 @@ public sealed record OrderDetail(
     string TcgplayerOrderId,
     OrderStatus Status,
     IReadOnlyList<OrderLineDetail> Lines,
+    // Required, with no default: a construction that forgot it would otherwise fail open into
+    // third-party catalog enrichment for an API-imported order (TCGplayer API agreement).
+    OrderImportSource ImportSource,
     int? ClaimedByEmployeeId = null,
     string? ClaimedByEmployeeName = null
 );
@@ -17,13 +20,14 @@ public sealed record OrderLineDetail(
     string ProductName,
     string ProductLine,
     string Set,
-    string CollectorNumber,
+    string? CollectorNumber,
     string? Rarity,
     string? Variant,
     string Condition,
     int Quantity,
     string? ImageUrl = null,
-    PickingIssueDetail? CurrentIssue = null
+    PickingIssueDetail? CurrentIssue = null,
+    string? Language = null
 );
 
 public sealed record PickingIssueDetail(

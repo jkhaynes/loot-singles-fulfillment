@@ -213,7 +213,13 @@ exits. `/health` answers without touching the database. `/health/database` exist
 
 ## TCGplayer Integration
 
-The current V1 working approach is defensive parsing of TCGplayer packing-slip PDFs, since they are the only inspected export that preserves the `Order → Product Lines → Quantity` relationship V1 needs. TCGplayer order data is authoritative; the architecture isolates this parsing behind an import boundary so it can be replaced by a future supported TCGplayer API or integration without redesigning the picker workflow.
+The normal way orders enter the application is TCGplayer's Seller API. An employee presses **Get new orders** on the Import page, and the application pulls the store's open orders (status "Ready To Ship" by default) and imports the ones it does not already have. Nothing polls in the background. An API-imported order stores no packing slip and no customer address, so packers print that slip from the TCGplayer seller portal, and its card images come from TCGplayer's own product data rather than a catalog provider.
+
+Uploading TCGplayer packing-slip PDFs remains as the fallback for when the API is unavailable. It parses defensively and rejects what it cannot read with confidence, and orders imported this way keep their stored slip.
+
+TCGplayer order data is authoritative. Both paths sit behind an import boundary, so neither is tied to the picker workflow.
+
+Loot's API access is governed by TCGplayer's API Terms and Conditions and a signed addendum, and breaking the terms can end access. The rules every change must follow are in [`CLAUDE.md`](CLAUDE.md#tcgplayer-api-agreement). Getting the credentials and adding them to stage and production is in [`specs/020-tcgplayer-api-import/tcgplayer-setup.md`](specs/020-tcgplayer-api-import/tcgplayer-setup.md).
 
 ## Card Catalog Enrichment
 
@@ -234,10 +240,10 @@ The Loot Card Shop owner is the Product Owner. Confirmed Product Owner decisions
 
 ## Discovery State
 
-This project has a number of open questions documented in the PRD (see [`docs/prd/Loot_Singles_Fulfillment_PRD_v0.6.md`](docs/prd/Loot_Singles_Fulfillment_PRD_v0.6.md), Sections 41–42). These remain **unresolved** and must not be silently converted into implementation assumptions.
+This project has a number of open questions documented in the PRD (see [`docs/prd/Loot_Singles_Fulfillment_PRD_v0.7.md`](docs/prd/Loot_Singles_Fulfillment_PRD_v0.7.md), Sections 41–42). These remain **unresolved** and must not be silently converted into implementation assumptions.
 
 ## Documentation
 
-- [Product Requirements Document](docs/prd/Loot_Singles_Fulfillment_PRD_v0.6.md)
+- [Product Requirements Document](docs/prd/Loot_Singles_Fulfillment_PRD_v0.7.md)
 - [AI-Assisted Development Workflow](docs/development/ai-assisted-development-workflow.md)
 - [`CLAUDE.md`](CLAUDE.md) — project rules for AI-assisted development

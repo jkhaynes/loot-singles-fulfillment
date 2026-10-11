@@ -49,6 +49,11 @@ export const pickingIssueTypes: { value: PickingIssueType; label: string }[] = [
   { value: 'other', label: 'Other' },
 ]
 
+/** The language worth showing beside the condition: anything but English. Null when nothing is. */
+export function nonEnglishLanguage(language: string | null): string | null {
+  return !language || language.trim().toLowerCase() === 'english' ? null : language
+}
+
 export function pickingIssueTypeLabel(issueType: string): string {
   return pickingIssueTypes.find((type) => type.value === issueType)?.label ?? issueType
 }
@@ -76,12 +81,15 @@ export interface OrderLineDetail {
   productName: string
   productLine: string
   set: string
-  collectorNumber: string
+  /** Null for a line with no collector number, such as a sealed product. */
+  collectorNumber: string | null
   rarity: string | null
   variant: string | null
   condition: string
   quantity: number
   imageUrl: string | null
+  /** Null when not recorded; shown only when it is not English. */
+  language: string | null
 }
 
 export interface OrderDetail {

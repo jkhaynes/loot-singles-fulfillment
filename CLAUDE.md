@@ -4,7 +4,7 @@ This file must be usable by Claude Code without requiring knowledge of any prior
 
 ## Project
 
-**Loot Singles Fulfillment** is an internal fulfillment application for Loot Card Shop. V1 replaces the printed TCGplayer invoice for the **picking** portion of order fulfillment with a responsive, set-aware, visual picking experience that strongly emphasizes high-risk information (quantity greater than one, variant, set, card identity), supports multiple concurrent pickers with exclusive order claiming, and represents picking problems explicitly instead of forcing a false happy path. See [`docs/prd/Loot_Singles_Fulfillment_PRD_v0.6.md`](docs/prd/Loot_Singles_Fulfillment_PRD_v0.6.md) for full detail.
+**Loot Singles Fulfillment** is an internal fulfillment application for Loot Card Shop. V1 replaces the printed TCGplayer invoice for the **picking** portion of order fulfillment with a responsive, set-aware, visual picking experience that strongly emphasizes high-risk information (quantity greater than one, variant, set, card identity), supports multiple concurrent pickers with exclusive order claiming, and represents picking problems explicitly instead of forcing a false happy path. See [`docs/prd/Loot_Singles_Fulfillment_PRD_v0.7.md`](docs/prd/Loot_Singles_Fulfillment_PRD_v0.7.md) for full detail.
 
 ## Product Authority
 
@@ -29,22 +29,37 @@ Do not add product functionality because it seems useful, standard, or convenien
 
 Open questions in the PRD (Sections 41–42) are open. Do not silently convert them into implementation assumptions.
 
-## Spec Kit
+## Workflow
 
-Spec Kit is this project's sole AI-assisted feature development methodology. It owns the complete feature lifecycle, end to end:
+This project uses **Spec Kit for design** and **Superpowers for implementation**. Strict Test-Driven Development (Red → Green → Refactor) applies to all new or modified application behavior on every track (constitution Principle IV).
 
-- Constitution
-- Feature specification
-- Clarification
-- Technical planning
-- Human architecture and changeability review
-- Task breakdown
-- Artifact analysis (`/speckit-analyze`)
-- Implementation (`/speckit-implement`)
-- Branch review (`/branch-review`) and its remediation planning (`/review-remediation`)
-- Convergence verification (`/speckit-converge`)
+**1. Pick the track by size of change**
 
-No second planning or implementation methodology is layered on top of Spec Kit. Strict Test-Driven Development (Red → Green → Refactor) is required for all new or modified application behavior, per the project constitution's Principle IV — this is enforced through the constitution itself, not a separate tool or extension. `/branch-review` and `/review-remediation` are part of this same Spec Kit lifecycle, not a second methodology — see "Branch Review Gate" below for how they fit between implementation and convergence.
+- **Feature** (new behavior, touches several files, worth remembering why): the full track below.
+- **Small change** (bug fix, tweak, refactor with no new user-visible behavior): skip Spec Kit. Use Superpowers directly: systematic-debugging for bugs, test-driven-development for everything else. Anything that adds user-visible behavior is a feature and needs a spec.
+- **Spike / experiment**: Superpowers brainstorming, throwaway branch, no spec. If it survives, promote it to a feature.
+
+**2. Feature track: design (Spec Kit owns this)**
+
+1. `/speckit-specify`: what and why, no tech choices
+2. `/speckit-clarify`: resolve ambiguity before planning
+3. `/speckit-plan`: technical approach
+4. Human architecture and changeability review of the plan (constitution, "Architecture and Changeability Review")
+5. `/speckit-tasks`: ordered task list, tests before the code they cover
+6. `/speckit-analyze`: consistency check across spec, plan and tasks
+
+During these steps Spec Kit is the source of truth. Do not run Superpowers brainstorming or writing-plans on top of a Spec Kit feature; that creates a second, competing plan. `tasks.md` is the plan Superpowers carries out.
+
+**3. Feature track: implementation (Superpowers owns this)**
+
+Do NOT use `/speckit-implement`, `/branch-review`, `/review-remediation` or `/speckit-converge`. Instead, for `specs/NNN-*/tasks.md`:
+
+1. Work on the feature branch in the main checkout, so the owner can follow along in their own editor. Do not use git worktrees (skip using-git-worktrees).
+2. subagent-driven-development: one fresh subagent per task from `tasks.md`, test-first (red, green, refactor), then a spec-compliance review and a code-quality review. Check each task off in `tasks.md` as it lands.
+3. requesting-code-review: before merge. Fix Critical and Important findings test-first (the regression test that shows the defect comes before the fix). A review round with no Critical or Important findings is the stopping point; further rounds have diminishing returns.
+4. finishing-a-development-branch (or `/ship`): merge or PR. A merge to `main` deploys to stage.
+
+If implementation or review shows the spec or plan is wrong, **stop and surface it**: a flawed plan returns to `/speckit-plan`, and an unresolved or contradictory requirement returns to `/speckit-clarify`. Update `spec.md` or `plan.md` first, then continue. Never silently redesign the feature or normalize the spec to match the code.
 
 ## Spec Kit Git Auto-Commit Confirmation
 
@@ -52,32 +67,7 @@ The installed Spec Kit `git` extension checkpoints work by committing after `/sp
 
 ## Important Boundary
 
-**Spec Kit plans, implements, and verifies the work — there is no second methodology layered on top of it.**
-
 Do not originate or replace a product specification or technical plan by improvising when approved Spec Kit artifacts already exist for that feature. If implementation discovers a contradictory requirement, a missing business rule, an unclear workflow, an architectural conflict, or a requirement that cannot reasonably be implemented as specified, **stop and surface the problem** rather than silently redesigning the feature or normalizing the specification to match whatever was implemented. Return to Spec Kit clarification/planning to resolve it.
-
-This applies equally to findings from `/branch-review`: a finding rooted in a flawed technical plan returns to `/speckit-plan`; a finding rooted in an unresolved or contradictory requirement returns to `/speckit-clarify`. Ordinary implementation-level findings are captured as new tasks in the existing `tasks.md`, not a separate tracker — see "Branch Review Gate" below.
-
-## Branch Review Gate
-
-Before a feature's application-code changes proceed to `/speckit-converge`, they MUST pass `/branch-review` — Spec Kit's post-implementation review gate.
-
-- **Human architecture/changeability review** (after `/speckit-plan`) evaluates the *proposed design* before any implementation exists.
-- **`/branch-review`** (after `/speckit-implement`, once local build/tests pass) reviews the current branch against its base branch, evaluating the *actual implementation* against the approved spec, plan, and constitution. Run it on the feature branch; it reviews only that branch's changes and issues they directly expose.
-- **`/speckit-converge`** verifies the finished feature against the approved artifacts once review is clean; it does not re-review code quality.
-
-`/branch-review` classifies each finding as **Required** or **Optional**, separately from its severity, and returns one verdict: PASS, PASS WITH SUGGESTIONS, or CHANGES REQUESTED.
-
-- Required findings block completion. A Low-severity finding may still be Required.
-- Optional findings do not block completion. Each carries an advisory `Recommended: Yes/No`; the decision to take one on is the Product Owner's, never assumed.
-- `/review-remediation` turns selected findings into tasks: it selects all unresolved Required findings automatically, asks which Optional findings to include, and appends them to the feature's existing `tasks.md` (never a separate or competing task list). It plans the work but does not implement it.
-- Those tasks are then resolved through `/speckit-implement` and `/branch-review` is re-run — repeat until no Required findings remain. Behavioral remediation is test-first: the regression test that demonstrates the defect comes before the fix that resolves it.
-- A Required finding that traces to a flawed technical plan means returning to `/speckit-plan`, not patching around it in code.
-- A Required finding that traces to an unresolved or contradictory requirement means returning to `/speckit-clarify`.
-
-This gate is required for application-code changes before `/speckit-converge`. It does not apply to documentation-only or configuration-only changes.
-
-Review rounds have diminishing returns, and remediation can introduce its own defects. When a round produces no Required findings, treat that as the stopping point rather than looking for another.
 
 ## Product-Specific Safety Rules
 
@@ -94,6 +84,18 @@ Review rounds have diminishing returns, and remediation can introduce its own de
 - The one exception is the stored per-order packing slip (PRD §27): packing needs the customer's address, so the application keeps one slip per order. It is reachable only from the packing workflow, never from a picking surface, and every retrieval is logged. Do not widen that access, and do not extract further customer fields out of a slip into the data model.
 - Do not add multi-tenant SaaS complexity; this is single-business software.
 - Do not implement future V2/V3 features (packing verification, barcode/QR handoff, batch picking, camera-assisted verification) during V1 unless explicitly approved by the Product Owner.
+
+## TCGplayer API Agreement
+
+Loot Investments LLC's access to the TCGplayer API is governed by the TCGplayer API Terms and Conditions plus a signed **Legacy Qualified Addendum** (executed 2026-09-21). TCGplayer issued Loot's API keys under this addendum in 2026. Loot had no earlier API connection. Breaking the terms can end API access immediately. Every spec, plan, task, test and debugging step that touches the TCGplayer API must follow these rules:
+
+- **One set of credentials.** Use the keys TCGplayer issued to Loot, and the store access token from authorizing those keys for Loot's own store, a one-time step done by a person through TCGplayer's Store Authorization Workflow. Don't create additional keys or integrations. The application itself never runs the authorization flow; it only reads the resulting token from configuration.
+- **No more than 300 API calls per minute.** The application must throttle or queue its own calls to stay under the limit.
+- **Identify every request.** Each request carries a User-Agent naming the business (Loot Investments LLC) and the application name and version.
+- **Internal business use only.** API data is used solely for Loot's in-house fulfillment. It must not be republished, resold, transferred, licensed or exposed to any third party, including by sending it to external catalog or image services. Card images for API-imported lines come from TCGplayer's own data (Product Owner decision, 2026-10-08).
+- **No API data in third-party generative AI tools.** This includes AI coding assistants such as Claude Code. Agents must not make live TCGplayer API calls and read the responses, and must not ask for real responses. Test fixtures are synthetic, built from TCGplayer's published response schema. When live behavior needs investigating, a human inspects it and describes it without pasting API data.
+- **Credentials are secrets.** API keys and tokens live only in deployment configuration and user secrets, are never committed, and are never shared with a third party or pasted into an AI tool. The TCGplayer account itself is operated by Loot and is never shared.
+- **Channels.** API data may be used only for Loot's physical store, its own webstore, TCGplayer.com and eBay.com.
 
 ## Definition of Done
 
@@ -112,6 +114,5 @@ A feature is not complete merely because code runs, or because production code e
 - Playwright validation is performed for critical user flows
 - New or materially changed application behavior has been evaluated for whether it warrants production logging (per the constitution's Observability standard); important events and failures are logged via `ILogger<T>` with safe, non-PII structured fields where warranted — logging is not added reflexively for behavior that doesn't need it
 - Documentation is updated where required
-- Code review is complete
-- `/branch-review` has been run against the implementation with zero remaining Required findings (Optional findings do not block) — required before `/speckit-converge`
-- `/speckit-converge` ultimately reports convergence for the feature
+- Every task in the feature's `tasks.md` is checked off, and each passed subagent-driven-development's spec-compliance and code-quality reviews
+- requesting-code-review has been run on the branch with no remaining Critical or Important findings

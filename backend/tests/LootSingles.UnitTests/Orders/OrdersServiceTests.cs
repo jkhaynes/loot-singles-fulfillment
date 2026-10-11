@@ -65,6 +65,7 @@ public sealed class OrdersServiceTests
             "ORDER-1",
             OrderStatus.InProgress,
             [],
+            OrderImportSource.PackingSlipPdf,
             ClaimedByEmployeeId: 7,
             ClaimedByEmployeeName: "Sam"
         );
@@ -83,7 +84,13 @@ public sealed class OrdersServiceTests
     [Fact]
     public async Task GetByIdAsync_UnclaimedOrder_HasNullClaimFields()
     {
-        var unclaimedOrder = new OrderDetail(1, "ORDER-1", OrderStatus.Ready, []);
+        var unclaimedOrder = new OrderDetail(
+            1,
+            "ORDER-1",
+            OrderStatus.Ready,
+            [],
+            OrderImportSource.PackingSlipPdf
+        );
         var service = new OrdersService(
             new FakeOrderDetailRepository(unclaimedOrder),
             NewEnrichmentService()
@@ -108,7 +115,13 @@ public sealed class OrdersServiceTests
             NewLine("Magic", "Counterspell"),
             NewLine("Pokemon", "Charizard"),
         };
-        var order = new OrderDetail(1, "ORDER-1", OrderStatus.Ready, lines);
+        var order = new OrderDetail(
+            1,
+            "ORDER-1",
+            OrderStatus.Ready,
+            lines,
+            OrderImportSource.PackingSlipPdf
+        );
         var enrichmentService = new CardImageEnrichmentService(
             [pokemonProvider, magicProvider],
             NullLogger<CardImageEnrichmentService>.Instance

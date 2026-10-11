@@ -10,8 +10,9 @@ namespace LootSingles.Infrastructure.Persistence;
 /// in-transaction read (branch review BR-002). Extracted because it now has a second concrete
 /// use case (Constitution Principle XIII), so the two reads cannot drift apart.
 ///
-/// <see cref="OrderLineDetail.ImageUrl"/> is always null here: card images are supplemental
-/// enrichment applied above persistence by <c>OrdersService</c>, never stored.
+/// <see cref="OrderLineDetail.ImageUrl"/> is the stored TCGplayer image for API-imported lines and
+/// always null for PDF lines, whose images are supplemental enrichment applied above persistence
+/// by <c>OrdersService</c>.
 /// </summary>
 internal static class OrderDetailProjection
 {
@@ -32,7 +33,7 @@ internal static class OrderDetailProjection
                 line.Variant,
                 line.Condition,
                 line.Quantity,
-                null,
+                line.ImageUrl,
                 line.CurrentPickingIssue == null
                     ? null
                     : new PickingIssueDetail(
@@ -44,9 +45,11 @@ internal static class OrderDetailProjection
                             ? null
                             : line.CurrentPickingIssue.ReportedByEmployee.DisplayName,
                         line.CurrentPickingIssue.ReportedAt
-                    )
+                    ),
+                line.Language
             ))
             .ToList(),
+        order.ImportSource,
         order.ClaimedByEmployeeId,
         order.ClaimedByEmployee != null ? order.ClaimedByEmployee.DisplayName : null
     );

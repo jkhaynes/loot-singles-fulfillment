@@ -14,6 +14,8 @@ using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
+using LootSingles.Infrastructure.Tcgplayer;
+using LootSingles.IntegrationTests.ImportUi;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -68,6 +70,56 @@ builder
             new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)
         );
     });
+
+// 020 T039: obviously fake keys and the synthetic-fixture stub as the PRIMARY handler of the
+// TCGplayer client only, so the real auth, rate-limit, timeout and User-Agent handlers still run in
+// front of it and no request can leave the process. Added last, so these values override any
+// TCGplayer setting the environment carries. The stub lists only the eight orders that import
+// cleanly: the two the fixtures make invalid would be retried on every press, and "Get new orders"
+// could then never report that nothing is new.
+builder.Configuration.AddInMemoryCollection(
+    new Dictionary<string, string?>
+    {
+        ["Tcgplayer:PublicKey"] = "synthetic-public-id",
+        ["Tcgplayer:PrivateKey"] = "synthetic-private-id",
+        ["Tcgplayer:AccessToken"] = "synthetic-store-access",
+        ["Tcgplayer:StoreKey"] = "",
+        ["Tcgplayer:BaseUrl"] = TcgplayerStubHandler.BaseUrl,
+        ["Tcgplayer:PageSize"] = "2",
+    }
+);
+
+// 020 T047: a request to this host carrying the outage header gets a TCGplayer that answers 503,
+// for that request only. The header is read from the incoming request (the stub runs inside its
+// async flow), so a spec can simulate an outage without a global switch that would break any other
+// spec getting orders at the same moment.
+builder.Services.AddHttpContextAccessor();
+builder
+    .Services.AddTcgplayer(builder.Configuration)
+    .ConfigurePrimaryHttpMessageHandler(services => new TcgplayerStubHandler
+    {
+        OpenOrderNumbers =
+        [
+            .. new[] { 1, 2, 3, 4, 5, 8, 9, 10 }.Select(TcgplayerStubHandler.OrderNumber),
+        ],
+        // Each order's items call is held back, as ObservableProgressImportService holds back
+        // PDF progress, so Playwright can see an import part-way through.
+        Override = async request =>
+        {
+            var incoming = services.GetRequiredService<IHttpContextAccessor>().HttpContext;
+            if (incoming?.Request.Headers[E2ETcgplayerOutage.Header].ToString() == "unavailable")
+            {
+                return new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable);
+            }
+
+            if (request.Route == "items")
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(375));
+            }
+
+            return null;
+        },
+    });
 builder.Services.AddScoped<IPinHasher, Pbkdf2PinHasher>();
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddSingleton(new LockoutOptions());
@@ -79,8 +131,10 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<IImportPersistence, ImportRepository>();
 builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
 builder.Services.AddScoped<IPackingSlipSlicer, PdfPigPackingSlipSlicer>();
+builder.Services.AddScoped<OrderImporter>();
 builder.Services.AddScoped<PackingSlipImportService>();
 builder.Services.AddScoped<IPackingSlipImportService, ObservableProgressImportService>();
+builder.Services.AddScoped<TcgplayerApiImportService>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IPackingRepository, PackingRepository>();
 builder.Services.AddScoped<ICardCatalogProvider>(_ => new FakeCardCatalogProvider(
@@ -392,6 +446,9 @@ static async Task SeedAsync(IServiceProvider services)
             ("e2epickerthirteen", "E2E Picker Thirteen"),
             ("e2epickerfourteen", "E2E Picker Fourteen"),
             ("e2epickerfifteen", "E2E Picker Fifteen"),
+            // Seeded for tcgplayer-import.spec.ts alone: it claims an imported order and holds the
+            // claim until Picked, and an employee has one active claim.
+            ("e2epickersixteen", "E2E Picker Sixteen"),
         }
     )
     {
@@ -564,6 +621,32 @@ static async Task SeedAsync(IServiceProvider services)
             ],
         }
     );
+    // 020 R31: an API-imported line storing a TCGplayer-CDN-shaped thumbnail, for order-detail.spec.ts's
+    // rendition-and-fallback case. The product id is invented and the spec stubs the CDN in the
+    // browser, so no request ever reaches TCGplayer. Newest of all, so Pick Next never takes it.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00018",
+            Status = OrderStatus.Ready,
+            ImportSource = OrderImportSource.TcgplayerApi,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(80),
+            OrderLines =
+            [
+                new()
+                {
+                    RawDescription = "Synthetic CDN Card - CDN Set - #001/050 - Rare - Near Mint",
+                    ProductLine = "Pokemon",
+                    ProductName = "Synthetic CDN Card",
+                    Set = "CDN Set",
+                    CollectorNumber = "#001/050",
+                    Condition = "Near Mint",
+                    Quantity = 1,
+                    ImageUrl = "https://tcgplayer-cdn.tcgplayer.com/product/990001_75w.jpg",
+                },
+            ],
+        }
+    );
     await context.SaveChangesAsync();
 
     static OrderLine SetAwareLine(
@@ -640,4 +723,10 @@ internal sealed class ObservableProgressImportService(PackingSlipImportService i
             }
         }
     }
+}
+
+/// <summary>The request header that makes this host's stub TCGplayer answer 503 (T047).</summary>
+internal static class E2ETcgplayerOutage
+{
+    public const string Header = "X-E2E-Tcgplayer-Outage";
 }

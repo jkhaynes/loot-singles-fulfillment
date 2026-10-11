@@ -45,10 +45,12 @@ public class ValidImportTests
     {
         await using var dbContext = ImportTestSupport.CreateDatabaseContext();
         var parser = new PdfPigPackingSlipParser();
+        var repository = new ImportRepository(dbContext);
         IPackingSlipImportService service = new PackingSlipImportService(
             parser,
             new PdfPigPackingSlipSlicer(),
-            new ImportRepository(dbContext),
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
             NullLogger<PackingSlipImportService>.Instance
         );
         var fixtureNames = new[]

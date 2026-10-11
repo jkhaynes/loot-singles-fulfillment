@@ -4,8 +4,9 @@ import type { SetGroup } from './orderGrouping'
 import { OrderFinish } from './OrderFinish'
 import { ReportIssueForm } from './ReportIssueForm'
 import { ReportedIssueDetails } from './ReportedIssueDetails'
-import { pickingIssueTypeLabel } from './ordersApi'
+import { nonEnglishLanguage, pickingIssueTypeLabel } from './ordersApi'
 import type { PickingIssueDetail, ReportIssueRequest } from './ordersApi'
+import { LineCardImage } from './LineCardImage'
 
 /**
  * Picking one card at a time (016-mobile-picking, PRD §8, §12, §18).
@@ -39,6 +40,13 @@ export interface FocusedPickViewProps {
 
 /** Minimum horizontal travel before a drag counts as a swipe rather than a tap. */
 const SWIPE_THRESHOLD_PX = 50
+
+/* Shown when a line has no image, or none of its sources loads (PRD §17). */
+const noImage = (
+  <div className="focused-pick__placeholder">
+    <span>No image</span>
+  </div>
+)
 
 export function FocusedPickView({
   groups,
@@ -158,11 +166,15 @@ export function FocusedPickView({
         aria-label={`Product ${line.productName}`}
       >
         {line.imageUrl !== null ? (
-          <img className="focused-pick__image" src={line.imageUrl} alt={line.productName} />
+          <LineCardImage
+            className="focused-pick__image"
+            imageUrl={line.imageUrl}
+            sizes="31vh"
+            alt={line.productName}
+            placeholder={noImage}
+          />
         ) : (
-          <div className="focused-pick__placeholder">
-            <span>No image</span>
-          </div>
+          noImage
         )}
 
         <h2 className="focused-pick__name">{line.productName}</h2>
@@ -170,13 +182,15 @@ export function FocusedPickView({
         {/* The number is how you find it in the box. The variant is the one thing the picture
             cannot tell you — holofoil and non-holo are different cards that look identical. */}
         <p className="focused-pick__chips">
-          <span className="focused-pick__number">{line.collectorNumber}</span>
+          <span className="focused-pick__number">{line.collectorNumber ?? 'No number'}</span>
           {line.variant !== null && (
             <span className="focused-pick__variant">{line.variant.toUpperCase()}</span>
           )}
         </p>
         <p className="focused-pick__detail">
-          {[line.rarity, line.condition].filter(Boolean).join(' · ')}
+          {[line.rarity, line.condition, nonEnglishLanguage(line.language)]
+            .filter(Boolean)
+            .join(' · ')}
         </p>
 
         {/* The costliest picking error in the shop (PRD §5.3, §15, and the §2 example). */}

@@ -45,8 +45,10 @@ public class OrderLine
     /// The collector number as printed in the source, including the '#' prefix and any '/xxx' suffix
     /// (e.g., "#067/086", "#16").
     /// Not stripped or reformatted.
+    /// PDF lines always have one. Null means no number is available (API lines), and every picking
+    /// surface shows "No number" for it.
     /// </summary>
-    public required string CollectorNumber { get; set; }
+    public string? CollectorNumber { get; set; }
 
     /// <summary>
     /// The card's rarity tier (e.g., "Common", "Rare Holo", "Mythic Rare", "Double Rare").
@@ -68,6 +70,17 @@ public class OrderLine
     /// Optional — absence does not prevent an OrderLine from existing.
     /// </summary>
     public string? Variant { get; set; }
+
+    /// <summary>
+    /// TCGplayer's language for API-imported lines. Null for PDF lines.
+    /// </summary>
+    public string? Language { get; set; }
+
+    /// <summary>
+    /// TCGplayer's product image URL for API-imported lines. Always null for PDF lines, whose
+    /// images are resolved at view time.
+    /// </summary>
+    public string? ImageUrl { get; set; }
 
     /// <summary>
     /// The quantity of this item ordered. A positive whole number.

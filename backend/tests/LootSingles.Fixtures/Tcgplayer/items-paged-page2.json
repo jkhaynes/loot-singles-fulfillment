@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "errors": [],
+  "totalItems": 3,
+  "results": [
+    {
+      "skuId": 7000008,
+      "categoryName": "Synthetic TCG",
+      "productName": "Synthetic Mage",
+      "groupName": "Synthetic Set Alpha",
+      "condition": "Near Mint",
+      "printing": "Normal",
+      "isFoil": false,
+      "language": "English",
+      "rarity": "Common",
+      "quantity": 1,
+      "productImageUrl": "https://img.example.test/synthetic/7000008.jpg"
+    }
+  ]
+}

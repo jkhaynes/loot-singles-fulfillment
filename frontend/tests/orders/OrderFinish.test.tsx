@@ -186,3 +186,26 @@ describe('OrderFinish — when the order is not held', () => {
     expect(screen.getByRole('button', { name: /finish picking — 3 cards/i })).toBeInTheDocument()
   })
 })
+
+describe('OrderFinish — API-imported lines', () => {
+  it('reads "No number" on a picked line with no collector number', () => {
+    renderFinish([buildLine({ collectorNumber: null, pickOutcome: 'picked' })])
+
+    expect(screen.getByText('No number')).toBeInTheDocument()
+    expect(screen.queryByText(/null/)).not.toBeInTheDocument()
+  })
+
+  it('keeps the variant beside "No number"', () => {
+    renderFinish([buildLine({ collectorNumber: null, variant: 'Foil', pickOutcome: 'picked' })])
+
+    expect(screen.getByText('No number · Foil')).toBeInTheDocument()
+  })
+
+  it('still emphasises a quantity above one on a no-number line', () => {
+    const { container } = renderFinish([
+      buildLine({ collectorNumber: null, quantity: 3, pickOutcome: 'picked' }),
+    ])
+
+    expect(container.querySelector('[data-emphasis="high"]')).toHaveTextContent('3')
+  })
+})

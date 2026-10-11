@@ -206,7 +206,7 @@ public sealed class PickingServiceTests
         new(repository, NullLogger<PickingService>.Instance);
 
     private static OrderDetail DetailWithStatus(OrderStatus status) =>
-        new(3, "ORDER-3", status, []);
+        new(3, "ORDER-3", status, [], OrderImportSource.PackingSlipPdf);
 
     private sealed class FakePickingRepository : IPickingRepository
     {

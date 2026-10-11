@@ -14,6 +14,9 @@ public class OrderLineConfiguration : IEntityTypeConfiguration<OrderLine>
 {
     public void Configure(EntityTypeBuilder<OrderLine> builder)
     {
+        builder.Property(orderLine => orderLine.Language).HasMaxLength(50);
+        builder.Property(orderLine => orderLine.ImageUrl).HasMaxLength(2048);
+
         builder
             .HasOne<Order>()
             .WithMany(order => order.OrderLines)

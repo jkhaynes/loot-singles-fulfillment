@@ -1,0 +1,60 @@
+{
+  "success": true,
+  "errors": [
+    "SKU not found: 7000099"
+  ],
+  "results": [
+    {
+      "skuId": 7000001,
+      "productId": 8000001
+    },
+    {
+      "skuId": 7000002,
+      "productId": 8000002
+    },
+    {
+      "skuId": 7000003,
+      "productId": 8000003
+    },
+    {
+      "skuId": 7000004,
+      "productId": 8000004
+    },
+    {
+      "skuId": 7000005,
+      "productId": 8000005
+    },
+    {
+      "skuId": 7000006,
+      "productId": 8000006
+    },
+    {
+      "skuId": 7000007,
+      "productId": 8000007
+    },
+    {
+      "skuId": 7000008,
+      "productId": 8000008
+    },
+    {
+      "skuId": 7000009,
+      "productId": 8000009
+    },
+    {
+      "skuId": 7000010,
+      "productId": 8000010
+    },
+    {
+      "skuId": 7000011,
+      "productId": 8000011
+    },
+    {
+      "skuId": 7000012,
+      "productId": 8000012
+    },
+    {
+      "skuId": 7000013,
+      "productId": 8000013
+    }
+  ]
+}

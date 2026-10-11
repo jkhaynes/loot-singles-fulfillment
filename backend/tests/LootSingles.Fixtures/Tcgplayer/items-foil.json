@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "errors": [],
+  "totalItems": 1,
+  "results": [
+    {
+      "skuId": 7000004,
+      "categoryName": "Synthetic TCG",
+      "productName": "Synthetic Phoenix",
+      "groupName": "Synthetic Set Alpha",
+      "condition": "Near Mint Foil",
+      "printing": "Foil",
+      "isFoil": true,
+      "language": "English",
+      "rarity": "Rare",
+      "quantity": 1,
+      "productImageUrl": "https://img.example.test/synthetic/7000004.jpg"
+    }
+  ]
+}

@@ -68,10 +68,12 @@ public sealed class PackingSlipStorageTests(SqlServerContainerFixture fixture)
         await using var lease = await fixture.CreateDatabaseLeaseAsync();
         await using var context = lease.CreateDbContext();
         var logger = new ImportTestSupport.CapturingLogger<PackingSlipImportService>();
+        var repository = new ImportRepository(context);
         var service = new PackingSlipImportService(
             new PdfPigPackingSlipParser(),
             new FailingSlicer(),
-            new ImportRepository(context),
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
             logger
         );
 
@@ -108,13 +110,17 @@ public sealed class PackingSlipStorageTests(SqlServerContainerFixture fixture)
     private static PackingSlipImportService NewService(
         LootSinglesDbContext context,
         IPackingSlipSlicer slicer
-    ) =>
-        new(
+    )
+    {
+        var repository = new ImportRepository(context);
+        return new(
             new PdfPigPackingSlipParser(),
             slicer,
-            new ImportRepository(context),
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
             NullLogger<PackingSlipImportService>.Instance
         );
+    }
 
     private static async Task RunImportAsync(PackingSlipImportService service, string fixture)
     {

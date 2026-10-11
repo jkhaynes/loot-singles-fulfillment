@@ -29,23 +29,31 @@ internal static class ImportTestSupport
         return new LeasedDbContext(options.Options, lease);
     }
 
-    public static PackingSlipImportService CreateService(LootSinglesDbContext context) =>
-        new(
+    public static PackingSlipImportService CreateService(LootSinglesDbContext context)
+    {
+        var repository = new ImportRepository(context);
+        return new(
             new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new ImportRepository(context),
+            new OrderImporter(repository, NullLogger<OrderImporter>.Instance),
+            repository,
             NullLogger<PackingSlipImportService>.Instance
         );
+    }
 
     public static PackingSlipImportService CreateDatabaseFreeService(
         IPackingSlipParser? parser = null
-    ) =>
-        new(
+    )
+    {
+        var persistence = new FakeImportPersistence();
+        return new(
             parser ?? new PdfPigPackingSlipParser(),
             new PdfPigPackingSlipSlicer(),
-            new FakeImportPersistence(),
+            new OrderImporter(persistence, NullLogger<OrderImporter>.Instance),
+            persistence,
             NullLogger<PackingSlipImportService>.Instance
         );
+    }
 
     public static FileStream OpenFixture(string name) =>
         File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "PackingSlips", name));
@@ -98,6 +106,37 @@ internal static class ImportTestSupport
                     (state as IReadOnlyList<KeyValuePair<string, object>>) ?? []
                 )
             );
+    }
+
+    // Hands every category a CapturingLogger, so one list holds the whole host's log output.
+    internal sealed class CapturingLoggerProvider : ILoggerProvider
+    {
+        private readonly Lock _gate = new();
+        private readonly List<CapturingLogger<object>> _loggers = [];
+
+        public IReadOnlyList<LogEntry> Entries
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _loggers.SelectMany(logger => logger.Entries.ToArray()).ToArray();
+                }
+            }
+        }
+
+        public ILogger CreateLogger(string categoryName)
+        {
+            var logger = new CapturingLogger<object>();
+            lock (_gate)
+            {
+                _loggers.Add(logger);
+            }
+
+            return logger;
+        }
+
+        public void Dispose() { }
     }
 
     internal sealed record LogEntry(

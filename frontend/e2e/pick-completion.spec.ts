@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import type { Browser, Page } from '@playwright/test'
+import { serveFixtureImages } from './support/fixtureImages'
 
 // 015-pick-completion T046: the full picking loop end to end (SC-001, SC-007, SC-008).
 
@@ -9,6 +10,7 @@ async function newLoggedInPage(
   viewport?: { width: number; height: number },
 ): Promise<Page> {
   const context = await browser.newContext(viewport ? { viewport } : undefined)
+  await serveFixtureImages(context)
   const page = await context.newPage()
   await page.goto('/')
   await page.getByLabel(/username/i).fill(username)
@@ -56,9 +58,15 @@ test('confirming every line takes an order to Picked without a separate complete
 
   await page.goto('/')
   // 017 renamed this tile: it counts orders awaiting packing now, not orders ever picked.
-  await expect(
-    page.getByRole('article', { name: 'Awaiting Packing' }).getByText('1', { exact: true }),
-  ).toBeVisible()
+  // At least this test's own order: the tile is shared, and other workers pick and pack their
+  // own orders throughout the run (the same reasoning as packing-desk.spec.ts).
+  const awaitingTile = page.getByRole('article', { name: 'Awaiting Packing' })
+  await expect
+    .poll(async () => {
+      const text = await awaitingTile.innerText()
+      return Number(/\d+/.exec(text)?.[0] ?? 0)
+    })
+    .toBeGreaterThanOrEqual(1)
 })
 
 test('a reported issue survives release and re-claim, then resolves to Picked', async ({

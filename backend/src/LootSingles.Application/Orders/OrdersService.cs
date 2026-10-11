@@ -1,4 +1,5 @@
 using LootSingles.Application.CardCatalog;
+using LootSingles.Domain.Orders;
 
 namespace LootSingles.Application.Orders;
 
@@ -18,6 +19,14 @@ public sealed class OrdersService(
             return null;
         }
 
+        // API-imported lines carry TCGplayer's own stored image. They must never reach a
+        // third-party catalog provider (TCGplayer API agreement), and a line without a stored
+        // image stays without one.
+        if (order.ImportSource == OrderImportSource.TcgplayerApi)
+        {
+            return order;
+        }
+
         var indexedLines = order
             .Lines.Select((line, index) => (Index: index, Line: line))
             .ToArray();
@@ -33,7 +42,8 @@ public sealed class OrdersService(
                         .Select(entry => new CardIdentity(
                             entry.Line.ProductName,
                             entry.Line.Set,
-                            entry.Line.CollectorNumber,
+                            // Only PDF orders are enriched here, and PDF lines always have a collector number.
+                            entry.Line.CollectorNumber!,
                             entry.Line.Variant
                         ))
                         .ToArray();

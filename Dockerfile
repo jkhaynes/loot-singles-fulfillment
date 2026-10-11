@@ -40,10 +40,15 @@ COPY backend/src/LootSingles.Domain/LootSingles.Domain.csproj backend/src/LootSi
 COPY backend/src/LootSingles.Infrastructure/LootSingles.Infrastructure.csproj backend/src/LootSingles.Infrastructure/
 RUN dotnet restore backend/src/LootSingles.Api/LootSingles.Api.csproj
 
+# 020: the version the TCGplayer User-Agent reports (TcgplayerUserAgent trims any "+hash"). CI passes
+# the real one; a local build says plainly that it is local.
+ARG APP_VERSION=0.0.0-local
+
 COPY backend/src/ backend/src/
 RUN dotnet publish backend/src/LootSingles.Api/LootSingles.Api.csproj \
     --configuration Release \
     --no-restore \
+    -p:InformationalVersion=$APP_VERSION \
     --output /app/publish
 
 # ---------------------------------------------------------------------------

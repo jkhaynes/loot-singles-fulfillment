@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -1356,5 +1356,128 @@ describe('OrderDetailPage — a reported row (018 US4)', () => {
       expect(within(row(name)).getByRole('button', { name: 'Report Issue' })).toBeInTheDocument()
       expect(within(row(name)).queryByRole('status')).not.toBeInTheDocument()
     }
+  })
+})
+
+describe('OrderDetailPage — API-imported lines', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    installMatchMedia(1280)
+    vi.mocked(authApi.me).mockResolvedValue({
+      employeeId: 1,
+      displayName: 'Test Picker',
+      role: 'Picker',
+    })
+  })
+
+  function readyOrder(lines: ordersApi.OrderLineDetail[]): ordersApi.OrderDetail {
+    return { ...claimedOrder(lines), status: 'ready', claimedByEmployeeId: null }
+  }
+
+  it('reads "No number" for a line with no collector number, never blank or null', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      readyOrder([buildLine({ productName: 'Sealed Box', collectorNumber: null })]),
+    )
+
+    renderPage()
+
+    const sealed = await screen.findByRole('article', { name: /Sealed Box/i })
+    expect(within(sealed).getByText('No number')).toBeInTheDocument()
+    expect(within(sealed).queryByText('null')).not.toBeInTheDocument()
+  })
+
+  it('shows a language other than English beside the condition', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      readyOrder([
+        buildLine({ productName: 'Japanese Card', condition: 'Near Mint', language: 'Japanese' }),
+      ]),
+    )
+
+    renderPage()
+
+    const card = await screen.findByRole('article', { name: /Japanese Card/i })
+    expect(within(card).getByText('Near Mint · Japanese')).toBeInTheDocument()
+  })
+
+  it.each([['English'], [null]])('shows nothing extra for language %s', async (language) => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      readyOrder([buildLine({ productName: 'Plain Card', condition: 'Near Mint', language })]),
+    )
+
+    renderPage()
+
+    const card = await screen.findByRole('article', { name: /Plain Card/i })
+    expect(within(card).getByText('Near Mint')).toBeInTheDocument()
+    expect(within(card).queryByText(/English/)).not.toBeInTheDocument()
+  })
+
+  it('asks TCGplayer for a sharp rendition of the line thumbnail', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      readyOrder([
+        buildLine({
+          productName: 'Api Card',
+          imageUrl: 'https://tcgplayer-cdn.tcgplayer.com/product/900001_75w.jpg',
+        }),
+        buildLine({
+          productName: 'Pdf Card',
+          imageUrl: 'https://cards.scryfall.io/large/front/a/b/ab12.jpg',
+        }),
+      ]),
+    )
+
+    renderPage()
+
+    const api = await screen.findByRole('article', { name: /Api Card/i })
+    const apiImage = within(api).getByRole('img', { name: 'Api Card' })
+    expect(apiImage).toHaveAttribute(
+      'src',
+      'https://tcgplayer-cdn.tcgplayer.com/product/900001_400w.jpg',
+    )
+    expect(apiImage).toHaveAttribute(
+      'srcset',
+      'https://tcgplayer-cdn.tcgplayer.com/product/900001_400w.jpg 400w, https://tcgplayer-cdn.tcgplayer.com/product/900001_in_1000x1000.jpg 1000w',
+    )
+    expect(apiImage).toHaveAttribute('sizes')
+
+    const pdf = screen.getByRole('article', { name: /Pdf Card/i })
+    const pdfImage = within(pdf).getByRole('img', { name: 'Pdf Card' })
+    expect(pdfImage).toHaveAttribute('src', 'https://cards.scryfall.io/large/front/a/b/ab12.jpg')
+    expect(pdfImage).not.toHaveAttribute('srcset')
+  })
+
+  it('falls back to the stored thumbnail, then to no image, when loading fails', async () => {
+    const thumbnail = 'https://tcgplayer-cdn.tcgplayer.com/product/900001_75w.jpg'
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      readyOrder([buildLine({ productName: 'Api Card', imageUrl: thumbnail })]),
+    )
+
+    renderPage()
+
+    const card = await screen.findByRole('article', { name: /Api Card/i })
+    fireEvent.error(within(card).getByRole('img', { name: 'Api Card' }))
+    expect(within(card).getByRole('img', { name: 'Api Card' })).toHaveAttribute('src', thumbnail)
+    expect(within(card).getByRole('img', { name: 'Api Card' })).not.toHaveAttribute('srcset')
+
+    fireEvent.error(within(card).getByRole('img', { name: 'Api Card' }))
+    expect(within(card).queryByRole('img')).not.toBeInTheDocument()
+    expect(within(card).getByLabelText('Card image unavailable')).toBeInTheDocument()
+  })
+
+  it('still emphasises a quantity above one', async () => {
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      readyOrder([
+        buildLine({
+          productName: 'Triple',
+          quantity: 3,
+          collectorNumber: null,
+          language: 'Japanese',
+        }),
+      ]),
+    )
+
+    renderPage()
+
+    const card = await screen.findByRole('article', { name: /Triple/i })
+    expect(card.querySelector('[data-emphasis="high"]')).toHaveTextContent('3')
   })
 })

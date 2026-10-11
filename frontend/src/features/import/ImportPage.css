@@ -45,6 +45,71 @@
 .import-card h1 {
   margin: 0 0 var(--space-2);
 }
+.import-actions {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+.import-fallback {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+.import-fallback h2 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+.import-fallback > p {
+  margin: 0;
+  font-size: var(--font-size-body-small);
+  color: var(--color-text-secondary);
+}
+.import-fallback form {
+  justify-items: start;
+  margin-top: var(--space-3);
+}
+.import-file-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+/* The real file input stays in the page, out of sight; its label is the visible picker. */
+.import-card .import-file-picker__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.import-file-picker__button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+.import-file-picker__button:hover {
+  border-color: var(--color-text-secondary);
+}
+.import-file-picker__input:focus-visible + .import-file-picker__button {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}
+.import-file-picker__name {
+  font-size: var(--font-size-body-small);
+  color: var(--color-text-secondary);
+}
 .import-card form {
   display: grid;
   gap: var(--space-3);
@@ -68,6 +133,12 @@
 .import-card button:disabled {
   opacity: 0.55;
 }
+.import-card .import-secondary-action {
+  border: 1px solid var(--color-brand-primary);
+  background: transparent;
+  color: var(--color-brand-primary);
+  font-weight: 600;
+}
 .import-card .import-cancel-action {
   border: 1px solid var(--color-danger);
   background: transparent;
@@ -89,6 +160,19 @@
 .import-alert--warning {
   border-color: var(--color-warning);
   color: var(--color-warning);
+}
+.import-alert--info {
+  border-color: var(--color-border);
+}
+.import-alert p {
+  margin: 0;
+}
+.import-alert p + p {
+  margin-top: var(--space-2);
+}
+.import-alert .import-alert__detail {
+  font-size: var(--font-size-body-small);
+  color: var(--color-text-secondary);
 }
 .import-alert--error {
   border-color: var(--color-danger);

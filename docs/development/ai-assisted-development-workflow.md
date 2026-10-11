@@ -6,9 +6,19 @@ This document explains how AI-assisted development works on Loot Singles Fulfill
 
 AI accelerates development but is not an autonomous source of product requirements. Every implementation decision must trace back to a human-approved source of truth. This workflow exists to keep AI-assisted speed from silently turning into unapproved scope.
 
-## Command Cheat Sheet
+## Tracks
 
-What to actually type, in order:
+Pick the track by the size of the change:
+
+- **Feature** (new behavior, several files, worth remembering why): Spec Kit designs it, then Superpowers implements it. The full flow is below.
+- **Small change** (bug fix, tweak, or refactor with no new user-visible behavior): no spec. Use Superpowers directly: `systematic-debugging` for bugs, `test-driven-development` for everything else. Anything that adds user-visible behavior is a feature and needs a spec.
+- **Spike / experiment**: Superpowers `brainstorming` on a throwaway branch, no spec. If it survives, promote it to a feature.
+
+Strict TDD (Red → Green → Refactor, constitution Principle IV) applies to every track.
+
+## Command Cheat Sheet (feature track)
+
+Design, with Spec Kit:
 
 ```
 /speckit-specify <feature description>
@@ -26,25 +36,16 @@ What to actually type, in order:
 
 → human approval of `tasks.md` (the tracker; no GitHub issue needed) →
 
-```
-/speckit-implement
-```
-
-→ automated build/tests pass →
+Implementation, with Superpowers, on the feature branch in the main checkout (no git worktrees):
 
 ```
-/branch-review
+subagent-driven-development        one fresh subagent per task in tasks.md: test first, then
+                                   a spec-compliance review and a code-quality review
+requesting-code-review             before merge; fix Critical and Important findings test-first
+finishing-a-development-branch     (or /ship) → pull request → CI → human review → merge
 ```
 
-→ turn findings into tasks with `/review-remediation` (all Required findings, plus whichever Optional ones you approve), resolve them via `/speckit-implement`, then re-run `/branch-review` — repeat until no Required findings remain →
-
-```
-/speckit-converge
-```
-
-→ pull request → CI → human review → merge
-
-Repeat `/speckit-implement` → `/speckit-converge` until convergence is reported — that loop, not a single implement pass, is what "done" means for a feature. `/branch-review` sits inside that loop too: it must be clean (zero Required findings) before `/speckit-converge` runs.
+Do not run `/speckit-implement`, `/branch-review`, `/review-remediation` or `/speckit-converge`, and do not run Superpowers `brainstorming` or `writing-plans` on a Spec Kit feature: `tasks.md` is the plan.
 
 The Spec Kit `git` extension branches and commits along the way automatically (branch created before `/speckit-specify`; each planning command offers a confirmed commit after it runs). Config: `.specify/extensions.yml` and `.specify/extensions/git/git-config.yml`.
 
@@ -60,17 +61,21 @@ Owns technical decisions, code review, architecture, and approval of specificati
 
 ### Spec Kit
 
-Owns the complete AI-assisted feature lifecycle: constitution, feature specification, clarification, technical planning, task breakdown, artifact analysis, implementation, code and design review, and convergence verification. No second execution methodology runs alongside it. Strict Test-Driven Development (Red → Green → Refactor) is enforced directly through the project constitution's Principle IV during implementation, not by a separate tool.
+Owns feature design: constitution, feature specification, clarification, technical planning, task breakdown, and artifact analysis.
+
+### Superpowers
+
+Owns implementation: carrying out the approved `tasks.md` test-first with one subagent per task, per-task spec-compliance and code-quality review, code review before merge, and finishing the branch. It also runs the small-change and spike tracks.
 
 ### Claude Code
 
-Acts as the AI implementation agent, operating under the constraints in [`CLAUDE.md`](../../CLAUDE.md) and Spec Kit.
+Acts as the AI implementation agent, operating under the constraints in [`CLAUDE.md`](../../CLAUDE.md), Spec Kit, and Superpowers.
 
 ## Source of Truth Hierarchy
 
 See the hierarchy defined in [`CLAUDE.md`](../../CLAUDE.md). When artifacts conflict, work stops for clarification rather than silently resolving in favor of the lower-level artifact.
 
-## Full Workflow
+## Full Workflow (feature track)
 
 ```text
 1.  Product Owner feedback or approved PRD requirement
@@ -82,40 +87,27 @@ See the hierarchy defined in [`CLAUDE.md`](../../CLAUDE.md). When artifacts conf
 7.  Spec Kit task breakdown             (/speckit-tasks)
 8.  Spec Kit artifact analysis          (/speckit-analyze)
 9.  Human review / approval        (tasks.md is the tracker — no GitHub issue required)
-10. Spec Kit implementation             (/speckit-implement) — strict TDD per constitution Principle IV
+10. Superpowers implementation          (subagent-driven-development) — one subagent per task, strict TDD per constitution Principle IV, spec-compliance then code-quality review per task
 11. Automated build/tests pass
-12. Branch review                       (/branch-review + /review-remediation) — evaluates the actual implementation; repeat 10-12 until zero Required findings remain
-13. Spec Kit convergence verification   (/speckit-converge) — repeat 10-13 until converged
-14. Pull request, CI, human review, merge
+12. Code review                         (requesting-code-review) — fix Critical and Important findings test-first; a round with none is the stopping point
+13. Finish the branch                   (finishing-a-development-branch or /ship) — pull request, CI, human review, merge
 ```
 
-Spec Kit artifacts (specification, plan, tasks) are the implementation contract for a feature. `/speckit-implement` executes against that contract; it does not originate or silently amend it. If execution or `/branch-review` surfaces a contradiction, missing rule, or architectural conflict, work returns to Spec Kit clarification/planning rather than being resolved ad hoc during implementation — see the source-of-truth hierarchy in [`CLAUDE.md`](../../CLAUDE.md).
+Spec Kit artifacts (specification, plan, tasks) are the implementation contract for a feature. Superpowers executes against that contract; it does not originate or silently amend it. If implementation or review surfaces a contradiction, missing rule, or architectural conflict, work returns to Spec Kit: a flawed plan to `/speckit-plan`, an unresolved or contradictory requirement to `/speckit-clarify`. It is never resolved ad hoc during implementation — see the source-of-truth hierarchy in [`CLAUDE.md`](../../CLAUDE.md).
 
-## Branch Review Gate
-
-`/branch-review` is Spec Kit's post-implementation review gate — it is not a second development methodology, and it does not replace human PR review. It reviews the current branch against its base branch, so run it on the feature branch.
+## Code Review
 
 | Step | Evaluates | When |
 |---|---|---|
 | Human architecture/changeability review | The *proposed design* | After `/speckit-plan`, before task breakdown |
-| `/branch-review` | The *actual implementation* | After `/speckit-implement`, once local build/tests pass |
-| `/speckit-converge` | Final conformance to the approved spec/plan/tasks | After review is clean, before PR |
+| Per-task reviews (subagent-driven-development) | Each task against the spec, then its code quality | As each task lands |
+| requesting-code-review | The whole branch against the approved spec, plan and constitution | Before merge, once local build/tests pass |
 
-`/branch-review` classifies each finding as **Required** or **Optional**, separately from its severity (a Low-severity finding may still be Required), and returns one verdict: PASS, PASS WITH SUGGESTIONS, or CHANGES REQUESTED.
-
-- **Required** findings block completion.
-- **Optional** findings do not block completion. Each carries an advisory `Recommended: Yes/No`; whether to take one on is the Product Owner's call.
-- `/review-remediation` converts findings into tasks: every unresolved Required finding automatically, plus whichever Optional ones you approve. It appends them to the feature's existing `tasks.md` — never a separate or competing task-tracking system — and plans the work without implementing it. Behavioral fixes are ordered test-first: the regression test that demonstrates the defect comes before the fix.
-- Resolve those tasks with `/speckit-implement`, then re-run `/branch-review`; repeat until no Required findings remain.
-- A Required finding that traces back to a flawed technical plan means returning to `/speckit-plan`, not patching around the plan in code.
-- A Required finding that traces back to an unresolved or contradictory requirement means returning to `/speckit-clarify`.
-- Review rounds have diminishing returns, and remediation can introduce its own defects. A round with no Required findings is the stopping point.
-
-This gate applies to application-code changes and is required before `/speckit-converge`. It does not apply to documentation-only or configuration-only changes.
+Critical and Important findings are fixed before merge; behavioral fixes are test-first (the regression test that shows the defect comes before the fix). Minor findings are the Developer's call. Review rounds have diminishing returns, and remediation can introduce its own defects, so a round with no Critical or Important findings is the stopping point.
 
 ## Feature Branches
 
-No product feature work is committed directly to `main`. Each feature is developed on its own branch (or worktree) and merged via pull request after review and CI.
+No product feature work is committed directly to `main`. Each feature is developed on its own branch in the main checkout (no git worktrees, so the owner can follow along in their own editor) and merged via pull request after review and CI. A merge to `main` deploys to stage.
 
 ## Testing
 

@@ -14,6 +14,7 @@ import {
   recordPicked,
   reportIssue,
   orderStatusLabel,
+  nonEnglishLanguage,
   OrderNotFoundError,
 } from './ordersApi'
 import type { OrderDetail, ReportIssueRequest } from './ordersApi'
@@ -26,9 +27,17 @@ import { PrintLabelButton } from '../labels/PrintLabelButton'
 import type { LabelContent } from './ordersApi'
 import { ReportIssueForm } from './ReportIssueForm'
 import { ReportedIssueDetails } from './ReportedIssueDetails'
+import { LineCardImage } from './LineCardImage'
 import './OrderDetailPage.css'
 
 type LoadState = 'loading' | 'loaded' | 'not-found' | 'error'
+
+/* Shown when a line has no image, or none of its sources loads (PRD §17). */
+const lineNoImage = (
+  <div className="order-detail-line__placeholder" aria-label="Card image unavailable">
+    <span aria-hidden="true">No image</span>
+  </div>
+)
 
 export function OrderDetailPage() {
   const { orderId } = useParams()
@@ -479,18 +488,15 @@ export function OrderDetailPage() {
                   aria-label={`Product ${line.productName}`}
                 >
                   {line.imageUrl !== null ? (
-                    <img
+                    <LineCardImage
                       className="order-detail-line__image"
-                      src={line.imageUrl}
+                      imageUrl={line.imageUrl}
+                      sizes="(max-width: 600px) 115px, 150px"
                       alt={line.productName}
+                      placeholder={lineNoImage}
                     />
                   ) : (
-                    <div
-                      className="order-detail-line__placeholder"
-                      aria-label="Card image unavailable"
-                    >
-                      <span aria-hidden="true">No image</span>
-                    </div>
+                    lineNoImage
                   )}
                   <div className="order-detail-line__identity">
                     <h2>{line.productName}</h2>
@@ -505,7 +511,7 @@ export function OrderDetailPage() {
                       </div>
                       <div>
                         <dt>Collector Number</dt>
-                        <dd>{line.collectorNumber}</dd>
+                        <dd>{line.collectorNumber ?? 'No number'}</dd>
                       </div>
                       {line.rarity !== null && (
                         <div>
@@ -521,7 +527,11 @@ export function OrderDetailPage() {
                       )}
                       <div>
                         <dt>Condition</dt>
-                        <dd>{line.condition}</dd>
+                        <dd>
+                          {[line.condition, nonEnglishLanguage(line.language)]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </dd>
                       </div>
                       <div className="order-detail-line__quantity">
                         <dt>Quantity</dt>

@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "errors": [],
+  "totalItems": 1,
+  "results": [
+    {
+      "skuId": 7000010,
+      "categoryName": "Synthetic TCG",
+      "groupName": "Synthetic Set Alpha",
+      "condition": "Near Mint",
+      "printing": "Normal",
+      "isFoil": false,
+      "language": "English",
+      "rarity": "Common",
+      "quantity": 1,
+      "productImageUrl": "https://img.example.test/synthetic/7000010.jpg"
+    }
+  ]
+}

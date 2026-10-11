@@ -27,13 +27,15 @@ export interface LineOptions {
   productLine?: string
   /** The set, as imported. Blank and whitespace values are legal here on purpose. */
   set?: string
-  collectorNumber?: string
+  /** `null` is a line with no collector number, such as a sealed product. */
+  collectorNumber?: string | null
   rarity?: string | null
   variant?: string | null
   condition?: string
   /** Physical cards on this line. Greater than one is the high-risk case (PRD §15). */
   quantity?: number
   imageUrl?: string | null
+  language?: string | null
   pickOutcome?: PickOutcome | null
   currentIssue?: PickingIssueDetail | null
 }
@@ -48,12 +50,13 @@ export function buildLine(options: LineOptions = {}): OrderLineDetail {
     productName: options.productName ?? `Product ${id}`,
     productLine: options.productLine ?? 'Pokemon',
     set: options.set ?? 'Base Set',
-    collectorNumber: options.collectorNumber ?? `#${id}`,
+    collectorNumber: options.collectorNumber === undefined ? `#${id}` : options.collectorNumber,
     rarity: options.rarity ?? null,
     variant: options.variant ?? null,
     condition: options.condition ?? 'Near Mint',
     quantity: options.quantity ?? 1,
     imageUrl: options.imageUrl ?? null,
+    language: options.language ?? null,
   }
 }
 

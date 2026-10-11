@@ -13,4 +13,18 @@
     <ItemGroup>
         <ProjectReference Include="..\..\src\LootSingles.Api\LootSingles.Api.csproj" />
     </ItemGroup>
+
+    <!-- 020 T039: the same stub and synthetic fixtures the integration tests use, so the
+         Playwright suite's TCGplayer upstream cannot drift from theirs (and is never live). -->
+    <ItemGroup>
+        <Compile
+            Include="..\LootSingles.IntegrationTests\ImportUi\TcgplayerStubHandler.cs"
+            Link="TcgplayerStubHandler.cs"
+        />
+        <None
+            Include="..\LootSingles.Fixtures\Tcgplayer\*.json"
+            Link="Fixtures\Tcgplayer\%(Filename)%(Extension)"
+            CopyToOutputDirectory="PreserveNewest"
+        />
+    </ItemGroup>
 </Project>

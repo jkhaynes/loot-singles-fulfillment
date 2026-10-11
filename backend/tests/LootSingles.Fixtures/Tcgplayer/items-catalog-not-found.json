@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "errors": [],
+  "totalItems": 2,
+  "results": [
+    {
+      "skuId": 7000099,
+      "categoryName": "Synthetic TCG",
+      "productName": "Synthetic Ghost",
+      "groupName": "Synthetic Set Alpha",
+      "condition": "Near Mint",
+      "printing": "Normal",
+      "isFoil": false,
+      "language": "English",
+      "rarity": "Rare",
+      "quantity": 1,
+      "productImageUrl": "https://img.example.test/synthetic/7000099.jpg"
+    },
+    {
+      "skuId": 7000011,
+      "categoryName": "Synthetic TCG",
+      "productName": "Synthetic Wraith",
+      "groupName": "Synthetic Set Alpha",
+      "condition": "Near Mint",
+      "printing": "Normal",
+      "isFoil": false,
+      "language": "English",
+      "rarity": "Rare",
+      "quantity": 1,
+      "productImageUrl": "https://img.example.test/synthetic/7000011.jpg"
+    }
+  ]
+}

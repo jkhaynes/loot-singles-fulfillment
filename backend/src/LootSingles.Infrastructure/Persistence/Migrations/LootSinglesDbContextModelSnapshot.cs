@@ -39,6 +39,11 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<int>("Source")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<DateTimeOffset>("StartedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -174,6 +179,11 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                     b.Property<int?>("ClaimedByEmployeeId")
                         .HasColumnType("int");
 
+                    b.Property<int>("ImportSource")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<DateTimeOffset>("ImportedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -213,7 +223,6 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("CollectorNumber")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Condition")
@@ -222,6 +231,14 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
 
                     b.Property<int?>("CurrentPickingIssueId")
                         .HasColumnType("int");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<string>("Language")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<int>("OrderId")
                         .HasColumnType("int");

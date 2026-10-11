@@ -13,6 +13,7 @@ using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.CardCatalog;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
+using LootSingles.Infrastructure.Tcgplayer;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
@@ -51,7 +52,9 @@ builder.Services.AddDbContext<LootSinglesDbContext>(options =>
 builder.Services.AddScoped<IImportPersistence, ImportRepository>();
 builder.Services.AddScoped<IPackingSlipParser, PdfPigPackingSlipParser>();
 builder.Services.AddScoped<IPackingSlipSlicer, PdfPigPackingSlipSlicer>();
+builder.Services.AddScoped<OrderImporter>();
 builder.Services.AddScoped<IPackingSlipImportService, PackingSlipImportService>();
+builder.Services.AddScoped<TcgplayerApiImportService>();
 
 builder.Services.AddScoped<IPinHasher, Pbkdf2PinHasher>();
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
@@ -88,6 +91,7 @@ builder.Services.AddHttpClient(
     }
 );
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddTcgplayer(builder.Configuration);
 builder.Services.AddSingleton<TcgdexSetCatalog>();
 builder.Services.AddScoped<ICardCatalogProvider>(sp =>
     sp.GetRequiredService<TcgdexCardCatalogProvider>()

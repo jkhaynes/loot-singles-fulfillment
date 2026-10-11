@@ -1,4 +1,5 @@
 using LootSingles.Application.Import;
+using LootSingles.Domain.Orders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -13,6 +14,10 @@ public class ImportAttemptConfiguration : IEntityTypeConfiguration<ImportAttempt
 {
     public void Configure(EntityTypeBuilder<ImportAttempt> builder)
     {
+        builder
+            .Property(attempt => attempt.Source)
+            .HasDefaultValue(OrderImportSource.PackingSlipPdf);
+
         builder
             .HasMany(attempt => attempt.ImportOrderResults)
             .WithOne()
