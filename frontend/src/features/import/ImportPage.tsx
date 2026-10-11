@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useBlocker } from 'react-router-dom'
+import { ConfirmationDialog } from '../../components/ConfirmationDialog'
 import { getNewOrdersFromTcgplayer, importPackingSlip } from './importApi'
 import type { ImportSnapshot } from './importApi'
 import './ImportPage.css'
@@ -270,46 +271,26 @@ export function ImportPage() {
         </section>
       </section>
       {cancelConfirmationOpen && (
-        <div
-          role="alertdialog"
-          aria-modal="true"
-          aria-labelledby="cancel-import-title"
-          className="import-confirmation"
+        <ConfirmationDialog
+          title="Stop this import?"
+          keepLabel="Keep importing"
+          confirmLabel="Stop import"
+          onKeep={() => setCancelConfirmationOpen(false)}
+          onConfirm={confirmCancel}
         >
-          <div className="import-confirmation__panel">
-            <h2 id="cancel-import-title">Stop this import?</h2>
-            <p>Completed orders remain imported. Remaining processing will stop.</p>
-            <div className="import-confirmation__actions">
-              <button type="button" onClick={() => setCancelConfirmationOpen(false)}>
-                Keep importing
-              </button>
-              <button type="button" onClick={confirmCancel}>
-                Stop import
-              </button>
-            </div>
-          </div>
-        </div>
+          <p>Completed orders remain imported. Remaining processing will stop.</p>
+        </ConfirmationDialog>
       )}
       {blocker.state === 'blocked' && (
-        <div
-          role="alertdialog"
-          aria-modal="true"
-          aria-labelledby="leave-import-title"
-          className="import-confirmation"
+        <ConfirmationDialog
+          title="Leave and stop this import?"
+          keepLabel="Stay and continue"
+          confirmLabel="Leave and stop"
+          onKeep={() => blocker.reset()}
+          onConfirm={confirmNavigation}
         >
-          <div className="import-confirmation__panel">
-            <h2 id="leave-import-title">Leave and stop this import?</h2>
-            <p>Completed orders remain imported. Remaining processing will stop.</p>
-            <div className="import-confirmation__actions">
-              <button type="button" onClick={() => blocker.reset()}>
-                Stay and continue
-              </button>
-              <button type="button" onClick={confirmNavigation}>
-                Leave and stop
-              </button>
-            </div>
-          </div>
-        </div>
+          <p>Completed orders remain imported. Remaining processing will stop.</p>
+        </ConfirmationDialog>
       )}
     </main>
   )
