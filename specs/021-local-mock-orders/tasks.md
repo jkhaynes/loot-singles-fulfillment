@@ -270,7 +270,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
 
 ### 6e. End to end
 
-- [ ] T030 [US4] Write `frontend/e2e/order-deletion.spec.ts`. In `backend/tests/LootSingles.E2EHost/Program.cs`, seed its own orders (`E2E-DELETE-000NN`), one untouched and one claimed by a dedicated new picker, and set `OrderDeletion:AllowTouchedOrders` to `false` in the host's in-memory configuration, so the production rule is the one exercised end to end. Scenarios:
+- [X] T030 [US4] Write `frontend/e2e/order-deletion.spec.ts`. In `backend/tests/LootSingles.E2EHost/Program.cs`, seed its own orders (`E2E-DELETE-000NN`), one untouched and one claimed by a dedicated new picker, and set `OrderDeletion:AllowTouchedOrders` to `false` in the host's in-memory configuration, so the production rule is the one exercised end to end. Scenarios:
   - As `e2emanager`, the claimed order's ⋯ menu says it can't be deleted.
   - Deleting the untouched order through the menu and confirmation removes it from the list.
   - As the picker, the ⋯ menu offers no delete.

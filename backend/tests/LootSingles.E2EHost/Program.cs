@@ -87,6 +87,10 @@ builder.Configuration.AddInMemoryCollection(
         ["Tcgplayer:StoreKey"] = "",
         ["Tcgplayer:BaseUrl"] = SyntheticTcgplayerHandler.BaseUrl,
         ["Tcgplayer:PageSize"] = "2",
+        // 021 T030: production's rule, stated outright rather than left to the default, so
+        // order-deletion.spec.ts exercises the strict rule whatever the default becomes.
+        [$"{OrderDeletionOptions.SectionName}:{nameof(OrderDeletionOptions.AllowTouchedOrders)}"] =
+            "false",
     }
 );
 
@@ -653,6 +657,40 @@ static async Task SeedAsync(IServiceProvider services)
                     ImageUrl = "https://tcgplayer-cdn.tcgplayer.com/product/990001_75w.jpg",
                 },
             ],
+        }
+    );
+    // 021 T030: two orders for order-deletion.spec.ts, on the production (strict) rule. One is
+    // untouched and gets deleted by the spec; the other is held by a picker of its own, so the spec
+    // can see a Manager/Admin refused. Newest of all, so Pick Next never takes either.
+    var deletionPicker = new Employee
+    {
+        Username = "e2epickerseventeen",
+        NormalizedUsername = "E2EPICKERSEVENTEEN",
+        DisplayName = "E2E Picker Seventeen",
+        PinHash = pinHasher.Hash("1234"),
+        Role = EmployeeRole.Picker,
+        CreatedAt = DateTimeOffset.UtcNow,
+    };
+    context.Employees.Add(deletionPicker);
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-DELETE-00001",
+            Status = OrderStatus.Ready,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(85),
+            OrderLines = [SetAwareLine("Pokemon", "Delete Set", "Deletable Card", "#001/050", 1)],
+        }
+    );
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-DELETE-00002",
+            Status = OrderStatus.InProgress,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(86),
+            ClaimedByEmployee = deletionPicker,
+            ClaimedAt = DateTimeOffset.UtcNow,
+            FirstClaimedAt = DateTimeOffset.UtcNow,
+            OrderLines = [SetAwareLine("Pokemon", "Delete Set", "Claimed Card", "#002/050", 1)],
         }
     );
     await context.SaveChangesAsync();
