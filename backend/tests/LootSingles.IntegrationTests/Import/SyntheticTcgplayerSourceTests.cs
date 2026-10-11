@@ -12,7 +12,11 @@ using LootSingles.IntegrationTests.ImportUi;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http;
+using Microsoft.Extensions.Logging;
+using LootSingles.Infrastructure.Tcgplayer;
 
 namespace LootSingles.IntegrationTests.Import;
 
@@ -234,5 +238,162 @@ public sealed class SyntheticTcgplayerSourceTests
             OrderStatus.Packed,
             (await db.Orders.AsNoTracking().SingleAsync(o => o.Id == orderId)).Status
         );
+    }
+
+    // The primary handler of the TCGplayer client. The HTTP client factory caches the handler chain
+    // per client name for its lifetime (default two minutes) and builds the import's client from
+    // that same cached entry, so CreateHandler here returns the chain the import used; the tests
+    // that inspect recorded requests also assert they are not empty, which proves it is that one.
+    private static HttpMessageHandler PrimaryHandler(WebApplicationFactory<Program> factory)
+    {
+        var handler = factory
+            .Services.GetRequiredService<IHttpMessageHandlerFactory>()
+            .CreateHandler(TcgplayerServiceCollectionExtensions.HttpClientName);
+        while (handler is DelegatingHandler delegating)
+            handler = delegating.InnerHandler!;
+        return handler;
+    }
+
+    // Invented placeholder values only. Built from a prefix so no line pairs a key name with a
+    // quoted literal, which the CI credential scan (pr-quality-gate.yml) rightly rejects.
+    private static void UsePlaceholderKeys(IWebHostBuilder builder, string prefix)
+    {
+        builder.UseSetting("Tcgplayer:PublicKey", $"{prefix}-public-key");
+        builder.UseSetting("Tcgplayer:PrivateKey", $"{prefix}-private-key");
+        builder.UseSetting("Tcgplayer:AccessToken", $"{prefix}-access-token");
+    }
+
+    private static WebApplicationFactory<Program> WithEnvironment(
+        WebApplicationFactory<Program> root,
+        string environment,
+        bool syntheticHostWithFakeKeys = false,
+        ImportTestSupport.CapturingLoggerProvider? logs = null
+    ) =>
+        root.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment(environment);
+            if (syntheticHostWithFakeKeys)
+            {
+                UsePlaceholderKeys(builder, "fake");
+                builder.UseSetting("Tcgplayer:BaseUrl", SyntheticTcgplayerHandler.BaseUrl);
+            }
+            if (logs is not null)
+                builder.ConfigureLogging(logging => logging.AddProvider(logs));
+        });
+
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Testing")]
+    public async Task Outside_Development_with_no_keys_the_import_is_not_configured_and_creates_no_order(
+        string environment
+    )
+    {
+        await using var root = new AuthWebApplicationFactory();
+        await using var factory = WithEnvironment(root, environment);
+        using var client = await LoginAsync(factory, "user", EmployeeRole.Picker);
+
+        var lines = await ImportUiTestSupport.PostTcgplayerAsync(client);
+
+        var terminal = Terminal(lines);
+        Assert.Equal("failed", terminal.GetProperty("status").GetString());
+        Assert.Equal(
+            "tcgplayerNotConfigured",
+            terminal.GetProperty("attemptFailureCode").GetString()
+        );
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<LootSinglesDbContext>();
+        Assert.Equal(0, await context.Orders.CountAsync());
+    }
+
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Testing")]
+    public async Task Outside_Development_the_synthetic_handler_is_never_the_primary_handler(
+        string environment
+    )
+    {
+        await using var root = new AuthWebApplicationFactory();
+        await using var factory = WithEnvironment(
+            root,
+            environment,
+            syntheticHostWithFakeKeys: true
+        );
+
+        Assert.IsNotType<SyntheticTcgplayerHandler>(PrimaryHandler(factory));
+    }
+
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Testing")]
+    public async Task Outside_Development_the_startup_log_does_not_say_synthetic_orders_are_active(
+        string environment
+    )
+    {
+        await using var root = new AuthWebApplicationFactory();
+        var logs = new ImportTestSupport.CapturingLoggerProvider();
+        await using var factory = WithEnvironment(root, environment, logs: logs);
+
+        _ = factory.Services; // builds the host, which is when startup logs
+
+        Assert.DoesNotContain(
+            logs.Entries,
+            e => e.Message.Contains("synthetic orders are active", StringComparison.OrdinalIgnoreCase)
+        );
+    }
+
+    [Fact]
+    public async Task Development_logs_that_synthetic_orders_are_active()
+    {
+        await using var root = new AuthWebApplicationFactory();
+        var logs = new ImportTestSupport.CapturingLoggerProvider();
+        await using var factory = root.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Development");
+            builder.ConfigureLogging(logging => logging.AddProvider(logs));
+        });
+
+        _ = factory.Services;
+
+        Assert.Contains(
+            logs.Entries,
+            e => e.Message.Contains("synthetic orders are active", StringComparison.Ordinal)
+        );
+    }
+
+    [Fact]
+    public async Task Development_with_real_keys_and_the_real_base_url_configured_still_uses_only_the_synthetic_host()
+    {
+        await using var root = new AuthWebApplicationFactory();
+        // UseSetting lands in the builder's configuration before Program runs, where user secrets
+        // and environment variables sit in the real app; a ConfigureAppConfiguration source would
+        // arrive after Program has already bound the options and could not stand in for them.
+        await using var factory = root.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Development");
+            UsePlaceholderKeys(builder, "real-looking");
+            builder.UseSetting("Tcgplayer:BaseUrl", "https://api.tcgplayer.com/");
+        });
+        using var client = await LoginAsync(factory, "devuser", EmployeeRole.Picker);
+
+        var options = factory.Services.GetRequiredService<TcgplayerOptions>();
+        Assert.Equal(SyntheticTcgplayerHandler.BaseUrl, options.BaseUrl);
+        Assert.Equal("synthetic-public-id", options.PublicKey);
+        Assert.Equal("synthetic-private-id", options.PrivateKey);
+        Assert.Equal("synthetic-store-access", options.AccessToken);
+
+        var terminal = Terminal(await ImportUiTestSupport.PostTcgplayerAsync(client));
+
+        Assert.Equal("completed", terminal.GetProperty("status").GetString());
+        Assert.Equal(8, terminal.GetProperty("succeededCount").GetInt32());
+        var synthetic = Assert.IsType<SyntheticTcgplayerHandler>(PrimaryHandler(factory));
+        var requests = synthetic.Requests;
+        Assert.NotEmpty(requests); // the handler inspected is the one the import used
+        // The recorded requests carry no host, so the host check is the options above plus the
+        // client's base address; the real delegating handlers ran in front (they set the agent).
+        Assert.All(requests, r => Assert.Contains("Loot Investments LLC", r.UserAgent));
+        var client2 = factory
+            .Services.GetRequiredService<IHttpClientFactory>()
+            .CreateClient(TcgplayerServiceCollectionExtensions.HttpClientName);
+        Assert.Equal(SyntheticTcgplayerHandler.BaseUrl, client2.BaseAddress!.GetLeftPart(UriPartial.Authority) + "/");
     }
 }

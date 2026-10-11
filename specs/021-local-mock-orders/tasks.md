@@ -101,7 +101,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
   - `Tcgplayer:PageSize=2`
   
   Then chain `.AddSyntheticTcgplayer()` onto the `AddTcgplayer` call. Log one Information line at startup through `ILogger<Program>`: `"TCGplayer synthetic orders are active (Development)."`. Confirm T007 is green.
-- [ ] T009 [P] [US1] Write `frontend/tests/import/ImportPage.synthetic.test.tsx`. Mock `importApi` to return a stream shaped like T007's results, and assert the results render with no "mock" or "synthetic" wording (FR-008). If this only re-proves existing behaviour, keep it as a guard and note that in the task. No frontend change is expected.
+- [X] T009 [P] [US1] Write `frontend/tests/import/ImportPage.synthetic.test.tsx`. Mock `importApi` to return a stream shaped like T007's results, and assert the results render with no "mock" or "synthetic" wording (FR-008). If this only re-proves existing behaviour, keep it as a guard and note that in the task. No frontend change is expected. Guard: passed as soon as it was written (no frontend change was needed), so there was no red step.
 
 **Checkpoint**: US1 works locally (quickstart §B steps 1–4).
 
@@ -113,7 +113,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
 
 **Independent Test**: Start the app as Production and as Testing with no keys, plus every setting that might look like a switch. The import says "not set up here".
 
-- [ ] T010 [US2] Add tests to `backend/tests/LootSingles.IntegrationTests/Import/SyntheticTcgplayerSourceTests.cs`, with factories using `UseEnvironment("Production")` and `UseEnvironment("Testing")`:
+- [X] T010 [US2] Add tests to `backend/tests/LootSingles.IntegrationTests/Import/SyntheticTcgplayerSourceTests.cs`, with factories using `UseEnvironment("Production")` and `UseEnvironment("Testing")`:
   - With no keys, the import returns `tcgplayerNotConfigured` and creates no order (FR-004, US2 scenario 1).
   - With `Tcgplayer:BaseUrl` set to the synthetic host and fake keys, the TCGplayer `HttpClient`'s primary handler (resolved through `IHttpMessageHandlerFactory` for `TcgplayerServiceCollectionExtensions.HttpClientName`, then unwrapping `DelegatingHandler.InnerHandler`) is **not** a `SyntheticTcgplayerHandler` (US2 scenario 2, SC-002).
   - The startup log does not contain "synthetic orders are active".
@@ -130,7 +130,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
 
 **Independent Test**: As Development, with real-looking keys and `Tcgplayer:BaseUrl=https://api.tcgplayer.com/` configured, an import reaches only the synthetic handler.
 
-- [ ] T011 [US3] Add tests to `backend/tests/LootSingles.IntegrationTests/Import/SyntheticTcgplayerSourceTests.cs`. As Development, configure (through `UseSetting` and an environment-variable-style in-memory source) `Tcgplayer:PublicKey`, `PrivateKey` and `AccessToken` with non-synthetic values and `Tcgplayer:BaseUrl=https://api.tcgplayer.com/`. Then:
+- [X] T011 [US3] Add tests to `backend/tests/LootSingles.IntegrationTests/Import/SyntheticTcgplayerSourceTests.cs`. As Development, configure (through `UseSetting` and an environment-variable-style in-memory source) `Tcgplayer:PublicKey`, `PrivateKey` and `AccessToken` with non-synthetic values and `Tcgplayer:BaseUrl=https://api.tcgplayer.com/`. Then:
   - the resolved `TcgplayerOptions.BaseUrl` is the synthetic host, and the keys are the synthetic ones;
   - after a press, every request the synthetic handler recorded used the synthetic host, and the import succeeded (FR-005, SC-003).
   
