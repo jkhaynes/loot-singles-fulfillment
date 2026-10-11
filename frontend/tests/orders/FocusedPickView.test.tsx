@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { FocusedPickView } from '../../src/features/orders/FocusedPickView'
@@ -295,6 +295,19 @@ describe('FocusedPickView — card image', () => {
       'https://tcgplayer-cdn.tcgplayer.com/product/900001_400w.jpg 400w, https://tcgplayer-cdn.tcgplayer.com/product/900001_in_1000x1000.jpg 1000w',
     )
     expect(image).toHaveAttribute('sizes')
+  })
+
+  it('falls back to the stored thumbnail, then to no image, when loading fails', () => {
+    const thumbnail = 'https://tcgplayer-cdn.tcgplayer.com/product/900001_75w.jpg'
+    renderView([buildLine({ set: 'Alpha', productName: 'Api Card', imageUrl: thumbnail })])
+
+    fireEvent.error(screen.getByRole('img', { name: 'Api Card' }))
+    expect(screen.getByRole('img', { name: 'Api Card' })).toHaveAttribute('src', thumbnail)
+    expect(screen.getByRole('img', { name: 'Api Card' })).not.toHaveAttribute('srcset')
+
+    fireEvent.error(screen.getByRole('img', { name: 'Api Card' }))
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(screen.getByText('No image')).toBeInTheDocument()
   })
 
   it('shows any other image exactly as stored', () => {

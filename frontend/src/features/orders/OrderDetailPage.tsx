@@ -27,10 +27,17 @@ import { PrintLabelButton } from '../labels/PrintLabelButton'
 import type { LabelContent } from './ordersApi'
 import { ReportIssueForm } from './ReportIssueForm'
 import { ReportedIssueDetails } from './ReportedIssueDetails'
-import { cardImageSources } from './cardImage'
+import { LineCardImage } from './LineCardImage'
 import './OrderDetailPage.css'
 
 type LoadState = 'loading' | 'loaded' | 'not-found' | 'error'
+
+/* Shown when a line has no image, or none of its sources loads (PRD §17). */
+const lineNoImage = (
+  <div className="order-detail-line__placeholder" aria-label="Card image unavailable">
+    <span aria-hidden="true">No image</span>
+  </div>
+)
 
 export function OrderDetailPage() {
   const { orderId } = useParams()
@@ -481,19 +488,15 @@ export function OrderDetailPage() {
                   aria-label={`Product ${line.productName}`}
                 >
                   {line.imageUrl !== null ? (
-                    <img
+                    <LineCardImage
                       className="order-detail-line__image"
-                      {...cardImageSources(line.imageUrl)}
+                      imageUrl={line.imageUrl}
                       sizes="(max-width: 600px) 115px, 150px"
                       alt={line.productName}
+                      placeholder={lineNoImage}
                     />
                   ) : (
-                    <div
-                      className="order-detail-line__placeholder"
-                      aria-label="Card image unavailable"
-                    >
-                      <span aria-hidden="true">No image</span>
-                    </div>
+                    lineNoImage
                   )}
                   <div className="order-detail-line__identity">
                     <h2>{line.productName}</h2>

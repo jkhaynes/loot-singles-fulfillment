@@ -4,11 +4,12 @@
  * Lines imported from the TCGplayer API store TCGplayer's 75px thumbnail. TCGplayer serves the same
  * product image at larger sizes from the same CDN path, so the thumbnail is swapped for those at
  * display time — the same TCGplayer image, which keeps the API agreement and fixes lines already
- * imported. Any other URL (Scryfall, TCGdex, Lorcast, or a TCGplayer shape not recognised here) is
- * shown exactly as stored.
+ * imported. Only .jpg was checked by hand to have the larger renditions. Any other URL (Scryfall,
+ * TCGdex, Lorcast, another extension, or a TCGplayer shape not recognised here) is shown exactly
+ * as stored.
  */
 const tcgplayerThumbnail =
-  /^(https:\/\/tcgplayer-cdn\.tcgplayer\.com\/product\/\d+)_\d+w\.(jpe?g|png|webp)$/i
+  /^(https:\/\/tcgplayer-cdn\.tcgplayer\.com\/product\/\d+)_\d+w\.(jpe?g)$/i
 
 export interface CardImageSources {
   src: string

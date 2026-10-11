@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -1443,6 +1443,24 @@ describe('OrderDetailPage — API-imported lines', () => {
     const pdfImage = within(pdf).getByRole('img', { name: 'Pdf Card' })
     expect(pdfImage).toHaveAttribute('src', 'https://cards.scryfall.io/large/front/a/b/ab12.jpg')
     expect(pdfImage).not.toHaveAttribute('srcset')
+  })
+
+  it('falls back to the stored thumbnail, then to no image, when loading fails', async () => {
+    const thumbnail = 'https://tcgplayer-cdn.tcgplayer.com/product/900001_75w.jpg'
+    vi.mocked(ordersApi.getOrderDetail).mockResolvedValue(
+      readyOrder([buildLine({ productName: 'Api Card', imageUrl: thumbnail })]),
+    )
+
+    renderPage()
+
+    const card = await screen.findByRole('article', { name: /Api Card/i })
+    fireEvent.error(within(card).getByRole('img', { name: 'Api Card' }))
+    expect(within(card).getByRole('img', { name: 'Api Card' })).toHaveAttribute('src', thumbnail)
+    expect(within(card).getByRole('img', { name: 'Api Card' })).not.toHaveAttribute('srcset')
+
+    fireEvent.error(within(card).getByRole('img', { name: 'Api Card' }))
+    expect(within(card).queryByRole('img')).not.toBeInTheDocument()
+    expect(within(card).getByLabelText('Card image unavailable')).toBeInTheDocument()
   })
 
   it('still emphasises a quantity above one', async () => {

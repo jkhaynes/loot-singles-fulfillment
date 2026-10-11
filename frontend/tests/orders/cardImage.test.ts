@@ -7,7 +7,7 @@ describe('cardImageSources', () => {
   it.each([
     [`${cdn}/123456_75w.jpg`, 'jpg'],
     [`${cdn}/123456_200w.jpg`, 'jpg'],
-    [`${cdn}/123456_400w.png`, 'png'],
+    [`${cdn}/123456_400w.jpeg`, 'jpeg'],
   ])('asks TCGplayer for the larger renditions of %s', (url, ext) => {
     expect(cardImageSources(url)).toEqual({
       src: `${cdn}/123456_400w.${ext}`,
@@ -26,6 +26,14 @@ describe('cardImageSources', () => {
 
     expect(cardImageSources(url)).toEqual({ src: url })
   })
+
+  // Only .jpg was checked by hand to have the larger renditions (R31 fix round 1).
+  it.each([[`${cdn}/123456_400w.png`], [`${cdn}/123456_75w.webp`]])(
+    'leaves an unverified extension unchanged: %s',
+    (url) => {
+      expect(cardImageSources(url)).toEqual({ src: url })
+    },
+  )
 
   it.each([
     ['https://tcgplayer-cdn.tcgplayer.com.evil.example/product/123456_75w.jpg'],

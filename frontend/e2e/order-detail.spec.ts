@@ -1,4 +1,9 @@
 import { test, expect } from '@playwright/test'
+import { serveFixtureImages } from './support/fixtureImages'
+
+test.beforeEach(async ({ context }) => {
+  await serveFixtureImages(context)
+})
 
 async function login(page: import('@playwright/test').Page) {
   await page.goto('/')

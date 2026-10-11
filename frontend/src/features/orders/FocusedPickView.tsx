@@ -6,7 +6,7 @@ import { ReportIssueForm } from './ReportIssueForm'
 import { ReportedIssueDetails } from './ReportedIssueDetails'
 import { nonEnglishLanguage, pickingIssueTypeLabel } from './ordersApi'
 import type { PickingIssueDetail, ReportIssueRequest } from './ordersApi'
-import { cardImageSources } from './cardImage'
+import { LineCardImage } from './LineCardImage'
 
 /**
  * Picking one card at a time (016-mobile-picking, PRD §8, §12, §18).
@@ -40,6 +40,13 @@ export interface FocusedPickViewProps {
 
 /** Minimum horizontal travel before a drag counts as a swipe rather than a tap. */
 const SWIPE_THRESHOLD_PX = 50
+
+/* Shown when a line has no image, or none of its sources loads (PRD §17). */
+const noImage = (
+  <div className="focused-pick__placeholder">
+    <span>No image</span>
+  </div>
+)
 
 export function FocusedPickView({
   groups,
@@ -159,16 +166,15 @@ export function FocusedPickView({
         aria-label={`Product ${line.productName}`}
       >
         {line.imageUrl !== null ? (
-          <img
+          <LineCardImage
             className="focused-pick__image"
-            {...cardImageSources(line.imageUrl)}
+            imageUrl={line.imageUrl}
             sizes="31vh"
             alt={line.productName}
+            placeholder={noImage}
           />
         ) : (
-          <div className="focused-pick__placeholder">
-            <span>No image</span>
-          </div>
+          noImage
         )}
 
         <h2 className="focused-pick__name">{line.productName}</h2>

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import type { Browser, Page } from '@playwright/test'
+import { serveFixtureImages } from './support/fixtureImages'
 
 // 015-pick-completion T046: the full picking loop end to end (SC-001, SC-007, SC-008).
 
@@ -9,6 +10,7 @@ async function newLoggedInPage(
   viewport?: { width: number; height: number },
 ): Promise<Page> {
   const context = await browser.newContext(viewport ? { viewport } : undefined)
+  await serveFixtureImages(context)
   const page = await context.newPage()
   await page.goto('/')
   await page.getByLabel(/username/i).fill(username)
