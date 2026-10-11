@@ -246,7 +246,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
   - Keep and confirm each call their handler once.
   
   The label and handler cases pass against T023's extraction. Confirm that the focus, `destructive` and `confirmWord` cases are red.
-- [ ] T025 [US4] Implement T024's red cases in `frontend/src/components/ConfirmationDialog.tsx` and `ConfirmationDialog.css`:
+- [X] T025 [US4] Implement T024's red cases in `frontend/src/components/ConfirmationDialog.tsx` and `ConfirmationDialog.css`:
   - add the `destructive`, `confirmWord?` and `busy?` props;
   - focus starts on the keep button when the dialog opens;
   - while `confirmWord` isn't typed exactly, the confirm button is disabled.

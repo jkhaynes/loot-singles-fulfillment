@@ -34,3 +34,26 @@
   font-weight: 700;
   cursor: pointer;
 }
+.confirmation-dialog__word {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+.confirmation-dialog__word input {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+.confirmation-dialog__actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.confirmation-dialog__actions button.confirmation-dialog__confirm--destructive {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: var(--color-text-primary);
+}
