@@ -161,7 +161,7 @@ backend/src/
     └── appsettings.json                              # Tcgplayer non-secret defaults
 
 backend/tests/
-├── LootSingles.Fixtures/Tcgplayer/*.json + README.md  # synthetic only
+├── backend/src/LootSingles.Infrastructure/Tcgplayer/Synthetic/Data/*.json + README.md  # synthetic only; moved here from LootSingles.Fixtures/Tcgplayer in feature 021
 ├── LootSingles.UnitTests/Import/ and Tcgplayer/
 ├── LootSingles.IntegrationTests/Import/ and ImportUi/ (Tcgplayer*Tests.cs)
 └── LootSingles.E2EHost/Program.cs                     # stub TCGplayer handler + fake keys
