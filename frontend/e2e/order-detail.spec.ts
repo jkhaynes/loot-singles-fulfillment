@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { serveFixtureImages } from './support/fixtureImages'
+import { onePixelPng, serveFixtureImages } from './support/fixtureImages'
 
 test.beforeEach(async ({ context }) => {
   await serveFixtureImages(context)
@@ -104,6 +104,63 @@ test('shows a Lorcana card image resolved by its own provider', async ({ page })
     'src',
     'https://static.e2e-fixtures.local/elsa.png',
   )
+})
+
+// 020 R31: an API line stores TCGplayer's 75px thumbnail; the page asks for the larger rendition
+// first and falls back to the stored URL when it fails. TCGplayer's CDN is stubbed in the browser,
+// the product id is invented, and any other request to a TCGplayer host fails the test, so nothing
+// leaves the browser.
+test('shows the larger TCGplayer rendition first and falls back to the stored thumbnail', async ({
+  context,
+  page,
+}) => {
+  const product = 'https://tcgplayer-cdn.tcgplayer.com/product/990001'
+  const stored = `${product}_75w.jpg`
+  const renditions = [`${product}_400w.jpg`, `${product}_in_1000x1000.jpg`]
+  const requested: string[] = []
+  const unexpected: string[] = []
+  let releaseRendition = () => {}
+  const renditionMayFail = new Promise<void>((resolve) => (releaseRendition = resolve))
+
+  // Registered first, so it only sees what the CDN route below doesn't: any other TCGplayer host.
+  await context.route(/^https?:\/\/([^/]+\.)?tcgplayer\.com\//i, (route) => {
+    unexpected.push(route.request().url())
+    return route.abort()
+  })
+  await context.route('https://tcgplayer-cdn.tcgplayer.com/**', async (route) => {
+    const url = route.request().url()
+    requested.push(url)
+    if (renditions.includes(url)) {
+      // Held until the test has seen the rewritten src, then answered with an error.
+      await renditionMayFail
+      return route.fulfill({ status: 404, body: '' })
+    }
+    if (url === stored) {
+      return route.fulfill({ contentType: 'image/png', body: onePixelPng })
+    }
+    unexpected.push(url)
+    return route.abort()
+  })
+
+  await login(page)
+  await page.getByRole('link', { name: 'E2E-ORDER-00018' }).click()
+  await expect(page.getByRole('heading', { name: /E2E-ORDER-00018/i })).toBeVisible()
+  const line = page.getByRole('article', { name: /Synthetic CDN Card/i })
+  const image = line.getByRole('img', { name: /Synthetic CDN Card/i })
+
+  await expect(image).toHaveAttribute('src', renditions[0])
+  await expect(image).toHaveAttribute('srcset', `${renditions[0]} 400w, ${renditions[1]} 1000w`)
+  releaseRendition()
+
+  await expect(image).toHaveAttribute('src', stored)
+  await expect(image).not.toHaveAttribute('srcset')
+  await expect
+    .poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth))
+    .toBeGreaterThan(0)
+  await expect(line.getByLabel('Card image unavailable')).toHaveCount(0)
+  expect(requested[0]).toMatch(/_(400w|in_1000x1000)\.jpg$/)
+  expect(requested).toContain(stored)
+  expect(unexpected).toEqual([])
 })
 
 // 016-mobile-picking T015 — set-aware picking (spec US1, PRD §13).

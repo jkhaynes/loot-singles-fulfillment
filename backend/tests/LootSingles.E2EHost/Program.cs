@@ -621,6 +621,32 @@ static async Task SeedAsync(IServiceProvider services)
             ],
         }
     );
+    // 020 R31: an API-imported line storing a TCGplayer-CDN-shaped thumbnail, for order-detail.spec.ts's
+    // rendition-and-fallback case. The product id is invented and the spec stubs the CDN in the
+    // browser, so no request ever reaches TCGplayer. Newest of all, so Pick Next never takes it.
+    context.Orders.Add(
+        new Order
+        {
+            TcgplayerOrderId = "E2E-ORDER-00018",
+            Status = OrderStatus.Ready,
+            ImportSource = OrderImportSource.TcgplayerApi,
+            ImportedAt = DateTimeOffset.UtcNow.AddMinutes(80),
+            OrderLines =
+            [
+                new()
+                {
+                    RawDescription = "Synthetic CDN Card - CDN Set - #001/050 - Rare - Near Mint",
+                    ProductLine = "Pokemon",
+                    ProductName = "Synthetic CDN Card",
+                    Set = "CDN Set",
+                    CollectorNumber = "#001/050",
+                    Condition = "Near Mint",
+                    Quantity = 1,
+                    ImageUrl = "https://tcgplayer-cdn.tcgplayer.com/product/990001_75w.jpg",
+                },
+            ],
+        }
+    );
     await context.SaveChangesAsync();
 
     static OrderLine SetAwareLine(
