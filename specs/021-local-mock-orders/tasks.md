@@ -173,7 +173,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
 
 ### 6b. Deletion rules and service
 
-- [ ] T015 [P] [US4] Write `backend/tests/LootSingles.UnitTests/Orders/OrderDeletionServiceTests.cs` against a fake `IOrderDeletionRepository`:
+- [X] T015 [P] [US4] Write `backend/tests/LootSingles.UnitTests/Orders/OrderDeletionServiceTests.cs` against a fake `IOrderDeletionRepository`:
   - it maps repository outcomes to `OrderDeletionResult.Deleted`, `NotFound`, `AlreadyDeleted` and `ClaimedBefore`;
   - it passes `AllowTouchedOrders` from `OrderDeletionOptions`, with a default of `false`;
   - it uses `TimeProvider` for `DeletedAt`;
@@ -182,7 +182,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
   - `DeleteAllAsync` rejects an `asOf` later than now with `InvalidAsOf`.
   
   Confirm red.
-- [ ] T016 [US4] Create, in `backend/src/LootSingles.Application/Orders/`:
+- [X] T016 [US4] Create, in `backend/src/LootSingles.Application/Orders/`:
   - `OrderDeletionOptions.cs`: `AllowTouchedOrders`, bound from the `OrderDeletion` section.
   - `IOrderDeletionRepository.cs`, with these members:
     - `DeleteAsync(orderId, actorId, now, allowTouched, ct)` returns an outcome plus the `TcgplayerOrderId`;
