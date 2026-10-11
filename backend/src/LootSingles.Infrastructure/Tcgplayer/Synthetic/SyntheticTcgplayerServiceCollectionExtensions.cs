@@ -10,11 +10,15 @@ public static class SyntheticTcgplayerServiceCollectionExtensions
     /// the process. Offers the eight orders that import cleanly (SYN-0001..0005 and 0008..0010).
     /// </summary>
     public static IHttpClientBuilder AddSyntheticTcgplayer(this IHttpClientBuilder builder) =>
-        builder.ConfigurePrimaryHttpMessageHandler(() => new SyntheticTcgplayerHandler
-        {
-            OpenOrderNumbers =
-            [
-                .. new[] { 1, 2, 3, 4, 5, 8, 9, 10 }.Select(SyntheticTcgplayerHandler.OrderNumber),
-            ],
-        });
+        builder.ConfigurePrimaryHttpMessageHandler(() =>
+            new SyntheticTcgplayerHandler
+            {
+                OpenOrderNumbers =
+                [
+                    .. new[] { 1, 2, 3, 4, 5, 8, 9, 10 }.Select(
+                        SyntheticTcgplayerHandler.OrderNumber
+                    ),
+                ],
+            }
+        );
 }

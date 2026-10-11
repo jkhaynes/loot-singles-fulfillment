@@ -15,12 +15,12 @@ using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using LootSingles.Infrastructure.Tcgplayer;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.MsSql;
-using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 
 const string FakePikachuImageUrl = "https://static.e2e-fixtures.local/pikachu.png";
 const string FakeLightningBoltImageUrl = "https://static.e2e-fixtures.local/lightning-bolt.png";
@@ -89,8 +89,9 @@ builder.Configuration.AddInMemoryCollection(
         ["Tcgplayer:PageSize"] = "2",
         // 021 T030: production's rule, stated outright rather than left to the default, so
         // order-deletion.spec.ts exercises the strict rule whatever the default becomes.
-        [$"{OrderDeletionOptions.SectionName}:{nameof(OrderDeletionOptions.AllowTouchedOrders)}"] =
-            "false",
+        [
+            $"{OrderDeletionOptions.SectionName}:{nameof(OrderDeletionOptions.AllowTouchedOrders)}"
+        ] = "false",
     }
 );
 

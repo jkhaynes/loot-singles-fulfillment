@@ -37,7 +37,9 @@ describe('getDeletionSummary', () => {
 
     const result = await getDeletionSummary()
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/orders/deletion-summary', { credentials: 'include' })
+    expect(fetchMock).toHaveBeenCalledWith('/api/orders/deletion-summary', {
+      credentials: 'include',
+    })
     expect(result).toEqual(summary)
   })
 

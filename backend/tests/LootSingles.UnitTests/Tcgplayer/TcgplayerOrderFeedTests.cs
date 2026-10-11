@@ -2,8 +2,8 @@ using System.Net;
 using System.Text.Json.Nodes;
 using LootSingles.Application.Import;
 using LootSingles.Infrastructure.Tcgplayer;
-using LootSingles.UnitTests.CardCatalog;
 using LootSingles.Infrastructure.Tcgplayer.Synthetic;
+using LootSingles.UnitTests.CardCatalog;
 
 namespace LootSingles.UnitTests.Tcgplayer;
 
@@ -327,8 +327,7 @@ public sealed class TcgplayerOrderFeedTests
 
     private static string OrderNumber(int index) => $"SYN-{index:0000}-A1";
 
-    private static string Fixture(string name) =>
-        SyntheticTcgplayerHandler.ReadData(name);
+    private static string Fixture(string name) => SyntheticTcgplayerHandler.ReadData(name);
 
     private static HttpResponseMessage Json(string body) =>
         new(HttpStatusCode.OK) { Content = new StringContent(body) };

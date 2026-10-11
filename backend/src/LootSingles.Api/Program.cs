@@ -115,6 +115,7 @@ if (syntheticTcgplayer)
         }
     );
 }
+
 // 021 FR-013 / research R5: Development may delete an order in any state. appsettings.Development.json
 // is git-ignored, so the environment supplies it. Outside Development, absent means the strict rule.
 // Unlike the synthetic TCGplayer block above, this is a DEFAULT, not an override: the source is
@@ -128,8 +129,9 @@ if (builder.Environment.IsDevelopment())
         {
             InitialData = new Dictionary<string, string?>
             {
-                [$"{OrderDeletionOptions.SectionName}:{nameof(OrderDeletionOptions.AllowTouchedOrders)}"] =
-                    "true",
+                [
+                    $"{OrderDeletionOptions.SectionName}:{nameof(OrderDeletionOptions.AllowTouchedOrders)}"
+                ] = "true",
             },
         }
     );
@@ -174,6 +176,7 @@ builder.Services.AddScoped<ICardCatalogProvider>(sp =>
 builder.Services.AddScoped<CardImageEnrichmentService>();
 builder.Services.AddScoped<OrdersService>();
 builder.Services.AddScoped<OrderClaimService>();
+
 // 021 FR-013: absent or false is the strict production rule; Development and stage set it to true.
 builder.Services.AddSingleton(
     builder.Configuration.GetSection(OrderDeletionOptions.SectionName).Get<OrderDeletionOptions>()
@@ -214,8 +217,8 @@ var app = builder.Build();
 
 if (syntheticTcgplayer)
 {
-    app.Services.GetRequiredService<ILogger<Program>>().LogInformation(
-        "TCGplayer synthetic orders are active (Development).");
+    app.Services.GetRequiredService<ILogger<Program>>()
+        .LogInformation("TCGplayer synthetic orders are active (Development).");
 }
 
 // Validate the checked-in crosswalk during startup rather than on the first order-detail request.

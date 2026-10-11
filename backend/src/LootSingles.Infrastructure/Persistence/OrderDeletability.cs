@@ -17,5 +17,7 @@ internal static class OrderDeletability
     public static IQueryable<Order> Deletable(this IQueryable<Order> orders, bool allowTouched) =>
         allowTouched
             ? orders
-            : orders.Where(order => order.FirstClaimedAt == null && order.ClaimedByEmployeeId == null);
+            : orders.Where(order =>
+                order.FirstClaimedAt == null && order.ClaimedByEmployeeId == null
+            );
 }

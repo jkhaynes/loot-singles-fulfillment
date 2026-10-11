@@ -30,7 +30,8 @@ public sealed class OrderDeletionRepository(LootSinglesDbContext context) : IOrd
             cancellationToken
         );
 
-        var rowsAffected = await context.Orders.Deletable(allowTouched)
+        var rowsAffected = await context
+            .Orders.Deletable(allowTouched)
             .Where(order => order.Id == orderId)
             .ExecuteUpdateAsync(
                 setters =>
@@ -84,7 +85,8 @@ public sealed class OrderDeletionRepository(LootSinglesDbContext context) : IOrd
             cancellationToken
         );
 
-        var deletedCount = await context.Orders.Deletable(allowTouched)
+        var deletedCount = await context
+            .Orders.Deletable(allowTouched)
             .Where(order => order.ImportedAt <= asOf)
             .ExecuteUpdateAsync(
                 setters =>
@@ -124,7 +126,8 @@ public sealed class OrderDeletionRepository(LootSinglesDbContext context) : IOrd
     )
     {
         var visible = context.Orders.AsNoTracking().Where(order => order.ImportedAt <= now);
-        var deletable = context.Orders.Deletable(allowTouched)
+        var deletable = context
+            .Orders.Deletable(allowTouched)
             .AsNoTracking()
             .Where(order => order.ImportedAt <= now);
 

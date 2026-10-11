@@ -374,9 +374,7 @@ public sealed class OrdersController(
             OrderDeletionOutcome.AlreadyDeleted => NotFound(
                 new { error = "order_already_deleted" }
             ),
-            OrderDeletionOutcome.ClaimedBefore => Conflict(
-                new { error = "order_claimed_before" }
-            ),
+            OrderDeletionOutcome.ClaimedBefore => Conflict(new { error = "order_claimed_before" }),
             _ => throw new InvalidOperationException(
                 $"Unexpected outcome {result.Outcome} for Delete."
             ),

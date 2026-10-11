@@ -2,10 +2,10 @@ using System.Net;
 using System.Text.Json;
 using LootSingles.Domain.Orders;
 using LootSingles.Infrastructure.Persistence;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 using LootSingles.IntegrationTests.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 
 namespace LootSingles.IntegrationTests.ImportUi;
 

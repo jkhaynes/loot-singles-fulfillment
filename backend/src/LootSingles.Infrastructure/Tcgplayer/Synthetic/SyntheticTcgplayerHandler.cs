@@ -208,7 +208,8 @@ public sealed class SyntheticTcgplayerHandler : HttpMessageHandler
 
     private static string Fixture(string name) => ReadData(name);
 
-    private const string DataResourcePrefix = "LootSingles.Infrastructure.Tcgplayer.Synthetic.Data.";
+    private const string DataResourcePrefix =
+        "LootSingles.Infrastructure.Tcgplayer.Synthetic.Data.";
 
     /// <summary>The text of one embedded synthetic data file, for example <c>token.json</c>.</summary>
     public static string ReadData(string name)

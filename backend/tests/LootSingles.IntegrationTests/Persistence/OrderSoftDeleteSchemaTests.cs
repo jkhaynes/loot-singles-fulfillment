@@ -192,7 +192,10 @@ public sealed class OrderSoftDeleteSchemaTests
     private static async Task AssertOrderNotFoundAsync(HttpResponseMessage response, string what)
     {
         var body = await response.Content.ReadAsStringAsync();
-        Assert.True(response.StatusCode == HttpStatusCode.NotFound, $"{what}: {response.StatusCode} {body}");
+        Assert.True(
+            response.StatusCode == HttpStatusCode.NotFound,
+            $"{what}: {response.StatusCode} {body}"
+        );
         Assert.True(body.Contains("\"order_not_found\""), $"{what}: {body}");
     }
 

@@ -7,11 +7,11 @@ using LootSingles.Domain.Employees;
 using LootSingles.Infrastructure.Auth;
 using LootSingles.Infrastructure.Persistence;
 using LootSingles.Infrastructure.Tcgplayer;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 using LootSingles.IntegrationTests.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 
 namespace LootSingles.IntegrationTests.ImportUi;
 

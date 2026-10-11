@@ -30,8 +30,9 @@ public sealed class SyntheticTcgplayerSourceTests
         .. new[] { 1, 2, 3, 4, 5, 8, 9, 10 }.Select(SyntheticTcgplayerHandler.OrderNumber),
     ];
 
-    private static WebApplicationFactory<Program> Development(WebApplicationFactory<Program> root) =>
-        root.WithWebHostBuilder(builder => builder.UseEnvironment("Development"));
+    private static WebApplicationFactory<Program> Development(
+        WebApplicationFactory<Program> root
+    ) => root.WithWebHostBuilder(builder => builder.UseEnvironment("Development"));
 
     private static async Task<HttpClient> LoginAsync(
         WebApplicationFactory<Program> factory,
@@ -68,7 +69,8 @@ public sealed class SyntheticTcgplayerSourceTests
         return client;
     }
 
-    private static JsonElement Terminal(string[] lines) => JsonDocument.Parse(lines[^1]).RootElement;
+    private static JsonElement Terminal(string[] lines) =>
+        JsonDocument.Parse(lines[^1]).RootElement;
 
     private static (string Order, string Outcome, string? Code)[] Results(JsonElement terminal) =>
         terminal
@@ -177,9 +179,7 @@ public sealed class SyntheticTcgplayerSourceTests
         var stub = new SyntheticTcgplayerHandler { OpenOrderNumbers = ImportedNumbers };
         await using var stubbed = ImportUiTestSupport.WithTcgplayerStub(stubRoot, stub);
         using var stubClient = await ImportUiTestSupport.LoginAsync(stubbed);
-        var stubFirst = Results(
-            Terminal(await ImportUiTestSupport.PostTcgplayerAsync(stubClient))
-        );
+        var stubFirst = Results(Terminal(await ImportUiTestSupport.PostTcgplayerAsync(stubClient)));
         var stubSecond = Results(
             Terminal(await ImportUiTestSupport.PostTcgplayerAsync(stubClient))
         );
@@ -336,7 +336,11 @@ public sealed class SyntheticTcgplayerSourceTests
 
         Assert.DoesNotContain(
             logs.Entries,
-            e => e.Message.Contains("synthetic orders are active", StringComparison.OrdinalIgnoreCase)
+            e =>
+                e.Message.Contains(
+                    "synthetic orders are active",
+                    StringComparison.OrdinalIgnoreCase
+                )
         );
     }
 
@@ -393,6 +397,9 @@ public sealed class SyntheticTcgplayerSourceTests
         var client2 = factory
             .Services.GetRequiredService<IHttpClientFactory>()
             .CreateClient(TcgplayerServiceCollectionExtensions.HttpClientName);
-        Assert.Equal(SyntheticTcgplayerHandler.BaseUrl, client2.BaseAddress!.GetLeftPart(UriPartial.Authority) + "/");
+        Assert.Equal(
+            SyntheticTcgplayerHandler.BaseUrl,
+            client2.BaseAddress!.GetLeftPart(UriPartial.Authority) + "/"
+        );
     }
 }

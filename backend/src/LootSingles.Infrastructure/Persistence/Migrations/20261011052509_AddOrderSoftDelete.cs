@@ -11,31 +11,30 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_Orders_ClaimedByEmployeeId",
-                table: "Orders");
+            migrationBuilder.DropIndex(name: "IX_Orders_ClaimedByEmployeeId", table: "Orders");
 
-            migrationBuilder.DropIndex(
-                name: "IX_Orders_TcgplayerOrderId",
-                table: "Orders");
+            migrationBuilder.DropIndex(name: "IX_Orders_TcgplayerOrderId", table: "Orders");
 
             migrationBuilder.AddColumn<DateTimeOffset>(
                 name: "DeletedAt",
                 table: "Orders",
                 type: "datetimeoffset",
-                nullable: true);
+                nullable: true
+            );
 
             migrationBuilder.AddColumn<int>(
                 name: "DeletedByEmployeeId",
                 table: "Orders",
                 type: "int",
-                nullable: true);
+                nullable: true
+            );
 
             migrationBuilder.AddColumn<DateTimeOffset>(
                 name: "FirstClaimedAt",
                 table: "Orders",
                 type: "datetimeoffset",
-                nullable: true);
+                nullable: true
+            );
 
             // Mark existing orders that were already touched (021 R6), using the earliest time
             // available. A claim-and-release with nothing recorded can't be detected.
@@ -61,26 +60,30 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                     ) AS v
                 ) AS t
                 WHERE t.EarliestAt IS NOT NULL
-                """);
+                """
+            );
 
             migrationBuilder.CreateIndex(
                 name: "IX_Orders_ClaimedByEmployeeId",
                 table: "Orders",
                 column: "ClaimedByEmployeeId",
                 unique: true,
-                filter: "[ClaimedByEmployeeId] IS NOT NULL AND [DeletedAt] IS NULL");
+                filter: "[ClaimedByEmployeeId] IS NOT NULL AND [DeletedAt] IS NULL"
+            );
 
             migrationBuilder.CreateIndex(
                 name: "IX_Orders_DeletedByEmployeeId",
                 table: "Orders",
-                column: "DeletedByEmployeeId");
+                column: "DeletedByEmployeeId"
+            );
 
             migrationBuilder.CreateIndex(
                 name: "IX_Orders_TcgplayerOrderId",
                 table: "Orders",
                 column: "TcgplayerOrderId",
                 unique: true,
-                filter: "[DeletedAt] IS NULL");
+                filter: "[DeletedAt] IS NULL"
+            );
 
             migrationBuilder.AddForeignKey(
                 name: "FK_Orders_Employees_DeletedByEmployeeId",
@@ -88,7 +91,8 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
                 column: "DeletedByEmployeeId",
                 principalTable: "Employees",
                 principalColumn: "Id",
-                onDelete: ReferentialAction.Restrict);
+                onDelete: ReferentialAction.Restrict
+            );
         }
 
         /// <inheritdoc />
@@ -96,44 +100,35 @@ namespace LootSingles.Infrastructure.Persistence.Migrations
         {
             migrationBuilder.DropForeignKey(
                 name: "FK_Orders_Employees_DeletedByEmployeeId",
-                table: "Orders");
+                table: "Orders"
+            );
 
-            migrationBuilder.DropIndex(
-                name: "IX_Orders_ClaimedByEmployeeId",
-                table: "Orders");
+            migrationBuilder.DropIndex(name: "IX_Orders_ClaimedByEmployeeId", table: "Orders");
 
-            migrationBuilder.DropIndex(
-                name: "IX_Orders_DeletedByEmployeeId",
-                table: "Orders");
+            migrationBuilder.DropIndex(name: "IX_Orders_DeletedByEmployeeId", table: "Orders");
 
-            migrationBuilder.DropIndex(
-                name: "IX_Orders_TcgplayerOrderId",
-                table: "Orders");
+            migrationBuilder.DropIndex(name: "IX_Orders_TcgplayerOrderId", table: "Orders");
 
-            migrationBuilder.DropColumn(
-                name: "DeletedAt",
-                table: "Orders");
+            migrationBuilder.DropColumn(name: "DeletedAt", table: "Orders");
 
-            migrationBuilder.DropColumn(
-                name: "DeletedByEmployeeId",
-                table: "Orders");
+            migrationBuilder.DropColumn(name: "DeletedByEmployeeId", table: "Orders");
 
-            migrationBuilder.DropColumn(
-                name: "FirstClaimedAt",
-                table: "Orders");
+            migrationBuilder.DropColumn(name: "FirstClaimedAt", table: "Orders");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Orders_ClaimedByEmployeeId",
                 table: "Orders",
                 column: "ClaimedByEmployeeId",
                 unique: true,
-                filter: "[ClaimedByEmployeeId] IS NOT NULL");
+                filter: "[ClaimedByEmployeeId] IS NOT NULL"
+            );
 
             migrationBuilder.CreateIndex(
                 name: "IX_Orders_TcgplayerOrderId",
                 table: "Orders",
                 column: "TcgplayerOrderId",
-                unique: true);
+                unique: true
+            );
         }
     }
 }

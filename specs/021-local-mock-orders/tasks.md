@@ -93,12 +93,12 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
 - [X] T008 [US1] Add `AddSyntheticTcgplayer(this IHttpClientBuilder builder)` in `backend/src/LootSingles.Infrastructure/Tcgplayer/Synthetic/SyntheticTcgplayerServiceCollectionExtensions.cs`. It sets the primary handler to a `SyntheticTcgplayerHandler` whose `OpenOrderNumbers` are {1,2,3,4,5,8,9,10} (research R3), and it doesn't use `Override`.
   
   In `backend/src/LootSingles.Api/Program.cs`, when `builder.Environment.IsDevelopment()`, add an in-memory configuration source **after all others**, before `AddTcgplayer` reads its options. It holds:
-  - `Tcgplayer:PublicKey=synthetic-public-id`
-  - `Tcgplayer:PrivateKey=synthetic-private-id`
-  - `Tcgplayer:AccessToken=synthetic-store-access`
-  - `Tcgplayer:StoreKey=`
-  - `Tcgplayer:BaseUrl=<SyntheticTcgplayerHandler.BaseUrl>`
-  - `Tcgplayer:PageSize=2`
+  - `Tcgplayer:PublicKey`: `synthetic-public-id`
+  - `Tcgplayer:PrivateKey`: `synthetic-private-id`
+  - `Tcgplayer:AccessToken`: `synthetic-store-access`
+  - `Tcgplayer:StoreKey`: empty
+  - `Tcgplayer:BaseUrl`: `<SyntheticTcgplayerHandler.BaseUrl>`
+  - `Tcgplayer:PageSize`: `2`
   
   Then chain `.AddSyntheticTcgplayer()` onto the `AddTcgplayer` call. Log one Information line at startup through `ILogger<Program>`: `"TCGplayer synthetic orders are active (Development)."`. Confirm T007 is green.
 - [X] T009 [P] [US1] Write `frontend/tests/import/ImportPage.synthetic.test.tsx`. Mock `importApi` to return a stream shaped like T007's results, and assert the results render with no "mock" or "synthetic" wording (FR-008). If this only re-proves existing behaviour, keep it as a guard and note that in the task. No frontend change is expected. Guard: passed as soon as it was written (no frontend change was needed), so there was no red step.

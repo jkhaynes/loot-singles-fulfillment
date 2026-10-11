@@ -35,7 +35,11 @@ function renderPage() {
 describe('OrdersPage', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-    vi.mocked(authApi.me).mockResolvedValue({ employeeId: 1, displayName: 'Test Picker', role: 'Picker' })
+    vi.mocked(authApi.me).mockResolvedValue({
+      employeeId: 1,
+      displayName: 'Test Picker',
+      role: 'Picker',
+    })
   })
 
   it('renders every returned order with identifier, actual status, and import time', async () => {

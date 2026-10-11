@@ -1,12 +1,12 @@
 using System.Text.Json.Nodes;
 using LootSingles.Infrastructure.Persistence;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 using LootSingles.IntegrationTests.Auth;
 using LootSingles.IntegrationTests.ImportUi;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 
 namespace LootSingles.IntegrationTests.Import;
 
@@ -105,7 +105,11 @@ public sealed class TcgplayerPiiTests
     private static List<string> InventedCustomerAndShippingValues()
     {
         var values = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var order in JsonNode.Parse(SyntheticTcgplayerHandler.ReadData("order-details.json"))!["results"]!.AsArray())
+        foreach (
+            var order in JsonNode.Parse(SyntheticTcgplayerHandler.ReadData("order-details.json"))![
+                "results"
+            ]!.AsArray()
+        )
         {
             foreach (var section in new[] { "customer", "shippingAddress" })
                 Collect(order![section], values);

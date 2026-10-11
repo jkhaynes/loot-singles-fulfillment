@@ -22,7 +22,10 @@ public sealed class SyntheticTcgplayerHandlerTests
     {
         var numbers = await SearchAsync($"{Statuses}&{PickupStatuses}&{Types}");
 
-        Assert.Equal(Enumerable.Range(1, 10).Select(SyntheticTcgplayerHandler.OrderNumber), numbers);
+        Assert.Equal(
+            Enumerable.Range(1, 10).Select(SyntheticTcgplayerHandler.OrderNumber),
+            numbers
+        );
     }
 
     [Fact]

@@ -229,7 +229,7 @@ describe('OrdersPage deletion', () => {
     expect(screen.queryByRole('article', { name: /SYN-0001/ })).not.toBeInTheDocument()
   })
 
-  it("keeps the row and says why when someone claimed the order first", async () => {
+  it('keeps the row and says why when someone claimed the order first', async () => {
     signInAs('ManagerAdmin')
     vi.mocked(ordersApi.getOrders).mockResolvedValue([order()])
     vi.mocked(ordersApi.deleteOrder).mockRejectedValue(new OrderClaimedBeforeError())
@@ -276,7 +276,9 @@ describe('OrdersPage deletion', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Delete order…' }))
     await userEvent.click(screen.getByRole('button', { name: 'Delete order' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't delete this order. Try again.")
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't delete this order. Try again.",
+    )
     expect(screen.getByRole('article', { name: /SYN-0001/ })).toBeInTheDocument()
   })
 

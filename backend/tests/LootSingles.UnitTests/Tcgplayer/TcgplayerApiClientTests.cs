@@ -3,8 +3,8 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using LootSingles.Application.Import;
 using LootSingles.Infrastructure.Tcgplayer;
-using LootSingles.UnitTests.CardCatalog;
 using LootSingles.Infrastructure.Tcgplayer.Synthetic;
+using LootSingles.UnitTests.CardCatalog;
 
 namespace LootSingles.UnitTests.Tcgplayer;
 
@@ -930,8 +930,7 @@ public sealed class TcgplayerApiClientTests
 
     private static string OrderNumber(int index) => $"SYN-{index:0000}-A1";
 
-    private static string Fixture(string name) =>
-        SyntheticTcgplayerHandler.ReadData(name);
+    private static string Fixture(string name) => SyntheticTcgplayerHandler.ReadData(name);
 
     private static Func<HttpRequestMessage, HttpResponseMessage> Json(
         string body,
