@@ -87,6 +87,40 @@ public sealed class TcgplayerOptionsTests
         Assert.Contains($"Tcgplayer:{key}", ex.Message);
     }
 
+    [Theory]
+    [InlineData("OpenOrderStatuses")]
+    [InlineData("OpenPickupStatuses")]
+    [InlineData("OrderTypes")]
+    public void A_name_list_set_as_a_single_value_fails_startup_and_shows_the_list_form(string key)
+    {
+        // Tcgplayer__OpenOrderStatuses=Ready To Ship (no __0) binds as a value with no children.
+        // Taking the defaults then would leave a manager believing the filter had changed.
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            TcgplayerOptions.FromConfiguration(Config((key, "Ready To Ship")))
+        );
+
+        Assert.Contains($"Tcgplayer:{key}", ex.Message);
+        Assert.Contains($"Tcgplayer__{key}__0", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("OpenOrderStatuses")]
+    [InlineData("OpenPickupStatuses")]
+    [InlineData("OrderTypes")]
+    public void A_name_list_set_to_a_blank_single_value_takes_its_default(string key)
+    {
+        var options = TcgplayerOptions.FromConfiguration(Config((key, " ")));
+
+        Assert.NotEmpty(
+            key switch
+            {
+                "OpenOrderStatuses" => options.OpenOrderStatuses,
+                "OpenPickupStatuses" => options.OpenPickupStatuses,
+                _ => options.OrderTypes,
+            }
+        );
+    }
+
     [Fact]
     public void Blank_entries_beside_real_names_are_ignored()
     {

@@ -21,7 +21,8 @@
 The three name lists:
 
 - are matched **exactly** (case and spacing) against the manifest each import. A configured name the manifest lacks stops the import with `tcgplayerResponseInvalid`, naming it. The import never falls back to a wider search;
-- fall back to their defaults when the key is absent, and fail startup when the key is present but every entry is blank, so none of them can ever be empty.
+- fall back to their defaults when the key is absent, and fail startup when the key is present but every entry is blank, so none of them can ever be empty;
+- fail startup when the key is set as a single value instead of a list (for example `Tcgplayer__OpenOrderStatuses=Ready To Ship` without `__0`), with a message naming the key and showing the list form `Tcgplayer__OpenOrderStatuses__0`. A single value is never silently ignored.
 
 They are sent together as the order search's `orderStatusIds`, `pickupStatusIds` and `orderTypeIds` filters, and the search's result is the list of open orders (FR-004; contracts/tcgplayer-upstream.md).
 

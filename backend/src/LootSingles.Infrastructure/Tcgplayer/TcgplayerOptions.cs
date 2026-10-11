@@ -102,10 +102,18 @@ public sealed class TcgplayerOptions
         IReadOnlyList<string> fallback
     )
     {
-        var entries = section.GetSection(key).GetChildren().ToList();
+        var list = section.GetSection(key);
+        var entries = list.GetChildren().ToList();
         if (entries.Count == 0)
         {
-            return fallback;
+            // A single value (Tcgplayer__OpenOrderStatuses=... without __0) is not a list. Taking
+            // the defaults here would hide that the setting had no effect.
+            return string.IsNullOrWhiteSpace(list.Value)
+                ? fallback
+                : throw new InvalidOperationException(
+                    $"Tcgplayer:{key} is a list. Set each name as its own entry, for example "
+                        + $"Tcgplayer__{key}__0 (or Tcgplayer:{key}:0 in a JSON file)."
+                );
         }
 
         var names = entries
