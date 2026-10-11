@@ -197,7 +197,7 @@ A `429` is treated as `Unavailable`, not retried. Seeing one would mean the limi
 
 The calls are read-only. The only `POST` is `/token`, which exchanges the existing keys for a bearer token and creates nothing. The team therefore agreed on 2026-10-08 to use the real keys, on stage and in an exploratory probe, **before** implementation starts.
 
-The probe is `probe/Probe-Tcgplayer.ps1`. A **person** runs it. It makes about 10 calls and writes a local report outside the repository. The report shows response **shapes** with values hidden, plus only the reference vocabulary below: status names, `extendedData` field names, condition and printing wording, and three counts per sampled order. It never writes keys, tokens, order numbers, customer fields, product names or prices.
+The probe was `probe/Probe-Tcgplayer.ps1` (retired 2026-10-10 with the other check scripts; see git history). A **person** runs it. It makes about 10 calls and writes a local report outside the repository. The report shows response **shapes** with values hidden, plus only the reference vocabulary below: status names, `extendedData` field names, condition and printing wording, and three counts per sampled order. It never writes keys, tokens, order numbers, customer fields, product names or prices.
 
 The person reads the report and records the answers **in words** in this section. The report is never pasted into an AI tool (§4f). Any assumption it disproves is corrected in this plan before `/speckit-tasks`.
 

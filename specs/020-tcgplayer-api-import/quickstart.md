@@ -11,17 +11,7 @@ This guide proves the feature works. Parts A to C need no TCGplayer access: they
 
 ## 0. Read-only probe, before implementation (a person)
 
-Run this before `/speckit-tasks`, so the response shapes the plan assumes are confirmed against the real API rather than only the documentation.
-
-```powershell
-$env:TCGPLAYER_PUBLIC_KEY = '<existing public key>'
-$env:TCGPLAYER_PRIVATE_KEY = '<existing private key>'
-$env:TCGPLAYER_ACCESS_TOKEN = '<existing store access token>'
-./specs/020-tcgplayer-api-import/probe/Probe-Tcgplayer.ps1
-Remove-Item Env:TCGPLAYER_PUBLIC_KEY, Env:TCGPLAYER_PRIVATE_KEY, Env:TCGPLAYER_ACCESS_TOKEN
-```
-
-Leave the variables unset to be prompted with hidden input instead. The report goes to your temp folder (`tcgplayer-probe-report.txt`). Read it yourself, then record the answers to research.md §14 **in words**. Don't paste the report into an AI tool, an issue or a commit.
+Done 2026-10-09 and 2026-10-10; the findings are in research.md §14 and the contracts. The probe scripts were retired on 2026-10-10 (still in git history). If the live API ever needs re-checking, a person runs them from history and records the answers in words, never pasting output into an AI tool.
 
 ## A. Automated tests
 

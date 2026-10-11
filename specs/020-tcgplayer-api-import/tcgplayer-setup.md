@@ -66,34 +66,9 @@ Do steps 1–3 within the same hour, because the code expires.
 
    **If it fails** with "Authorization failed", the code has probably expired. Go back to step 1 for a new code and run the script again.
 
-## Part 2: Run the probe and report back (once)
+## Part 2: Probe the real API (done, retired)
 
-This confirms what TCGplayer's real responses look like before the feature is built.
-
-1. **Run the probe** from the repository root. It reads the values you saved in Part 1, so you don't need to type anything:
-
-   ```powershell
-   ./specs/020-tcgplayer-api-import/probe/Probe-Tcgplayer.ps1
-   ```
-
-   It makes about ten read-only calls and writes a report to your temp folder.
-
-2. **Open the report:**
-
-   ```powershell
-   notepad "$env:TEMP\tcgplayer-probe-report.txt"
-   ```
-
-3. **Check the steps.** Steps 1 to 8 should each show `HTTP 200`.
-   - If step 3 still shows `403`, Part 1 didn't take effect. Check you approved the app while signed in as **Loot's** seller account.
-   - If it says "No open orders right now", run it again when some orders are waiting.
-
-4. **Describe what you found, in your own words.** Don't paste the report. Answer:
-   - Is there a status named **Ready To Ship** in the status list?
-   - For each sampled order, does the **productCount** match the **sum of line quantities**, or the **number of lines**?
-   - What are the **extendedData field names**? Is there one called `Number`, and one called `Rarity`?
-   - Roughly, how are **condition** and **printing** worded? For example, "Near Mint", "Near Mint Foil", "Holofoil".
-   - Which **site** do the image links point to?
+This step confirmed what TCGplayer's real responses look like before the feature was built. A person ran the read-only probe scripts on 2026-10-09 and 2026-10-10 and recorded the findings in words in `research.md` §14 and the contracts. The scripts were removed on 2026-10-10 because the feature no longer needs them; they are in git history if a person ever needs to re-check the live API. Never paste their output into an AI tool.
 
 ## Part 3: Add the credentials to stage, then production
 
