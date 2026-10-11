@@ -81,7 +81,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
 
 **Independent Test**: Run the app as Development with no keys and press **Get new orders**. Eight SYN orders import. A second press says "8 already imported" (quickstart §B steps 1–4).
 
-- [ ] T007 [US1] Write `backend/tests/LootSingles.IntegrationTests/Import/SyntheticTcgplayerSourceTests.cs` with a factory that calls `UseEnvironment("Development")` and sets no TCGplayer keys. Tests:
+- [X] T007 [US1] Write `backend/tests/LootSingles.IntegrationTests/Import/SyntheticTcgplayerSourceTests.cs` with a factory that calls `UseEnvironment("Development")` and sets no TCGplayer keys. Tests:
   - `POST /api/imports/tcgplayer`, run as a Manager/Admin and as a picker, imports exactly SYN-0001…0005 and SYN-0008…0010, with source `TcgplayerApi`.
   - SYN-0011…0013 are not imported.
   - The quantity-2 line of SYN-0002 and the null collector number of SYN-0009 are stored as the translator produces them (FR-003).
@@ -90,7 +90,7 @@ The 020 TCGplayer suites (`backend/tests/LootSingles.UnitTests/Tcgplayer/`, `…
   - SYN-0001 can be claimed, have every line recorded as picked, be found at the packing desk, and be marked packed, through the existing endpoints and the 020 packing test helpers (FR-006, SC-001).
   
   Confirm red: today the response is `tcgplayerNotConfigured`.
-- [ ] T008 [US1] Add `AddSyntheticTcgplayer(this IHttpClientBuilder builder)` in `backend/src/LootSingles.Infrastructure/Tcgplayer/Synthetic/SyntheticTcgplayerServiceCollectionExtensions.cs`. It sets the primary handler to a `SyntheticTcgplayerHandler` whose `OpenOrderNumbers` are {1,2,3,4,5,8,9,10} (research R3), and it doesn't use `Override`.
+- [X] T008 [US1] Add `AddSyntheticTcgplayer(this IHttpClientBuilder builder)` in `backend/src/LootSingles.Infrastructure/Tcgplayer/Synthetic/SyntheticTcgplayerServiceCollectionExtensions.cs`. It sets the primary handler to a `SyntheticTcgplayerHandler` whose `OpenOrderNumbers` are {1,2,3,4,5,8,9,10} (research R3), and it doesn't use `Override`.
   
   In `backend/src/LootSingles.Api/Program.cs`, when `builder.Environment.IsDevelopment()`, add an in-memory configuration source **after all others**, before `AddTcgplayer` reads its options. It holds:
   - `Tcgplayer:PublicKey=synthetic-public-id`

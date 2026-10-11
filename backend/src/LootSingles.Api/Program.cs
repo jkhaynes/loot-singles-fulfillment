@@ -14,6 +14,7 @@ using LootSingles.Infrastructure.CardCatalog;
 using LootSingles.Infrastructure.Import;
 using LootSingles.Infrastructure.Persistence;
 using LootSingles.Infrastructure.Tcgplayer;
+using LootSingles.Infrastructure.Tcgplayer.Synthetic;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
@@ -91,7 +92,33 @@ builder.Services.AddHttpClient(
     }
 );
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddTcgplayer(builder.Configuration);
+
+// 021 FR-001..FR-005. In Development only, TCGplayer is the built-in synthetic set: obviously fake
+// keys, and the synthetic handler as the PRIMARY handler of the TCGplayer client so the real auth,
+// rate-limit and User-Agent handlers still run and nothing leaves the machine. The in-memory source
+// is added after every other configuration source (user secrets and environment variables are
+// already loaded by CreateBuilder), so no real key or base URL can win. No configuration key turns
+// this on; only the environment does.
+var syntheticTcgplayer = builder.Environment.IsDevelopment();
+if (syntheticTcgplayer)
+{
+    builder.Configuration.AddInMemoryCollection(
+        new Dictionary<string, string?>
+        {
+            ["Tcgplayer:PublicKey"] = "synthetic-public-id",
+            ["Tcgplayer:PrivateKey"] = "synthetic-private-id",
+            ["Tcgplayer:AccessToken"] = "synthetic-store-access",
+            ["Tcgplayer:StoreKey"] = "",
+            ["Tcgplayer:BaseUrl"] = SyntheticTcgplayerHandler.BaseUrl,
+            ["Tcgplayer:PageSize"] = "2",
+        }
+    );
+}
+var tcgplayerClient = builder.Services.AddTcgplayer(builder.Configuration);
+if (syntheticTcgplayer)
+{
+    tcgplayerClient.AddSyntheticTcgplayer();
+}
 builder.Services.AddSingleton<TcgdexSetCatalog>();
 builder.Services.AddScoped<ICardCatalogProvider>(sp =>
     sp.GetRequiredService<TcgdexCardCatalogProvider>()
@@ -157,6 +184,12 @@ builder
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+if (syntheticTcgplayer)
+{
+    app.Services.GetRequiredService<ILogger<Program>>().LogInformation(
+        "TCGplayer synthetic orders are active (Development).");
+}
 
 // Validate the checked-in crosswalk during startup rather than on the first order-detail request.
 _ = app.Services.GetRequiredService<IMagicSetCrosswalk>();
